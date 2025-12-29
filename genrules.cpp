@@ -415,13 +415,13 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
     f << enclose("h1", true) << "Rules for " << Globals->RULESET_NAME << " "
       << ATL_VER_STR(Globals->RULESET_VERSION) << '\n' << enclose("h1", false);
 
-    f << enclose("h1", true) << "Based on Atlantis v" << ATL_VER_STR(CURRENT_ATL_VER) << '\n' << enclose("h1", false);
-    f << enclose("h2", true) << "Copyright 1996 by Geoff Dunbar\n" << enclose("h2", false);
-    f << enclose("h2", true) << "Based on Russell Wallace's Draft Rules\n" << enclose("h2", false);
-    f << enclose("h2", true) << "Copyright 1993 by Russell Wallace\n" << enclose("h2", false);
+    f << enclose("p", true) << "Based on Atlantis v" << ATL_VER_STR(CURRENT_ATL_VER) << '\n' << enclose("p", false);
+    f << enclose("p", true) << "Copyright 1996 by Geoff Dunbar\n" << enclose("p", false);
+    f << enclose("p", true) << "Based on Russell Wallace's Draft Rules\n" << enclose("p", false);
+    f << enclose("p", true) << "Copyright 1993 by Russell Wallace\n" << enclose("p", false);
     auto t = time(nullptr);
     auto tm = *localtime(&t);
-    f << enclose("h3", true) << "Last Change: " << put_time(&tm, "%B %d, %Y") << '\n' << enclose("h3", false);
+    f << enclose("p", true) << "Last Change: " << put_time(&tm, "%B %d, %Y") << '\n' << enclose("p", false);
     f << enclose("center", false);
 
     f << enclose(class_tag("div", "rule"), true) << '\n' << enclose("div", false);
@@ -5329,14 +5329,19 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
     f << enclose("p", true) << "After that, Stephen Baillie took over the code and maintained it until "
       << "the v5.2.3-v5.2.5 time frame.\n"
       << enclose("p", false);
-    f << enclose("p", true) << "Artem Trytiak took over the code maintenance at that point and has maintained it "
-      << "since along with a number of other contrubutors to the github project.\n"
+    f << enclose("p", true) << "Artem Trytiak took over the code maintenance at that point and developed "
+      << "versions 6.0 and 7.0 along with a number of other contributors to the github project.\n"
       << enclose("p", false);
-    f << enclose("p", true) << "The Atlantis source code is now hosted on github at the "
-      << url("https://github.com/Atlantis-PBEM/Atlantis", "Atlantis") << " github project. "
-      << "Additionally, Artem runs the " << url("https://atlantis-pbem.com", "New Origins")
-      << " website which hosts the New Origins games and the related " << url("https://discord.gg/HusGETf", "Discord")
-      << "server, which serves as a de-facto development community.\n"
+    f << enclose("p", true) << "JT Traub and contributors maintained version 8.0.0.\n"
+      << enclose("p", false);
+    f << enclose("p", true) << "The current version 8.1 (NewAge) is maintained by Oleg Sokolovsky and hosted at "
+      << url("https://github.com/martiniks-pl25/atlantis-newage", "GitHub") << " and runs on "
+      << url("https://atlantis-newage.com", "atlantis-newage.com") << " server.\n"
+      << enclose("p", false);
+    f << enclose("p", true) << "The original Atlantis source code is hosted at "
+      << url("https://github.com/Atlantis-PBEM/Atlantis", "Atlantis PBEM") << " github project. "
+      << "Artem continues to run the " << url("https://atlantis-pbem.com", "New Origins")
+      << " website which hosts the original New Origins games.\n"
       << enclose("p", false);
     f << enclose("p", true) << "Please see the CREDITS file in the source distribution for a more complete, "
       << "but still inadequate, list of contributors.\n"
