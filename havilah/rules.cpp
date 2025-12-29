@@ -156,6 +156,7 @@ static GameDefs g = {
 	1,	// START_CITY_GUARDS_PLATE
 	4,	// START_CITY_MAGES
 	4,	// START_CITY_TACTICS
+	0,	// GUARDS_EQUIPMENT_BY_TOWN_TYPE (0 = same equipment for all, 1 = scale by town type)
 	1,	// APPRENTICES_EXIST
 	"acolyte",	// APPRENTICE_NAME
 

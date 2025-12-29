@@ -1727,7 +1727,22 @@ void Game::CreateCityMon(ARegion *region, int percent, int needmage)
     if ((Globals->LEADERS_EXIST) || (region->type == R_NEXUS)) {
         /* standard Leader-type guards */
         u->SetMen(I_LEADERS,num);
-        u->items.SetNum(I_SWORD,num);
+
+        // Equipment assignment based on GUARDS_EQUIPMENT_BY_TOWN_TYPE flag
+        if (Globals->GUARDS_EQUIPMENT_BY_TOWN_TYPE) {
+            // New system: equipment scales by town type
+            if (AC) {
+                // Starting city/Nexus: give best equipment immediately
+                u->items.SetNum(I_SWORD, num);
+                u->items.SetNum(I_PLATEARMOR, num);
+                u->items.SetNum(I_ISHIELD, num);
+            }
+            // Regular towns: no equipment (will be added by AdjustCityMon() next turn)
+        } else {
+            // Old system: sword only for all guards
+            u->items.SetNum(I_SWORD, num);
+        }
+
         if (IV) u->items.SetNum(I_AMULETOFI,num);
         u->SetMoney(num * Globals->GUARD_MONEY);
         u->SetSkill(S_COMBAT,skilllevel);
@@ -1825,6 +1840,8 @@ void Game::AdjustCityMon(ARegion *r, Unit *u)
     int maxweapon = 0;
     int armor = -1;
     int maxarmor = 0;
+    int shield = -1;
+    int maxshield = 0;
     for (int i=0; i<NITEMS; i++) {
         int num = u->items.GetNum(i);
         if (num == 0) continue;
@@ -1838,6 +1855,11 @@ void Game::AdjustCityMon(ARegion *r, Unit *u)
             && (num > maxarmor)) {
             armor = i;
             maxarmor = num;
+        }
+        if ((ItemDefs[i].type & IT_BATTLE)
+            && (num > maxshield)) {
+            shield = i;
+            maxshield = num;
         }
     }
     int skill = S_COMBAT;
@@ -1875,6 +1897,29 @@ void Game::AdjustCityMon(ARegion *r, Unit *u)
             men = maxmen;
     }
 
+    // Check if this is a newly spawned guard (has no weapon yet)
+    // Only assign equipment if GUARDS_EQUIPMENT_BY_TOWN_TYPE is enabled
+    if (weapon == -1 && Globals->GUARDS_EQUIPMENT_BY_TOWN_TYPE) {
+        // New system: equipment scales by town type
+        switch(towntype) {
+            case TOWN_VILLAGE:
+                weapon = I_SPEAR;
+                armor = I_LEATHERARMOR;
+                shield = I_WSHIELD;
+                break;
+            case TOWN_TOWN:
+                weapon = I_PIKE;
+                armor = I_CHAINARMOR;
+                shield = I_WSHIELD;
+                break;
+            case TOWN_CITY:
+                weapon = I_SWORD;
+                armor = I_PLATEARMOR;
+                shield = I_ISHIELD;
+                break;
+        }
+    }
+
     u->SetMen(mantype,men);
     if (IV) u->items.SetNum(I_AMULETOFI,men);
 
@@ -1898,9 +1943,15 @@ void Game::AdjustCityMon(ARegion *r, Unit *u)
                 u->items.SetNum(armor,men);
         } else {
             u->SetSkill(S_OBSERVATION,towntype + 1);
+            if (armor != -1) {
+                u->items.SetNum(armor,men);
+            }
         }
         if (weapon!= -1) {
             u->items.SetNum(weapon,men);
+        }
+        if (shield != -1) {
+            u->items.SetNum(shield,men);
         }
     }
 }

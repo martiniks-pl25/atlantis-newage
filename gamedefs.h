@@ -306,6 +306,13 @@ public:
 	int START_CITY_TACTICS;
 
 	//
+	// Should guard equipment scale by town type?
+	// 0 = all guards get same equipment (sword/plate/shield)
+	// 1 = equipment scales by town: Village(spear/leather/wood), Town(pike/chain/wood), City(sword/plate/iron)
+	//
+	int GUARDS_EQUIPMENT_BY_TOWN_TYPE;
+
+	//
 	// Are we allowing apprentices?
 	//
 	int APPRENTICES_EXIST;
