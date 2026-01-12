@@ -99,13 +99,28 @@ void ARegion::SetupHabitat(TerrainType* terrain) {
     }
 
     habitat = habitat * 2 / 3 + rng::get_random(habitat / 3);
-    auto mt = find_race(ItemDefs[race].abr)->get();
-    if (mt.terrain == terrain->similar_type) {
-        habitat = (habitat * 9)/8;
+
+    // Bounds check
+    if (race < 0 || race >= (int)ItemDefs.size()) {
+        logger::write("      ERROR: race " + std::to_string(race) + " is out of bounds! ItemDefs.size()=" + std::to_string(ItemDefs.size()));
+        race = I_PLAINSMAN; // Fallback to a safe default race
     }
+
+    // Only call find_race if ManDefs is not empty
+    if (!ManDefs.empty()) {
+        auto race_opt = find_race(ItemDefs[race].abr);
+        if (race_opt.has_value()) {
+            auto& mt = race_opt->get();
+            if (mt.terrain == terrain->similar_type) {
+                habitat = (habitat * 9)/8;
+            }
+        }
+    }
+
     if (!IsNativeRace(race)) {
         habitat = (habitat * 4)/5;
     }
+
     basepopulation = habitat / 3;
     // hmm... somewhere not too far off equilibrium pop
     population = habitat * (60 + rng::get_random(6) + rng::get_random(6)) / 100;
@@ -203,6 +218,10 @@ void ARegion::SetupEconomy() {
 
 void ARegion::SetupPop()
 {
+    if (type < 0 || type >= (int)TerrainDefs.size()) {
+        return;
+    }
+
     TerrainType *typer = &(TerrainDefs[type]);
     habitat = typer->pop+1;
 
@@ -823,6 +842,11 @@ void ARegion::add_town(int size, const std::string& name)
 // Used at start to set initial town's size
 int ARegion::DetermineTownSize()
 {
+    // If VILLAGES_ONLY is enabled, all settlements start as villages
+    if (Globals->VILLAGES_ONLY) {
+        return TOWN_VILLAGE;
+    }
+
     // is it a city?
     if (rng::get_random(300) < Globals->TOWN_DEVELOPMENT) {
         return TOWN_CITY;
@@ -1139,7 +1163,10 @@ int ARegion::RoadDevelopment()
 {
     // Road bonus
     int roads = 0;
-    for (int i=0; i<NDIRS; i++) if (HasExitRoad(i)) roads++;
+    for (int i=0; i<NDIRS; i++) {
+        if (HasExitRoad(i)) roads++;
+    }
+
     int dbonus = 0;
     if (roads > 0) {
         dbonus = RoadDevelopmentBonus(16, development);

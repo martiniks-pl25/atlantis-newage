@@ -29,41 +29,44 @@ const int MAX_RAINFALL = 1000;
 
 const std::vector<Biome> BIOMES = {
     // -10
-    { .name = B_TUNDRA, .feritality = 0.6, .temp = { -1000,    0 }, .rainfall = {   0,  200 } },
-    { .name = B_DESERT, .feritality = 1.2, .temp = { -1000,    0 }, .rainfall = { 201,  300 } },
-    { .name = B_PLAINS, .feritality = 0.6, .temp = { -1000,    0 }, .rainfall = { 301,  500 } },
-    { .name = B_FOREST, .feritality = 0.6, .temp = { -1000,    0 }, .rainfall = { 501, 1000 } },
+    { .name = B_TUNDRA, .feritality = 0.8, .temp = { -1000,    0 }, .rainfall = {   0,  100 } },
+    { .name = B_FOREST, .feritality = 0.8, .temp = { -1000,    0 }, .rainfall = { 101, 1000 } },
 
     // 0
-    { .name = B_TUNDRA, .feritality = 0.8, .temp = {     1,   10 }, .rainfall = {   0,  100 } },
-    { .name = B_DESERT, .feritality = 1.2, .temp = {     1,   30 }, .rainfall = { 101,  200 } },
-    { .name = B_PLAINS, .feritality = 1.0, .temp = {     1,   10 }, .rainfall = { 201,  400 } },
-    { .name = B_FOREST, .feritality = 1.2, .temp = {     1,   10 }, .rainfall = { 401, 1000 } },
+    { .name = B_TUNDRA, .feritality = 1.5, .temp = {     1,   10 }, .rainfall = {   0,   50 } },
+    { .name = B_PLAINS, .feritality = 0.8, .temp = {     1,   10 }, .rainfall = {  51,  300 } },
+    { .name = B_FOREST, .feritality = 1.0, .temp = {     1,   10 }, .rainfall = { 301, 1000 } },
 
     // 10
-    { .name = B_DESERT, .feritality = 1.2, .temp = {    11,   30 }, .rainfall = {   0,  200 } },
-    { .name = B_PLAINS, .feritality = 1.0, .temp = {    11,   20 }, .rainfall = { 201,  300 } },
-    { .name = B_FOREST, .feritality = 1.0, .temp = {    11,   20 }, .rainfall = { 301,  500 } },
-    { .name = B_SWAMP,  .feritality = 1.0, .temp = {    11,   20 }, .rainfall = { 501, 1000 } },
+    { .name = B_PLAINS, .feritality = 1.0, .temp = {    11,   15 }, .rainfall = {   0,  300 } },
+    { .name = B_FOREST, .feritality = 1.0, .temp = {    11,   15 }, .rainfall = { 301,  800 } },
+    { .name = B_SWAMP,  .feritality = 1.0, .temp = {    11,   15 }, .rainfall = { 801, 1000 } },
+
+    // 15
+    { .name = B_DESERT, .feritality = 1.2, .temp = {    16,   20 }, .rainfall = {   0,  100 } },
+    { .name = B_PLAINS, .feritality = 1.0, .temp = {    16,   20 }, .rainfall = { 101,  300 } },
+    { .name = B_FOREST, .feritality = 1.0, .temp = {    16,   20 }, .rainfall = { 301,  600 } },
+    { .name = B_JUNGLE, .feritality = 1.0, .temp = {    16,   30 }, .rainfall = { 601,  800 } },
+    { .name = B_SWAMP,  .feritality = 1.0, .temp = {    16,   20 }, .rainfall = { 801, 1000 } },
 
     // 20
-    { .name = B_DESERT, .feritality = 1.2, .temp = {    21,   30 }, .rainfall = {   0,  100 } },
-    { .name = B_PLAINS, .feritality = 1.0, .temp = {    21,   30 }, .rainfall = { 101,  200 } },
-    { .name = B_FOREST, .feritality = 1.2, .temp = {    21,   30 }, .rainfall = { 201,  400 } },
-    { .name = B_JUNGLE, .feritality = 0.8, .temp = {    21,   30 }, .rainfall = { 401,  500 } },
-    { .name = B_SWAMP,  .feritality = 0.8, .temp = {    21,   30 }, .rainfall = { 501, 1000 } },
+    { .name = B_DESERT, .feritality = 1.2, .temp = {    21,   30 }, .rainfall = {   0,  150 } },
+    { .name = B_PLAINS, .feritality = 1.0, .temp = {    21,   30 }, .rainfall = { 151,  250 } },
+    { .name = B_FOREST, .feritality = 1.2, .temp = {    21,   30 }, .rainfall = { 251,  400 } },
+    { .name = B_JUNGLE, .feritality = 1.2, .temp = {    21,   30 }, .rainfall = { 401,  800 } },
+    { .name = B_SWAMP,  .feritality = 1.2, .temp = {    21,   30 }, .rainfall = { 801, 1000 } },
 
     // 30
-    { .name = B_DESERT, .feritality = 1.0, .temp = {    31,   40 }, .rainfall = {   0,  100 } },
-    { .name = B_PLAINS, .feritality = 1.2, .temp = {    31,   40 }, .rainfall = { 101,  300 } },
+    { .name = B_DESERT, .feritality = 1.0, .temp = {    31,   40 }, .rainfall = {   0,  200 } },
+    { .name = B_PLAINS, .feritality = 1.0, .temp = {    31,   40 }, .rainfall = { 201,  300 } },
     { .name = B_FOREST, .feritality = 1.2, .temp = {    31,   40 }, .rainfall = { 301,  400 } },
-    { .name = B_JUNGLE, .feritality = 1.0, .temp = {    31,   40 }, .rainfall = { 401,  600 } },
-    { .name = B_SWAMP,  .feritality = 0.8, .temp = {    31,   40 }, .rainfall = { 601, 1000 } },
+    { .name = B_JUNGLE, .feritality = 1.2, .temp = {    31,   40 }, .rainfall = { 401,  800 } },
+    { .name = B_SWAMP,  .feritality = 1.0, .temp = {    31,   40 }, .rainfall = { 801, 1000 } },
 
     // 40
     { .name = B_DESERT, .feritality = 1.0, .temp = {    41,   50 }, .rainfall = {   0,  200 } },
-    { .name = B_PLAINS, .feritality = 1.2, .temp = {    41,   50 }, .rainfall = { 201,  300 } },
-    { .name = B_FOREST, .feritality = 1.2, .temp = {    41,   50 }, .rainfall = { 301,  400 } },
+    { .name = B_PLAINS, .feritality = 1.0, .temp = {    41,   50 }, .rainfall = { 201,  300 } },
+    { .name = B_FOREST, .feritality = 1.0, .temp = {    41,   50 }, .rainfall = { 301,  400 } },
     { .name = B_JUNGLE, .feritality = 1.0, .temp = {    41,   50 }, .rainfall = { 401, 1000 } },
 
     // 50
@@ -326,8 +329,15 @@ void simulateRain(CellMap& map, Cell* target, double windAngle, const Edge* wind
                 : std::max(0, target->elevation) - std::max(0, cell->elevation);
 
             double rain = 0;
-            if (dE > 0 && moisture > 0) {
-                rain = (dE * RAINFALL * moisture) / 500.0;
+            if (moisture > 0) {
+                if (dE > 0) {
+                    // Orographic rainfall (mountains force air up, causing rain)
+                    rain = (dE * RAINFALL * moisture) / 400.0;
+                } else {
+                    // Base rainfall on flat terrain (aggressive increase to ensure forests/jungles)
+                    // Flat coastal areas now get substantial rainfall from ocean moisture
+                    rain = (RAINFALL * moisture) / 800.0;
+                }
             }
 
             rainfall += rain;
@@ -348,6 +358,11 @@ Map::Map(int width, int height) : map(CellMap(width, height)) {
 
     waterPercent = 0.2;
     mountainPercent = 0.2;
+
+    // Polar archipelago defaults
+    polarLatitudeStart = 70.0;
+    polarIslandBlend = 0.5;
+    polarElevationRedux = 0.35;
 }
 
 Blob* fillByElevation(CellMap* map, Cell* start, int biome, Range elevation) {
@@ -396,18 +411,46 @@ void Map::Generate() {
     SimplexNoise* noise = new SimplexNoise(frequency, amplitude);
     std::vector<Blob*> blobs;
 
+    // Create high-frequency noise for polar archipelago effect
+    SimplexNoise* islandNoise = new SimplexNoise(frequency * 4.0, amplitude);
+
     // 0. elevation
     const int ELEVATION = 16000;    // elevation range is 16km
     int minElevation = ELEVATION;
     int maxElevation = 0;
     std::map<int, int> hist;
+    const double halfHeight = map.height / 2.0;
+
     for (int i = 0; i < len; i++) {
         auto cell = map.items[i];
 
         double nx = (double) cell->x / map.width;
         double ny = (double) cell->y / map.height;
 
+        // Base elevation from main noise (creates continents)
         double e = pow((noise->cylinderFractal(3, nx, ny) + 1.0) / 2.0, redistribution);
+
+        // Polar archipelago effect: fragment land into islands at high latitudes
+        double lat = std::abs(((halfHeight - cell->y) / halfHeight) * 90.0);  // 0-90°
+
+        if (lat > polarLatitudeStart && polarLatitudeStart < 89.0) {
+            // Calculate polar blending factor (0.0 at polarLatitudeStart, 1.0 at pole)
+            double polarAmount = (lat - polarLatitudeStart) / (90.0 - polarLatitudeStart);
+
+            // High-frequency noise creates small-scale terrain variation (islands)
+            double islandDetail = (islandNoise->cylinderFractal(2, nx, ny) + 1.0) / 2.0;
+
+            // Smooth blend between continental and island terrain
+            // polarAmount = 0.0 → pure continents
+            // polarAmount = 1.0 → archipelago effect at maximum
+            double blendFactor = polarAmount * polarIslandBlend;
+            e = e * (1.0 - blendFactor) + islandDetail * blendFactor;
+
+            // ADDITIONALLY: Lower polar elevation to increase ocean at poles
+            // This creates more water between islands
+            double elevationReduction = polarAmount * polarElevationRedux;
+            e *= (1.0 - elevationReduction);
+        }
 
         cell->elevation = round(e * ELEVATION);
         minElevation = std::min(minElevation, cell->elevation);
@@ -415,6 +458,8 @@ void Map::Generate() {
 
         ++hist[cell->elevation];
     }
+
+    delete islandNoise;
 
     // 1. determine sea level
     logger::write("1. determine sea level");
@@ -468,7 +513,6 @@ void Map::Generate() {
     // 3. temperature and moisture saturation
     logger::write("3. temperature and moisture saturation");
 
-    const double halfHeight = map.height / 2.0;
     for (auto item : map.items) {
         item->elevation -= seaLevel;
 

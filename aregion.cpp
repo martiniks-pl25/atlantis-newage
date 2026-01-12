@@ -142,6 +142,11 @@ Production *ARegion::get_production_for_skill(int item, int skill) {
 
 int ARegion::IsNativeRace(int item)
 {
+    // Safety check
+    if (type < 0 || type >= (int)TerrainDefs.size()) {
+        return 0;
+    }
+
     TerrainType *typer = &(TerrainDefs[type]);
     int coastal = sizeof(typer->coastal_races)/sizeof(typer->coastal_races[0]);
     int noncoastal = sizeof(typer->races)/sizeof(typer->races[0]);
@@ -159,19 +164,14 @@ int ARegion::IsNativeRace(int item)
 std::vector<int> ARegion::GetPossibleLairs() {
     std::vector<int> lairs;
     TerrainType *tt = &TerrainDefs[type];
-
     const int sz = sizeof(tt->lairs) / sizeof(tt->lairs[0]);
 
     for (int i = 0; i < sz; i++) {
         int index = tt->lairs[i];
-        if (index == -1) {
-            continue;
-        }
+        if (index == -1) continue;
 
         ObjectType& lair = ObjectDefs[index];
-        if (lair.flags & ObjectType::DISABLED) {
-            continue;
-        }
+        if (lair.flags & ObjectType::DISABLED) continue;
 
         lairs.push_back(index);
     }
@@ -185,16 +185,13 @@ void ARegion::LairCheck()
     if (town) return;
 
     TerrainType *tt = &TerrainDefs[type];
-
     if (!tt->lairChance) return;
 
     int check = rng::get_random(100);
     if (check >= tt->lairChance) return;
 
     auto lairs = GetPossibleLairs();
-    if (lairs.empty()) {
-        return;
-    }
+    if (lairs.empty()) return;
 
     int lair = lairs[rng::get_random(lairs.size())];
     MakeLair(lair);
@@ -226,15 +223,18 @@ void ARegion::Setup()
 {
     //
     // type and location have been setup, do everything else
+    //
     SetupProds(1);
 
-    SetupPop();
-
     //
-    // Make the dummy object
+    // Make the dummy object BEFORE SetupPop
+    // This is critical because SetupPop -> add_town -> SetTownType -> TownHabitat
+    // and TownHabitat iterates over objects. Objects must be initialized first!
     //
     Object *obj = new Object(this);
     objects.push_back(obj);
+
+    SetupPop();
 
     if (Globals->LAIR_MONSTERS_EXIST) LairCheck();
 }
@@ -1376,7 +1376,13 @@ int ARegion::IsCoastal()
         return 1;
     int seacount = 0;
     for (int i=0; i<NDIRS; i++) {
-        if (neighbors[i] && TerrainDefs[neighbors[i]->type].similar_type == R_OCEAN) {
+        if (!neighbors[i]) continue;
+
+        // Safety check: skip neighbors with invalid types
+        if (neighbors[i]->type < 0 || neighbors[i]->type >= (int)TerrainDefs.size())
+            continue;
+
+        if (TerrainDefs[neighbors[i]->type].similar_type == R_OCEAN) {
             if (!Globals->LAKESIDE_IS_COASTAL && neighbors[i]->type == R_LAKE) continue;
             seacount++;
         }
@@ -1389,7 +1395,13 @@ int ARegion::IsCoastalOrLakeside()
     if (TerrainDefs[type].similar_type == R_OCEAN) return 1;
     int seacount = 0;
     for (int i=0; i<NDIRS; i++) {
-        if (neighbors[i] && TerrainDefs[neighbors[i]->type].similar_type == R_OCEAN) {
+        if (!neighbors[i]) continue;
+
+        // Safety check: skip neighbors with invalid types
+        if (neighbors[i]->type < 0 || neighbors[i]->type >= (int)TerrainDefs.size())
+            continue;
+
+        if (TerrainDefs[neighbors[i]->type].similar_type == R_OCEAN) {
             seacount++;
         }
     }
@@ -2879,7 +2891,7 @@ void placeVolcanoes(ARegionArray* arr, const int w, const int h) {
             int mountains = countNeighbors(graph, reg, R_MOUNTAIN, rng::make_roll(1, 3) + 1);
             int volcanoes = countNeighbors(graph, reg, R_VOLCANO, 2);
 
-            if (volcanoes == 0 && mountains >= (rng::make_roll(1, 6) + 2)) {
+            if (volcanoes == 0 && mountains >= (rng::make_roll(3, 3) + 2)) {
                 reg->type = R_VOLCANO;
             }
         }
@@ -3340,11 +3352,11 @@ void economy(ARegionArray* arr, const int w, const int h) {
 
     logger::write("Setting settlements");
 
-    int size = rng::get_random(NTOWNS);
+    int size = Globals->VILLAGES_ONLY ? TOWN_VILLAGE : rng::get_random(NTOWNS);
     int minDist = size + rng::make_roll(2, 2);
 
     std::unordered_set<ARegion*> visited;
-    getPoints(w, h, minDist, 16, [&arr, &visited, &size, &minDist](graphs::Location2D p) {
+    getPoints(w, h, minDist, 64, [&arr, &visited, &size, &minDist](graphs::Location2D p) {
         auto reg = arr->GetRegion(p.x, p.y);
         if (reg == NULL) {
             // this means we have a point outside the map bounds :(
@@ -3376,7 +3388,7 @@ void economy(ARegionArray* arr, const int w, const int h) {
         std::string sizeName = size == TOWN_VILLAGE ? "Village" : size == TOWN_TOWN ? "Town" : "City";
         logger::write(sizeName + " " + name);
 
-        size = rng::get_random(NTOWNS);
+        size = Globals->VILLAGES_ONLY ? TOWN_VILLAGE : rng::get_random(NTOWNS);
         minDist = size + rng::make_roll(2, 2);
 
         return minDist;

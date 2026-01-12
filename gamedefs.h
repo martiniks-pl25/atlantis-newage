@@ -707,6 +707,10 @@ public:
 	// (100 = standard).
 	int TOWN_DEVELOPMENT;
 
+	// If 1, all settlements start as villages during world generation
+	// (does not prevent growth during gameplay via trading/production)
+	int VILLAGES_ONLY;
+
 	// Whether you need to be a war faction to have tact-5 leaders
 	int TACTICS_NEEDS_WAR;
 

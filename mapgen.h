@@ -144,6 +144,11 @@ public:
     double waterPercent;
     double mountainPercent;
 
+    // Polar archipelago parameters (configurable in world.cpp)
+    double polarLatitudeStart;    // Latitude where island effect begins (degrees, 60-75)
+    double polarIslandBlend;      // Strength of island fragmentation (0.0-1.0)
+    double polarElevationRedux;   // Elevation reduction at poles (0.0-1.0, higher = more ocean)
+
     CellMap map;
 
     void Generate();

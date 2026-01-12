@@ -10,6 +10,15 @@
 #include <stack>
 #include <random>
 
+// Forward declaration for getPoints
+std::vector<graphs::Location2D> getPoints(
+    const int w, const int h,
+    const int initialMinDist,
+    const int newPointCount,
+    const std::function<int(graphs::Location2D)> onPoint,
+    const std::function<bool(graphs::Location2D)> onIsIncluded
+);
+
 enum ZoneType {
     UNDECIDED,  // zone type not yet determined
     OCEAN,      // no land will be generated in this zone
@@ -2379,8 +2388,9 @@ void ARegionList::RemoveCoastalLakes(ARegionArray *pRegs)
                             wage1 = newregion->wages;
                             break;
                         }
-                        if ((TerrainDefs[newregion->type].similar_type !=
-                                    R_OCEAN) && (newregion->wages > -1)) {
+                        // Check type validity BEFORE accessing TerrainDefs array
+                        if ((newregion->type != R_NUM) && (newregion->wages > -1) &&
+                                (TerrainDefs[newregion->type].similar_type != R_OCEAN)) {
                             if (newregion->wages == wage1) count1++;
                             else if (newregion->wages == wage2) count2++;
                             else if (count2 == 0) {
@@ -2473,6 +2483,12 @@ void ARegionList::SetupAnchors(ARegionArray *ta)
             for (int i=0; i<4; i++) {
                 int tempx = x * f + rng::get_random(f);
                 int tempy = y * f * 2 + rng::get_random(f)*2 + tempx%2;
+
+                // Bounds check - prevent accessing out of bounds
+                if (tempx >= ta->x || tempy >= ta->y) {
+                    continue;
+                }
+
                 reg = ta->GetRegion(tempx, tempy);
                 if (!reg)
                     continue;
@@ -2549,8 +2565,10 @@ void ARegionList::GrowTerrain(ARegionArray *pArr, int growOcean)
             for (y = 0; y < pArr->y; y++) {
                 ARegion *reg = pArr->GetRegion(x, y);
                 if (!reg) continue;
-                if (reg->type == R_NUM && reg->race != -1)
+                if (reg->type == R_NUM && reg->race != -1) {
                     reg->type = reg->race;
+                    reg->race = -1;  // Reset race after copying terrain type
+                }
             }
         }
     }
@@ -2570,9 +2588,9 @@ void ARegionList::RandomTerrain(ARegionArray *pArr)
                 for (int d = 0; d < NDIRS; d++) {
                     ARegion *newregion = reg->neighbors[d];
                     if (!newregion) continue;
-                    if ((TerrainDefs[newregion->type].similar_type !=
-                                R_OCEAN) && (newregion->type != R_NUM) &&
-                            (newregion->wages > 0)) {
+                    // Check type validity BEFORE accessing TerrainDefs array
+                    if ((newregion->type != R_NUM) && (newregion->wages > 0) &&
+                            (TerrainDefs[newregion->type].similar_type != R_OCEAN)) {
                         adjtype = newregion->type;
                         adjname = newregion->wages;
                     }
@@ -2762,12 +2780,22 @@ void ARegionList::GrowRaces(ARegionArray *pArr)
 void ARegionList::FinalSetup(ARegionArray *pArr)
 {
     int x, y;
+
     for (x = 0; x < pArr->x; x++) {
         for (y = 0; y < pArr->y; y++) {
             ARegion *reg = pArr->GetRegion(x, y);
-            if (!reg) continue;
+            if (!reg) {
+                continue;
+            }
 
-            if ((TerrainDefs[reg->type].similar_type == R_OCEAN) && (reg->type != R_LAKE)) {
+            // Check for invalid types before accessing TerrainDefs
+            if (reg->type == R_NUM || reg->type < 0 || reg->type >= (int)TerrainDefs.size()) {
+                continue;
+            }
+
+            int similar = TerrainDefs[reg->type].similar_type;
+
+            if ((similar == R_OCEAN) && (reg->type != R_LAKE)) {
                 if (pArr->levelType == ARegionArray::LEVEL_UNDERWORLD) {
                     reg->set_name("The Undersea");
                 }
@@ -2779,7 +2807,7 @@ void ARegionList::FinalSetup(ARegionArray *pArr)
                     ocean_name += " Ocean";
                     reg->set_name(ocean_name);
                 }
-            } else if (TerrainDefs[reg->type].similar_type == R_BARREN) {
+            } else if (similar == R_BARREN) {
                 reg->set_name("The Barrens");
             } else {
                 if (reg->wages == -1)
@@ -2845,6 +2873,97 @@ void ARegionList::MakeShaftLinks(int levelFrom, int levelTo, int odds)
             MakeShaft(reg, pFrom, pTo);
         }
     }
+}
+
+/**
+ * Generates vertical shafts (O_SHAFT) with distance and terrain constraints.
+ *
+ * @param levelFrom Index of the source level (upper).
+ * @param levelTo Index of the target level (lower).
+ * @param minDistanceSame Minimum distance between shaft entrances on the upper level.
+ * @param minDistanceStair Minimum distance from existing shafts (stairwell prevention).
+ */
+void ARegionList::CreateSmartShafts(int levelFrom, int levelTo, int minDistanceSame, int minDistanceStair) {
+    ARegionArray* pFrom = pRegionArrays[levelFrom];
+    ARegionArray* pTo = pRegionArrays[levelTo];
+
+    if (!pFrom || !pTo) return;
+
+    logger::write("Generating smart shafts between L" + std::to_string(levelFrom) + " and L" + std::to_string(levelTo));
+
+    // Calculate max shafts based on the size of the upper level.
+    // Scales with map area: 1 shaft per 40 regions.
+    int totalRegions = (pFrom->x * pFrom->y) / 2;
+    int maxShafts = std::max(2, totalRegions / 40);
+
+    // 2. SMART FILTERING
+    // We tell getPoints to ONLY consider land regions as valid candidates.
+    // This prevents ocean hexes from "wasting" potential shaft locations.
+    auto isLand = [pFrom](graphs::Location2D p) {
+        ARegion* r = pFrom->GetRegion(p.x, p.y);
+        return (r && r->type != R_OCEAN && r->type != R_VOLCANO);
+    };
+
+    std::vector<graphs::Location2D> candidates = getPoints(
+        pFrom->x, pFrom->y, minDistanceSame, 128,
+        [minDistanceSame](graphs::Location2D p) { return minDistanceSame; },
+        isLand // <--- Use land-only filter here
+    );
+
+    rng::shuffle(candidates);
+
+    int shaftsCreated = 0;
+    for (const auto& pos : candidates) {
+        if (shaftsCreated >= maxShafts) break;
+
+        ARegion* src = pFrom->GetRegion(pos.x, pos.y);
+
+        // src is guaranteed to be land by the filter above, but safety check is fine
+        if (!src) continue;
+
+        // 3. STAIRWELL CHECK prevention: Check if any shaft (up or down) exists within minDistanceStair.
+        bool tooCloseToExisting = false;
+        if (minDistanceStair > 0) {
+            auto nearby = breadthFirstSearch(src, minDistanceStair);
+            for (auto& entry : nearby) {
+                if (entry.first->HasShaft()) {
+                    tooCloseToExisting = true;
+                    break;
+                }
+            }
+        }
+        if (tooCloseToExisting) continue;
+
+        // 4. DESTINATION CHECK
+        int targetX = pos.x * pTo->x / pFrom->x;
+        int targetY = pos.y * pTo->y / pFrom->y;
+        if ((targetX + targetY) % 2 != 0) targetY = (targetY + 1) % pTo->y;
+
+        ARegion* dst = pTo->GetRegion(targetX, targetY);
+
+        // If the scaled destination is Ocean, we skip this candidate.
+        if (!dst || dst->type == R_OCEAN || dst->type == R_BARREN) continue;
+
+        // Create the O_SHAFT object on the upper level.
+        Object* down = new Object(src);
+        down->num = src->buildingseq++;
+        down->set_name("Ancient Shaft");
+        down->type = O_SHAFT;
+        down->inner = dst->num;
+        src->objects.push_back(down);
+
+        // Create the O_SHAFT object on the lower level.
+        Object* up = new Object(dst);
+        up->num = dst->buildingseq++;
+        up->set_name("Ancient Shaft");
+        up->type = O_SHAFT;
+        up->inner = src->num;
+        dst->objects.push_back(up);
+
+        shaftsCreated++;
+    }
+
+    logger::write("Smart Shafts Created: " + std::to_string(shaftsCreated));
 }
 
 void ARegionList::SetACNeighbors(int levelSrc, int levelTo, int maxX, int maxY)
@@ -2944,6 +3063,7 @@ void ARegionList::InitSetupGates(int level)
     if (!Globals->GATES_EXIST) return;
 
     ARegionArray *pArr = pRegionArrays[level];
+    int gatesBefore = numberofgates; // Store count before processing this level
 
     int i, j, k;
     for (i=0; i<pArr->x / 8; i++) {
@@ -2962,6 +3082,9 @@ void ARegionList::InitSetupGates(int level)
             }
         }
     }
+    // Add this line to log gates for the current level
+    int placed = numberofgates - gatesBefore;
+    logger::write("Level " + std::to_string(level) + ": Placed " + std::to_string(placed) + " gate seeds.");
 }
 
 void ARegionList::FixUnconnectedRegions()
@@ -3121,6 +3244,9 @@ void ARegionList::FinalSetupGates()
     int ngates, log10, *used, i;
 
     if (!Globals->GATES_EXIST) return;
+
+    // Add this line for the final summary
+    logger::write("Total gates found in world: " + std::to_string(numberofgates));
 
     ngates = numberofgates;
 

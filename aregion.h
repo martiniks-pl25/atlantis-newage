@@ -471,6 +471,8 @@ class ARegionList
         void create_underworld_ring_level(int level, int xSize, int ySize, const std::string& name);
         void create_underdeep_level(int level, int xSize, int ySize, const std::string& name);
 
+        void CreateSmartShafts(int levelFrom, int levelTo, int minDistanceSame, int minDistanceStair);
+
         void MakeShaftLinks(int levelFrom, int levelTo, int odds);
         void SetACNeighbors(int levelSrc, int levelTo, int maxX, int maxY);
         ARegion *FindConnectedRegions(ARegion *r, ARegion *tail, int shaft);

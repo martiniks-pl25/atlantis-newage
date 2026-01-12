@@ -7,6 +7,45 @@
 
 using namespace std;
 
+// Helper functions for interactive parameter input
+int ask_parameter(const std::string& prompt, int default_val, int min_val, int max_val) {
+    while (true) {
+        logger::write(prompt + " [" + std::to_string(default_val) + "]: ");
+        std::string input;
+        std::getline(std::cin, input);
+
+        if (input.empty()) return default_val;
+
+        try {
+            int val = std::stoi(input);
+            if (val >= min_val && val <= max_val) return val;
+            logger::write("Value must be between " + std::to_string(min_val) +
+                         " and " + std::to_string(max_val));
+        } catch (...) {
+            logger::write("Invalid number");
+        }
+    }
+}
+
+float ask_parameter_float(const std::string& prompt, float default_val, float min_val, float max_val) {
+    while (true) {
+        logger::write(prompt + " [" + std::to_string(default_val) + "]: ");
+        std::string input;
+        std::getline(std::cin, input);
+
+        if (input.empty()) return default_val;
+
+        try {
+            float val = std::stof(input);
+            if (val >= min_val && val <= max_val) return val;
+            logger::write("Value must be between " + std::to_string(min_val) +
+                         " and " + std::to_string(max_val));
+        } catch (...) {
+            logger::write("Invalid number");
+        }
+    }
+}
+
 typedef struct
 {
     const std::string word;
@@ -383,10 +422,92 @@ void Game::CreateWorld()
         regions.create_surface_level(1, xx, yy, "");
     } else if (generator == 2) {
         Map* map = new Map(xx * 2, yy * 2);
-        map->redistribution = 1.5;
-        map->evoparation = 0.75;
-        map->mountainPercent = 0.1;
-        map->waterPercent = 0.1;
+
+        // Default parameters (can be changed before compilation or at runtime)
+        int default_minTemp = -45;
+        int default_maxTemp = 45;
+        float default_frequency = 5;
+        float default_amplitude = 0.5;
+        float default_redistribution = 2;  // Even gentler elevation (avoid too much flat land)
+        float default_evoparation = 0.74;    // Maximum evaporation = maximum rainfall (ensure forests)
+        float default_waterPercent = 0.36;   // 50% base ocean (more moisture sources)
+        float default_mountainPercent = 0.08;
+
+        // Polar archipelago parameters (control polar island fragmentation)
+        float default_polarLatitudeStart = 65.0;   // Latitude where island effect begins (60-75°, lower = more area affected)
+        float default_polarIslandBlend = 0.50;     // Island fragmentation strength (0.3-0.8, higher = more fragmented)
+        float default_polarElevationRedux = 0.80;  // Polar submersion level (0.2-0.7, higher = more ocean at poles)
+
+        // Show current defaults
+        logger::write("");
+        logger::write("Fractal map generation parameters:");
+        logger::write("  Temperature: " + std::to_string(default_minTemp) + " (poles) to " +
+                      std::to_string(default_maxTemp) + " (equator)");
+        logger::write("  Terrain generation:");
+        logger::write("    Continent frequency: " + std::to_string(default_frequency) +
+                      " (higher = bigger continents)");
+        logger::write("    Noise amplitude: " + std::to_string(default_amplitude) +
+                      " (terrain strength)");
+        logger::write("    Elevation diversity: " + std::to_string(default_redistribution));
+        logger::write("  Land/Water distribution:");
+        logger::write("    Water: " + std::to_string((int)(default_waterPercent * 100)) + "%");
+        logger::write("    Mountains: " + std::to_string((int)(default_mountainPercent * 100)) + "%");
+        logger::write("  Climate:");
+        logger::write("    Rainfall balance: " + std::to_string(default_evoparation) +
+                      " (higher = drier)");
+        logger::write("");
+        logger::write("Use these settings? (y/n) [y]: ");
+
+        std::string choice;
+        std::getline(std::cin, choice);
+
+        if (choice == "n" || choice == "N") {
+            logger::write("");
+            logger::write("Enter new values (or press Enter to keep default):");
+            logger::write("");
+
+            // Temperature
+            map->minTemp = ask_parameter("Min temperature (poles, -20 to 20)",
+                                         default_minTemp, -20, 20);
+            map->maxTemp = ask_parameter("Max temperature (equator, 20 to 80)",
+                                         default_maxTemp, 20, 80);
+
+            // Terrain generation
+            map->frequency = ask_parameter_float("Continent frequency (1.0-10.0, higher=bigger)",
+                                                default_frequency, 1.0, 10.0);
+            map->amplitude = ask_parameter_float("Noise amplitude (0.1-1.0, terrain strength)",
+                                                default_amplitude, 0.1, 1.0);
+            map->redistribution = ask_parameter_float("Elevation diversity (0.0-5.0)",
+                                                     default_redistribution, 0.0, 5.0);
+
+            // Land/Water
+            map->waterPercent = ask_parameter_float("Water percentage (0.05-0.90)",
+                                                   default_waterPercent, 0.05, 0.90);
+            map->mountainPercent = ask_parameter_float("Mountain percentage (0.0-0.50)",
+                                                       default_mountainPercent, 0.0, 0.50);
+
+            // Climate (IMPORTANT: higher evoparation = MORE evaporation = WETTER world)
+            map->evoparation = ask_parameter_float("Rainfall balance (0.0-1.0, higher=WETTER)",
+                                                  default_evoparation, 0.0, 1.0);
+
+            // Polar parameters use defaults (modify in world.cpp to experiment)
+            map->polarLatitudeStart = default_polarLatitudeStart;
+            map->polarIslandBlend = default_polarIslandBlend;
+            map->polarElevationRedux = default_polarElevationRedux;
+        } else {
+            // Use defaults
+            map->minTemp = default_minTemp;
+            map->maxTemp = default_maxTemp;
+            map->frequency = default_frequency;
+            map->amplitude = default_amplitude;
+            map->redistribution = default_redistribution;
+            map->evoparation = default_evoparation;
+            map->waterPercent = default_waterPercent;
+            map->mountainPercent = default_mountainPercent;
+            map->polarLatitudeStart = default_polarLatitudeStart;
+            map->polarIslandBlend = default_polarIslandBlend;
+            map->polarElevationRedux = default_polarElevationRedux;
+        }
 
         regions.create_natural_surface_level(map);
     } else if (generator == 3) {
@@ -417,51 +538,87 @@ void Game::CreateWorld()
 
     CountNames();
 
-    if (Globals->UNDERWORLD_LEVELS+Globals->UNDERDEEP_LEVELS == 1) {
-        regions.MakeShaftLinks( 2, 1, 8 );
-        // regions.MakeShaftLinks( 2, 1, 6 );
-    } else if (Globals->UNDERWORLD_LEVELS+Globals->UNDERDEEP_LEVELS) {
-        int i, ii;
-        // shafts from surface to underworld
-        regions.MakeShaftLinks(2, 1, 10);
-        // regions.MakeShaftLinks(2, 1, 8);
-        for (i=3; i<Globals->UNDERWORLD_LEVELS+2; i++) {
-            regions.MakeShaftLinks(i, 1, 10*i-10);
-        }
-        // Shafts from underworld to underworld
-        if (Globals->UNDERWORLD_LEVELS > 1) {
-            for (i = 3; i < Globals->UNDERWORLD_LEVELS+2; i++) {
-                for (ii = 2; ii < i; ii++) {
-                    if (i == ii+1) {
-                        regions.MakeShaftLinks(i, ii, 12);
-                    } else {
-                        regions.MakeShaftLinks(i, ii, 24);
-                    }
-                }
-            }
-        }
-        // underdeeps to underworld
-        if (Globals->UNDERDEEP_LEVELS && Globals->UNDERWORLD_LEVELS) {
-            // Connect the topmost of the underdeep to the bottommost
-            // underworld
-            regions.MakeShaftLinks(Globals->UNDERWORLD_LEVELS+2,
-                    Globals->UNDERWORLD_LEVELS+1, 12);
-        }
-        // Now, connect the underdeep levels together
-        if (Globals->UNDERDEEP_LEVELS > 1) {
-            for (i = Globals->UNDERWORLD_LEVELS+3;
-                    i < Globals->UNDERWORLD_LEVELS+Globals->UNDERDEEP_LEVELS+2;
-                    i++) {
-                for (ii = Globals->UNDERWORLD_LEVELS+2; ii < i; ii++) {
-                    if (i == ii+1) {
-                        regions.MakeShaftLinks(i, ii, 12);
-                    } else {
-                        regions.MakeShaftLinks(i, ii, 25);
-                    }
-                }
-            }
+    // --- START OF SMART SHAFTS GENERATION ---
+    // This logic handles 1, 2, 3 or more levels dynamically based on Globals.
+
+    // 1. Connection: Surface (L1) -> Top Underworld (L2)
+    if (Globals->UNDERWORLD_LEVELS > 0) {
+        // Entrance on Surface: minDistance 7, Stairwell prevention 0
+        regions.CreateSmartShafts(1, 2, 7, 0);
+    }
+
+    // 2. Connections between multiple Underworld levels (L2 -> L3, etc.)
+    if (Globals->UNDERWORLD_LEVELS > 1) {
+        for (int i = 2; i < Globals->UNDERWORLD_LEVELS + 1; i++) {
+            // minDistance 6, Stairwell prevention 4
+            regions.CreateSmartShafts(i, i + 1, 6, 4);
         }
     }
+
+    // 3. Connection: Bottom of Underworld -> Top of Underdeep
+    if (Globals->UNDERWORLD_LEVELS > 0 && Globals->UNDERDEEP_LEVELS > 0) {
+        int bottomUW = Globals->UNDERWORLD_LEVELS + 1;
+        int topUD = bottomUW + 1;
+        // Connect the last Underworld level to the first Underdeep level
+        regions.CreateSmartShafts(bottomUW, topUD, 4, 2);
+    }
+
+    // 4. Connections between multiple Underdeep levels
+    if (Globals->UNDERDEEP_LEVELS > 1) {
+        int firstUD = Globals->UNDERWORLD_LEVELS + 2;
+        int lastUD = Globals->UNDERWORLD_LEVELS + Globals->UNDERDEEP_LEVELS + 1;
+        for (int i = firstUD; i < lastUD; i++) {
+            // Deeper levels can be slightly more cramped: minDistance 4
+            regions.CreateSmartShafts(i, i + 1, 4, 2);
+        }
+    }
+    // --- END OF SMART SHAFTS GENERATION ---
+
+//    if (Globals->UNDERWORLD_LEVELS+Globals->UNDERDEEP_LEVELS == 1) {
+//        regions.MakeShaftLinks( 2, 1, 8 );
+//        // regions.MakeShaftLinks( 2, 1, 6 );
+//    } else if (Globals->UNDERWORLD_LEVELS+Globals->UNDERDEEP_LEVELS) {
+//        int i, ii;
+//        // shafts from surface to underworld
+//        regions.MakeShaftLinks(2, 1, 10);
+//        // regions.MakeShaftLinks(2, 1, 8);
+//        for (i=3; i<Globals->UNDERWORLD_LEVELS+2; i++) {
+//            regions.MakeShaftLinks(i, 1, 10*i-10);
+//        }
+//        // Shafts from underworld to underworld
+//        if (Globals->UNDERWORLD_LEVELS > 1) {
+//            for (i = 3; i < Globals->UNDERWORLD_LEVELS+2; i++) {
+//                for (ii = 2; ii < i; ii++) {
+//                    if (i == ii+1) {
+//                        regions.MakeShaftLinks(i, ii, 12);
+//                    } else {
+//                        regions.MakeShaftLinks(i, ii, 24);
+//                    }
+//                }
+//            }
+//        }
+//        // underdeeps to underworld
+//        if (Globals->UNDERDEEP_LEVELS && Globals->UNDERWORLD_LEVELS) {
+//            // Connect the topmost of the underdeep to the bottommost
+//            // underworld
+//            regions.MakeShaftLinks(Globals->UNDERWORLD_LEVELS+2,
+//                    Globals->UNDERWORLD_LEVELS+1, 12);
+//        }
+//        // Now, connect the underdeep levels together
+//        if (Globals->UNDERDEEP_LEVELS > 1) {
+//            for (i = Globals->UNDERWORLD_LEVELS+3;
+//                    i < Globals->UNDERWORLD_LEVELS+Globals->UNDERDEEP_LEVELS+2;
+//                    i++) {
+//                for (ii = Globals->UNDERWORLD_LEVELS+2; ii < i; ii++) {
+//                    if (i == ii+1) {
+//                        regions.MakeShaftLinks(i, ii, 12);
+//                    } else {
+//                        regions.MakeShaftLinks(i, ii, 25);
+//                    }
+//                }
+//            }
+//        }
+//    }
 
     regions.SetACNeighbors( 0, 1, xx, yy );
 
@@ -502,28 +659,38 @@ int ARegionList::GetRegType( ARegion *pReg )
     // Underworld region
     if ((pReg->zloc > 1) && (pReg->zloc < Globals->UNDERWORLD_LEVELS+2)) {
         int r = rng::get_random(14);
+        int result;
         switch (r) {
             case 0:
             case 1:
             case 2:
-                return R_OCEAN;
+                result = R_OCEAN;
+                break;
             case 3:
             case 4:
             case 5:
-                return R_CAVERN;
+                result = R_CAVERN;
+                break;
             case 6:
             case 7:
             case 8:
-                return R_UFOREST;
+                result = R_UFOREST;
+                break;
             case 9:
             case 10:
-                return R_TUNNELS;
+            case 11:
+                result = R_TUNNELS;
+                break;
             case 12:
             case 13:
-                return R_CHASM;
+                result = R_CAVERN;  // Changed from R_CHASM (55) - chasm is for underdeep, not underworld
+                break;
             default:
-                return( 0 );
+                result = R_OCEAN;  // Fallback (should never reach here)
+                break;
         }
+        // No validation needed - all returned types are valid (0, 8, 9, 10)
+        return result;
     }
 
     // Underdeep region
