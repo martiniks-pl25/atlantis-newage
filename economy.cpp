@@ -179,9 +179,11 @@ void ARegion::SetupEconomy() {
     Production * e = new Production;
     e->itemtype = I_SILVER;
     e->skill = S_ENTERTAINMENT;
-    e->amount = maxent / Globals->ENTERTAIN_FRACTION;
+    // Reduce entertainment by 20% to compensate for increased building bonuses
+    // (buildings now give +100% instead of +25% on first building)
+    e->amount = (int)((maxent / Globals->ENTERTAIN_FRACTION) * 0.8f);
 
-    e->baseamount = maxent / Globals->ENTERTAIN_FRACTION;
+    e->baseamount = (int)((maxent / Globals->ENTERTAIN_FRACTION) * 0.8f);
     // raise entertainment income by productivity factor 10
     e->productivity = Globals->ENTERTAIN_INCOME * 10;
 
@@ -192,8 +194,8 @@ void ARegion::SetupEconomy() {
         wealth += wbonus;
         w->amount += wbonus / Globals->WORK_FRACTION;
         w->baseamount += wbonus / Globals->WORK_FRACTION;
-        e->amount += wbonus / Globals->ENTERTAIN_FRACTION;
-        e->baseamount += wbonus / Globals->ENTERTAIN_FRACTION;
+        e->amount += (int)((wbonus / Globals->ENTERTAIN_FRACTION) * 0.8f);
+        e->baseamount += (int)((wbonus / Globals->ENTERTAIN_FRACTION) * 0.8f);
     }
     products.push_back(w);
     products.push_back(e);
@@ -329,8 +331,8 @@ void ARegion::SetIncome()
         wealth += wbonus;
         w->amount += wbonus / Globals->WORK_FRACTION;
         w->baseamount += wbonus / Globals->WORK_FRACTION;
-        e->amount += wbonus / Globals->ENTERTAIN_FRACTION;
-        e->baseamount += wbonus / Globals->ENTERTAIN_FRACTION;
+        e->amount += (int)((wbonus / Globals->ENTERTAIN_FRACTION) * 0.8f);
+        e->baseamount += (int)((wbonus / Globals->ENTERTAIN_FRACTION) * 0.8f);
     }
 }
 
@@ -354,7 +356,8 @@ void ARegion::DisbandInRegion(int item, int amt)
 void ARegion::Recruit(int amt)
 {
     if (!Globals->DYNAMIC_POPULATION) return;
-    AdjustPop(-amt);
+    int loss = amt * Globals->RECRUIT_POP_LOSS_PERCENT / 100;
+    AdjustPop(-loss);
 }
 
 void ARegion::AdjustPop(int adjustment)
@@ -1061,7 +1064,7 @@ void ARegion::SetupEditRegion()
 void ARegion::UpdateProducts()
 {
     for (auto& prod : products) {
-        int lastbonus = prod->baseamount / 2;
+        int lastbonus = prod->baseamount * 2;
         int bonus = 0;
 
         if (prod->itemtype == I_SILVER && prod->skill == -1) continue;
@@ -1359,11 +1362,12 @@ void ARegion::Grow()
         // less growth of towns in DYNAMIC_POPULATION
         // to balance town creation and population dynamics
         // through migration
-        if (Globals->DYNAMIC_POPULATION) {
+        if (!Globals->VILLAGES_ONLY && Globals->DYNAMIC_POPULATION) {
+            // Standard dynamic population rules, more aggressive slowdown
             tgrowth = tgrowth / 4;
         } else {
-            // With roads can increase wages we need to
-            // reduce settlement growth
+            // Slower growth for non-dynamic pop, or for VILLAGES_ONLY games
+            // to allow villages a better chance to evolve.
             tgrowth = tgrowth / 2;
         }
         // Dampen growth curve at high population levels

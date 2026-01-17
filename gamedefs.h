@@ -703,6 +703,13 @@ public:
 	// SIX months.
 	int DELAY_GROWTH;
 
+	// Percentage of population loss when recruiting (0-100, default 100)
+	// Set to 25 to lose only 1/4 of recruited men from population
+	int RECRUIT_POP_LOSS_PERCENT;
+
+	// Disable PILLAGE order completely (also hides from rules)
+	int DISABLE_PILLAGE;
+
 	// How developed pre-existing towns are at the start of the game
 	// (100 = standard).
 	int TOWN_DEVELOPMENT;

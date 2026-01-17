@@ -21,7 +21,7 @@ Production::Production(int it, int maxamt)
     itemtype = it;
     amount = maxamt;
     if (Globals->RANDOM_ECONOMY)
-        amount += rng::get_random(maxamt);
+        amount += rng::get_random(maxamt / 2);
     baseamount = amount;
     productivity = 10;
     skill = lookup_skill(ItemDefs[it].pSkill);

@@ -621,7 +621,8 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
         f << enclose("li", true) << url("#nocross", "nocross") << '\n' << enclose("li", false);
     f << enclose("li", true) << url("#option", "option") << '\n' << enclose("li", false);
     f << enclose("li", true) << url("#password", "password") << '\n' << enclose("li", false);
-    f << enclose("li", true) << url("#pillage", "pillage") << '\n' << enclose("li", false);
+    if (!Globals->DISABLE_PILLAGE)
+        f << enclose("li", true) << url("#pillage", "pillage") << '\n' << enclose("li", false);
     if (Globals->USE_PREPARE_COMMAND)
         f << enclose("li", true) << url("#prepare", "prepare") << '\n' << enclose("li", false);
     f << enclose("li", true) << url("#produce", "produce") << '\n' << enclose("li", false);
@@ -1005,7 +1006,7 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
     if (!(SkillDefs[S_ENTERTAINMENT].flags & SkillType::DISABLED))
         f << url("#entertain", "ENTERTAIN") << ", ";
     f << url("#move", "MOVE") << ", ";
-    if (Globals->TAX_PILLAGE_MONTH_LONG)
+    if (Globals->TAX_PILLAGE_MONTH_LONG && !Globals->DISABLE_PILLAGE)
         f << url("#pillage", "PILLAGE") << ", ";
     f << url("#produce", "PRODUCE") << ", ";
     if (may_sail)
@@ -2433,7 +2434,7 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
       << "structure.\n" << enclose("p", false);
 
     f << enclose("p", true) << "The first structure built in a region will increase the maximum production of the "
-      << "related product by 25%; the amount added by each additional structure will be half of the the effect of "
+      << "related product by 100%; the amount added by each additional structure will be half of the the effect of "
       << "the previous one.  (Note that if you build enough of the same type of structure in a region, the new "
       << "structures may not add _any_ to the production level).\n"
       << enclose("p", false);
@@ -2693,7 +2694,7 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
     }
 
     f << anchor("economy_taxingpillaging") << '\n';
-    f << enclose("h3", true) << "Taxing/Pillaging:\n" << enclose("h3", false);
+    f << enclose("h3", true) << (Globals->DISABLE_PILLAGE ? "Taxing:\n" : "Taxing/Pillaging:\n") << enclose("h3", false);
     f << enclose("p", true)
       << (Globals->FACTION_LIMIT_TYPE == GameDefs::FACLIM_FACTION_TYPES ?
           (Globals->FACTION_ACTIVITY == FactionActivityRules::DEFAULT ? "War factions" : "Martial factions") :
@@ -2718,25 +2719,33 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
       << "taxers would tax more than the available tax income, the tax income is split evenly among all taxers.\n"
       << enclose("p", false);
 
-    f << enclose("p", true)
-      << (Globals->FACTION_LIMIT_TYPE == GameDefs::FACLIM_FACTION_TYPES
-          ? (Globals->FACTION_ACTIVITY == FactionActivityRules::DEFAULT ? "War factions" : "Martial factions")
-          : "Any faction")
-      << " may also pillage a region. To do this requires the faction to have enough combat ready men in the region "
-      << "to tax half of the available money in the region. The total amount of money that can be pillaged will then "
-      << "be shared out between every combat ready unit that issues the " << url("#pillage", "PILLAGE")
-      << " order. The amount of money collected is equal to twice the available tax money. However, the economy of "
-      << "the region will be seriously damaged by pillaging, and will only slowly recover over time.  Note that "
-      << url("#pillage", "PILLAGE") << " comes before " << url("#tax", "TAX") << ", so a unit performing "
-      << url("#tax", "TAX") << " will collect no money in that region that month.\n"
-      << enclose("p", false);
+    if (!Globals->DISABLE_PILLAGE) {
+        f << enclose("p", true)
+          << (Globals->FACTION_LIMIT_TYPE == GameDefs::FACLIM_FACTION_TYPES
+              ? (Globals->FACTION_ACTIVITY == FactionActivityRules::DEFAULT ? "War factions" : "Martial factions")
+              : "Any faction")
+          << " may also pillage a region. To do this requires the faction to have enough combat ready men in the region "
+          << "to tax half of the available money in the region. The total amount of money that can be pillaged will then "
+          << "be shared out between every combat ready unit that issues the " << url("#pillage", "PILLAGE")
+          << " order. The amount of money collected is equal to twice the available tax money. However, the economy of "
+          << "the region will be seriously damaged by pillaging, and will only slowly recover over time.  Note that "
+          << url("#pillage", "PILLAGE") << " comes before " << url("#tax", "TAX") << ", so a unit performing "
+          << url("#tax", "TAX") << " will collect no money in that region that month.\n"
+          << enclose("p", false);
+    }
 
     f << enclose("p", true) << "It is possible to safeguard one's tax income in regions one controls.  Units"
       << " which have the Guard flag set (using the " << url("#guard", "GUARD") << " order) will block "
       << url("#tax", "TAX") << " orders issued by other factions in the same region, unless you have declared "
-      << "the faction in question Friendly. Units on guard will also block " << url("#pillage", "PILLAGE")
-      << " orders issued by other factions in the same region, regardless of your attitude towards the faction "
-      << "in question, and they will attempt to prevent Unfriendly units from entering the region.  Only units "
+      << "the faction in question Friendly. ";
+    if (!Globals->DISABLE_PILLAGE) {
+        f << "Units on guard will also block " << url("#pillage", "PILLAGE")
+          << " orders issued by other factions in the same region, regardless of your attitude towards the faction "
+          << "in question, and they will attempt to prevent Unfriendly units from entering the region.  ";
+    } else {
+        f << "They will attempt to prevent Unfriendly units from entering the region.  ";
+    }
+    f << "Only units "
       << "which are able to tax may be on guard.  Units on guard "
       << (has_stea ? " are always visible regardless of Stealth skill, and " : "")
       << "will be marked as being \"on guard\" in the region description.\n"
@@ -2836,7 +2845,7 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
     f << enclose("p", true) << "Friendly means that you will accept gifts from units of that faction.  This "
       << "includes the giving of items, units of people, and the teaching of skills.  You will also admit units of "
       << "that faction into buildings or fleets owned by one of your units, and you will permit units of that "
-      << "faction to collect taxes (but not pillage) in regions where you have units on guard.\n"
+      << "faction to collect taxes" << (Globals->DISABLE_PILLAGE ? "" : " (but not pillage)") << " in regions where you have units on guard.\n"
       << enclose("p", false);
     f << enclose("p", true) << "Unfriendly means that you will not admit units of that faction into any region "
       << "where you have units on guard.  You will not, however, automatically attack unfriendly units which are "
@@ -4528,17 +4537,19 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
       << "PASSWORD xyzzy\n"
       << example_end();
 
-    f << enclose(class_tag("div", "rule"), true) << '\n' << enclose("div", false);
-    f << anchor("pillage") << '\n';
-    f << enclose("h4", true) << "PILLAGE\n" << enclose("h4", false);
-    f << enclose("p", true) << "Use force to extort as much money as possible from the region. Note that the "
-      << url("#tax", "TAX") << " order and the PILLAGE order are mutually exclusive; a unit may only attempt "
-      << "to do one in a turn.\n"
-      << enclose("p", false);
-    f << enclose("p", true) << "Example:\n" << enclose("p", false);
-    f << example_start("Pillage the current hex.")
-      << "PILLAGE\n"
-      << example_end();
+    if (!Globals->DISABLE_PILLAGE) {
+        f << enclose(class_tag("div", "rule"), true) << '\n' << enclose("div", false);
+        f << anchor("pillage") << '\n';
+        f << enclose("h4", true) << "PILLAGE\n" << enclose("h4", false);
+        f << enclose("p", true) << "Use force to extort as much money as possible from the region. Note that the "
+          << url("#tax", "TAX") << " order and the PILLAGE order are mutually exclusive; a unit may only attempt "
+          << "to do one in a turn.\n"
+          << enclose("p", false);
+        f << enclose("p", true) << "Example:\n" << enclose("p", false);
+        f << example_start("Pillage the current hex.")
+          << "PILLAGE\n"
+          << example_end();
+    }
 
     if (Globals->USE_PREPARE_COMMAND) {
         f << enclose(class_tag("div", "rule"), true) << '\n' << enclose("div", false);
@@ -4830,9 +4841,11 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
           ? (Globals->FACTION_ACTIVITY == FactionActivityRules::DEFAULT ? "Only War" : "Only Martial")
           : "All")
       << " factions may collect taxes, but only if there are no non-Friendly units on guard. Only combat-ready "
-      << "units may issue this order. Note that the TAX order and the " << url("#pillage", "PILLAGE")
-      << " order are mutually exclusive; a unit may only attempt to do one in a turn.\n"
-      << enclose("p", false);
+      << "units may issue this order.";
+    if (!Globals->DISABLE_PILLAGE)
+        f << " Note that the TAX order and the " << url("#pillage", "PILLAGE")
+          << " order are mutually exclusive; a unit may only attempt to do one in a turn.";
+    f << "\n" << enclose("p", false);
     f << enclose("p", true) << "Example:\n" << enclose("p", false);
     f << example_start("Attempt to collect taxes.")
       << "TAX\n"
@@ -4901,21 +4914,23 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
       << enclose("p", false);
     f << enclose("p", true) << "Examples:\n" << enclose("p", false);
     f << example_start(
-           "Study combat this month, move north next month, and then in two months, pillage and advance north."
+           Globals->DISABLE_PILLAGE
+               ? "Study combat this month, move north next month, and then in two months, tax and advance north."
+               : "Study combat this month, move north next month, and then in two months, pillage and advance north."
          )
       << "STUDY COMB\n"
       << "TURN\n"
       << "    MOVE N\n"
       << "ENDTURN\n"
       << "TURN\n"
-      << "    PILLAGE\n"
+      << (Globals->DISABLE_PILLAGE ? "    TAX\n" : "    PILLAGE\n")
       << "    ADVANCE N\n"
       << "ENDTURN\n"
       << example_end();
     f << example_start("After the turn, the orders for that unit would look as follows in the orders template:")
       << "MOVE N\n"
       << "TURN\n"
-      << "    PILLAGE\n"
+      << (Globals->DISABLE_PILLAGE ? "    TAX\n" : "    PILLAGE\n")
       << "    ADVANCE N\n"
       << "ENDTURN\n"
       << example_end();
@@ -5053,7 +5068,8 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
     f << enclose("li", true) << "Tax orders.\n";
     f << enclose("ul", true);
     f << enclose("li", true) << url("#destroy", "DESTROY") << " orders are processed.\n" << enclose("li", false);
-    f << enclose("li", true) << url("#pillage", "PILLAGE") << " orders are processed.\n" << enclose("li", false);
+    if (!Globals->DISABLE_PILLAGE)
+        f << enclose("li", true) << url("#pillage", "PILLAGE") << " orders are processed.\n" << enclose("li", false);
     f << enclose("li", true) << url("#tax", "TAX") << " orders are processed.\n" << enclose("li", false);
     f << enclose("li", true) << url("#guard", "GUARD") << " 1 orders are processed.\n" << enclose("li", false);
     f << enclose("ul", false);

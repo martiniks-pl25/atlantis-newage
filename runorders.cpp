@@ -653,6 +653,7 @@ void Game::RunTaxRegion(ARegion *reg)
 
 void Game::RunPillageOrders()
 {
+    if (Globals->DISABLE_PILLAGE) return;
     for(const auto r : regions) RunPillageRegion(r);
 }
 
