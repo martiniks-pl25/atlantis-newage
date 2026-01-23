@@ -431,7 +431,9 @@ void Game::CreateWorld()
         float default_redistribution = 2;  // Even gentler elevation (avoid too much flat land)
         float default_evoparation = 0.74;    // Maximum evaporation = maximum rainfall (ensure forests)
         float default_waterPercent = 0.36;   // 50% base ocean (more moisture sources)
-        float default_mountainPercent = 0.08;
+        float default_mountainPercent = 0.10;
+        float default_hillPercent = 0.60;
+        float default_lakePercent = 0.15;  // 15% chance for lake placement
 
         // Polar archipelago parameters (control polar island fragmentation)
         float default_polarLatitudeStart = 65.0;   // Latitude where island effect begins (60-75°, lower = more area affected)
@@ -452,6 +454,8 @@ void Game::CreateWorld()
         logger::write("  Land/Water distribution:");
         logger::write("    Water: " + std::to_string((int)(default_waterPercent * 100)) + "%");
         logger::write("    Mountains: " + std::to_string((int)(default_mountainPercent * 100)) + "%");
+        logger::write("    Hills: " + std::to_string((int)(default_hillPercent * 100)) + "%");
+        logger::write("    Lake chance: " + std::to_string((int)(default_lakePercent * 100)) + "%");
         logger::write("  Climate:");
         logger::write("    Rainfall balance: " + std::to_string(default_evoparation) +
                       " (higher = drier)");
@@ -485,6 +489,10 @@ void Game::CreateWorld()
                                                    default_waterPercent, 0.05, 0.90);
             map->mountainPercent = ask_parameter_float("Mountain percentage (0.0-0.50)",
                                                        default_mountainPercent, 0.0, 0.50);
+            map->hillPercent = ask_parameter_float("Hill percentage (0.0-1.00)",
+                                                   default_hillPercent, 0.0, 0.50);
+            map->lakePercent = ask_parameter_float("Lake placement chance (0.0-1.00)",
+                                                   default_lakePercent, 0.0, 1.0);
 
             // Climate (IMPORTANT: higher evoparation = MORE evaporation = WETTER world)
             map->evoparation = ask_parameter_float("Rainfall balance (0.0-1.0, higher=WETTER)",
@@ -504,6 +512,8 @@ void Game::CreateWorld()
             map->evoparation = default_evoparation;
             map->waterPercent = default_waterPercent;
             map->mountainPercent = default_mountainPercent;
+            map->hillPercent = default_hillPercent;
+            map->lakePercent = default_lakePercent;
             map->polarLatitudeStart = default_polarLatitudeStart;
             map->polarIslandBlend = default_polarIslandBlend;
             map->polarElevationRedux = default_polarElevationRedux;

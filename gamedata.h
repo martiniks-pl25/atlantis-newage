@@ -469,6 +469,7 @@ enum {
     R_PLAIN,
     R_FOREST,
     R_MOUNTAIN,
+    R_HILL,
     R_SWAMP,
     R_JUNGLE,
     R_DESERT,

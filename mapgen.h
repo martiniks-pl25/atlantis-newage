@@ -39,7 +39,8 @@
 #define B_JUNGLE         6
 #define B_DESERT         7
 #define B_WATER          8
-#define B_COUNT          9
+#define B_HILLS          9
+#define B_COUNT          10
 
 struct Vapor {
     int echelon;
@@ -143,6 +144,8 @@ public:
     double amplitude;
     double waterPercent;
     double mountainPercent;
+    double hillPercent;
+    double lakePercent;
 
     // Polar archipelago parameters (configurable in world.cpp)
     double polarLatitudeStart;    // Latitude where island effect begins (degrees, 60-75)

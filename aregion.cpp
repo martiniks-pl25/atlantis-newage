@@ -201,8 +201,8 @@ void ARegion::MakeLair(int t)
 {
     Object *o = new Object(this);
     o->num = buildingseq++;
-    o->set_name(ObjectDefs[t].name);
     o->type = t;
+    o->set_name(ObjectDefs[t].name);
     o->incomplete = 0;
     o->inner = -1;
     objects.push_back(o);
@@ -2432,6 +2432,7 @@ int mapBiome(int biome) {
     switch (biome) {
         case B_TUNDRA: return R_TUNDRA;
         case B_MOUNTAINS: return R_MOUNTAIN;
+        case B_HILLS: return R_HILL;
         case B_SWAMP: return R_SWAMP;
         case B_FOREST: return R_FOREST;
         case B_PLAINS: return R_PLAIN;
@@ -2891,7 +2892,7 @@ void placeVolcanoes(ARegionArray* arr, const int w, const int h) {
             int mountains = countNeighbors(graph, reg, R_MOUNTAIN, rng::make_roll(1, 3) + 1);
             int volcanoes = countNeighbors(graph, reg, R_VOLCANO, 2);
 
-            if (volcanoes == 0 && mountains >= (rng::make_roll(3, 3) + 2)) {
+            if (volcanoes == 0 && mountains >= (rng::make_roll(2, 3) + 2)) {
                 reg->type = R_VOLCANO;
             }
         }
@@ -2900,6 +2901,62 @@ void placeVolcanoes(ARegionArray* arr, const int w, const int h) {
 
 void ARegionList::PlaceVolcanos(ARegionArray *arr) {
     placeVolcanoes(arr, arr->x, arr->y);
+}
+
+// Forward declaration for distance function
+int distance(graphs::Location2D a, graphs::Location2D b);
+
+void placeLakes(ARegionArray* arr, const int w, const int h, double lakePercent) {
+    logger::write("Placing lakes");
+
+    // Create graph for neighbor counting
+    ARegionGraph graph = ARegionGraph(arr);
+
+    // Convert lakePercent (0.0-1.0) to percentage (0-100)
+    int lakeChance = (int)(lakePercent * 100);
+
+    // Iterate through all regions in map order
+    for (int x = 0; x < w; x++) {
+        for (int y = 0; y < h; y++) {
+            // Only even coordinates (hex grid structure)
+            if ((x + y) % 2) continue;
+
+            ARegion* reg = arr->GetRegion(x, y);
+            if (!reg) continue;
+
+            // Skip unsuitable terrain types
+            if (reg->type == R_OCEAN || reg->type == R_MOUNTAIN ||
+                reg->type == R_VOLCANO || reg->type == R_LAKE) {
+                continue;
+            }
+
+            // Lakes must be inland (no ocean neighbors)
+            int oceanNeighbors = countNeighbors(graph, reg, R_OCEAN, 1);
+            if (oceanNeighbors > 0) continue;
+
+            // Random distance constraints for this region
+            int minLakeDistance = rng::make_roll(2, 3) + 1; // 3-7 hexes
+            int minVolcanoDistance = rng::make_roll(1, 2) + 1;  // 2-3 hexes
+
+            // Check for nearby lakes
+            int lakesNearby = countNeighbors(graph, reg, R_LAKE, minLakeDistance);
+            if (lakesNearby > 0) continue;
+
+            // Check for nearby volcanoes
+            int volcanoesNearby = countNeighbors(graph, reg, R_VOLCANO, minVolcanoDistance);
+            if (volcanoesNearby > 0) continue;
+
+            // Random chance (configurable probability)
+            if (rng::make_roll(1, 100) > lakeChance) continue;
+
+            // Place the lake
+            reg->type = R_LAKE;
+            reg->wages = AGetName(0, reg);
+            logger::dot();
+        }
+    }
+
+    logger::write("");
 }
 
 int distance(graphs::Location2D a, graphs::Location2D b) {
@@ -3430,13 +3487,13 @@ void addAncientStructure(ARegion* reg, int type, double damage, std::optional<st
     int num = reg->buildingseq++;
     int needs = std::clamp(0, (int) (info.cost * damage), info.cost - 1);
     obj->num = num;
+    obj->type = type;
 
     if (!name) name = getObjectName(type, info);
 
     obj->set_name(*name);
     logger::write("+ " + obj->name + " : " + info.name + ", needs " + std::to_string(needs));
 
-    obj->type = type;
     obj->incomplete = needs;
 
     reg->objects.push_back(obj);
@@ -3705,6 +3762,8 @@ void ARegionList::create_natural_surface_level(Map* map) {
     cleanupIsolatedPlaces(arr, waterBodies, rivers, w, h);
 
     placeVolcanoes(arr, w, h);
+
+    placeLakes(arr, w, h, map->lakePercent);
 
     GrowRaces(arr);
 

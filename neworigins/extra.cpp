@@ -1289,13 +1289,13 @@ void Game::ModifyTablesPerRuleset(void)
 
     EnableItem(I_MAN);
     ModifyItemBasePrice(I_MAN, 40);
-    modify_race_skill_levels("HUMN", 4, 2);
-    modify_race_skills("HUMN", 0, "BUIL");
-    modify_race_skills("HUMN", 1, "RIDI");
-    modify_race_skills("HUMN", 2, "COMB");
-    modify_race_skills("HUMN", 3, "MINI");
-    modify_race_skills("HUMN", 4, "FARM");
-    modify_race_skills("HUMN", 5, "COOK");
+    modify_race_skill_levels("HUMN", 4, 4);
+//    modify_race_skills("HUMN", 0, "BUIL");
+//    modify_race_skills("HUMN", 1, "RIDI");
+//    modify_race_skills("HUMN", 2, "COMB");
+//    modify_race_skills("HUMN", 3, "MINI");
+//    modify_race_skills("HUMN", 4, "FARM");
+//    modify_race_skills("HUMN", 5, "COOK");
 
     EnableItem(I_HILLDWARF);
     ModifyItemBasePrice(I_HILLDWARF, 40);
@@ -1412,6 +1412,15 @@ void Game::ModifyTablesPerRuleset(void)
     modify_race_skills("UDWA", 3, "MINI");
     modify_race_skills("UDWA", 4, "BUIL");
 
+    EnableItem(I_FAIRY);
+    ModifyItemBasePrice(I_FAIRY, 200);
+    modify_race_skill_levels("FAIR", 4, 2);
+    modify_race_skills("FAIR", 0, "OBSE");
+    modify_race_skills("FAIR", 1, "HEAL");
+    modify_race_skills("FAIR", 2, "HERB");
+    modify_race_skills("FAIR", 3, "ENTE");
+    ModifyItemCapacities(I_FAIRY,7,0,7,0);
+    ModifyItemWeight(I_FAIRY, 5);
 
     //
     // Change races per terrain
@@ -1446,7 +1455,16 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainCoastRace(R_MOUNTAIN, 0, I_HILLDWARF);
     ModifyTerrainCoastRace(R_MOUNTAIN, 1, I_ORC);
     ModifyTerrainCoastRace(R_MOUNTAIN, 2, I_MAN);
-    ModifyTerrainEconomy(R_MOUNTAIN, 350, 11, 18, 2);
+    ModifyTerrainEconomy(R_MOUNTAIN, 300, 11, 10, 2);
+
+    ClearTerrainRaces(R_HILL);
+    ModifyTerrainRace(R_HILL, 0, I_HILLDWARF);
+    ModifyTerrainRace(R_HILL, 1, I_ORC);
+    ModifyTerrainRace(R_HILL, 2, I_MAN);
+    ModifyTerrainCoastRace(R_HILL, 0, I_HILLDWARF);
+    ModifyTerrainCoastRace(R_HILL, 1, I_ORC);
+    ModifyTerrainCoastRace(R_HILL, 2, I_MAN);
+    ModifyTerrainEconomy(R_HILL, 450, 12, 18, 2);
 
     ClearTerrainRaces(R_SWAMP);
     ModifyTerrainRace(R_SWAMP, 0, I_LIZARDMAN);
@@ -1485,6 +1503,12 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainCoastRace(R_TUNDRA, 1, I_GNOME);
     ModifyTerrainCoastRace(R_TUNDRA, 2, I_GNOLL);
     ModifyTerrainEconomy(R_TUNDRA, 350, 11, 10, 2);
+
+    ClearTerrainRaces(R_GROTTO);
+    ModifyTerrainRace(R_GROTTO, 0, I_UNDERDWARF);
+    ModifyTerrainRace(R_GROTTO, 1, I_ORC);
+    ModifyTerrainRace(R_GROTTO, 2, I_GOBLINMAN);
+    ModifyTerrainCoastRace(R_GROTTO, 0, I_DROWMAN);
 
     // Underworld terrain
 

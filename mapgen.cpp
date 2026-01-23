@@ -358,6 +358,8 @@ Map::Map(int width, int height) : map(CellMap(width, height)) {
 
     waterPercent = 0.2;
     mountainPercent = 0.2;
+    hillPercent = 0.50;
+    lakePercent = 0.15;  // 15% chance for lake placement
 
     // Polar archipelago defaults
     polarLatitudeStart = 70.0;
@@ -468,31 +470,55 @@ void Map::Generate() {
     int waterCells = 0;
     int seaLevel = minElevation;
 
-    int maxMountainCells = len * mountainPercent;
-    int mountainCells = 0;
-    int mountainLevel = maxElevation;
-
     for (auto &kv : hist) {
         if (waterCells >= maxWaterCells) {
             break;
         }
-
         seaLevel = kv.first;
         waterCells += kv.second;
     }
 
-    for (auto iter = hist.rbegin(); iter != hist.rend(); iter++) {
-        if (mountainCells >= maxMountainCells) {
+    // 2. determine hill and mountain levels
+    // First, find the total number of cells that should be mountainous (hills + mountains).
+    int targetMountainousCells = len * mountainPercent;
+
+    // Find the base level for all elevated terrain (hills and mountains)
+    int mountainousCellsFound = 0; // Tracks cells from the top down
+    int baseMountainLevel = maxElevation;
+    for (auto iter = hist.rbegin(); iter != hist.rend(); ++iter) {
+        if (iter->first <= seaLevel) continue; // Skip water cells
+
+        mountainousCellsFound += iter->second;
+        if (mountainousCellsFound >= targetMountainousCells) {
+            baseMountainLevel = iter->first;
             break;
         }
-
-        mountainLevel = iter->first;
-        mountainCells += iter->second;
     }
 
+    // Now, count the ACTUAL number of cells at or above baseMountainLevel (but not water)
+    int actualMountainousCellsInBlock = 0;
+    for (auto const& [elevation, count] : hist) {
+        if (elevation >= baseMountainLevel && elevation > seaLevel) {
+            actualMountainousCellsInBlock += count;
+        }
+    }
 
-    // 2. determine water and mountains
-    logger::write("2. determine water and mountains");
+    // Then, within this block, find the threshold that separates hills from mountains
+    int hillCellTarget = (int)(actualMountainousCellsInBlock * hillPercent);
+    int hillCellsFound = 0;
+    int mountainLevel = baseMountainLevel; // Initialize with base, will move up if hills exist
+
+    // Iterate from baseMountainLevel upwards to find the split
+    for (auto const& [elevation, count] : hist) {
+        if (elevation < baseMountainLevel || elevation <= seaLevel) continue; // Only consider within the mountainous block, above sea level
+
+        hillCellsFound += count;
+        if (hillCellsFound >= hillCellTarget) {
+            mountainLevel = elevation + 1; // The next level up is a mountain
+            break;
+        }
+    }
+
 
     for (auto item : map.items) {
         if (item->biome != B_UNKNOWN) {
@@ -502,9 +528,11 @@ void Map::Generate() {
         if (item->elevation <= seaLevel) {
             auto blob = fillByElevation(&map, item, B_WATER, { minElevation, seaLevel });
             blobs.push_back(blob);
-        }
-        else if (item->elevation >= mountainLevel) {
+        } else if (item->elevation >= mountainLevel) {
             auto blob = fillByElevation(&map, item, B_MOUNTAINS, { mountainLevel, maxElevation });
+            blobs.push_back(blob);
+        } else if (item->elevation >= baseMountainLevel) {
+            auto blob = fillByElevation(&map, item, B_HILLS, { baseMountainLevel, mountainLevel - 1 });
             blobs.push_back(blob);
         }
     }

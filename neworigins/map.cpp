@@ -1664,8 +1664,8 @@ void ARegionList::create_abyss_level(int level, const std::string& name)
     } while(!lair || lair == reg);
     Object *o = new Object(lair);
     o->num = lair->buildingseq++;
-    o->set_name(ObjectDefs[O_BKEEP].name);
     o->type = O_BKEEP;
+    o->set_name(ObjectDefs[O_BKEEP].name);
     o->incomplete = 0;
     o->inner = -1;
     lair->objects.push_back(o);
@@ -1793,8 +1793,8 @@ void ARegionList::create_island_ring_level(int level, int xSize, int ySize, cons
         if (n) {
             Object *o = new Object(n);
             o->num = n->buildingseq++;
-            o->set_name(ObjectDefs[O_RITUAL_ALTAR].name);
             o->type = O_RITUAL_ALTAR;
+            o->set_name(ObjectDefs[O_RITUAL_ALTAR].name);
             o->incomplete = -(ObjectDefs[O_RITUAL_ALTAR].sacrifice_amount);
             n->objects.push_back(o);
         }
@@ -1844,16 +1844,16 @@ void ARegionList::create_underworld_ring_level(int level, int xSize, int ySize, 
     ARegion *center = surface->GetRegion(surface->x/2, surface->y/2);
     Object *o = new Object(reg);
     o->num = reg->buildingseq++;
-    o->set_name("Shaft");
     o->type = O_SHAFT;
+    o->set_name("Shaft");
     o->incomplete = 0;
     o->inner = center->num;
     reg->objects.push_back(o);
 
     o = new Object(center);
     o->num = center->buildingseq++;
-    o->set_name("Shaft");
     o->type = O_SHAFT;
+    o->set_name("Shaft");
     o->incomplete = 0;
     o->inner = reg->num;
     center->objects.push_back(o);
@@ -1861,8 +1861,8 @@ void ARegionList::create_underworld_ring_level(int level, int xSize, int ySize, 
     // Put the monolith in the underworld center
     o = new Object(reg);
     o->num = reg->buildingseq++;
-    o->set_name(ObjectDefs[O_DORMANT_MONOLITH].name);
     o->type = O_DORMANT_MONOLITH;
+    o->set_name(ObjectDefs[O_DORMANT_MONOLITH].name);
     o->incomplete = -(ObjectDefs[O_DORMANT_MONOLITH].sacrifice_amount);
     reg->objects.push_back(o);
 
@@ -2842,16 +2842,16 @@ void ARegionList::MakeShaft(ARegion *reg, ARegionArray *pFrom, ARegionArray *pTo
 
     Object *o = new Object(reg);
     o->num = reg->buildingseq++;
-    o->set_name("Shaft");
     o->type = O_SHAFT;
+    o->set_name("Shaft");
     o->incomplete = 0;
     o->inner = temp->num;
     reg->objects.push_back(o);
 
     o = new Object(temp);
     o->num = temp->buildingseq++;
-    o->set_name("Shaft");
     o->type = O_SHAFT;
+    o->set_name("Shaft");
     o->incomplete = 0;
     o->inner = reg->num;
     temp->objects.push_back(o);
@@ -2947,16 +2947,16 @@ void ARegionList::CreateSmartShafts(int levelFrom, int levelTo, int minDistanceS
         // Create the O_SHAFT object on the upper level.
         Object* down = new Object(src);
         down->num = src->buildingseq++;
-        down->set_name("Ancient Shaft");
         down->type = O_SHAFT;
+        down->set_name("Ancient Shaft");
         down->inner = dst->num;
         src->objects.push_back(down);
 
         // Create the O_SHAFT object on the lower level.
         Object* up = new Object(dst);
         up->num = dst->buildingseq++;
-        up->set_name("Ancient Shaft");
         up->type = O_SHAFT;
+        up->set_name("Ancient Shaft");
         up->inner = src->num;
         dst->objects.push_back(up);
 
@@ -3046,8 +3046,8 @@ void ARegionList::SetACNeighbors(int levelSrc, int levelTo, int maxX, int maxY)
                 for (int type = R_PLAIN; type <= R_TUNDRA; type++) {
                     Object *o = new Object(AC);
                     o->num = AC->buildingseq++;
-                    o->set_name("Gateway to " + std::string(TerrainDefs[type].name));
                     o->type = O_GATEWAY;
+                    o->set_name("Gateway to " + std::string(TerrainDefs[type].name));
                     o->incomplete = 0;
                     o->inner = dests[type]->num;
                     AC->objects.push_back(o);
@@ -3193,16 +3193,16 @@ void ARegionList::FixUnconnectedRegions()
                     if (n) {
                         o = new Object(n);
                         o->num = n->buildingseq++;
-                        o->set_name("Shaft");
                         o->type = O_SHAFT;
+                        o->set_name("Shaft");
                         o->incomplete = 0;
                         o->inner = target->num;
                         n->objects.push_back(o);
 
                         o = new Object(target);
                         o->num = target->buildingseq++;
-                        o->set_name("Shaft");
                         o->type = O_SHAFT;
+                        o->set_name("Shaft");
                         o->incomplete = 0;
                         o->inner = n->num;
                         target->objects.push_back(o);
