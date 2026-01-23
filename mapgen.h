@@ -147,6 +147,10 @@ public:
     double hillPercent;
     double lakePercent;
 
+    // Historical buildings generation (world creation)
+    bool generateHistoricalRoads;              // Generate ancient roads between cities
+    bool generateHistoricalProductionBuildings; // Generate ruined production buildings for basic resources
+
     // Polar archipelago parameters (configurable in world.cpp)
     double polarLatitudeStart;    // Latitude where island effect begins (degrees, 60-75)
     double polarIslandBlend;      // Strength of island fragmentation (0.0-1.0)

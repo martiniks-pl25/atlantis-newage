@@ -3499,64 +3499,101 @@ void addAncientStructure(ARegion* reg, int type, double damage, std::optional<st
     reg->objects.push_back(obj);
 }
 
-void ARegionList::AddHistoricalBuildings(ARegionArray* arr, const int w, const int h) {
+// ============================================================================
+// AddHistoricalBuildings: Generate ancient/ruined structures during world creation
+//
+// This function creates historical buildings in 4 phases:
+// Phase 1: Defensive structures (castles, forts, towers) and inns
+// Phase 2: Production buildings for basic resources (optional)
+// Phase 3: Calculate shortest paths between cities using Dijkstra
+// Phase 4: Build ancient road networks connecting nearby cities (optional)
+// ============================================================================
+void ARegionList::AddHistoricalBuildings(ARegionArray* arr, const int w, const int h, Map* map) {
     std::vector<ARegion*> cities;
+
+    // ========================================================================
+    // PHASE 1: Defensive structures and inns
+    // ========================================================================
+    // Creates ancient castles, forts, towers based on town/region population
+    // Also creates inns in towns based on town type (village/town/city)
+    // All structures are partially damaged (need repair to complete)
+    // ========================================================================
 
     for (int x = 0; x < w; x++) {
         for (int y = 0; y < h; y++) {
+            // Skip invalid hex coordinates (only process valid game hexes)
             if ((x + y) % 2) {
                 continue;
             }
 
             ARegion* reg = arr->GetRegion(x, y);
+
+            // Collect all cities for road network generation (Phase 4)
             if (reg->town && reg->town->TownType() == TOWN_CITY) {
                 cities.push_back(reg);
             }
 
             TerrainType* terrain = &(TerrainDefs[reg->type]);
 
+            // Skip uninhabitable terrain (ocean, volcano, barren)
             if (reg->type == R_OCEAN || reg->type == R_VOLCANO || terrain->flags & TerrainType::BARREN) {
                 continue;
             }
 
+            // --- Regions with towns ---
             if (reg->town) {
+                // Large cities (8000+): 37% chance of ancient castle
+                // Probability: 3d6 >= 12 (37% chance)
+                // Damage: 0-91% (random 2d6-1 divided by 12)
                 if (reg->town->pop > 8000) {
                     if (rng::make_roll(3, 6) >= 12) {
                         addAncientStructure(reg, O_CASTLE, (rng::make_roll(2, 6) - 1) / 12.0);
                     }
-                } else if (reg->town->pop > 4000) {
+                }
+                // Medium towns (4000-8000): 16% chance of ancient fort
+                // Probability: 3d6 >= 14 (16% chance)
+                else if (reg->town->pop > 4000) {
                     if (rng::make_roll(3, 6) >= 14) {
                         addAncientStructure(reg, O_FORT, (rng::make_roll(2, 6) - 1) / 12.0);
                     }
-                } else if (reg->town->pop > 2000) {
-                    if (rng::make_roll(3, 6) >= 16) {
+                }
+                // Small towns (2000-4000): 16% chance of ancient tower
+                // Probability: 3d6 >= 14 (16% chance)
+                else if (reg->town->pop > 2000) {
+                    if (rng::make_roll(3, 6) >= 14) {
                         addAncientStructure(reg, O_TOWER, (rng::make_roll(2, 6) - 1) / 12.0);
                     }
                 }
 
+                // Generate ancient inns based on town type
+                // Villages (type=0): 1d6 roll, Cities (type=2): 3d6 roll
+                // Higher rolls = more inns, last inn may be more damaged
                 int roll = rng::make_roll(reg->town->TownType() + 1, 6);
-                int count = ceil(roll / 6);
-                int damage = 6 - roll % 6;
+                int count = ceil(roll / 6);          // Number of inns to create
+                int damage = 6 - roll % 6;           // Damage for last inn (0-5)
 
                 for (int i = 0; i < count; i++) {
                     double damagePoints = 0;
+                    // Last inn gets additional damage if damage >= 3
                     if (i == count - 1) {
                         if (damage >= 3) {
-                            break;
+                            break;  // Too damaged to create
                         }
-
-                        damagePoints = damage / 6.0;
+                        damagePoints = damage / 6.0;  // 0-33% damage
                     }
-
                     addAncientStructure(reg, O_INN, damagePoints);
                 }
             }
+            // --- Regions without towns (wilderness) ---
             else {
+                // High population wilderness (2000+): 4% chance of fort
                 if (reg->population > 2000) {
                     if (rng::make_roll(3, 6) >= 16) {
                         addAncientStructure(reg, O_FORT, (rng::make_roll(2, 6) - 1) / 12.0);
                     }
-                } else if (reg->population > 1000) {
+                }
+                // Medium population wilderness (1000-2000): 1% chance of tower
+                else if (reg->population > 1000) {
                     if (rng::make_roll(3, 6) >= 17) {
                         addAncientStructure(reg, O_TOWER, (rng::make_roll(2, 6) - 1) / 12.0);
                     }
@@ -3565,150 +3602,280 @@ void ARegionList::AddHistoricalBuildings(ARegionArray* arr, const int w, const i
         }
     }
 
-    ARegionGraph graph = ARegionGraph(arr);
+    // ========================================================================
+    // PHASE 2: Production buildings for basic resources (optional)
+    // ========================================================================
+    // Creates ruined production buildings (farms, mines, etc.) based on
+    // resources available in each region. Only one building per region.
+    // Buildings are heavily damaged (20-80% damage) requiring repair.
+    // Probability: 40-50% for towns, 5-10% for wilderness
+    // ========================================================================
 
-    graph.setInclusion([](ARegion* current, ARegion* next) {
-        return next->type != R_OCEAN && next->type != R_VOLCANO;
-    });
+    if (map->generateHistoricalProductionBuildings) {
+        // Mapping: resource item -> production building type
+        std::map<int, int> resourceToBuilding = {
+            {I_GRAIN,     O_FARM},          // Grain -> Farm
+            {I_LIVESTOCK, O_RANCH},         // Livestock -> Ranch
+            {I_WOOD,      O_TIMBERYARD},    // Wood -> Timber Yard
+            {I_IRON,      O_MINE},          // Iron -> Mine
+            {I_STONE,     O_QUARRY},        // Stone -> Quarry
+            {I_FUR,       O_TRAPPINGHUT},   // Fur -> Trapping Hut
+            {I_HERBS,     O_TEMPLE},        // Herbs -> Temple
+            {I_HORSE,     O_STABLE},        // Horse -> Stable
+        };
 
-    graph.setCost([](ARegion* current, ARegion* next) {
-        switch (next->type) {
-            case R_MOUNTAIN:
-            case R_FOREST:
-            case R_JUNGLE:
-            case R_SWAMP:
-            case R_TUNDRA:
-                return 2;
+        for (int x = 0; x < w; x++) {
+            for (int y = 0; y < h; y++) {
+                // Skip invalid hex coordinates
+                if ((x + y) % 2) {
+                    continue;
+                }
 
-            case R_PLAIN:
-            case R_DESERT:
-                return 1;
+                ARegion* reg = arr->GetRegion(x, y);
 
-            default:
-                return 0;
-        }
-    });
+                // Skip uninhabitable terrain
+                if (reg->type == R_OCEAN || reg->type == R_VOLCANO) {
+                    continue;
+                }
 
-    size_t sz = cities.size();
-    int distances[sz][sz];
-    for (size_t i = 0; i < sz; i++) {
-        for (size_t j = i + 1; j < sz; j++) {
-            if (i == j) {
-                distances[i][j] = 0;
-                continue;
+                // Collect all basic resources available in this region
+                std::vector<int> availableResources;
+                for (const auto& prod : reg->products) {
+                    int itemType = prod->itemtype;
+                    // Check if this resource has a production building
+                    if (resourceToBuilding.find(itemType) != resourceToBuilding.end()) {
+                        availableResources.push_back(itemType);
+                    }
+                }
+
+                // Skip if no basic resources in this region
+                if (availableResources.empty()) {
+                    continue;
+                }
+
+                // Choose one random resource from available resources
+                int randomIndex = rng::get_random(availableResources.size());
+                int chosenResource = availableResources[randomIndex];
+                int buildingType = resourceToBuilding[chosenResource];
+
+                // Determine probability based on whether region has a town
+                int probability;
+                if (reg->town) {
+                    // Towns: 40-50% chance
+                    probability = 40 + rng::get_random(21);  // 40-60%
+                } else {
+                    // Wilderness: 5-10% chance
+                    probability = 5 + rng::get_random(16);    // 5-20%
+                }
+
+                // Roll for building creation
+                if (rng::get_random(100) < probability) {
+                    // Generate damage: 30-80% (buildings need significant repair)
+                    // Formula: 0.3 + random(0.0-0.6) = 0.3-0.8
+                    double damage = 0.3 + (rng::get_random(51) / 100.0);
+
+                    // Generate race-specific, resource-specific building name
+                    std::string buildingName = getProductionBuildingName(buildingType, chosenResource, reg->race);
+
+                    addAncientStructure(reg, buildingType, damage, buildingName);
+                }
             }
+        }
+    }
 
+    // ========================================================================
+    // PHASE 3 & 4: Ancient road network generation (optional)
+    // ========================================================================
+    // Phase 3: Calculate shortest paths between all cities using Dijkstra
+    // Phase 4: Build ancient roads connecting nearby cities (within 8 hexes)
+    // Roads are directional structures placed in both regions they connect
+    // ========================================================================
+
+    if (map->generateHistoricalRoads) {
+        // --- Phase 3: Setup pathfinding graph ---
+        // Configure graph for Dijkstra pathfinding between cities
+        ARegionGraph graph = ARegionGraph(arr);
+
+        // Exclude ocean and volcano hexes from road paths
+        graph.setInclusion([](ARegion* current, ARegion* next) {
+            return next->type != R_OCEAN && next->type != R_VOLCANO;
+        });
+
+        // Terrain movement costs for pathfinding
+        // Difficult terrain (mountains, forests) = 2 cost
+        // Easy terrain (plains, desert) = 1 cost
+        graph.setCost([](ARegion* current, ARegion* next) {
+            switch (next->type) {
+                case R_MOUNTAIN:
+                case R_FOREST:
+                case R_JUNGLE:
+                case R_SWAMP:
+                case R_TUNDRA:
+                    return 2;  // Difficult terrain
+
+                case R_PLAIN:
+                case R_DESERT:
+                    return 1;  // Easy terrain
+
+                default:
+                    return 0;
+            }
+        });
+
+        // --- Calculate distances between all city pairs ---
+        // Uses Dijkstra's algorithm to find shortest path between each city pair
+        // Stores results in symmetric distance matrix for Phase 4
+        size_t sz = cities.size();
+        int distances[sz][sz];
+
+        for (size_t i = 0; i < sz; i++) {
+            for (size_t j = i + 1; j < sz; j++) {
+                // Skip diagonal (city to itself)
+                if (i == j) {
+                    distances[i][j] = 0;
+                    continue;
+                }
+
+                auto start = cities[i];
+                auto end = cities[j];
+
+                graphs::Location2D startLoc = { .x = start->xloc, .y = start->yloc };
+                graphs::Location2D endLoc = { .x = end->xloc, .y = end->yloc };
+
+                // Run Dijkstra pathfinding from start to end city
+                std::unordered_map<graphs::Location2D, graphs::Location2D> cameFrom;
+                std::unordered_map<graphs::Location2D, double> costSoFar;
+                graphs::dijkstraSearch(graph, startLoc, endLoc, cameFrom, costSoFar);
+
+                // Count hexes in shortest path by backtracking from end to start
+                int dist = 0;
+                while (endLoc != startLoc) {
+                    dist++;
+                    endLoc = cameFrom[endLoc];
+                }
+
+                // Store distance in symmetric matrix
+                if (dist) {
+                    distances[i][j] = dist;
+                    distances[j][i] = dist;
+                }
+                else {
+                    distances[i][j] = 0;
+                    distances[j][i] = 0;
+                }
+            }
+        }
+
+        // --- Phase 4: Build ancient roads between nearby cities ---
+        // Only connect cities within 8 hexes distance
+        // Each city connects to at most one other city (prevents over-connecting)
+        // Roads are directional (separate road object in each region)
+        std::unordered_set<ARegion*> connected;
+
+        for (size_t i = 0; i < sz; i++) {
             auto start = cities[i];
-            auto end = cities[j];
 
-            graphs::Location2D startLoc = { .x = start->xloc, .y = start->yloc };
-            graphs::Location2D endLoc = { .x = end->xloc, .y = end->yloc };
-
-            std::unordered_map<graphs::Location2D, graphs::Location2D> cameFrom;
-            std::unordered_map<graphs::Location2D, double> costSoFar;
-            graphs::dijkstraSearch(graph, startLoc, endLoc, cameFrom, costSoFar);
-
-            int dist = 0;
-            while (endLoc != startLoc) {
-                dist++;
-                endLoc = cameFrom[endLoc];
-            }
-
-            if (dist) {
-                distances[i][j] = dist;
-                distances[j][i] = dist;
-            }
-            else {
-                distances[i][j] = 0;
-                distances[j][i] = 0;
-            }
-        }
-    }
-
-    std::unordered_set<ARegion*> connected;
-    for (size_t i = 0; i < sz; i++) {
-        auto start = cities[i];
-
-        if (connected.find(start) != connected.end()) {
-            continue;
-        }
-
-        for (size_t j = 0; j < sz; j++) {
-            auto dist = distances[i][j];
-            if (!dist || dist > 8) {
+            // Skip if this city already has a road connection
+            if (connected.find(start) != connected.end()) {
                 continue;
             }
 
-            auto end = cities[j];
-            if (connected.find(end) != connected.end()) {
-                continue;
-            }
+            for (size_t j = 0; j < sz; j++) {
+                auto dist = distances[i][j];
 
-            connected.emplace(start);
-            connected.emplace(end);
-
-            std::string name = "Road to " + end->town->name;
-
-            graphs::Location2D startLoc = { .x = start->xloc, .y = start->yloc };
-            graphs::Location2D endLoc = { .x = end->xloc, .y = end->yloc };
-
-            std::unordered_map<graphs::Location2D, graphs::Location2D> cameFrom;
-            std::unordered_map<graphs::Location2D, double> costSoFar;
-            graphs::dijkstraSearch(graph, startLoc, endLoc, cameFrom, costSoFar);
-
-            ARegion* endReg = end;
-            while (endLoc != startLoc) {
-                endLoc = cameFrom[endLoc];
-
-                ARegion *current = GetRegion(endLoc.x, endLoc.y, end->zloc);
-
-                int dir;
-                for (dir = 0; dir < NDIRS; dir++) {
-                    if (current->neighbors[dir] == endReg) {
-                        break;
-                    }
+                // Skip if same city, unreachable, or too far (>8 hexes)
+                if (!dist || dist > 8) {
+                    continue;
                 }
 
-                int opositeDir = (dir + 3) % NDIRS;
+                auto end = cities[j];
 
-                int ROAD_BUILDINGS[NDIRS];
-                ROAD_BUILDINGS[D_NORTH] = O_ROADN;
-                ROAD_BUILDINGS[D_NORTHEAST] = O_ROADNE;
-                ROAD_BUILDINGS[D_NORTHWEST] = O_ROADNW;
-                ROAD_BUILDINGS[D_SOUTH] = O_ROADS;
-                ROAD_BUILDINGS[D_SOUTHEAST] = O_ROADSE;
-                ROAD_BUILDINGS[D_SOUTHWEST] = O_ROADSW;
+                // Skip if destination city already has a road connection
+                if (connected.find(end) != connected.end()) {
+                    continue;
+                }
 
-                if (rng::get_random(3)) {
-                    bool canBuild = true;
-                    for(const auto o : current->objects) {
-                        if (o->type == ROAD_BUILDINGS[dir]) {
-                            canBuild = false;
+                // Mark both cities as connected
+                connected.emplace(start);
+                connected.emplace(end);
+
+                // Name the road after its destination
+                std::string name = "Road to " + end->town->name;
+
+                // Re-run pathfinding to get exact route for road placement
+                graphs::Location2D startLoc = { .x = start->xloc, .y = start->yloc };
+                graphs::Location2D endLoc = { .x = end->xloc, .y = end->yloc };
+
+                std::unordered_map<graphs::Location2D, graphs::Location2D> cameFrom;
+                std::unordered_map<graphs::Location2D, double> costSoFar;
+                graphs::dijkstraSearch(graph, startLoc, endLoc, cameFrom, costSoFar);
+
+                // Place directional road objects along the path
+                // Roads are directional: need separate object in each region
+                ARegion* endReg = end;
+                while (endLoc != startLoc) {
+                    endLoc = cameFrom[endLoc];
+                    ARegion *current = GetRegion(endLoc.x, endLoc.y, end->zloc);
+
+                    // Find direction from current to endReg
+                    int dir;
+                    for (dir = 0; dir < NDIRS; dir++) {
+                        if (current->neighbors[dir] == endReg) {
                             break;
                         }
                     }
 
-                    if (canBuild) {
-                        addAncientStructure(current, ROAD_BUILDINGS[dir], (rng::make_roll(2, 6) - 6.0) / 6.0, name);
-                    }
+                    // Calculate opposite direction (for return road)
+                    int opositeDir = (dir + 3) % NDIRS;
 
-                    canBuild = true;
-                    for(const auto o : endReg->objects) {
-                        if (o->type == ROAD_BUILDINGS[opositeDir]) {
-                            canBuild = false;
-                            break;
+                    // Map directions to road building types
+                    int ROAD_BUILDINGS[NDIRS];
+                    ROAD_BUILDINGS[D_NORTH] = O_ROADN;
+                    ROAD_BUILDINGS[D_NORTHEAST] = O_ROADNE;
+                    ROAD_BUILDINGS[D_NORTHWEST] = O_ROADNW;
+                    ROAD_BUILDINGS[D_SOUTH] = O_ROADS;
+                    ROAD_BUILDINGS[D_SOUTHEAST] = O_ROADSE;
+                    ROAD_BUILDINGS[D_SOUTHWEST] = O_ROADSW;
+
+                    // 67% chance to place road section (some gaps for realism)
+                    if (rng::get_random(3)) {
+                        // Check if road already exists in this direction (current->endReg)
+                        bool canBuild = true;
+                        for(const auto o : current->objects) {
+                            if (o->type == ROAD_BUILDINGS[dir]) {
+                                canBuild = false;
+                                break;
+                            }
+                        }
+
+                        if (canBuild) {
+                            // Damage: 0-91% (formula: (2d6-6)/6 = range -0.67 to 0.83)
+                            // Negative damage becomes 0 (fully intact sections)
+                            addAncientStructure(current, ROAD_BUILDINGS[dir],
+                                              (rng::make_roll(2, 6) - 6.0) / 6.0, name);
+                        }
+
+                        // Also place return road (endReg->current)
+                        canBuild = true;
+                        for(const auto o : endReg->objects) {
+                            if (o->type == ROAD_BUILDINGS[opositeDir]) {
+                                canBuild = false;
+                                break;
+                            }
+                        }
+
+                        if (canBuild) {
+                            addAncientStructure(endReg, ROAD_BUILDINGS[opositeDir],
+                                              (rng::make_roll(2, 6) - 6.0) / 6.0, name);
                         }
                     }
 
-                    if (canBuild) {
-                        addAncientStructure(endReg, ROAD_BUILDINGS[opositeDir], (rng::make_roll(2, 6) - 6.0) / 6.0, name);
-                    }
+                    // Move to next hex in path
+                    endReg = current;
                 }
-
-                endReg = current;
             }
         }
-    }
+    } // End if (map->generateHistoricalRoads)
 }
 
 void assertAllRegionsHaveName(const int w, const int h, ARegionArray* arr) {
@@ -3772,7 +3939,7 @@ void ARegionList::create_natural_surface_level(Map* map) {
 
     economy(arr, w, h);
 
-    AddHistoricalBuildings(arr, w, h);
+    AddHistoricalBuildings(arr, w, h, map);
 }
 
 ARegionGraph::ARegionGraph(ARegionArray* regions) {

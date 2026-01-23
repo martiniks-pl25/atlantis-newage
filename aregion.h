@@ -502,7 +502,7 @@ class ARegionList
         int GetLevelXScale(int level);
         int GetLevelYScale(int level);
 
-        void AddHistoricalBuildings(ARegionArray* arr, const int w, const int h);
+        void AddHistoricalBuildings(ARegionArray* arr, const int w, const int h, Map* map);
 
     private:
         //

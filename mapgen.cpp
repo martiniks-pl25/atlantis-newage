@@ -361,6 +361,10 @@ Map::Map(int width, int height) : map(CellMap(width, height)) {
     hillPercent = 0.50;
     lakePercent = 0.15;  // 15% chance for lake placement
 
+    // Historical buildings defaults
+    generateHistoricalRoads = true;
+    generateHistoricalProductionBuildings = true;
+
     // Polar archipelago defaults
     polarLatitudeStart = 70.0;
     polarIslandBlend = 0.5;

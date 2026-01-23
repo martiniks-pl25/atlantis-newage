@@ -35,3 +35,7 @@ std::string getEthnicName(const Ethnicity etnos);
 std::string getObjectName(const int typeIndex, const ObjectType& type);
 std::string getRegionName(const Ethnicity etnos, const int type, const int size, const bool island);
 std::string getRiverName(const int size, const int min, const int max);
+
+// Production building names with race-specific and resource-specific variants
+std::string getProductionBuildingName(int buildingType, int resourceType, int race);
+Ethnicity raceToEthnicity(int race);

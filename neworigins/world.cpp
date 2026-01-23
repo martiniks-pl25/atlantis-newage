@@ -494,6 +494,11 @@ void Game::CreateWorld()
             map->lakePercent = ask_parameter_float("Lake placement chance (0.0-1.00)",
                                                    default_lakePercent, 0.0, 1.0);
 
+            // Historical buildings (use defaults)
+            // To customize, modify mapgen.cpp constructor defaults
+            map->generateHistoricalRoads = true;
+            map->generateHistoricalProductionBuildings = true;
+
             // Climate (IMPORTANT: higher evoparation = MORE evaporation = WETTER world)
             map->evoparation = ask_parameter_float("Rainfall balance (0.0-1.0, higher=WETTER)",
                                                   default_evoparation, 0.0, 1.0);
@@ -514,6 +519,8 @@ void Game::CreateWorld()
             map->mountainPercent = default_mountainPercent;
             map->hillPercent = default_hillPercent;
             map->lakePercent = default_lakePercent;
+            map->generateHistoricalRoads = true;
+            map->generateHistoricalProductionBuildings = true;
             map->polarLatitudeStart = default_polarLatitudeStart;
             map->polarIslandBlend = default_polarIslandBlend;
             map->polarElevationRedux = default_polarElevationRedux;

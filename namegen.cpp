@@ -146,6 +146,72 @@ std::vector<std::string> aEpithetGeneralM = { "Ruthless", "Bloody", "Mighty", "W
 std::vector<std::string> aEpithetGeneralF = { "Ruthless", "Bloody", "Mighty", "Wild", /*"Demigoddess",*/ "Executor", "Princess", "Queen", "Great", "Lady", "Quick Sword", "Golden Sword", "Silver Sword", "Iron Sword", "Wooden Sword", "Sharp Sword", "Deadly Blade", "Shining Sword", "Black Sword", "Demon Hunter", "Dragonslayer", "Glorious", "Capitan", "General", "Warlord", "Chief" };
 
 //---------------------------------------------------------------------------
+// Production building name tables (by race/ethnicity)
+//---------------------------------------------------------------------------
+
+// Dwarven resource words
+std::vector<std::string> aDwarfIron = { "uzun", "zikil", "zakar", "gol" };           // iron/metal
+std::vector<std::string> aDwarfStone = { "barak", "gundil", "zaral", "zeg" };        // stone/rock
+std::vector<std::string> aDwarfWood = { "khelek", "zirik", "khim" };                 // wood (rare for dwarves)
+std::vector<std::string> aDwarfFood = { "dur", "mab", "kun" };                       // food/grain
+std::vector<std::string> aDwarfFur = { "guzib", "khuz" };                            // fur/hide
+std::vector<std::string> aDwarfHerbs = { "lib", "niz" };                             // herbs
+std::vector<std::string> aDwarfHorse = { "moril", "thizar" };                        // beast/horse
+
+std::vector<std::string> aDwarfMine = { "gundag", "gundabad", "zad", "khazad" };    // mine/delve
+std::vector<std::string> aDwarfQuarry = { "barak", "gol", "nazar" };                 // quarry/hall
+std::vector<std::string> aDwarfWorkshop = { "zal", "thibil", "agul" };               // workshop/forge
+std::vector<std::string> aDwarfFarm = { "dal", "kuluth" };                           // valley/field
+std::vector<std::string> aDwarfStable = { "uzar", "mur" };                           // stable/hold
+
+// Elven resource words
+std::vector<std::string> aElfIron = { "thil", "ril", "tin" };                        // metal/silver
+std::vector<std::string> aElfStone = { "gond", "rond", "sar" };                      // stone
+std::vector<std::string> aElfWood = { "las", "taur", "orn", "galen" };               // forest/tree/green
+std::vector<std::string> aElfFood = { "yav", "loth", "nan" };                        // fruit/flower/valley
+std::vector<std::string> aElfFur = { "raw", "lhaw" };                                // fur/ear (rare)
+std::vector<std::string> aElfHerbs = { "galen", "glas", "laeg" };                    // green/grey/fresh
+std::vector<std::string> aElfHorse = { "roch", "arod" };                             // horse/noble
+
+std::vector<std::string> aElfMine = { "fost", "grond" };                             // delving/cavern
+std::vector<std::string> aElfQuarry = { "rond", "sarn" };                            // vault/stone-place
+std::vector<std::string> aElfWorkshop = { "sammath", "angos" };                      // chambers/ironworks
+std::vector<std::string> aElfFarm = { "parth", "talath", "nan" };                    // field/plain/valley
+std::vector<std::string> aElfStable = { "ost", "bar" };                              // fortress/dwelling
+std::vector<std::string> aElfShrine = { "iant", "iaur", "fane" };                    // bridge/ancient/temple
+
+// Orcish resource words
+std::vector<std::string> aOrcIron = { "dur", "nazg", "gul" };                        // black/ring/sorcery
+std::vector<std::string> aOrcStone = { "buz", "rod", "gar" };                        // rock/cave/pit
+std::vector<std::string> aOrcWood = { "shak", "waz" };                               // cut/slash
+std::vector<std::string> aOrcFood = { "narb", "ubal", "mog" };                       // meat/slave/grub
+std::vector<std::string> aOrcFur = { "ghash", "shak" };                              // fire/kill
+std::vector<std::string> aOrcHerbs = { "glob", "snaga" };                            // filth/slave
+std::vector<std::string> aOrcHorse = { "lug", "tark" };                              // beast/man-thing
+
+std::vector<std::string> aOrcMine = { "gar", "gul", "durbul" };                      // pit/hole/dark-hole
+std::vector<std::string> aOrcQuarry = { "buz", "agal" };                             // rock/mine
+std::vector<std::string> aOrcWorkshop = { "zog", "uruk" };                           // work/orc
+std::vector<std::string> aOrcFarm = { "waz", "ubal" };                               // field/slave-field
+std::vector<std::string> aOrcStable = { "lugburz", "lugdush" };                      // tower/beast-pit
+
+// Human resource words
+std::vector<std::string> aHumanIron = { "iron", "metal", "steel", "forge" };
+std::vector<std::string> aHumanStone = { "stone", "rock", "marble", "granite" };
+std::vector<std::string> aHumanWood = { "wood", "timber", "oak", "pine" };
+std::vector<std::string> aHumanFood = { "grain", "wheat", "barley", "corn" };
+std::vector<std::string> aHumanFur = { "fur", "hide", "pelt", "leather" };
+std::vector<std::string> aHumanHerbs = { "herb", "sage", "wort", "bloom" };
+std::vector<std::string> aHumanHorse = { "horse", "steed", "mare", "colt" };
+
+std::vector<std::string> aHumanMine = { "mine", "pit", "delve", "shaft" };
+std::vector<std::string> aHumanQuarry = { "quarry", "stoneworks", "yard" };
+std::vector<std::string> aHumanWorkshop = { "mill", "yard", "works", "shop" };
+std::vector<std::string> aHumanFarm = { "farm", "field", "grange", "croft" };
+std::vector<std::string> aHumanStable = { "stable", "mews", "paddock" };
+std::vector<std::string> aHumanShrine = { "temple", "shrine", "chapel", "fane" };
+
+//---------------------------------------------------------------------------
 
 std::string getPrefix(std::vector<std::string>& prefixTable) {
     return rng::one_of(prefixTable);
@@ -230,6 +296,204 @@ std::string getInnName() {
     std::string second = getSuffix(aSufInn);
 
     return (first + second) | filter::capitalize;
+}
+
+// Helper function: convert race ID to ethnicity for name generation
+Ethnicity raceToEthnicity(int race) {
+    switch(race) {
+        // Dwarves
+        case I_ICEDWARF:
+        case I_HILLDWARF:
+        case I_UNDERDWARF:
+        case I_DESERTDWARF:
+            return Ethnicity::DWARF;
+
+        // Elves (including fey-like races)
+        case I_WOODELF:
+        case I_SEAELF:
+        case I_HIGHELF:
+        case I_TRIBALELF:
+            return Ethnicity::ELF;
+
+        // Orcs and goblinoids
+        case I_ORC:
+            return Ethnicity::ORC;
+
+        // Nomads and desert folk
+        case I_NOMAD:
+        case I_ESKIMO:
+            return Ethnicity::NOMAD;
+
+        // Vikings
+        case I_VIKING:
+            return Ethnicity::VIKING;
+
+        // Tribal/barbarian
+        case I_BARBARIAN:
+        case I_TRIBESMAN:
+            return Ethnicity::BARBARIAN;
+
+        // Humans and hobbits (default)
+        case I_PLAINSMAN:
+        case I_DARKMAN:
+        case I_GNOME:
+        case I_CENTAURMAN:
+        default:
+            return Ethnicity::MAN;
+    }
+}
+
+// Generate production building name based on race and resource
+std::string getProductionBuildingName(int buildingType, int resourceType, int race) {
+    Ethnicity ethnicity = raceToEthnicity(race);
+
+    std::string resourceWord;
+    std::string buildingWord;
+    std::string prefix;
+
+    // Select resource-specific word based on ethnicity
+    switch(ethnicity) {
+        case Ethnicity::DWARF:
+            prefix = getPrefix(aPrefDwarven);
+
+            // Resource words
+            switch(resourceType) {
+                case I_IRON:      resourceWord = rng::one_of(aDwarfIron); break;
+                case I_STONE:     resourceWord = rng::one_of(aDwarfStone); break;
+                case I_WOOD:      resourceWord = rng::one_of(aDwarfWood); break;
+                case I_GRAIN:
+                case I_LIVESTOCK: resourceWord = rng::one_of(aDwarfFood); break;
+                case I_FUR:       resourceWord = rng::one_of(aDwarfFur); break;
+                case I_HERBS:     resourceWord = rng::one_of(aDwarfHerbs); break;
+                case I_HORSE:     resourceWord = rng::one_of(aDwarfHorse); break;
+                default:          resourceWord = "barak";
+            }
+
+            // Building type words
+            switch(buildingType) {
+                case O_MINE:        buildingWord = rng::one_of(aDwarfMine); break;
+                case O_QUARRY:      buildingWord = rng::one_of(aDwarfQuarry); break;
+                case O_TIMBERYARD:  buildingWord = rng::one_of(aDwarfWorkshop); break;
+                case O_FARM:
+                case O_RANCH:       buildingWord = rng::one_of(aDwarfFarm); break;
+                case O_STABLE:      buildingWord = rng::one_of(aDwarfStable); break;
+                case O_TRAPPINGHUT: buildingWord = rng::one_of(aDwarfWorkshop); break;
+                case O_TEMPLE:      buildingWord = rng::one_of(aDwarfQuarry); break; // stone hall
+                default:            buildingWord = "zal";
+            }
+
+            // Dwarven format: prefix + resource + building
+            // Example: "Khuz-uzun-gundag" = "Deep Iron Mine"
+            return (prefix + resourceWord + buildingWord) | filter::capitalize;
+
+        case Ethnicity::ELF:
+        case Ethnicity::HIGHELF:
+            prefix = getPrefix(aPrefElven2);
+
+            // Resource words
+            switch(resourceType) {
+                case I_IRON:      resourceWord = rng::one_of(aElfIron); break;
+                case I_STONE:     resourceWord = rng::one_of(aElfStone); break;
+                case I_WOOD:      resourceWord = rng::one_of(aElfWood); break;
+                case I_GRAIN:
+                case I_LIVESTOCK: resourceWord = rng::one_of(aElfFood); break;
+                case I_FUR:       resourceWord = rng::one_of(aElfFur); break;
+                case I_HERBS:     resourceWord = rng::one_of(aElfHerbs); break;
+                case I_HORSE:     resourceWord = rng::one_of(aElfHorse); break;
+                default:          resourceWord = "las";
+            }
+
+            // Building type words
+            switch(buildingType) {
+                case O_MINE:        buildingWord = rng::one_of(aElfMine); break;
+                case O_QUARRY:      buildingWord = rng::one_of(aElfQuarry); break;
+                case O_TIMBERYARD:  buildingWord = rng::one_of(aElfWorkshop); break;
+                case O_FARM:
+                case O_RANCH:       buildingWord = rng::one_of(aElfFarm); break;
+                case O_STABLE:      buildingWord = rng::one_of(aElfStable); break;
+                case O_TRAPPINGHUT: buildingWord = rng::one_of(aElfWorkshop); break;
+                case O_TEMPLE:      buildingWord = rng::one_of(aElfShrine); break;
+                default:            buildingWord = "ost";
+            }
+
+            // Elven format: prefix + resource + building
+            // Example: "Nim-las-sammath" = "White Forest Workshop"
+            return (prefix + resourceWord + buildingWord) | filter::capitalize;
+
+        case Ethnicity::ORC:
+            prefix = getPrefix(aPrefOrchish);
+
+            // Resource words
+            switch(resourceType) {
+                case I_IRON:      resourceWord = rng::one_of(aOrcIron); break;
+                case I_STONE:     resourceWord = rng::one_of(aOrcStone); break;
+                case I_WOOD:      resourceWord = rng::one_of(aOrcWood); break;
+                case I_GRAIN:
+                case I_LIVESTOCK: resourceWord = rng::one_of(aOrcFood); break;
+                case I_FUR:       resourceWord = rng::one_of(aOrcFur); break;
+                case I_HERBS:     resourceWord = rng::one_of(aOrcHerbs); break;
+                case I_HORSE:     resourceWord = rng::one_of(aOrcHorse); break;
+                default:          resourceWord = "dur";
+            }
+
+            // Building type words
+            switch(buildingType) {
+                case O_MINE:        buildingWord = rng::one_of(aOrcMine); break;
+                case O_QUARRY:      buildingWord = rng::one_of(aOrcQuarry); break;
+                case O_TIMBERYARD:  buildingWord = rng::one_of(aOrcWorkshop); break;
+                case O_FARM:
+                case O_RANCH:       buildingWord = rng::one_of(aOrcFarm); break;
+                case O_STABLE:      buildingWord = rng::one_of(aOrcStable); break;
+                case O_TRAPPINGHUT: buildingWord = rng::one_of(aOrcWorkshop); break;
+                case O_TEMPLE:      buildingWord = "nazgul"; break; // dark shrine
+                default:            buildingWord = "gar";
+            }
+
+            // Orcish format: prefix + resource + building
+            // Example: "Ghash-dur-gar" = "Fire Black Pit"
+            return (prefix + resourceWord + buildingWord) | filter::capitalize;
+
+        case Ethnicity::MAN:
+        case Ethnicity::VIKING:
+        case Ethnicity::BARBARIAN:
+        case Ethnicity::NOMAD:
+        default:
+            // Humans use more readable format
+            prefix = (ethnicity == Ethnicity::VIKING) ? getPrefix(aPrefViking) :
+                     (ethnicity == Ethnicity::BARBARIAN) ? getPrefix(aPrefScotish) :
+                     (ethnicity == Ethnicity::NOMAD) ? getPrefix(aPrefArabic) :
+                     getPrefix(aPrefHumans);
+
+            // Resource words
+            switch(resourceType) {
+                case I_IRON:      resourceWord = rng::one_of(aHumanIron); break;
+                case I_STONE:     resourceWord = rng::one_of(aHumanStone); break;
+                case I_WOOD:      resourceWord = rng::one_of(aHumanWood); break;
+                case I_GRAIN:
+                case I_LIVESTOCK: resourceWord = rng::one_of(aHumanFood); break;
+                case I_FUR:       resourceWord = rng::one_of(aHumanFur); break;
+                case I_HERBS:     resourceWord = rng::one_of(aHumanHerbs); break;
+                case I_HORSE:     resourceWord = rng::one_of(aHumanHorse); break;
+                default:          resourceWord = "stone";
+            }
+
+            // Building type words
+            switch(buildingType) {
+                case O_MINE:        buildingWord = rng::one_of(aHumanMine); break;
+                case O_QUARRY:      buildingWord = rng::one_of(aHumanQuarry); break;
+                case O_TIMBERYARD:  buildingWord = rng::one_of(aHumanWorkshop); break;
+                case O_FARM:
+                case O_RANCH:       buildingWord = rng::one_of(aHumanFarm); break;
+                case O_STABLE:      buildingWord = rng::one_of(aHumanStable); break;
+                case O_TRAPPINGHUT: buildingWord = rng::one_of(aHumanWorkshop); break;
+                case O_TEMPLE:      buildingWord = rng::one_of(aHumanShrine); break;
+                default:            buildingWord = "works";
+            }
+
+            // Human format: prefix + " " + resource + " " + building
+            // Example: "Brent Iron Mine" or "Oak Wood Mill"
+            return (prefix + " " + resourceWord + " " + buildingWord) | filter::capitalize;
+    }
 }
 
 std::string getObjectName(const int typeIndex, const ObjectType& type) {
