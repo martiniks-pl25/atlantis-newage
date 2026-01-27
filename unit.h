@@ -189,6 +189,7 @@ class Unit {
         int CanFly();
         int CanSwim();
         int CanReallySwim();
+        int CanSwimTo(ARegion *target);  // check if can swim to target region
         int MoveType(ARegion *r = 0);
         int CalcMovePoints(ARegion *r = 0);
         int CanMoveTo(ARegion *,ARegion *);

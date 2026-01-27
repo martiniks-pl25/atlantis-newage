@@ -208,6 +208,7 @@ class ARegion
         void SetWeather(int newWeather);
         int IsCoastal();
         int IsCoastalOrLakeside();
+        int IsDeepOcean();  // ocean with no land neighbors
         void MakeStartingCity();
         int IsStartingCity();
         int IsSafeRegion();

@@ -1702,6 +1702,12 @@ Location *Game::DoAMoveOrder(Unit *unit, ARegion *region, Object *obj)
         goto done_moving;
     }
 
+    // Check deep ocean restriction for SWIMMERS_COASTAL_ONLY
+    if (Globals->SWIMMERS_COASTAL_ONLY && !unit->CanSwimTo(newreg)) {
+        unit->error("MOVE: Can only swim in coastal waters and lakes.");
+        goto done_moving;
+    }
+
     if (unit->type == U_WMON && newreg->town && newreg->IsGuarded()) {
         unit->event("Monsters don't move into guarded towns.", "movement");
         goto done_moving;

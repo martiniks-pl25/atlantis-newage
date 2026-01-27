@@ -116,6 +116,25 @@ struct lowercase_t {
 inline constexpr lowercase_t lowercase{};
 
 /**
+ * Utility that uppercases a string.
+ * Usage: std::string result = uppercase(input);
+ * Or with pipe syntax: std::string result = input | uppercase;
+ */
+struct uppercase_t {
+    std::string process(const std::string& str) const {
+        std::string result = str;
+        std::transform(result.begin(), result.end(), result.begin(), ::toupper);
+        return result;
+    }
+
+    std::string operator()(const std::string& str) const { return process(str); }
+
+    friend std::string operator|(const std::string& str, const uppercase_t& uppercaser) { return uppercaser(str); }
+};
+
+inline constexpr uppercase_t uppercase{};
+
+/**
  * Utility that canonicalizes a string.
  * It capitalizes each word and replaces spaces between words with underscores.
  * Example: "summon wind" -> "Summon_Wind"
@@ -146,6 +165,36 @@ struct canonicalize_t {
 };
 
 inline constexpr canonicalize_t canonicalize{};
+
+/**
+ * Utility that title-cases a string.
+ * It capitalizes each word.
+ * Example: "summon wind" -> "Summon Wind"
+ * Usage: std::string result = title_case(input);
+ * Or with pipe syntax: std::string result = input | title_case;
+ */
+struct title_case_t {
+    std::string process(const std::string& str) const {
+        auto parts_view = str
+            | std::views::split(std::string_view{" "}) // Split by space
+            | std::views::transform([](auto&& subrange) {
+                std::string str_part(subrange.begin(), subrange.end());
+                return str_part | capitalize;
+            });
+
+        std::vector<std::string> processed_words;
+        std::ranges::copy(parts_view, std::back_inserter(processed_words));
+        return strings::join(processed_words, " ");
+    }
+
+    std::string operator()(const std::string& str) const { return process(str); }
+
+    friend std::string operator|(const std::string& str, const title_case_t& titler) {
+        return titler(str);
+    }
+};
+
+inline constexpr title_case_t title_case{};
 
 } // namespace filter
 

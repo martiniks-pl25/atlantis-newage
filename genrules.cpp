@@ -1351,6 +1351,13 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
       << "and there are items that can enable your units to fly or walk on water.\n"
       << enclose("p", false);
 
+    if (Globals->SWIMMERS_COASTAL_ONLY) {
+        f << enclose("p", true) << "Swimming units are restricted to coastal ocean regions and lakes. "
+          << "Deep ocean regions cannot be entered by swimming units. "
+          << "Ships are not affected by this restriction.\n"
+          << enclose("p", false);
+    }
+
     f << enclose("p", true) << "Flying units are not initially available to starting players. A unit can ride "
       << "provided that the carrying capacity of its horses is at least as great as the weight of its people and "
       << "all other items. A unit can walk provided that the carrying capacity of its people";

@@ -1,4 +1,5 @@
 #include "unit.h"
+#include "aregion.h"
 #include "gamedata.h"
 #include "rng.hpp"
 #include <stack>
@@ -1773,6 +1774,33 @@ int Unit::CanSwim()
     if ((Globals->FLIGHT_OVER_WATER != GameDefs::WFLIGHT_NONE) && this->CanFly())
         return 1;
     return 0;
+}
+
+int Unit::CanSwimTo(ARegion *target)
+{
+    // Basic swim check
+    if (!this->CanSwim())
+        return 0;
+
+    // Feature disabled - allow all swimming
+    if (!Globals->SWIMMERS_COASTAL_ONLY)
+        return 1;
+
+    // Not ocean - allow (includes lakes)
+    if (TerrainDefs[target->type].similar_type != R_OCEAN)
+        return 1;
+
+    // Deep ocean check - block natural swimmers only
+    if (target->IsDeepOcean()) {
+        int swimCapacity = this->SwimmingCapacity();
+        int weight = this->items.Weight();
+
+        // Block if actually swimming (not in ship)
+        if (swimCapacity >= weight && swimCapacity > 0)
+            return 0;
+    }
+
+    return 1;
 }
 
 int Unit::CanFly()

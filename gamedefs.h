@@ -427,6 +427,10 @@ public:
 	// coastal for all purposes - races and such
 	int LAKESIDE_IS_COASTAL;
 
+	// SWIMMERS_COASTAL_ONLY: restrict swimming units to coastal ocean and lakes only
+	// 0 = swimmers can go anywhere (default), 1 = coastal waters only
+	int SWIMMERS_COASTAL_ONLY;
+
 	// ODD_TERRAIN: chance (x 0.1%) for single-hex terrain oddities
 	// suggested: between 5 and 40
 	int ODD_TERRAIN;

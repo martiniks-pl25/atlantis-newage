@@ -156,6 +156,7 @@ static GameDefs g = {
     0,  // SEA_LIMIT
     GameDefs::NO_EFFECT, // LAKE_WAGE_EFFECT
     0,  // LAKESIDE_IS_COASTAL
+    0,  // SWIMMERS_COASTAL_ONLY
     0,  // ODD_TERRAIN
     0,  // IMPROVED_FARSIGHT
     0,  // GM_REPORT

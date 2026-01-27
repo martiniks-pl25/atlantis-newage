@@ -1408,6 +1408,30 @@ int ARegion::IsCoastalOrLakeside()
     return seacount;
 }
 
+int ARegion::IsDeepOcean()
+{
+    // Not ocean - return false
+    if (TerrainDefs[type].similar_type != R_OCEAN)
+        return 0;
+
+    // Check if any neighbor is land
+    for (int i = 0; i < NDIRS; i++) {
+        if (!neighbors[i]) continue;
+
+        if (neighbors[i]->type < 0 || neighbors[i]->type >= (int)TerrainDefs.size())
+            continue;
+
+        // Found land neighbor - coastal ocean
+        if (TerrainDefs[neighbors[i]->type].similar_type != R_OCEAN &&
+            neighbors[i]->type != R_LAKE) {
+            return 0;
+        }
+    }
+
+    // All neighbors are water - deep ocean
+    return 1;
+}
+
 int ARegion::MoveCost(int movetype, ARegion *fromRegion, int dir, std::string *road)
 {
     int cost = 1;
@@ -3622,6 +3646,7 @@ void ARegionList::AddHistoricalBuildings(ARegionArray* arr, const int w, const i
             {I_FUR,       O_TRAPPINGHUT},   // Fur -> Trapping Hut
             {I_HERBS,     O_TEMPLE},        // Herbs -> Temple
             {I_HORSE,     O_STABLE},        // Horse -> Stable
+            {I_CAMEL,     O_OASIS},         // Camel -> Oasis
         };
 
         for (int x = 0; x < w; x++) {
