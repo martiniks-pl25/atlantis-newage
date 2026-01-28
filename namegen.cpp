@@ -597,84 +597,342 @@ std::string getObjectName(const int typeIndex, const ObjectType& type) {
 }
 
 std::string getForestName(std::string s, int area) {
-    if (area < 15) {
-        return s + rng::one_of({" Forest", " Woods"});
+
+    if (area == 1) {
+        return s + rng::one_of({
+            " Grove", " Copse", " Thicket", " Glade", " Wood",
+            " Stand"," Taur", " Galadh", " Nim",
+            " Loth", " Nan", " Dor", " Tin", " Lin",
+        });
     }
 
-    return "Great " + s + " Forest";
+    if (area < 15) {
+        return s + rng::one_of({
+            " Forest", " Woods", " Woodland", " Timberland", " Thicket",
+            " Wildwood", " Greenwood", " Deepwood", " Darkwood", " Heartwood",
+            " Oldwood", " Newwood", " Highwood", " Lowwood", " Riverwood",
+            " Taur", " Galadhrim", " Nimloth", " Lothlorien", " Fangorn",
+            " Mirkwood", " Greenwood", " Sunwood", " Moonwood", " Starwood",
+            " Silverwood", " Goldwood", " Ironwood", " Glasswood", " Crystalwood",
+            " Elderwood", " Ancient Forest", " Sacred Grove", " Blessed Woods", " Cursed Forest",
+            " Whispering Woods", " Singing Forest", " Dreaming Woodland", " Twilight Thicket", " Moonlit Grove",
+            " Shadowwood", " Ghostwood", " Spirit Forest"
+        });
+    }
+
+    return rng::one_of({
+        "Great " + s + " Forest",
+        "Vast " + s + " Woods",
+        "Endless " + s + " Woodland",
+        "Immense " + s + " Timberland",
+    });
 }
 
 std::string getJungleName(std::string s, int area) {
-    if (area < 15) {
-        return s + rng::one_of({" Jungle", " Woods"});
+
+    if (area == 1) {
+        return s + rng::one_of({
+            " Grove", " Copse", " Thicket", " Glade",
+            " Canopy", " Underbrush", " Vines", " Ferns", " Moss",
+            " Shade", " Whisper", " Breath", " Heart",
+        });
     }
 
-    return "Great " + s + " Jungle";
+    if (area < 15) {
+        return s + rng::one_of({
+            // Общие
+            " Jungle", " Rainforest", " Wildwood",
+            " Thicket", " Canopy", " Undergrowth", " Vines", " Ferns",
+            " Temple Jungle", " Altar Woods", " Shrine Jungle", " Sacred Vines", " Ritual Grove",
+        });
+    }
+
+    return rng::one_of({
+        "Great " + s + " Jungle",
+        "Vast " + s + " Rainforest",
+        "Endless " + s + " Wildwood",
+        "Immense " + s + " Canopy",
+        "The " + s + " of a Thousand Vines",
+    });
 }
 
 std::string getDesertName(std::string s, int area) {
     if (area < 15) {
-        return s + rng::one_of({" Desert", " Sands"});
+        return s + rng::one_of({
+            " Ash Flats", " Stonewaste", " Cinder Sands", " Broken Anvil", " Dust Of Khaz",
+            " Sunstep Sands", " Windrunner Flats", " Golden Steppe", " Hoofwind Plains", " Dustmane Reach",
+            " Liraeth Sands", " Sunveil", " Ashenbloom", " Silvaran Dunes", " Ithil Dust",
+            " Dry Meadows", " Sandy Downs", " Sunbaked Fields"," Old Sandpatch"
+        });
     }
 
-    return "Great " + s + " Desert";
+    return rng::one_of({
+        "Great " + s + " Flats",
+        "Ashen " + s + " Dunes",
+        "Sunlit " + s + " Sands",
+        "Golden " + s + " Reach",
+        "Windy " + s + " Steppe",
+        "Burning " + s + " Wastes",
+        "Stormy " + s + " Flats",
+        "Fiery " + s + " Dunes"
+    });
 }
 
 std::string getVolcanoName(std::string s) {
-    return s + rng::one_of({" Volcano", " Peak"});
+    return s + rng::one_of({
+               " Mount Pyraxis",
+               " Ashen Crown",
+               " Cinderfell",
+               " Fireheart Peak",
+               " Molten Throne",
+               " Emberspire",
+               " Scorchreach",
+               " Infernum Rise",
+               " Obsidian Peak",
+               " Caldera of Flames",
+               " Dragon's Maw",
+               " Burning Spire",
+               " Crown of Cinders",
+               " Hellfire Peak",
+               " Magma Sanctum",
+               " Khazdûr Peak",
+               " Bronzefire Mountain",
+               " Forgeheart",
+               " Anvilspire",
+               " Stoneflame Hold",
+               " Ironcinder",
+               " Deepforge Volcano",
+               " Emberhall",
+               " Molten Anvil",
+               " Ashen Forge",
+               " Blackhammer Peak",
+               " Firebeard's Crown"
+           });
 }
 
 std::string getMountainName(std::string s, int area) {
     if (area == 1) {
-        return s + rng::one_of({" Mountain", " Peak"});
+        return s + rng::one_of({
+            " Mountain", " Peak", " Summit", " Pinnacle", " Crest",
+            " Tor", " Crag", " Bluff", " Butte", " Mesa",
+            " Spire", " Horn", " Tooth", " Fang", " Crown",
+            " Anvil", " Forge", " Pick", " Axepeak",
+            " Stonepeak", " Orepeak", " Gemspire", " Veinspire", " Deepstone",
+            " Warrenpeak", " Burrowspire", " Excavation",
+        });
     }
 
     if (area < 15) {
-        return s + rng::one_of({" Mountains", " Heights", " Rocks"});
+        return s + rng::one_of({
+            // Общие
+            " Mountains", " Heights", " Rocks", " Peaks", " Summits",
+            " Pinnacles", " Crags", " Bluffs", " Spires", " Horns",
+            " Range", " Massif", " Ridge", " Escarpment", " Wall",
+            " Spine", " Teeth", " Fangs", " Crowns", " Bastion",
+            " Warrens", " Burrows", " Excavations", " Pits", " Quarries",
+            " Gemfields", " Motherlodes", " Veins", " Seams", " Lodes",
+            " Camps", " Forts", " Holds", " Lairs", " Dens",
+            " Bloodpeaks", " Warcamps", " Skullheights", " Gorecrags", " Boneteeth",
+            " Sentinel Peaks", " Watcher Spires", " Guard Mountains", " Warrior Crags"
+        });
     }
 
-    return "Great " + s + " Mountains";
+    return rng::one_of({
+        "Great " + s + " Mountains",
+        "Vast " + s + " Range",
+        "Endless " + s + " Peaks",
+        "Immense " + s + " Massif",
+        "The " + s + " of a Thousand Summits",
+        s + ", Roof of the World",
+        "The Eternal " + s + " Spines",
+        "The " + s + " That Pierce Heaven",
+        s + ", Forge of Creation",
+        "The " + s + " Adamantine Peaks",
+        "Ancestral " + s,
+        "Throne of " + s,
+        "Great Warren " + s,
+        s + " of Endless Delves",
+        "The " + s + " Gemheart",
+        "Motherlode " + s + " Range",
+        "The " + s + " Prospector's Paradise",
+        "Burrow-Empire of " + s
+    });
 }
 
 std::string getHillsName(std::string s, int area) {
+
     if (area == 1) {
-        return s + rng::one_of({" Hill", " Barrow"});
+        return s + rng::one_of({
+            // Общие
+            " Hill", " Barrow", " Knoll", " Mound", " Rise",
+            " Slope", " Ridge", " Spur", " Tor", " Cairn",
+            " Anvil", " Forge", " Ore", " Gem", " Vein",
+            " Burrow", " Warren", " Delve", " Excavation"
+        });
     }
 
     if (area < 15) {
-        return s + rng::one_of({" Hills", " Barrows", " Heights"});
+        return s + rng::one_of({
+            " Hills", " Barrows", " Heights", " Downs", " Fells",
+            " Highlands", " Uplands", " Moorlands", " Braes", " Crags",
+            " Ridges", " Slopes", " Escarpment", " Bluffs", " Cliffs",
+            " Halls"," Forges", " Anvils",
+            " Delve", " Hold", " Karak", " Dwarrow",
+            " Warrens"," Burrows", " Diggings",
+            " Delvings"," Redoubts"," Gorehills", " Bonecrags"
+        });
     }
 
-    return "Great " + s + " Hills";
+    return rng::one_of({
+        "Great " + s + " Hills",
+        "Vast " + s + " Highlands",
+        "Endless " + s + " Uplands",
+        "The Eternal " + s + " Heights",
+        "The " + s + " Iron Hills",
+        "Deep " + s + " Delve",
+        "Great Warren " + s,
+        "The " + s + " Gemfields",
+        "Motherlode " + s,
+        s + ", Vein of the World",
+        "Burrow-Kingdom of " + s
+    });
 }
 
 std::string getSwampName(std::string s, int area) {
-    if (area < 15) {
-        return s + rng::one_of({" Swamp", " Marshes"});
+
+    if(area == 1) {
+        return s + rng::one_of({
+            " Bog", " Fen", " Mire", " Quagmire",
+            " Morass", " Slough", " Pool", " Puddle",
+            " Slime", " Muck", " Grime", " Gloop",
+            " Ooze", " Sludge", " Drip", " Slog", " Squelch",
+            " Hissk", " Slith", " Scale", " Fang",
+            " Clutch", " Brood",
+            " Dirt", " Mud", " Filth", " Rot", " Stench",
+            " Gore", " Bone", " Wart"
+        });
     }
 
-    return "Great " + s + " Swamp";
+
+    if (area < 15) {
+        return s + rng::one_of({
+            " Bog", " Fen", " Mire",
+            " Quagmire", " Morass", " Wetland", " Slough", " Bayou",
+            " Everglade", " Carr", " Vlei", " Muskeg", " Moor",
+            " Gloommire", " Dreadmarsh", " Foulfen", " Witchfen", " Elder Bog",
+            " Blackwater Bog", " Sinking Mire", " Whispering Bog", " Deathfen",
+            " Slimepit", " Muckhole", " Oozepool", " Glooptrench",
+            " Sludgebog", " Shamanfen", " Skullbog", " Warpmire",
+            " Nesting", " Hatchery", " Basking", " Ssanss", " Hatching",
+            " Clutching", " Scalelands", " Fangmarsh", " Tailfen",
+            " Bloodmarsh", " Bonefen", " Gorebog", " Rotmire", " Wartland"
+        });
+    }
+
+    return rng::one_of({
+        "Great " + s + " Swamp",
+        "Vast " + s + " Marshes",
+        "Endless " + s + " Bog",
+        "Immense " + s + " Fen",
+        "The " + s + " of Lost Souls",
+        "The " + s + " That Never Dries",
+        "Great " + s + " Goblinmire",
+        "King " + s + "'s Slime Empire",
+        "The " + s + " of a Thousand Stinks",
+        s + ", Shaman's Dominion",
+        "Warlord " + s + "'s Muck Kingdom",
+        "Great " + s + " Ssaruth",
+        s + ", Egg of the World",
+        "The " + s + " of the Old Blood",
+        "Ssun God's " + s,
+        s + ", Throne of the Scale King",
+        "Waaagh! " + s,
+    });
 }
 
 std::string getPlainName(std::string s, int area) {
     if(area == 1) {
-        return s + rng::one_of({" Dale", " Plain"});
+        return s + rng::one_of({
+            " Dale", " Meadow", " Field", " Lea", " Glade",
+            " Green", " Meads", " Garden", " Plot", " Croft",
+            " Patch", " Dell", " Hollow", " Nook", " Copse"
+        });
     }
 
     if (area < 15) {
-        return s + rng::one_of({" Plains", " Valley"});
+            return s + rng::one_of({
+                " Marsh", " Downs", " Slope", " Meadowlands", " Pastures",
+                " Farmlands", " Hayfields", " Cornlands", " Wheatlands", " Talath", " Laer", " Loth", " Nan", " Dor",
+                " Ard", " Ethir", " Imrath", " Pel", " Reg",
+                " Aelin", " Lin", " Tir", " Calen", " Laire", " Plains", " Valley", " Fields", " Lowlands", " Flatlands",
+                " Grasslands", " Prairie", " Steppe", " Expanse", " Plateau"
+            });
     }
 
-    return "Great " + s + " Plains";
+    return rng::one_of({
+        "Great " + s + " Plains",
+        "Vast " + s + " Expanse",
+        "Immense " + s + " Grasslands",
+        s + ", Sea of Grass",
+        "Horizonless " + s
+    });
 }
 
-std::string getTundraName(std::string s) {
-    return s + " Tundra";
+std::string getTundraName(std::string s, int area) {
+
+    if (area == 1) {
+        return s + rng::one_of({
+            " Frost", " Rime", " Hoar", " Gelid", " Cryo", " Glace", " Nive", " Pruina"
+        });
+    }
+
+    if (area < 5) {
+        return s + rng::one_of({
+            " Fell", " Wold", " Heath", " Moor", " Downs", " Fells", " Brae", " Tor"
+        });
+    }
+
+    if (area < 10) {
+        return s + rng::one_of({
+            " Waste", " Barrens", " Expanse", " Steppe", " Veldt", " Pampas", " Llano", " Tundra"
+        });
+    }
+
+    if (area < 15) {
+        return s + rng::one_of({
+            " Snowfield",
+            " Ice Flats",
+            " Frost Vale",
+            " Cold Barrens",
+            " Glacial Hollow",
+            " Frozen Vale",
+            " Chill Expanse"
+        });
+    }
+
+    // Огромные территории (15+)
+    return rng::one_of({
+        "Frostmaiden's " + s,
+        "Ice Dragon's " + s + " Dominion",
+        "Yeti King's Frozen " + s,
+        "White Wyrm's " + s,
+        "Frost Giant Jarl's " + s,
+        "The " + s + " Where Stars Freeze",
+        s + " of the Sleeping Titans",
+        "The " + s + " That Time Forgot",
+        s + ", Graveyard of Suns",
+        "The " + s + " Beyond the North Wind",
+        s + " the Unmelting",
+        "Everice " + s,
+        "Endwinter " + s,
+        s + " of Perpetual Gloom",
+        "The Glacier-throne " + s
+    });
 }
 
 std::string getOceanName(std::string s, int area) {
     if(area == 1) {
-        return s + rng::one_of({" Lake", " Pond"});
+        return s + rng::one_of({" Lagoon", " Pond", " Tarn", " Lough"});
     }
 
     if (area < 15) {
@@ -730,6 +988,7 @@ std::string getRegionName(const Ethnicity etnos, const int type, const int size,
         case R_CERAN_MOUNTAIN3:
             return getMountainName(name, size);
 
+        case R_HILL:
         case R_CERAN_HILL:
         case R_CERAN_HILL1:
         case R_CERAN_HILL2:
@@ -753,7 +1012,7 @@ std::string getRegionName(const Ethnicity etnos, const int type, const int size,
         case R_CERAN_TUNDRA1:
         case R_CERAN_TUNDRA2:
         case R_CERAN_TUNDRA3:
-            return getTundraName(name);
+            return getTundraName(name, size);
 
         case R_OCEAN:
             return getOceanName(name, size);

@@ -2551,6 +2551,13 @@ bool isNearWaterBody(ARegion* reg, std::vector<WaterBody*>& list) {
     return false;
 }
 
+// makeRivers: Generate rivers connecting separate water bodies (oceans/seas)
+// Algorithm:
+//   1. Find all water bodies (connected ocean regions) via BFS
+//   2. Calculate shortest land distances between all water body pairs
+//   3. For each water body, connect to 3-6 closest neighbors with rivers
+//   4. Rivers use Dijkstra pathfinding with elevation-based costs
+//   5. Rivers alternate R_OCEAN and R_SWAMP terrain every 4 hexes
 void makeRivers(
     Map* map, ARegionArray* arr, std::vector<WaterBody*>& waterBodies,
     std::unordered_map<ARegion*, int>& rivers,
@@ -2558,84 +2565,95 @@ void makeRivers(
 ) {
     logger::write("Let's have RIVERS!");
 
-    // all non-coast water regions
+    // Track deep ocean regions (surrounded by water on all sides) - rivers can't start/end here
     std::unordered_set<graphs::Location2D> innerWater;
 
+    // Setup graph to traverse only ocean regions
     ARegionGraph graph = ARegionGraph(arr);
     graph.setInclusion([](ARegion* current, ARegion* next) {
         return next->type == R_OCEAN;
     });
 
+    // === PHASE 1: Identify all separate water bodies (oceans/seas) ===
     logger::write("Find water bodies");
 
     int waterBodyName = 0;
     for (int x = 0; x < w; x++) {
         for (int y = 0; y < h; y++) {
             if ((x + y) % 2) {
-                continue;
+                continue;  // Skip invalid hex coordinates
             }
 
             ARegion* reg = arr->GetRegion(x, y);
             if (reg->type != R_OCEAN) {
-                continue;
+                continue;  // Only process ocean regions
             }
 
             graphs::Location2D loc = { reg->xloc, reg->yloc };
+            // Track inner water (ocean surrounded by ocean) - can't be river endpoints
             if (isInnerWater(reg)) {
                 innerWater.insert(loc);
             }
 
+            // Skip if this ocean already belongs to a water body
             if (findWaterBody(waterBodies, reg) >= 0) {
                 continue;
             }
 
+            // BFS to find all connected ocean regions = one water body
             auto result = graphs::breadthFirstSearch(graph, loc);
 
             WaterBody* wb = new WaterBody();
             wb->name = waterBodyName++;
             waterBodies.push_back(wb);
 
+            // Add all found ocean regions to this water body
             for (const auto& kv : result) {
                 wb->add(kv.first);
             }
         }
     }
 
-    // now we know all water bodies and know all water regions which are not in the coast
-    // we need to find distance from one water body to another water body
-
+    // === PHASE 2: Calculate shortest distances between all water body pairs ===
+    // This determines which water bodies are close enough to connect with rivers
     logger::write("Distances from water body to water body");
 
     size_t sz = waterBodies.size();
     int distances[sz][sz];
+    // Initialize distance matrix with infinity
     for (size_t i = 0; i < sz; i++) {
         for (size_t j = 0; j < sz; j++) {
             distances[i][j] = INT32_MAX;
         }
     }
 
+    // For each water body, find shortest land path to every other water body
     for (const auto& water : waterBodies) {
         logger::write("WATER BODY " + std::to_string(water->name));
 
+        // Setup graph to traverse land (not this water body, not inner water)
         graph.setInclusion([ water, &innerWater ](ARegion* current, ARegion* next) {
             graphs::Location2D loc = { next->xloc, next->yloc };
             return !water->includes(loc) && innerWater.find(loc) == innerWater.end();
         });
 
+        // BFS from each coastal point of this water body
         for (const auto& loc : water->regions) {
             if (innerWater.find(loc) != innerWater.end()) {
-                continue;
+                continue;  // Skip deep ocean regions - can't start rivers there
             }
 
             auto result = graphs::breadthFirstSearch(graph, loc);
             for (const auto& kv : result) {
                 int newDist = kv.second.distance + 1;
 
+                // Check if we reached another water body
                 int otherWater = findWaterBody(waterBodies, graph.get(kv.first));
                 if (otherWater < 0) {
-                    continue;
+                    continue;  // Not at water body yet
                 }
 
+                // Update distance if we found a shorter path
                 int currentDist = distances[water->name][otherWater];
                 if (newDist < currentDist ) {
                     distances[water->name][otherWater] = newDist;
@@ -2644,21 +2662,19 @@ void makeRivers(
         }
     }
 
-    // so we found shortest distance from one water body to another water body
-    // now we need to find smallest elevation cost
-    // each water body will connect up to 4 closest bodies if they are in (min(map width, map height) / 8) range
-
+    // === PHASE 3: Setup pathfinding costs for river placement ===
+    // Rivers prefer: low elevation, existing rivers, avoiding coastlines
     logger::write("Max river reach " + std::to_string(maxRiverReach));
 
     graph.setCost([ map, &rivers ](ARegion* current, ARegion* next) {
+        // Base cost = elevation (higher terrain costs more to cross)
         int cost = std::max(1, map->map.get(next->xloc * 2, next->yloc * 2)->elevation);
-        // if (next->type == R_PLAIN || next->type == R_FOREST || next->type == R_JUNGLE) {
-        //  cost *= 100;
-        // }
 
+        // Rivers prefer to follow existing rivers (cost / 10)
         if (rivers.find(next) != rivers.end()) {
             cost = cost / 10;
         }
+        // Rivers avoid coastlines (cost * 10)
         else if (isNearWater(next)) {
             cost = cost * 10;
         }
@@ -2666,16 +2682,18 @@ void makeRivers(
         return cost;
     });
 
+    // === PHASE 4: Create rivers between close water bodies ===
     int riverName = 0;
     for (size_t i = 0; i < sz; i++) {
         logger::write("Connecting water body " + std::to_string(i));
 
+        // Find all water bodies within maxRiverReach distance
         std::vector<std::pair<int, int>> candidates;
         WaterBody* source = waterBodies[i];
 
         for (size_t j = 0; j < sz; j++) {
             if (i == j) {
-                continue;
+                continue;  // Can't connect to self
             }
 
             int distance = distances[i][j];
@@ -2684,11 +2702,12 @@ void makeRivers(
             }
         }
 
+        // Each water body connects to 3-6 random neighbors (or all if fewer)
         int numConnections = std::min(rng::make_roll(3, 4), (int) candidates.size());
         logger::write("There will be " + std::to_string(numConnections) + " rivers");
 
         if (numConnections > 0) {
-            rng::shuffle(candidates);
+            rng::shuffle(candidates);  // Randomize which neighbors to connect
 
             for (int ci = 0; ci < numConnections; ci++) {
                 WaterBody* target = waterBodies[candidates[ci].first];
@@ -2696,53 +2715,47 @@ void makeRivers(
 
                 if (source->connected(target)) {
                     logger::write("Already connected, moving to next target");
-                    continue;
+                    continue;  // Don't create duplicate rivers
                 }
 
-                // Commented out waterBodies to match that it's not used currently due to that if statement
-                // in the lambda being commented out.
-                graph.setInclusion([ source, target, &rivers/*, &waterBodies*/ ](ARegion* current, ARegion* next) {
+                // Setup pathfinding rules for this river
+                graph.setInclusion([ source, target, &rivers ](ARegion* current, ARegion* next) {
                     if (source->includes(next)) {
-                        // river can't go through source water body
-                        return false;
+                        return false;  // Can't go through source water body
                     }
 
                     if (target->includes(current) && target->includes(next)) {
-                        // river can't go thourh target water body, it can touch target water body edge
-                        return false;
+                        return false;  // Can touch target edge but not go through it
                     }
 
                     if (rivers.find(next) != rivers.end()) {
-                        // rivers can cross
-                        return true;
+                        return true;  // Rivers can cross each other
                     }
 
                     if (!target->includes(next) && next->type == R_OCEAN) {
-                        // can't go through any other water
-                        return false;
+                        return false;  // Can't go through other water bodies
                     }
 
-                    // if (!isNearWaterBody(next, target) && isNearWaterBody(next, waterBodies)) {
-                    //  // can't go near other water bodies
-                    //  return false;
-                    // }
-
-                    return true;
+                    return true;  // Land is traversable
                 });
 
+                // Find optimal river path from source to target
                 graphs::Location2D riverStart;
                 graphs::Location2D riverEnd;
                 int riverCost = INT32_MAX;
 
+                // Try all coastal points of source water body
                 for (const auto& start : source->regions) {
                     if (innerWater.find(start) != innerWater.end()) {
-                        continue;
+                        continue;  // Skip deep ocean - can't start river there
                     }
 
+                    // Dijkstra pathfinding from this start point
                     std::unordered_map<graphs::Location2D, graphs::Location2D> cameFrom;
                     std::unordered_map<graphs::Location2D, double> costSoFar;
                     graphs::dijkstraSearch(graph, start, cameFrom, costSoFar);
 
+                    // Find cheapest path to any point in target water body
                     int smallestCost = INT32_MAX;
                     graphs::Location2D end;
                     for(const auto loc : target->regions) {
@@ -2754,10 +2767,10 @@ void makeRivers(
                     }
 
                     if (smallestCost == INT32_MAX) {
-                        // path not found
-                        continue;
+                        continue;  // No path from this start point
                     }
 
+                    // Update best river path if this is cheaper
                     if (smallestCost < riverCost) {
                         riverStart = start;
                         riverEnd = end;
@@ -2766,39 +2779,43 @@ void makeRivers(
                 }
 
                 if (riverCost == INT32_MAX) {
-                    // path not found
                     logger::write("No path to " + std::to_string(target->name) + " found");
-                    continue;
+                    continue;  // No valid river path found
                 }
 
-                // we just found river start and end
+                // Mark water bodies as connected
                 source->connect(target);
                 target->connect(source);
 
+                // Reconstruct optimal path using Dijkstra
                 std::unordered_map<graphs::Location2D, graphs::Location2D> cameFrom;
                 std::unordered_map<graphs::Location2D, double> costSoFar;
                 graphs::dijkstraSearch(graph, riverStart, riverEnd, cameFrom, costSoFar);
 
+                // Build path from end to start
                 std::vector<ARegion*> path;
                 graphs::Location2D current = riverEnd;
                 while (current != riverStart) {
                     ARegion* reg = graph.get(current);
                     path.push_back(reg);
-
                     current = cameFrom[current];
                 }
 
                 int riverLen = path.size();
                 logger::write("River length is " + std::to_string(riverLen));
 
+                // Place river: alternate R_OCEAN and R_SWAMP (adaptive segmentation)
                 bool first = true;
                 int counter = 0;
-                int segmentLen = std::min(4, riverLen - 1);
+                // Adaptive segment length: shorter rivers have more swamps (%)
+                int segmentLen = std::min(riverLen / 2, 6);
+                if (segmentLen < 3) segmentLen = 3;
+                if (segmentLen > riverLen - 1) segmentLen = riverLen - 1;
                 logger::write("River segment length is " + std::to_string(segmentLen));
 
                 for (auto reg : path) {
                     if (rivers.find(reg) != rivers.end()) {
-                        // we are corrsing or running across exisitng river
+                        // Crossing existing river - start new river segment
                         riverName++;
                         counter = 1;
                         first = false;
@@ -2809,16 +2826,18 @@ void makeRivers(
                     }
 
                     if (first) {
+                        // First hex: R_SWAMP if very short river, else R_OCEAN
                         reg->type = path.size() == 1 ? R_SWAMP : R_OCEAN;
                         first = false;
                         continue;
                     }
 
+                    // Alternate R_SWAMP every 4 hexes, otherwise R_OCEAN
                     reg->type = (counter % segmentLen) == 0 ? R_SWAMP : R_OCEAN;
                     counter++;
                 }
 
-                riverName++;
+                riverName++;  // Next river gets new ID
             }
         }
     }

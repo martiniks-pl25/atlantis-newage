@@ -171,6 +171,7 @@ enum {
     I_OGREMAN,
     I_HIGHLANDER,
     I_MINOTAUR,
+    I_TIEFLING,
     I_LANCE,
     I_MUSHROOM,
     I_RRAT,

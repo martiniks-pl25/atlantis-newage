@@ -426,11 +426,11 @@ void Game::CreateWorld()
         // Default parameters (can be changed before compilation or at runtime)
         int default_minTemp = -45;
         int default_maxTemp = 45;
-        float default_frequency = 5;
+        float default_frequency = 4;
         float default_amplitude = 0.5;
         float default_redistribution = 2;  // Even gentler elevation (avoid too much flat land)
-        float default_evoparation = 0.74;    // Maximum evaporation = maximum rainfall (ensure forests)
-        float default_waterPercent = 0.36;   // 50% base ocean (more moisture sources)
+        float default_evoparation = 0.75;    // Maximum evaporation = maximum rainfall (ensure forests)
+        float default_waterPercent = 0.35;   // 50% base ocean (more moisture sources)
         float default_mountainPercent = 0.10;
         float default_hillPercent = 0.60;
         float default_lakePercent = 0.15;  // 15% chance for lake placement
@@ -438,7 +438,7 @@ void Game::CreateWorld()
         // Polar archipelago parameters (control polar island fragmentation)
         float default_polarLatitudeStart = 65.0;   // Latitude where island effect begins (60-75°, lower = more area affected)
         float default_polarIslandBlend = 0.50;     // Island fragmentation strength (0.3-0.8, higher = more fragmented)
-        float default_polarElevationRedux = 0.80;  // Polar submersion level (0.2-0.7, higher = more ocean at poles)
+        float default_polarElevationRedux = 0.85;  // Polar submersion level (0.2-0.7, higher = more ocean at poles)
 
         // Show current defaults
         logger::write("");

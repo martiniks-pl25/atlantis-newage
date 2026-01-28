@@ -1424,6 +1424,15 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyItemCapacities(I_FAIRY,7,0,7,0);
     ModifyItemWeight(I_FAIRY, 5);
 
+    EnableItem(I_TIEFLING);
+    ModifyItemBasePrice(I_TIEFLING, 200);
+    modify_race_skill_levels("TIEF", 3, 2);
+    modify_race_skills("TIEF", 0, "STEA");
+    modify_race_skills("TIEF", 1, "COMB");
+    modify_race_skills("TIEF", 2, "ENTE");
+    ModifyItemCapacities(I_TIEFLING,12,0,0,0);
+    ModifyItemWeight(I_TIEFLING, 10);
+
     //
     // Change races per terrain
     //
@@ -1583,7 +1592,7 @@ void Game::ModifyTablesPerRuleset(void)
     }
 
     // NO7 - Enable the various parts of the victory conditions
-    if (rulesetSpecificData["victory_type"] == "annihilation") {
+    if (rulesetSpecificData.value("victory_type", "") == "annihilation") {
         EnableObject(O_RITUAL_ALTAR);
         EnableObject(O_EMPOWERED_ALTAR);
         EnableObject(O_ENTITY_CAGE);
