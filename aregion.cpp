@@ -202,7 +202,12 @@ void ARegion::MakeLair(int t)
     Object *o = new Object(this);
     o->num = buildingseq++;
     o->type = t;
-    o->set_name(ObjectDefs[t].name);
+
+    // Generate ethnicity-specific lair name based on monster type and region's race
+    int monsterType = ObjectDefs[t].monster;
+    std::string lairName = getLairName(t, monsterType, this->race);
+    o->set_name(lairName);
+
     o->incomplete = 0;
     o->inner = -1;
     objects.push_back(o);
@@ -2783,10 +2788,6 @@ void makeRivers(
                     continue;  // No valid river path found
                 }
 
-                // Mark water bodies as connected
-                source->connect(target);
-                target->connect(source);
-
                 // Reconstruct optimal path using Dijkstra
                 std::unordered_map<graphs::Location2D, graphs::Location2D> cameFrom;
                 std::unordered_map<graphs::Location2D, double> costSoFar;
@@ -2804,6 +2805,24 @@ void makeRivers(
                 int riverLen = path.size();
                 logger::write("River length is " + std::to_string(riverLen));
 
+                // Check if entire river path is on extreme parallels - skip if so
+                bool entirelyOnExtremeParallels = true;
+                for (auto reg : path) {
+                    if (reg->yloc > 1 && reg->yloc < h - 2) {
+                        entirelyOnExtremeParallels = false;
+                        break;
+                    }
+                }
+
+                if (entirelyOnExtremeParallels) {
+                    logger::write("Skipping river - entire path on extreme parallels");
+                    continue;
+                }
+
+                // Mark water bodies as connected (only if river will be created)
+                source->connect(target);
+                target->connect(source);
+
                 // Place river: alternate R_OCEAN and R_SWAMP (adaptive segmentation)
                 bool first = true;
                 int counter = 0;
@@ -2814,6 +2833,12 @@ void makeRivers(
                 logger::write("River segment length is " + std::to_string(segmentLen));
 
                 for (auto reg : path) {
+                    // Skip river hexes on extreme north/south parallels (y=0,1 or y=h-2,h-1)
+                    if (reg->yloc <= 1 || reg->yloc >= h - 2) {
+                        logger::write("Skipping river hex at extreme parallel y=" + std::to_string(reg->yloc));
+                        continue;
+                    }
+
                     if (rivers.find(reg) != rivers.end()) {
                         // Crossing existing river - start new river segment
                         riverName++;
@@ -3466,7 +3491,8 @@ void economy(ARegionArray* arr, const int w, const int h) {
         }
 
         TerrainType* terrain = &(TerrainDefs[reg->type]);
-        if (reg->type == R_OCEAN || reg->type == R_VOLCANO || terrain->flags & TerrainType::BARREN) {
+        if (reg->type == R_OCEAN || reg->type == R_VOLCANO || reg->type == R_LAKE ||
+            terrain->flags & TerrainType::BARREN) {
             return minDist;
         }
 

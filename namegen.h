@@ -38,4 +38,8 @@ std::string getRiverName(const int size, const int min, const int max);
 
 // Production building names with race-specific and resource-specific variants
 std::string getProductionBuildingName(int buildingType, int resourceType, int race);
+
+// Lair names with monster-specific and ethnicity-specific variants
+std::string getLairName(int lairType, int monsterType, int race);
+
 Ethnicity raceToEthnicity(int race);

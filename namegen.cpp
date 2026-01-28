@@ -216,6 +216,78 @@ std::vector<std::string> aHumanOasis = { "oasis", "spring", "well", "greenrest",
 std::vector<std::string> aHumanCamel = { "camel", "dromedary", "packbeast", "caravan", "sandsteed" };
 
 //---------------------------------------------------------------------------
+// LAIR NAMING SYSTEM - Monster and Lair Type Words
+//---------------------------------------------------------------------------
+
+// Dwarven monster words
+std::vector<std::string> aDwarfDragon = { "draug", "lhug", "urkul", "azag", "ghazan", "smaug" };
+std::vector<std::string> aDwarfTrent = { "durad", "ornul", "thrandul", "malbeth", "galorn", "entuk" };
+std::vector<std::string> aDwarfDemon = { "goroth", "balrog", "gorthaur", "morgoth", "udun", "nazak" };
+std::vector<std::string> aDwarfTroll = { "throg", "olog", "urak", "grond", "throk", "bolog" };
+std::vector<std::string> aDwarfUndead = { "gul", "morgul", "dushgoi", "nazgul", "barrow", "tumun" };
+std::vector<std::string> aDwarfCentaur = { "taur", "rath", "rundak", "kevar", "horath", "durath" };
+std::vector<std::string> aDwarfBeast = { "karak", "uruk", "ghul", "baraz", "tharg", "durak" };
+
+// Dwarven lair type words
+std::vector<std::string> aDwarfCave = { "dum", "grond", "zad", "aghan", "khazad", "nurn" };
+std::vector<std::string> aDwarfLair = { "ost", "gard", "durbul", "kheled", "bund", "gundag" };
+std::vector<std::string> aDwarfRuin = { "nurn", "bragar", "zahar", "keled", "dumal", "gundabad" };
+std::vector<std::string> aDwarfPit = { "gar", "ghash", "buzar", "dushgoi", "gorog", "garaz" };
+std::vector<std::string> aDwarfCrypt = { "tumun", "guldur", "morgul", "nazar", "baruk", "zahal" };
+std::vector<std::string> aDwarfShaft = { "gundag", "khazad", "zirak", "tharaz", "kibil", "mazal" };
+
+// Elven monster words
+std::vector<std::string> aElfDragon = { "lhug", "rauko", "angulok", "orme", "loke", "uruloke" };
+std::vector<std::string> aElfTrent = { "ent", "onod", "tawar", "ornul", "galadh", "mallorn" };
+std::vector<std::string> aElfDemon = { "rauko", "valaraukar", "gothmog", "morgoth", "moringotto", "bauglir" };
+std::vector<std::string> aElfTroll = { "torog", "olog", "draugluin", "carcharoth", "ungol", "athelas" };
+std::vector<std::string> aElfUndead = { "gul", "morgul", "uvanimor", "fea", "houseless", "barrow" };
+std::vector<std::string> aElfCentaur = { "rocco", "taur", "rath", "rond", "celeb", "galad" };
+std::vector<std::string> aElfBeast = { "rauko", "uruk", "narmos", "lhang", "angulok", "carak" };
+
+// Elven lair type words
+std::vector<std::string> aElfCave = { "rond", "groth", "roth", "fela", "gondolin", "nargothrond" };
+std::vector<std::string> aElfLair = { "ost", "barad", "minas", "iaur", "caer", "tham" };
+std::vector<std::string> aElfRuin = { "iaur", "fallen", "loss", "annon", "daedhelos", "gondolin" };
+std::vector<std::string> aElfPit = { "dum", "moria", "udun", "thangorodrim", "angband", "utumno" };
+std::vector<std::string> aElfCrypt = { "haudh", "tumun", "gurth", "barrow", "sarn", "gwathuirim" };
+std::vector<std::string> aElfShaft = { "tham", "groth", "fela", "orod", "eithel", "annon" };
+
+// Orcish monster words
+std::vector<std::string> aOrcDragon = { "lhug", "ghazan", "firetooth", "smokewing", "smaug", "scatha" };
+std::vector<std::string> aOrcTrent = { "treegit", "woodrot", "bark", "rootmaw", "thrangul", "splinter" };
+std::vector<std::string> aOrcDemon = { "goroth", "flame", "burnlord", "hellspawn", "firegit", "ashbringer" };
+std::vector<std::string> aOrcTroll = { "throg", "stonegit", "rockhead", "mountainmaw", "bonecrush", "olog" };
+std::vector<std::string> aOrcUndead = { "gul", "deadgit", "bonewraith", "rotlord", "corpse", "deathspawn" };
+std::vector<std::string> aOrcCentaur = { "halfgit", "horsemeat", "prancegit", "hoofhead", "taur", "galop" };
+std::vector<std::string> aOrcBeast = { "claw", "fang", "bloodmaw", "killer", "slasher", "ripper" };
+
+// Orcish lair type words
+std::vector<std::string> aOrcCave = { "hai", "snaga", "hole", "burz", "ghash", "durbul" };
+std::vector<std::string> aOrcLair = { "gar", "burz", "durb", "ukh", "grishnakh", "lugburz" };
+std::vector<std::string> aOrcRuin = { "gijak", "broken", "oldgit", "rubble", "smashed", "wrecked" };
+std::vector<std::string> aOrcPit = { "gul", "hellhole", "bloodpit", "darkhole", "ghashnar", "skullpit" };
+std::vector<std::string> aOrcCrypt = { "guldur", "bonepile", "deathhole", "morgul", "corpsepit", "gravegit" };
+std::vector<std::string> aOrcShaft = { "deephole", "darkshaft", "durbul", "ghashgul", "blackpit", "dighole" };
+
+// Human monster words
+std::vector<std::string> aHumanDragon = { "wyrm", "drake", "serpent", "firedrake", "worm", "winged" };
+std::vector<std::string> aHumanTrent = { "treant", "ent", "guardian", "ancient", "elder", "walking" };
+std::vector<std::string> aHumanDemon = { "demon", "devil", "fiend", "hellspawn", "infernal", "abyssal" };
+std::vector<std::string> aHumanTroll = { "troll", "giant", "ogre", "brute", "behemoth", "colossus" };
+std::vector<std::string> aHumanUndead = { "wraith", "ghost", "specter", "phantom", "revenant", "shade" };
+std::vector<std::string> aHumanCentaur = { "centaur", "halfling", "horseman", "wildrunner", "plainsfolk", "horsefolk" };
+std::vector<std::string> aHumanBeast = { "beast", "creature", "monster", "predator", "stalker", "hunter" };
+
+// Human lair type words
+std::vector<std::string> aHumanCave = { "cave", "cavern", "hollow", "grotto", "den", "warren" };
+std::vector<std::string> aHumanLair = { "lair", "den", "nest", "dwelling", "haunt", "hideout" };
+std::vector<std::string> aHumanRuin = { "ruins", "wreck", "remains", "rubble", "fallen", "forsaken" };
+std::vector<std::string> aHumanPit = { "pit", "abyss", "chasm", "hellgate", "maw", "depths" };
+std::vector<std::string> aHumanCrypt = { "crypt", "tomb", "grave", "barrow", "cairn", "sepulcher" };
+std::vector<std::string> aHumanShaft = { "shaft", "mine", "delve", "tunnel", "passage", "dungeon" };
+
+//---------------------------------------------------------------------------
 
 std::string getPrefix(std::vector<std::string>& prefixTable) {
     return rng::one_of(prefixTable);
@@ -505,6 +577,187 @@ std::string getProductionBuildingName(int buildingType, int resourceType, int ra
             // Human format: prefix + " " + resource + " " + building
             // Example: "Brent Iron Mine" or "Oak Wood Mill"
             return (prefix + " " + resourceWord + " " + buildingWord) | filter::title_case;
+    }
+}
+
+// Generate lair name based on monster type, lair type, and region's ethnicity
+std::string getLairName(int lairType, int monsterType, int race) {
+    Ethnicity ethnicity = raceToEthnicity(race);
+
+    std::string monsterWord;
+    std::string lairWord;
+    std::string prefix;
+
+    // Select monster and lair words based on ethnicity
+    switch(ethnicity) {
+        case Ethnicity::DWARF:
+            prefix = getPrefix(aPrefDwarven);
+
+            // Monster words
+            switch(monsterType) {
+                case I_DRAGON:
+                case I_ICEDRAGON:   monsterWord = rng::one_of(aDwarfDragon); break;
+                case I_TRENT:       monsterWord = rng::one_of(aDwarfTrent); break;
+                case I_IMP:
+                case I_DEMON:
+                case I_BALROG:      monsterWord = rng::one_of(aDwarfDemon); break;
+                case I_TROLL:
+                case I_ETTIN:
+                case I_OGRE:        monsterWord = rng::one_of(aDwarfTroll); break;
+                case I_SKELETON:
+                case I_UNDEAD:
+                case I_LICH:        monsterWord = rng::one_of(aDwarfUndead); break;
+                case I_CENTAUR:     monsterWord = rng::one_of(aDwarfCentaur); break;
+                default:            monsterWord = rng::one_of(aDwarfBeast); break;
+            }
+
+            // Lair type words
+            switch(lairType) {
+                case O_CAVE:
+                case O_ICECAVE:
+                case O_OCAVE:       lairWord = rng::one_of(aDwarfCave); break;
+                case O_LAIR:
+                case O_ILAIR:       lairWord = rng::one_of(aDwarfLair); break;
+                case O_RUIN:        lairWord = rng::one_of(aDwarfRuin); break;
+                case O_DEMONPIT:    lairWord = rng::one_of(aDwarfPit); break;
+                case O_CRYPT:       lairWord = rng::one_of(aDwarfCrypt); break;
+                case O_SHAFT:       lairWord = rng::one_of(aDwarfShaft); break;
+                case O_BOG:         lairWord = rng::one_of(aDwarfLair); break;
+                default:            lairWord = "zad";
+            }
+
+            // Dwarven format: prefix + monster + lair
+            // Example: "Khuz-draug-dum" = "Deep Dragon Cave"
+            return (prefix + monsterWord + lairWord) | filter::capitalize;
+
+        case Ethnicity::ELF:
+        case Ethnicity::HIGHELF:
+            prefix = getPrefix(aPrefElven2);
+
+            // Monster words
+            switch(monsterType) {
+                case I_DRAGON:
+                case I_ICEDRAGON:   monsterWord = rng::one_of(aElfDragon); break;
+                case I_TRENT:       monsterWord = rng::one_of(aElfTrent); break;
+                case I_IMP:
+                case I_DEMON:
+                case I_BALROG:      monsterWord = rng::one_of(aElfDemon); break;
+                case I_TROLL:
+                case I_ETTIN:
+                case I_OGRE:        monsterWord = rng::one_of(aElfTroll); break;
+                case I_SKELETON:
+                case I_UNDEAD:
+                case I_LICH:        monsterWord = rng::one_of(aElfUndead); break;
+                case I_CENTAUR:     monsterWord = rng::one_of(aElfCentaur); break;
+                default:            monsterWord = rng::one_of(aElfBeast); break;
+            }
+
+            // Lair type words
+            switch(lairType) {
+                case O_CAVE:
+                case O_ICECAVE:
+                case O_OCAVE:       lairWord = rng::one_of(aElfCave); break;
+                case O_LAIR:
+                case O_ILAIR:       lairWord = rng::one_of(aElfLair); break;
+                case O_RUIN:        lairWord = rng::one_of(aElfRuin); break;
+                case O_DEMONPIT:    lairWord = rng::one_of(aElfPit); break;
+                case O_CRYPT:       lairWord = rng::one_of(aElfCrypt); break;
+                case O_SHAFT:       lairWord = rng::one_of(aElfShaft); break;
+                case O_BOG:         lairWord = rng::one_of(aElfLair); break;
+                default:            lairWord = "ost";
+            }
+
+            // Elven format: prefix + monster + lair
+            // Example: "Nim-lhug-rond" = "White Dragon Cavern"
+            return (prefix + monsterWord + lairWord) | filter::capitalize;
+
+        case Ethnicity::ORC:
+            prefix = getPrefix(aPrefOrchish);
+
+            // Monster words
+            switch(monsterType) {
+                case I_DRAGON:
+                case I_ICEDRAGON:   monsterWord = rng::one_of(aOrcDragon); break;
+                case I_TRENT:       monsterWord = rng::one_of(aOrcTrent); break;
+                case I_IMP:
+                case I_DEMON:
+                case I_BALROG:      monsterWord = rng::one_of(aOrcDemon); break;
+                case I_TROLL:
+                case I_ETTIN:
+                case I_OGRE:        monsterWord = rng::one_of(aOrcTroll); break;
+                case I_SKELETON:
+                case I_UNDEAD:
+                case I_LICH:        monsterWord = rng::one_of(aOrcUndead); break;
+                case I_CENTAUR:     monsterWord = rng::one_of(aOrcCentaur); break;
+                default:            monsterWord = rng::one_of(aOrcBeast); break;
+            }
+
+            // Lair type words
+            switch(lairType) {
+                case O_CAVE:
+                case O_ICECAVE:
+                case O_OCAVE:       lairWord = rng::one_of(aOrcCave); break;
+                case O_LAIR:
+                case O_ILAIR:       lairWord = rng::one_of(aOrcLair); break;
+                case O_RUIN:        lairWord = rng::one_of(aOrcRuin); break;
+                case O_DEMONPIT:    lairWord = rng::one_of(aOrcPit); break;
+                case O_CRYPT:       lairWord = rng::one_of(aOrcCrypt); break;
+                case O_SHAFT:       lairWord = rng::one_of(aOrcShaft); break;
+                case O_BOG:         lairWord = rng::one_of(aOrcLair); break;
+                default:            lairWord = "gar";
+            }
+
+            // Orcish format: prefix + monster + lair
+            // Example: "Ghash-lhug-hai" = "Fire Dragon Hole"
+            return (prefix + monsterWord + lairWord) | filter::capitalize;
+
+        case Ethnicity::MAN:
+        case Ethnicity::VIKING:
+        case Ethnicity::BARBARIAN:
+        case Ethnicity::NOMAD:
+        default:
+            // Humans use more readable format
+            prefix = (ethnicity == Ethnicity::VIKING) ? getPrefix(aPrefViking) :
+                     (ethnicity == Ethnicity::BARBARIAN) ? getPrefix(aPrefScotish) :
+                     (ethnicity == Ethnicity::NOMAD) ? getPrefix(aPrefArabic) :
+                     getPrefix(aPrefHumans);
+
+            // Monster words
+            switch(monsterType) {
+                case I_DRAGON:
+                case I_ICEDRAGON:   monsterWord = rng::one_of(aHumanDragon); break;
+                case I_TRENT:       monsterWord = rng::one_of(aHumanTrent); break;
+                case I_IMP:
+                case I_DEMON:
+                case I_BALROG:      monsterWord = rng::one_of(aHumanDemon); break;
+                case I_TROLL:
+                case I_ETTIN:
+                case I_OGRE:        monsterWord = rng::one_of(aHumanTroll); break;
+                case I_SKELETON:
+                case I_UNDEAD:
+                case I_LICH:        monsterWord = rng::one_of(aHumanUndead); break;
+                case I_CENTAUR:     monsterWord = rng::one_of(aHumanCentaur); break;
+                default:            monsterWord = rng::one_of(aHumanBeast); break;
+            }
+
+            // Lair type words
+            switch(lairType) {
+                case O_CAVE:
+                case O_ICECAVE:
+                case O_OCAVE:       lairWord = rng::one_of(aHumanCave); break;
+                case O_LAIR:
+                case O_ILAIR:       lairWord = rng::one_of(aHumanLair); break;
+                case O_RUIN:        lairWord = rng::one_of(aHumanRuin); break;
+                case O_DEMONPIT:    lairWord = rng::one_of(aHumanPit); break;
+                case O_CRYPT:       lairWord = rng::one_of(aHumanCrypt); break;
+                case O_SHAFT:       lairWord = rng::one_of(aHumanShaft); break;
+                case O_BOG:         lairWord = rng::one_of(aHumanLair); break;
+                default:            lairWord = "dungeon";
+            }
+
+            // Human format: prefix + " " + monster + " " + lair
+            // Example: "Blackwood Dragon Cave" or "Grimstone Troll Den"
+            return (prefix + " " + monsterWord + " " + lairWord) | filter::title_case;
     }
 }
 
