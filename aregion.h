@@ -56,6 +56,7 @@ class TerrainType
             BARREN        = 0x4,
             SHOW_RULES    = 0x8,
             ANNIHILATED   = 0x10,
+            NO_LEADERS    = 0x20,  // No leader recruitment allowed
         };
         int flags;
 
@@ -335,6 +336,8 @@ class ARegion
         // Editing functions
         void UpdateEditRegion();
         void SetupEditRegion();
+        void AddLeadersMarket();
+        void AddMenMarket();
     private:
         /* Private Setup Functions */
         void SetupPop();

@@ -3,7 +3,21 @@
 #include "logger.hpp"
 #include "gamedata.h"
 #include <utility>
+#include "rng.hpp"
 
+/**
+ * @brief Updates market quantities and prices each turn
+ *
+ * Called from ARegion::PostTurn() and UpdateEditRegion(). Updates:
+ * - IT_MAN/IT_LEADER markets: recalculates amount and price based on population/wages
+ * - Other markets: adjusts prices based on trading activity, scales quantities by population
+ *
+ * @param population Current region population
+ * @param wages Current region wages (used for IT_MAN price calculation)
+ *
+ * @note This is the single source of truth for recruitment market amounts
+ * @see ARegion::PostTurn(), ARegion::UpdateEditRegion()
+ */
 void Market::post_turn(int population, int wages)
 {
     // Nothing to do to the markets.
@@ -19,9 +33,9 @@ void Market::post_turn(int population, int wages)
         // hack: included new wage factor of ten in float assignment above
         price = (int)((float) wages * 4 * ratio);
         if (ItemDefs[item].type & IT_LEADER)
-            amount = population / 125;
+            amount = population / LEADERS_PER_MARKET_UNIT;
         else
-            amount = population / 25;
+            amount = population / MEN_PER_MARKET_UNIT;
         return;
     }
 

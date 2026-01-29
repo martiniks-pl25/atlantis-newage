@@ -80,6 +80,10 @@ enum DestroyBehavior {
 	PER_SKILL  = 2	// use building skill as a basis how much can be destroyed. The formula is: destroy power = max(1, BUILDING skill level)
 };
 
+// Market population ratios (used in Market::post_turn and AddMenMarket/AddLeadersMarket)
+constexpr int MEN_PER_MARKET_UNIT = 25;
+constexpr int LEADERS_PER_MARKET_UNIT = 500;
+
 class GameDefs {
 public:
 	std::string RULESET_NAME;

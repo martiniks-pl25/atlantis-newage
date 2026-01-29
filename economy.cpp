@@ -61,6 +61,53 @@ std::string ARegion::wages_for_report()
         return "$" + std::to_string(0);
 }
 
+/**
+ * @brief Creates recruitment market for common units
+ *
+ * Creates a M_BUY market for the region's race with quantity based on population.
+ * Formula: amount = Population() / MEN_PER_MARKET_UNIT
+ *
+ * @note Market amount will be recalculated by Market::post_turn() each turn
+ * @see AddLeadersMarket(), Market::post_turn()
+ */
+void ARegion::AddMenMarket() {
+    float ratio = ItemDefs[race].baseprice / ((float)Globals->BASE_MAN_COST * 10);
+    // hack: include wage factor of 10 in float calculation above
+    Market* m = new Market(
+        Market::MarketType::M_BUY, race,
+        (int)(Wages() * 4 * ratio),
+        Population() / MEN_PER_MARKET_UNIT, 0, 10000, 0, 2000
+    );
+    markets.push_back(m);
+}
+
+/**
+ * @brief Creates recruitment market for leaders
+ *
+ * Creates a M_BUY market for leaders with quantity based on population.
+ * Formula: amount = Population() / LEADERS_PER_MARKET_UNIT
+ *
+ * @note Skips if LEADERS_EXIST is disabled or terrain has NO_LEADERS flag
+ * @note Market amount will be recalculated by Market::post_turn() each turn
+ * @see AddMenMarket(), Market::post_turn()
+ */
+void ARegion::AddLeadersMarket() {
+    if (!Globals->LEADERS_EXIST) return;
+
+    // Check if terrain allows leader recruitment
+    TerrainType* terrain = &TerrainDefs[type];
+    if (terrain->flags & TerrainType::NO_LEADERS) return;
+
+    float ratio = ItemDefs[I_LEADERS].baseprice / ((float)Globals->BASE_MAN_COST * 10);
+    // hack: include wage factor of 10 in float calculation above
+    Market* m = new Market(
+        Market::MarketType::M_BUY, I_LEADERS,
+        (int)(Wages() * 4 * ratio),
+        Population() / LEADERS_PER_MARKET_UNIT, 0, 10000, 0, 400
+    );
+    markets.push_back(m);
+}
+
 void ARegion::SetupHabitat(TerrainType* terrain) {
     if (habitat > 1) habitat *= 5;
     if ((habitat < 100) && (terrain->similar_type != R_OCEAN)) habitat = 100;
@@ -141,6 +188,18 @@ void ARegion::SetupHabitat(TerrainType* terrain) {
     maxdevelopment = development;
 }
 
+/**
+ * @brief Creates economic infrastructure during world generation
+ *
+ * Final step of region initialization. Creates work/entertainment Production
+ * objects and recruitment markets. Called after terrain, population, and towns
+ * are set up.
+ *
+ * Flow: SetupProds() → SetupHabitat() → SetupPop() → SetupEconomy()
+ *
+ * @note Only called during world generation, not during turn processing
+ * @see SetupPop(), AddMenMarket(), AddLeadersMarket()
+ */
 void ARegion::SetupEconomy() {
     /* Setup basic economy */
     maxwages = Wages();
@@ -200,22 +259,9 @@ void ARegion::SetupEconomy() {
     products.push_back(w);
     products.push_back(e);
 
-    float ratio = ItemDefs[race].baseprice / ((float)Globals->BASE_MAN_COST * 10);
-    // hack: include wage factor of 10 in float assignment above
-    // Setup Recruiting
-    Market *m = new Market(
-        Market::MarketType::M_BUY, race, (int)(Wages() * 4 * ratio), Population() / 25, 0, 10000, 0, 2000
-    );
-    markets.push_back(m);
+    AddMenMarket();
+    AddLeadersMarket();
 
-    if (Globals->LEADERS_EXIST) {
-        ratio = ItemDefs[I_LEADERS].baseprice / ((float)Globals->BASE_MAN_COST * 10);
-        // hack: include wage factor of 10 in float assignment above
-        m = new Market(
-            Market::MarketType::M_BUY, I_LEADERS, (int)(Wages() * 4 * ratio), Population() / 125, 0, 10000, 0, 400
-        );
-        markets.push_back(m);
-    }
 }
 
 void ARegion::SetupPop()
@@ -912,35 +958,42 @@ void ARegion::SetTownType(int level)
     maxdevelopment = development;
 }
 
+/**
+ * @brief Recalculates region markets after population changes (GM editing)
+ *
+ * Updates income and market quantities based on new population. Recreates
+ * recruitment markets (IT_MAN/IT_LEADER) to reset prices and reflect race changes.
+ *
+ * @note Called from edit.cpp when GM regenerates a region
+ * @see SetupEditRegion(), AddMenMarket(), AddLeadersMarket()
+ */
 void ARegion::UpdateEditRegion()
 {
     // redo markets and entertainment/tax income for extra people.
     SetIncome();
     for (auto& m : markets) m->post_turn(Population(), Wages());
 
-    //Replace man selling
+    // Recreate recruitment markets to reset market state (prices, activity)
+    // and update race if it changed
     markets.erase(
         remove_if(markets.begin(), markets.end(), [](const Market * m) { return ItemDefs[m->item].type & IT_MAN; }),
         markets.end()
     );
 
-    float ratio = ItemDefs[race].baseprice / (float) (Globals->BASE_MAN_COST * 10);
-    // hack: include wage factor of 10 in float calculation above
-    Market *m = new Market(
-        Market::MarketType::M_BUY, race, (int)(Wages() * 4 * ratio), Population()/ 25, 0, 10000, 0, 2000
-    );
-    markets.push_back(m);
-
-    if (Globals->LEADERS_EXIST) {
-        ratio = ItemDefs[I_LEADERS].baseprice / (float) (Globals->BASE_MAN_COST * 10);
-        // hack: include wage factor of 10 in float calculation above
-        m = new Market(
-            Market::MarketType::M_BUY, I_LEADERS, (int)(Wages() * 4 * ratio), Population() / 125, 0, 10000, 0, 400
-        );
-        markets.push_back(m);
-    }
+    AddMenMarket();
+    AddLeadersMarket();
 }
 
+/**
+ * @brief Fully initializes region economy for GM editing
+ *
+ * Regenerates entire region: race, population, development, towns, and markets.
+ * Used by GM "g" command to recreate a region from scratch while preserving terrain.
+ *
+ * @note Called from edit.cpp after markets are cleared externally
+ * @note Followed by UpdateEditRegion() to finalize market state
+ * @see UpdateEditRegion(), SetupEconomy()
+ */
 void ARegion::SetupEditRegion()
 {
     // Direct copy of SetupPop() except that it calls AddTown(AString*)
@@ -1043,22 +1096,8 @@ void ARegion::SetupEditRegion()
     // set up work and entertainment income
     SetIncome();
 
-    float ratio = ItemDefs[race].baseprice / ((float)Globals->BASE_MAN_COST * 10);
-    // hack: include wage factor of 10 in float assignment above
-    // Setup Recruiting
-    Market *m = new Market(
-        Market::MarketType::M_BUY, race, (int)(Wages() * 4 * ratio), Population() / 25, 0, 10000, 0, 2000
-    );
-    markets.push_back(m);
-
-    if (Globals->LEADERS_EXIST) {
-        ratio = ItemDefs[I_LEADERS].baseprice / ((float)Globals->BASE_MAN_COST * 10);
-        // hack: include wage factor of 10 in float assignment above
-        m = new Market(
-            Market::MarketType::M_BUY, I_LEADERS, (int)(Wages() * 4 * ratio), Population() / 125, 0, 10000, 0, 400
-        );
-        markets.push_back(m);
-    }
+    AddMenMarket();
+    AddLeadersMarket();
 }
 
 void ARegion::UpdateProducts()
@@ -1523,6 +1562,21 @@ void ARegion::Migrate()
     migfrom.clear();
 }
 
+/**
+ * @brief End-of-turn region maintenance and economy updates
+ *
+ * Called after all orders are processed. Updates:
+ * - Building decay
+ * - Development (player activity + recovery for poor regions)
+ * - Starting city markets (if city was captured)
+ * - Wages and entertainment income
+ * - All market quantities/prices via Market::post_turn()
+ * - Production resources
+ * - Unit PostTurn processing
+ *
+ * @note This is where Market::post_turn() recalculates recruitment markets
+ * @see Market::post_turn(), UpdateProducts(), SetIncome()
+ */
 void ARegion::PostTurn()
 {
 
@@ -1576,20 +1630,8 @@ void ARegion::PostTurn()
             for (auto& m : markets) delete m; // Free the allocated object
             markets.clear(); // empty the vector.
             SetupCityMarket();
-            float ratio = ItemDefs[race].baseprice / (float) (Globals->BASE_MAN_COST * 10);
-            // Setup Recruiting
-            Market *m = new Market(
-                Market::MarketType::M_BUY, race, (int)(Wages() * 4 * ratio), Population() / 25, 0, 10000, 0, 2000
-            );
-            markets.push_back(m);
-            if (Globals->LEADERS_EXIST) {
-                ratio = ItemDefs[I_LEADERS].baseprice / (float)Globals->BASE_MAN_COST;
-                m = new Market(
-                    Market::MarketType::M_BUY, I_LEADERS, (int)(Wages() * 4 * ratio), Population() / 125,
-                    0, 10000, 0, 400
-                );
-                markets.push_back(m);
-            }
+            AddMenMarket();
+            AddLeadersMarket();
         }
     }
 
