@@ -56,6 +56,17 @@ Game::~Game()
     FactionTypes->clear();
 }
 
+/**
+ * @brief Returns current game turn number (1-based)
+ *
+ * Converts game year and month to sequential turn number.
+ * Formula: (year-1)*12 + month + 1
+ *
+ * @return Turn number starting from 1 (Year 1, Month 0 = Turn 1)
+ * @note Month is 0-indexed (0=January, 11=December)
+ * @example Year 1, Month 0 → Turn 1 (first turn)
+ * @example Year 2, Month 0 → Turn 13
+ */
 int Game::TurnNumber()
 {
     return (year-1)*12 + month + 1;

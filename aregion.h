@@ -261,6 +261,7 @@ class ARegion
 
         int CountWMons();
         int IsGuarded();
+        int HasLair();
 
         int Wages();
         std::string wages_for_report();

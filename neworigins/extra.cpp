@@ -1289,13 +1289,10 @@ void Game::ModifyTablesPerRuleset(void)
 
     EnableItem(I_MAN);
     ModifyItemBasePrice(I_MAN, 40);
-    modify_race_skill_levels("HUMN", 4, 4);
-//    modify_race_skills("HUMN", 0, "BUIL");
-//    modify_race_skills("HUMN", 1, "RIDI");
-//    modify_race_skills("HUMN", 2, "COMB");
-//    modify_race_skills("HUMN", 3, "MINI");
-//    modify_race_skills("HUMN", 4, "FARM");
-//    modify_race_skills("HUMN", 5, "COOK");
+    modify_race_skill_levels("HUMN", 2, 4);
+    modify_race_skills("HUMN", 0, "OBSE");
+    modify_race_skills("HUMN", 1, "STEA");
+    modify_race_skills("HUMN", 2, "TACT");
 
     EnableItem(I_HILLDWARF);
     ModifyItemBasePrice(I_HILLDWARF, 40);
@@ -1329,9 +1326,9 @@ void Game::ModifyTablesPerRuleset(void)
     modify_race_skill_levels("WELF", 5, 2);
     modify_race_skills("WELF", 0, "LUMB");
     modify_race_skills("WELF", 1, "LBOW");
-    modify_race_skills("WELF", 2, "ENTE");
+    modify_race_skills("WELF", 2, "HUNT");
     modify_race_skills("WELF", 3, "CARP");
-    modify_race_skills("WELF", 4, "FISH");
+    modify_race_skills("WELF", 4, "WEAP");
     modify_race_skills("WELF", 5, "COOK");
 
     EnableItem(I_GNOME);
@@ -1342,6 +1339,7 @@ void Game::ModifyTablesPerRuleset(void)
     modify_race_skills("GNOM", 2, "ENTE");
     modify_race_skills("GNOM", 3, "XBOW");
     modify_race_skills("GNOM", 4, "HEAL");
+    modify_race_skills("GNOM", 5, "CARP");
     ModifyItemCapacities(I_GNOME,7,0,0,0);
     ModifyItemWeight(I_GNOME, 5);
 
@@ -1368,9 +1366,10 @@ void Game::ModifyTablesPerRuleset(void)
     modify_race_skill_levels("GBLN", 5, 2);
     modify_race_skills("GBLN", 0, "QUAR");
     modify_race_skills("GBLN", 1, "XBOW");
-    modify_race_skills("GBLN", 2, "SHIP");
+    modify_race_skills("GBLN", 2, "HERB");
     modify_race_skills("GBLN", 3, "WEAP");
     modify_race_skills("GBLN", 4, "ENTE");
+    modify_race_skills("GBLN", 5, "HEAL");
     ModifyItemCapacities(I_GOBLINMAN,7,0,0,0);
     ModifyItemWeight(I_GOBLINMAN, 5);
 
@@ -1379,11 +1378,11 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyItemCapacities(I_HOBBIT,7,0,0,0);
     ModifyItemWeight(I_HOBBIT, 5);
     modify_race_skill_levels("HOBB", 5, 2);
-    modify_race_skills("HOBB", 0, "HORS");
-    modify_race_skills("HOBB", 1, "HUNT");
-    modify_race_skills("HOBB", 2, "COMB");
-    modify_race_skills("HOBB", 3, "ARMO");
-    modify_race_skills("HOBB", 4, "CARP");
+    modify_race_skills("HOBB", 0, "HEAL");
+    modify_race_skills("HOBB", 1, "HERB");
+    modify_race_skills("HOBB", 2, "XBOW");
+    modify_race_skills("HOBB", 3, "FARM");
+    modify_race_skills("HOBB", 4, "ENTE");
     modify_race_skills("HOBB", 5, "COOK");
 
     EnableItem(I_ORC);
@@ -1394,12 +1393,13 @@ void Game::ModifyTablesPerRuleset(void)
     modify_race_skills("ORC", 2, "COMB");
     modify_race_skills("ORC", 3, "BUIL");
     modify_race_skills("ORC", 4, "SHIP");
+    modify_race_skills("ORC", 5, "QUAR");
 
     // Underworld races
     EnableItem(I_DROWMAN);
     ModifyItemBasePrice(I_DROWMAN, 40);
     modify_race_skill_levels("DRLF", 5, 2);
-    modify_race_skills("DRLF", 0, "COMB");
+    modify_race_skills("DRLF", 0, "SAIL");
     modify_race_skills("DRLF", 1, "HUNT");
     modify_race_skills("DRLF", 2, "LBOW");
     modify_race_skills("DRLF", 3, "LUMB");
@@ -1413,6 +1413,7 @@ void Game::ModifyTablesPerRuleset(void)
     modify_race_skills("UDWA", 2, "QUAR");
     modify_race_skills("UDWA", 3, "MINI");
     modify_race_skills("UDWA", 4, "BUIL");
+    modify_race_skills("UDWA", 5, "COMB");
 
     EnableItem(I_FAIRY);
     ModifyItemBasePrice(I_FAIRY, 200);
@@ -1518,12 +1519,9 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainCoastRace(R_TUNDRA, 2, I_MAN);
     ModifyTerrainEconomy(R_TUNDRA, 350, 11, 10, 2);
 
-    ClearTerrainRaces(R_GROTTO);
-    ModifyTerrainRace(R_GROTTO, 0, I_UNDERDWARF);
-    ModifyTerrainRace(R_GROTTO, 1, I_ORC);
-    ModifyTerrainRace(R_GROTTO, 2, I_GOBLINMAN);
-    ModifyTerrainCoastRace(R_GROTTO, 0, I_DROWMAN);
-    ModifyTerrainCoastRace(R_GROTTO, 1, I_ORC);
+    ModifyTerrainEconomy(R_VOLCANO, 50, 6, 0, 4);
+
+    ModifyTerrainEconomy(R_LAKE, 50, 6, 0, 1);
 
     // Underworld terrain
 
@@ -1543,7 +1541,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainCoastRace(R_UFOREST, 0, I_DROWMAN);
     ModifyTerrainCoastRace(R_UFOREST, 1, I_GNOME);
     ModifyTerrainCoastRace(R_UFOREST, 2, I_GOBLINMAN);
-    ModifyTerrainEconomy(R_UFOREST, 350, 11, 10, 2);
+    ModifyTerrainEconomy(R_UFOREST, 300, 11, 10, 2);
 
     ClearTerrainRaces(R_TUNNELS);
     ModifyTerrainEconomy(R_TUNNELS, 0, 0, 0, 2);
@@ -1557,14 +1555,14 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainCoastRace(R_CHASM, 0, I_UNDERDWARF);
     ModifyTerrainCoastRace(R_CHASM, 1, I_DROWMAN);
     ModifyTerrainCoastRace(R_CHASM, 2, I_GOBLINMAN);
-    ModifyTerrainEconomy(R_CHASM, 200, 11, 10, 2);
+    ModifyTerrainEconomy(R_CHASM, 250, 11, 10, 2);
 
     ClearTerrainRaces(R_GROTTO);
     ModifyTerrainRace(R_GROTTO, 0, I_UNDERDWARF);
     ModifyTerrainRace(R_GROTTO, 1, I_ORC);
     ModifyTerrainRace(R_GROTTO, 2, I_GOBLINMAN);
     ModifyTerrainCoastRace(R_GROTTO, 0, I_DROWMAN);
-    ModifyTerrainEconomy(R_GROTTO, 200, 11, 12, 2);
+    ModifyTerrainEconomy(R_GROTTO, 250, 11, 12, 2);
 
     ClearTerrainRaces(R_DFOREST);
     ModifyTerrainRace(R_DFOREST, 0, I_DROWMAN);
@@ -1574,7 +1572,33 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainCoastRace(R_DFOREST, 0, I_DROWMAN);
     ModifyTerrainCoastRace(R_DFOREST, 1, I_UNDERDWARF);
     ModifyTerrainCoastRace(R_DFOREST, 2, I_ORC);
-    ModifyTerrainEconomy(R_DFOREST, 200, 11, 12, 2);
+    ModifyTerrainEconomy(R_DFOREST, 250, 11, 12, 2);
+
+    // wandering monsters
+    ModifyTerrainWMons(R_OCEAN,8,I_PIRATES,I_KRAKEN,I_MERFOLK);
+
+    ModifyTerrainWMons(R_PLAIN,2,I_LION,I_TROLL,I_CENTAUR);
+    ModifyTerrainWMons(R_FOREST,3,I_WOLF,I_TRENT,I_KOBOLD);
+    ModifyTerrainWMons(R_MOUNTAIN,8,I_GBEAR,I_ROC,I_OGRE);
+    ModifyTerrainWMons(R_HILL,3,I_GBEAR,I_ROC,I_OGRE);
+    ModifyTerrainWMons(R_SWAMP,8,I_CROCODILE,I_BTHING,I_LMEN);
+    ModifyTerrainWMons(R_JUNGLE,3,I_ANACONDA,I_KONG,I_WMEN);
+    ModifyTerrainWMons(R_DESERT,8,I_SCORPION,I_SPHINX,I_SANDLING);
+    ModifyTerrainWMons(R_TUNDRA,8,I_PBEAR,I_IWURM,I_YETI);
+
+    ModifyTerrainWMons(R_VOLCANO,12,I_DEMON,I_DEVIL,I_OGRE);
+    ModifyTerrainWMons(R_LAKE,4,I_PIRATES,I_ELEMENTAL,I_MERFOLK);
+
+    ModifyTerrainWMons(R_CAVERN,12,I_RAT,I_DRAGON,I_GOBLIN);
+    ModifyTerrainWMons(R_UFOREST,12,I_SPIDER,I_DRAGON,I_TROLL);
+    ModifyTerrainWMons(R_TUNNELS,12,I_LIZARD,I_DRAGON,I_ETTIN);
+
+    ModifyTerrainWMons(R_GROTTO,24,I_DEMON,I_DRAGON,I_ETTIN);
+    ModifyTerrainWMons(R_DFOREST,24,I_DEMON,I_DRAGON,I_TROLL);
+    ModifyTerrainWMons(R_CHASM,24,I_DEMON,I_DEVIL,I_ETTIN);
+
+    // monster lairs
+    ModifyTerrainLairChance(R_PLAIN, 10);
 
     // Modify the various spells which are allowed to cross levels
     if (Globals->EASIER_UNDERWORLD) {

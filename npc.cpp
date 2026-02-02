@@ -51,7 +51,7 @@ void Game::GrowWMons(int rate)
                         if (y+ysec > pArr->y) break;
 
                         ARegion *reg = pArr->GetRegion(x+xsec, y+ysec+x%2);
-                        if (reg && reg->zloc == level && !reg->IsGuarded()) {
+                        if (reg && reg->zloc == level && (!reg->IsGuarded() || reg->HasLair())) {
                             mons += reg->CountWMons();
                             /*
                              * Make sure there is at least one monster type
@@ -101,7 +101,10 @@ void Game::GrowWMons(int rate)
 
                         ARegion *reg = pArr->GetRegion(x + xsec, y + ysec + x%2);
 
-                        if (reg && reg->zloc == level && !reg->IsGuarded() && MakeWMon(reg)) {
+                        // Can place wandering monster if:
+                        // - Region is not guarded, OR
+                        // - Region has a lair (lairs attract monsters regardless of guards)
+                        if (reg && reg->zloc == level && (!reg->IsGuarded() || reg->HasLair()) && MakeWMon(reg)) {
                             i++;
                         }
 

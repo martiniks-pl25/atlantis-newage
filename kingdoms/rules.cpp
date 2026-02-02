@@ -259,6 +259,9 @@ static GameDefs g = {
 	GameDefs::REPORT_FORMAT_TEXT, // REPORT_FORMAT
 	5, // BATTLE_STOP_MOVE_PERCENT
 	GameDefs::NewShipJoinsFleetBehavior::NO_CROSS_JOIN, // NEW_SHIP_JOINS_FLEET_BEHAVIOR
+
+	0,   // MONSTER_HOSTILE_GRACE_PERIOD
+	100, // MONSTER_HOSTILE_RATE
 };
 
 GameDefs *Globals = &g;

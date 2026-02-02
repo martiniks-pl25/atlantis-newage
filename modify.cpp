@@ -560,6 +560,24 @@ void Game::ModifyTerrainItems(int terrain, int i, int p, int c, int a)
     TerrainDefs[terrain].prods[i].amount = a;
 }
 
+/**
+ * @brief Configures wandering monster types and spawn frequency for a terrain type
+ *
+ * Sets three categories of wandering monsters (small, big, humanoid) and their spawn frequency.
+ * Wandering monsters appear in regions WITHOUT lairs and can move between regions.
+ *
+ * @param t Terrain type ID (R_PLAIN, R_FOREST, etc., 0 to R_NUM-1)
+ * @param freq Spawn frequency (0+ = higher values increase spawn rate, 0 = no wandering monsters)
+ * @param smon Small monster item ID (I_LION, I_WOLF, etc.) or -1 for none
+ * @param bigmon Big/rare monster item ID (I_DRAGON, I_ROC, etc.) or -1 for none
+ * @param hum Humanoid monster item ID (I_CENTAUR, I_KOBOLD, etc.) or -1 for none
+ *
+ * @note Invalid parameters are clamped: terrain out of range returns immediately,
+ *       negative freq becomes 0, invalid monster IDs become -1
+ * @example ModifyTerrainWMons(R_PLAIN, 1, I_LION, -1, I_CENTAUR); // Plains: lions and centaurs
+ * @see ModifyTerrainLairChance(), ModifyTerrainLair()
+ * @see TerrainType::wmonfreq, TerrainType::smallmon, TerrainType::bigmon, TerrainType::humanoid
+ */
 void Game::ModifyTerrainWMons(int t, int freq, int smon, int bigmon, int hum)
 {
     if (t < 0 || t > (R_NUM -1)) return;
@@ -573,6 +591,22 @@ void Game::ModifyTerrainWMons(int t, int freq, int smon, int bigmon, int hum)
     TerrainDefs[t].humanoid = hum;
 }
 
+/**
+ * @brief Sets the percentage chance that a region of given terrain type contains a lair
+ *
+ * Determines spawn probability for monster lairs in regions. When a lair spawns,
+ * its type is randomly selected from the terrain's lairs[] array.
+ *
+ * @param t Terrain type ID (R_PLAIN, R_FOREST, etc., 0 to R_NUM-1)
+ * @param chance Lair spawn probability as percentage (0-100)
+ *
+ * @note Chance values outside 0-100 range are clamped to 0
+ * @note Invalid terrain ID causes function to return without changes
+ * @example ModifyTerrainLairChance(R_PLAIN, 10);    // 10% of plains have lairs
+ * @example ModifyTerrainLairChance(R_NEXUS, 0);     // Safe starting area, no lairs
+ * @see ModifyTerrainLair(), ModifyTerrainWMons()
+ * @see TerrainType::lairChance
+ */
 void Game::ModifyTerrainLairChance(int t, int chance)
 {
     if (t < 0 || t > (R_NUM -1)) return;
@@ -581,6 +615,26 @@ void Game::ModifyTerrainLairChance(int t, int chance)
     TerrainDefs[t].lairChance = chance;
 }
 
+/**
+ * @brief Sets a specific lair type at given index in terrain's lair array
+ *
+ * Configures one slot in the terrain's lair table (max 6 slots per terrain).
+ * When a lair spawns, one non-(-1) entry is randomly selected from this array.
+ * Duplicate entries increase spawn chance (e.g., O_WHIRL appears twice for ocean).
+ *
+ * @param t Terrain type ID (R_PLAIN, R_FOREST, etc., 0 to R_NUM-1)
+ * @param i Index in lair array (0-5, terrain supports up to 6 lair types)
+ * @param l Lair object ID (O_CAVE, O_CRYPT, O_RUIN, etc.) or -1 to clear slot
+ *
+ * @note Invalid parameters cause function to return without changes
+ * @note Monster type is defined by ObjectDefs, not by this function
+ * @note To increase lair spawn chance, add same lair type to multiple slots
+ * @example ModifyTerrainLair(R_PLAIN, 0, O_RUIN);      // Plains slot 0: Ruin (centaurs)
+ * @example ModifyTerrainLair(R_OCEAN, 3, O_WHIRL);     // Ocean slot 3: Whirlpool
+ * @example ModifyTerrainLair(R_OCEAN, 4, O_WHIRL);     // Ocean slot 4: Whirlpool (2x chance)
+ * @see ModifyTerrainLairChance(), ModifyTerrainWMons()
+ * @see TerrainType::lairs[], ObjectDefs[]
+ */
 void Game::ModifyTerrainLair(int t, int i, int l)
 {
     if (t < 0 || t > (R_NUM -1)) return;

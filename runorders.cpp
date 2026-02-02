@@ -1226,13 +1226,43 @@ Unit *Game::GetWMonTar(ARegion *r, int tarnum, Unit *mon) {
     return 0;
 }
 
+/**
+ * @brief Checks if wandering monster attacks player units
+ *
+ * Hostility calculation:
+ * - Turns 1-GRACE_PERIOD: 0% hostility (peaceful)
+ * - Turn GRACE_PERIOD+1 onwards: hostility increases by INCREASE_RATE per turn
+ * - Capped at baseHostile (100%)
+ *
+ * @param r Region where potential attack occurs
+ * @param u Monster unit checking for attack
+ *
+ * @note Attack chance also depends on number of targets (fewer targets = safer)
+ * @see MONSTER_HOSTILE_GRACE_PERIOD, MONSTER_HOSTILE_INCREASE_RATE
+ * @see CountWMonTars(), GetWMonTar(), AttemptAttack()
+ */
 void Game::CheckWMonAttack(ARegion *r, Unit *u) {
     int tars = CountWMonTars(r, u);
     if (!tars) return;
 
     int rand = 300 - tars;
     if (rand < 100) rand = 100;
-    if (rng::get_random(rand) >= u->Hostile()) return;
+
+    // Calculate progressive hostility based on game turn
+    int baseHostile = u->Hostile();
+    int turn = TurnNumber();
+
+    int effectiveHostile = 0;
+    if (turn > Globals->MONSTER_HOSTILE_GRACE_PERIOD) {
+        int turnsActive = turn - Globals->MONSTER_HOSTILE_GRACE_PERIOD;
+        effectiveHostile = (baseHostile * turnsActive * Globals->MONSTER_HOSTILE_RATE) / 100;
+
+        // Cap at base hostility (100%) after max turns
+        int maxHostile = baseHostile;
+        if (effectiveHostile > maxHostile) effectiveHostile = maxHostile;
+    }
+
+    if (rng::get_random(rand) >= effectiveHostile) return;
 
     Unit *t = GetWMonTar(r, rng::get_random(tars), u);
     if (t) AttemptAttack(r, u, t, 1);

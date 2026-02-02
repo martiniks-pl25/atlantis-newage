@@ -1612,6 +1612,27 @@ int ARegion::IsGuarded()
     return 0;
 }
 
+/**
+ * @brief Checks if region contains at least one lair object
+ *
+ * A lair is any object with ObjectDefs[type].monster != -1 (e.g., O_LAIR, O_CAVE, O_RUIN).
+ * Used to allow wandering monster spawning in guarded regions that have lairs,
+ * since guards cannot prevent monsters from emerging from their lairs.
+ *
+ * @return 1 if region has at least one lair, 0 otherwise
+ * @note Does not check if lair is occupied or if monster type is enabled
+ * @see GrowWMons() in npc.cpp for usage in spawn algorithm
+ * @see ObjectDefs[].monster for lair definitions
+ */
+int ARegion::HasLair()
+{
+    for(const auto o : objects) {
+        int montype = ObjectDefs[o->type].monster;
+        if (montype != -1) return 1;
+    }
+    return 0;
+}
+
 int ARegion::CountWMons()
 {
     int count = 0;

@@ -82,7 +82,7 @@ enum DestroyBehavior {
 
 // Market population ratios (used in Market::post_turn and AddMenMarket/AddLeadersMarket)
 constexpr int MEN_PER_MARKET_UNIT = 25;
-constexpr int LEADERS_PER_MARKET_UNIT = 500;
+constexpr int LEADERS_PER_MARKET_UNIT = 800;
 
 class GameDefs {
 public:
@@ -845,6 +845,10 @@ public:
 		ALL_CROSS_JOIN = 2,
 	};
 	NewShipJoinsFleetBehavior NEW_SHIP_JOINS_FLEET_BEHAVIOR;
+
+	// Monster hostility progression (gradual increase over time)
+	int MONSTER_HOSTILE_GRACE_PERIOD;
+	int MONSTER_HOSTILE_RATE;
 };
 
 extern GameDefs *Globals;

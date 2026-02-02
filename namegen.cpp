@@ -382,6 +382,7 @@ Ethnicity raceToEthnicity(int race) {
         case I_HILLDWARF:
         case I_UNDERDWARF:
         case I_DESERTDWARF:
+        case I_GNOME:
             return Ethnicity::DWARF;
 
         // Elves (including fey-like races)
@@ -389,15 +390,21 @@ Ethnicity raceToEthnicity(int race) {
         case I_SEAELF:
         case I_HIGHELF:
         case I_TRIBALELF:
+        case I_DROWMAN:
+        case I_TIEFLING:
+        case I_FAIRY:
             return Ethnicity::ELF;
 
         // Orcs and goblinoids
         case I_ORC:
+        case I_LIZARDMAN:
+        case I_GOBLINMAN:
             return Ethnicity::ORC;
 
         // Nomads and desert folk
         case I_NOMAD:
         case I_ESKIMO:
+        case I_CENTAURMAN:
             return Ethnicity::NOMAD;
 
         // Vikings
@@ -410,10 +417,10 @@ Ethnicity raceToEthnicity(int race) {
             return Ethnicity::BARBARIAN;
 
         // Humans and hobbits (default)
+        case I_MAN:
         case I_PLAINSMAN:
         case I_DARKMAN:
-        case I_GNOME:
-        case I_CENTAURMAN:
+        case I_HOBBIT:
         default:
             return Ethnicity::MAN;
     }
