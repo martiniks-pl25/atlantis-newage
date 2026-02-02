@@ -1579,26 +1579,160 @@ void Game::ModifyTablesPerRuleset(void)
 
     ModifyTerrainWMons(R_PLAIN,2,I_LION,I_TROLL,I_CENTAUR);
     ModifyTerrainWMons(R_FOREST,3,I_WOLF,I_TRENT,I_KOBOLD);
-    ModifyTerrainWMons(R_MOUNTAIN,8,I_GBEAR,I_ROC,I_OGRE);
+    ModifyTerrainWMons(R_MOUNTAIN,8,I_GBEAR,I_WYVERN,I_OGRE);
     ModifyTerrainWMons(R_HILL,3,I_GBEAR,I_ROC,I_OGRE);
     ModifyTerrainWMons(R_SWAMP,8,I_CROCODILE,I_BTHING,I_LMEN);
     ModifyTerrainWMons(R_JUNGLE,3,I_ANACONDA,I_KONG,I_WMEN);
     ModifyTerrainWMons(R_DESERT,8,I_SCORPION,I_SPHINX,I_SANDLING);
     ModifyTerrainWMons(R_TUNDRA,8,I_PBEAR,I_IWURM,I_YETI);
 
-    ModifyTerrainWMons(R_VOLCANO,12,I_DEMON,I_DEVIL,I_OGRE);
+    ModifyTerrainWMons(R_VOLCANO,12,I_DEMON,I_DEVIL,I_IFRIT);
     ModifyTerrainWMons(R_LAKE,4,I_PIRATES,I_ELEMENTAL,I_MERFOLK);
 
     ModifyTerrainWMons(R_CAVERN,12,I_RAT,I_DRAGON,I_GOBLIN);
     ModifyTerrainWMons(R_UFOREST,12,I_SPIDER,I_DRAGON,I_TROLL);
-    ModifyTerrainWMons(R_TUNNELS,12,I_LIZARD,I_DRAGON,I_ETTIN);
+    ModifyTerrainWMons(R_TUNNELS,12,I_LIZARD,I_WYVERN,I_ETTIN);
 
-    ModifyTerrainWMons(R_GROTTO,24,I_DEMON,I_DRAGON,I_ETTIN);
+    ModifyTerrainWMons(R_GROTTO,24,I_DEMON,I_DRAGON,I_IFRIT);
     ModifyTerrainWMons(R_DFOREST,24,I_DEMON,I_DRAGON,I_TROLL);
     ModifyTerrainWMons(R_CHASM,24,I_DEMON,I_DEVIL,I_ETTIN);
 
     // monster lairs
+    ModifyTerrainLairChance(R_OCEAN, 10);
+    ModifyTerrainLair(R_OCEAN, 0, O_ISLE);
+    ModifyTerrainLair(R_OCEAN, 1, O_DERELICT);
+    ModifyTerrainLair(R_OCEAN, 2, O_OCAVE);
+    ModifyTerrainLair(R_OCEAN, 3, O_WHIRL);
+    ModifyTerrainLair(R_OCEAN, 4, O_ISLE);
+    ModifyTerrainLair(R_OCEAN, 5, O_OCAVE);
+
     ModifyTerrainLairChance(R_PLAIN, 10);
+    ModifyTerrainLair(R_PLAIN, 0, O_RUIN);
+    ModifyTerrainLair(R_PLAIN, 1, O_RUIN);
+    ModifyTerrainLair(R_PLAIN, 2, O_CRYPT);
+    ModifyTerrainLair(R_PLAIN, 3, O_CRYPT);
+    ModifyTerrainLair(R_PLAIN, 4, O_MAGETOWER);
+    ModifyTerrainLair(R_PLAIN, 5, -1);
+
+    ModifyTerrainLairChance(R_FOREST, 10);
+    ModifyTerrainLair(R_FOREST, 0, O_RUIN);
+    ModifyTerrainLair(R_FOREST, 1, O_RUIN);
+    ModifyTerrainLair(R_FOREST, 2, O_LAIR);
+    ModifyTerrainLair(R_FOREST, 3, O_LAIR);
+    ModifyTerrainLair(R_FOREST, 4, O_CRYPT);
+    ModifyTerrainLair(R_FOREST, 5, -1);
+
+    ModifyTerrainLairChance(R_MOUNTAIN, 25);
+    ModifyTerrainLair(R_MOUNTAIN, 0, O_LAIR);
+    ModifyTerrainLair(R_MOUNTAIN, 1, O_RUIN);
+    ModifyTerrainLair(R_MOUNTAIN, 2, O_CAVE);
+    ModifyTerrainLair(R_MOUNTAIN, 3, O_IFRITLAIR);
+    ModifyTerrainLair(R_MOUNTAIN, 4, O_MAGETOWER);
+    ModifyTerrainLair(R_MOUNTAIN, 5, O_GIANTCASTLE);
+
+    ModifyTerrainLairChance(R_HILL, 15);
+    ModifyTerrainLair(R_HILL, 0, O_LAIR);
+    ModifyTerrainLair(R_HILL, 1, O_RUIN);
+    ModifyTerrainLair(R_HILL, 2, O_LAIR);
+    ModifyTerrainLair(R_HILL, 3, O_RUIN);
+    ModifyTerrainLair(R_HILL, 4, O_MAGETOWER);
+    ModifyTerrainLair(R_HILL, 5, O_CRYPT);
+
+    ModifyTerrainLairChance(R_SWAMP, 20);
+    ModifyTerrainLair(R_SWAMP, 0, O_LAIR);
+    ModifyTerrainLair(R_SWAMP, 1, O_RUIN);
+    ModifyTerrainLair(R_SWAMP, 2, O_LAIR);
+    ModifyTerrainLair(R_SWAMP, 3, O_RUIN);
+    ModifyTerrainLair(R_SWAMP, 4, O_BOG);
+    ModifyTerrainLair(R_SWAMP, 5, O_CRYPT);
+
+    ModifyTerrainLairChance(R_JUNGLE, 15);
+    ModifyTerrainLair(R_JUNGLE, 0, O_LAIR);
+    ModifyTerrainLair(R_JUNGLE, 1, O_RUIN);
+    ModifyTerrainLair(R_JUNGLE, 2, O_LAIR);
+    ModifyTerrainLair(R_JUNGLE, 3, O_RUIN);
+    ModifyTerrainLair(R_JUNGLE, 4, O_BOG);
+    ModifyTerrainLair(R_JUNGLE, 5, O_CRYPT);
+
+    ModifyTerrainLairChance(R_DESERT, 20);
+    ModifyTerrainLair(R_DESERT, 0, O_LAIR);
+    ModifyTerrainLair(R_DESERT, 1, O_RUIN);
+    ModifyTerrainLair(R_DESERT, 2, O_LAIR);
+    ModifyTerrainLair(R_DESERT, 3, O_RUIN);
+    ModifyTerrainLair(R_DESERT, 4, O_BOG);
+    ModifyTerrainLair(R_DESERT, 5, O_CRYPT);
+
+    ModifyTerrainLairChance(R_TUNDRA, 20);
+    ModifyTerrainLair(R_TUNDRA, 0, O_BOG);
+    ModifyTerrainLair(R_TUNDRA, 1, O_ICECAVE);
+    ModifyTerrainLair(R_TUNDRA, 2, O_GIANTCASTLE);
+    ModifyTerrainLair(R_TUNDRA, 3, O_RUIN);
+    ModifyTerrainLair(R_TUNDRA, 4, O_CRYPT);
+    ModifyTerrainLair(R_TUNDRA, 5, O_CRYPT);
+
+    ModifyTerrainLairChance(R_VOLCANO, 25);
+    ModifyTerrainLair(R_VOLCANO, 0, O_DEMONPIT);
+    ModifyTerrainLair(R_VOLCANO, 1, O_IFRITLAIR);
+    ModifyTerrainLair(R_VOLCANO, 2, O_GIANTCASTLE);
+    ModifyTerrainLair(R_VOLCANO, 3, -1);
+    ModifyTerrainLair(R_VOLCANO, 4, -1);
+    ModifyTerrainLair(R_VOLCANO, 5, -1);
+
+    ModifyTerrainLairChance(R_LAKE, 10);
+    ModifyTerrainLair(R_LAKE, 0, O_ISLE);
+    ModifyTerrainLair(R_LAKE, 1, O_OCAVE);
+    ModifyTerrainLair(R_LAKE, 2, O_DERELICT);
+    ModifyTerrainLair(R_LAKE, 3, O_ISLE);
+    ModifyTerrainLair(R_LAKE, 4, O_OCAVE);
+    ModifyTerrainLair(R_LAKE, 5, -1);
+
+    ModifyTerrainLairChance(R_CAVERN, 25);
+    ModifyTerrainLair(R_CAVERN, 0, O_LAIR);
+    ModifyTerrainLair(R_CAVERN, 1, O_RUIN);
+    ModifyTerrainLair(R_CAVERN, 2, O_IFRITLAIR);
+    ModifyTerrainLair(R_CAVERN, 3, O_ILAIR);
+    ModifyTerrainLair(R_CAVERN, 4, O_CAVE);
+    ModifyTerrainLair(R_CAVERN, 5, O_DARKTOWER);
+
+    ModifyTerrainLairChance(R_UFOREST, 25);
+    ModifyTerrainLair(R_UFOREST, 0, O_LAIR);
+    ModifyTerrainLair(R_UFOREST, 1, O_RUIN);
+    ModifyTerrainLair(R_UFOREST, 2, O_GIANTCASTLE);
+    ModifyTerrainLair(R_UFOREST, 3, O_ILAIR);
+    ModifyTerrainLair(R_UFOREST, 4, O_CAVE);
+    ModifyTerrainLair(R_UFOREST, 5, O_DARKTOWER);
+
+    ModifyTerrainLairChance(R_TUNNELS, 25);
+    ModifyTerrainLair(R_TUNNELS, 0, O_LAIR);
+    ModifyTerrainLair(R_TUNNELS, 1, O_RUIN);
+    ModifyTerrainLair(R_TUNNELS, 2, O_GIANTCASTLE);
+    ModifyTerrainLair(R_TUNNELS, 3, O_DEMONPIT);
+    ModifyTerrainLair(R_TUNNELS, 4, O_CAVE);
+    ModifyTerrainLair(R_TUNNELS, 5, O_DARKTOWER);
+
+    ModifyTerrainLairChance(R_GROTTO, 30);
+    ModifyTerrainLair(R_GROTTO, 0, O_LAIR);
+    ModifyTerrainLair(R_GROTTO, 1, O_IFRITLAIR);
+    ModifyTerrainLair(R_GROTTO, 2, O_GIANTCASTLE);
+    ModifyTerrainLair(R_GROTTO, 3, O_ILAIR);
+    ModifyTerrainLair(R_GROTTO, 4, O_CAVE);
+    ModifyTerrainLair(R_GROTTO, 5, O_DARKTOWER);
+
+    ModifyTerrainLairChance(R_DFOREST, 30);
+    ModifyTerrainLair(R_DFOREST, 0, O_RUIN);
+    ModifyTerrainLair(R_DFOREST, 1, O_CAVE);
+    ModifyTerrainLair(R_DFOREST, 2, O_DEMONPIT);
+    ModifyTerrainLair(R_DFOREST, 3, O_MAGETOWER);
+    ModifyTerrainLair(R_DFOREST, 4, O_ILAIR);
+    ModifyTerrainLair(R_DFOREST, 5, O_DARKTOWER);
+
+    ModifyTerrainLairChance(R_CHASM, 30);
+    ModifyTerrainLair(R_CHASM, 0, O_LAIR);
+    ModifyTerrainLair(R_CHASM, 1, O_RUIN);
+    ModifyTerrainLair(R_CHASM, 2, O_CAVE);
+    ModifyTerrainLair(R_CHASM, 3, O_DEMONPIT);
+    ModifyTerrainLair(R_CHASM, 4, O_MAGETOWER);
+    ModifyTerrainLair(R_CHASM, 5, O_GIANTCASTLE);
 
     // Modify the various spells which are allowed to cross levels
     if (Globals->EASIER_UNDERWORLD) {

@@ -2899,9 +2899,10 @@ void ARegionList::CreateSmartShafts(int levelFrom, int levelTo, int minDistanceS
     // 2. SMART FILTERING
     // We tell getPoints to ONLY consider land regions as valid candidates.
     // This prevents ocean hexes from "wasting" potential shaft locations.
+    // Also exclude towns - shafts should not appear in populated regions.
     auto isLand = [pFrom](graphs::Location2D p) {
         ARegion* r = pFrom->GetRegion(p.x, p.y);
-        return (r && r->type != R_OCEAN && r->type != R_VOLCANO);
+        return (r && r->type != R_OCEAN && r->type != R_VOLCANO && !r->town);
     };
 
     std::vector<graphs::Location2D> candidates = getPoints(
@@ -2964,6 +2965,64 @@ void ARegionList::CreateSmartShafts(int levelFrom, int levelTo, int minDistanceS
     }
 
     logger::write("Smart Shafts Created: " + std::to_string(shaftsCreated));
+}
+
+/**
+ * @brief Creates mandatory lairs in regions with shafts
+ *
+ * Ensures that every region containing an O_SHAFT has an appropriate lair.
+ * The lair type is selected from terrain-appropriate options using GetPossibleLairs().
+ * Does not create a second lair if one already exists.
+ *
+ * @param level The map level to process
+ *
+ * @note Should be called immediately after CreateSmartShafts() for each level
+ * @note Uses terrain-specific lair tables (TerrainDefs[].lairs[])
+ */
+void ARegionList::CreateLairsAtShafts(int level)
+{
+    ARegionArray *pArr = pRegionArrays[level];
+    if (!pArr) return;
+
+    int lairsCreated = 0;
+
+    for (int x = 0; x < pArr->x; x++) {
+        for (int y = 0; y < pArr->y; y++) {
+            ARegion *reg = pArr->GetRegion(x, y);
+            if (!reg) continue;
+
+            // Step 1: Check if region has a shaft
+            bool hasShaft = false;
+            for (auto obj : reg->objects) {
+                if (obj->type == O_SHAFT) {
+                    hasShaft = true;
+                    break;
+                }
+            }
+            if (!hasShaft) continue;
+
+            // Step 2: Check if region already has a lair
+            bool hasLair = false;
+            for (auto obj : reg->objects) {
+                if (ObjectDefs[obj->type].monster != -1) {
+                    hasLair = true;
+                    break;
+                }
+            }
+            if (hasLair) continue;  // Already has a lair - don't create second
+
+            // Step 3: Get terrain-appropriate lairs
+            auto lairs = reg->GetPossibleLairs();
+            if (lairs.empty()) continue;  // No lairs available for this terrain
+
+            // Step 4: Select random lair from available options and create
+            int lairType = lairs[rng::get_random(lairs.size())];
+            reg->MakeLair(lairType);
+            lairsCreated++;
+        }
+    }
+
+    logger::write("Lairs at Shafts Created (L" + std::to_string(level) + "): " + std::to_string(lairsCreated));
 }
 
 void ARegionList::SetACNeighbors(int levelSrc, int levelTo, int maxX, int maxY)

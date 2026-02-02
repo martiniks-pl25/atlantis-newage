@@ -148,6 +148,7 @@ class ARegion
 {
     friend class Game;
     friend class ARegionArray;
+    friend class ARegionList;
 
     public:
         ARegion();
@@ -477,6 +478,7 @@ class ARegionList
         void create_underdeep_level(int level, int xSize, int ySize, const std::string& name);
 
         void CreateSmartShafts(int levelFrom, int levelTo, int minDistanceSame, int minDistanceStair);
+        void CreateLairsAtShafts(int level);
 
         void MakeShaftLinks(int levelFrom, int levelTo, int odds);
         void SetACNeighbors(int levelSrc, int levelTo, int maxX, int maxY);

@@ -562,6 +562,7 @@ void Game::CreateWorld()
     if (Globals->UNDERWORLD_LEVELS > 0) {
         // Entrance on Surface: minDistance 7, Stairwell prevention 0
         regions.CreateSmartShafts(1, 2, 7, 0);
+        regions.CreateLairsAtShafts(1);  // Create lairs at shaft entrances on Surface
     }
 
     // 2. Connections between multiple Underworld levels (L2 -> L3, etc.)
@@ -569,6 +570,7 @@ void Game::CreateWorld()
         for (int i = 2; i < Globals->UNDERWORLD_LEVELS + 1; i++) {
             // minDistance 6, Stairwell prevention 4
             regions.CreateSmartShafts(i, i + 1, 6, 4);
+            regions.CreateLairsAtShafts(i);  // Create lairs at shaft entrances
         }
     }
 
@@ -578,6 +580,7 @@ void Game::CreateWorld()
         int topUD = bottomUW + 1;
         // Connect the last Underworld level to the first Underdeep level
         regions.CreateSmartShafts(bottomUW, topUD, 4, 2);
+        regions.CreateLairsAtShafts(bottomUW);  // Create lairs at transition level
     }
 
     // 4. Connections between multiple Underdeep levels
@@ -587,6 +590,7 @@ void Game::CreateWorld()
         for (int i = firstUD; i < lastUD; i++) {
             // Deeper levels can be slightly more cramped: minDistance 4
             regions.CreateSmartShafts(i, i + 1, 4, 2);
+            regions.CreateLairsAtShafts(i);  // Create lairs at shaft entrances
         }
     }
     // --- END OF SMART SHAFTS GENERATION ---
@@ -640,11 +644,11 @@ void Game::CreateWorld()
     regions.SetACNeighbors( 0, 1, xx, yy );
 
     regions.InitSetupGates( 1 );
-    // Set up gates on all levels of the underworld
-    for (int i=2; i < Globals->UNDERWORLD_LEVELS+2; i++) {
-        regions.InitSetupGates( i );
-    }
-    // Underdeep has no gates, only the possible shafts above.
+    // Gates disabled in Underworld - only Surface level has gates
+    // Underworld/Underdeep accessible only via shafts
+    // for (int i=2; i < Globals->UNDERWORLD_LEVELS+2; i++) {
+    //     regions.InitSetupGates( i );
+    // }
 
     regions.FixUnconnectedRegions();
 
