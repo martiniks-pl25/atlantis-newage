@@ -1686,7 +1686,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainLair(R_LAKE, 4, O_OCAVE);
     ModifyTerrainLair(R_LAKE, 5, -1);
 
-    ModifyTerrainLairChance(R_CAVERN, 25);
+    ModifyTerrainLairChance(R_CAVERN, 20);
     ModifyTerrainLair(R_CAVERN, 0, O_LAIR);
     ModifyTerrainLair(R_CAVERN, 1, O_RUIN);
     ModifyTerrainLair(R_CAVERN, 2, O_IFRITLAIR);
@@ -1694,7 +1694,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainLair(R_CAVERN, 4, O_CAVE);
     ModifyTerrainLair(R_CAVERN, 5, O_DARKTOWER);
 
-    ModifyTerrainLairChance(R_UFOREST, 25);
+    ModifyTerrainLairChance(R_UFOREST, 20);
     ModifyTerrainLair(R_UFOREST, 0, O_LAIR);
     ModifyTerrainLair(R_UFOREST, 1, O_RUIN);
     ModifyTerrainLair(R_UFOREST, 2, O_GIANTCASTLE);
@@ -1702,7 +1702,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainLair(R_UFOREST, 4, O_CAVE);
     ModifyTerrainLair(R_UFOREST, 5, O_DARKTOWER);
 
-    ModifyTerrainLairChance(R_TUNNELS, 25);
+    ModifyTerrainLairChance(R_TUNNELS, 20);
     ModifyTerrainLair(R_TUNNELS, 0, O_LAIR);
     ModifyTerrainLair(R_TUNNELS, 1, O_RUIN);
     ModifyTerrainLair(R_TUNNELS, 2, O_GIANTCASTLE);
@@ -1710,7 +1710,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainLair(R_TUNNELS, 4, O_CAVE);
     ModifyTerrainLair(R_TUNNELS, 5, O_DARKTOWER);
 
-    ModifyTerrainLairChance(R_GROTTO, 30);
+    ModifyTerrainLairChance(R_GROTTO, 25);
     ModifyTerrainLair(R_GROTTO, 0, O_LAIR);
     ModifyTerrainLair(R_GROTTO, 1, O_IFRITLAIR);
     ModifyTerrainLair(R_GROTTO, 2, O_GIANTCASTLE);
@@ -1718,7 +1718,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainLair(R_GROTTO, 4, O_CAVE);
     ModifyTerrainLair(R_GROTTO, 5, O_DARKTOWER);
 
-    ModifyTerrainLairChance(R_DFOREST, 30);
+    ModifyTerrainLairChance(R_DFOREST, 25);
     ModifyTerrainLair(R_DFOREST, 0, O_RUIN);
     ModifyTerrainLair(R_DFOREST, 1, O_CAVE);
     ModifyTerrainLair(R_DFOREST, 2, O_DEMONPIT);
@@ -1726,13 +1726,71 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainLair(R_DFOREST, 4, O_ILAIR);
     ModifyTerrainLair(R_DFOREST, 5, O_DARKTOWER);
 
-    ModifyTerrainLairChance(R_CHASM, 30);
+    ModifyTerrainLairChance(R_CHASM, 25);
     ModifyTerrainLair(R_CHASM, 0, O_LAIR);
     ModifyTerrainLair(R_CHASM, 1, O_RUIN);
     ModifyTerrainLair(R_CHASM, 2, O_CAVE);
     ModifyTerrainLair(R_CHASM, 3, O_DEMONPIT);
     ModifyTerrainLair(R_CHASM, 4, O_MAGETOWER);
     ModifyTerrainLair(R_CHASM, 5, O_GIANTCASTLE);
+
+    // --- Monster aggression and group size (modify_monster_threat) ---
+    // Natural wandering monsters
+    modify_monster_threat("LION",  3,   20);  // Pride of Lions
+    modify_monster_threat("WOLF",  10,  20);  // Wolf Pack
+    modify_monster_threat("GRIZ",  3,   20);  // Grizzly Bears
+    modify_monster_threat("CROC",  6,   20);  // Crocodiles
+    modify_monster_threat("ANAC",  5,   20);  // Anacondas
+    modify_monster_threat("SCOR",  8,   20);  // Giant Scorpions
+    modify_monster_threat("POLA",  3,   20);  // Polar Bears
+    modify_monster_threat("GRAT",  30,  20);  // Pack of Rats
+    modify_monster_threat("GSPI",  4,   20);  // Giant Spiders
+    modify_monster_threat("GLIZ",  3,   30);  // Giant Lizards
+    modify_monster_threat("TREN",  7,   30);  // Living Trees
+    modify_monster_threat("ROC",   2,   50);  // Giant Birds
+    modify_monster_threat("BOGT",  2,   30);  // Swamp Creatures
+    modify_monster_threat("KONG",  2,   80);  // Great Apes
+    modify_monster_threat("SPHI",  1,   50);  // Sphinx
+    modify_monster_threat("ICEW",  8,   30);  // Ice Wurms
+    modify_monster_threat("DRAG",  1,   80);  // Dragon
+    modify_monster_threat("WYVR",  1,   50);  // Wyvern
+    modify_monster_threat("CENT",  8,   20);  // Tribe of Centaurs
+    modify_monster_threat("KOBO",  20,  20);  // Kobold Pack
+    modify_monster_threat("OGRE",  2,   20);  // Family of Ogres
+    modify_monster_threat("IFRI",  2,   25);  // Fire Ifrits
+    modify_monster_threat("LMAN",  10,  20);  // Lizard Men
+    modify_monster_threat("WMAN",  10,  20);  // Clan of Wild Men
+    modify_monster_threat("SAND",  10,  20);  // Sandlings
+    modify_monster_threat("YETI",  5,   20);  // Yeti
+    modify_monster_threat("GOBL",  40,  20);  // Goblin Horde
+    modify_monster_threat("TROL",  8,   20);  // Troll Pack
+    modify_monster_threat("ETTI",  2,   20);  // Ettins
+
+    // Summoned / undead monsters
+    modify_monster_threat("SKEL",  100, 20);  // Skeleton
+    modify_monster_threat("UNDE",  10,  100); // Undead
+    modify_monster_threat("LICH",  1,   50);  // Lich
+    modify_monster_threat("IMP",   50,  20);  // Imp
+    modify_monster_threat("DEMO",  10,  50);  // Demon
+    modify_monster_threat("BALR",  1,   100); // Balrog
+    modify_monster_threat("EAGL",  1,   20);  // Eagle
+
+    // Sea creatures
+    modify_monster_threat("PIRA",  20,  60);  // Pirates
+    modify_monster_threat("KRAK",  1,   60);  // Kraken
+    modify_monster_threat("MERF",  100, 20);  // Merfolk
+    modify_monster_threat("ELEM",  7,   30);  // Living Water
+
+    // Special monsters (enabled via EnableItem)
+    modify_monster_threat("HYDR",  1,   60);  // Hydra
+    modify_monster_threat("IDRA",  1,   60);  // Ice Dragon
+    modify_monster_threat("ILLY",  1,   60);  // Illyrthid
+    modify_monster_threat("STGI",  1,   60);  // Storm Giant
+    modify_monster_threat("CLGI",  1,   60);  // Cloud Giant
+    modify_monster_threat("DEVL",  1,   100); // Devil
+    modify_monster_threat("WARR",  30,  100); // Evil Warriors
+    modify_monster_threat("DMAG",  1,   100); // Dark Mage
+    modify_monster_threat("MAGI",  2,   100); // Evil Magicians
 
     // Modify the various spells which are allowed to cross levels
     if (Globals->EASIER_UNDERWORLD) {

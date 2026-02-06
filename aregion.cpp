@@ -3568,6 +3568,89 @@ void economy(ARegionArray* arr, const int w, const int h) {
             });
         }
     }
+
+    // Pass 3: Assign trade goods with geographic exclusion to prevent
+    // buy/sell pairs in nearby settlements. Process most-constrained
+    // towns first so dense clusters get priority on item selection.
+    logger::write("Assigning trade goods");
+    const int TRADE_EXCLUSION_RADIUS = 12;
+
+    std::vector<ARegion*> towns;
+    for (int x = 0; x < w; x++) {
+        for (int y = 0; y < h; y++) {
+            if ((x + y) % 2) continue;
+            ARegion* reg = arr->GetRegion(x, y);
+            if (reg && reg->town) {
+                towns.push_back(reg);
+            }
+        }
+    }
+
+    // Count nearby towns within exclusion radius for sorting
+    auto countNearbyTowns = [&](ARegion* reg) -> int {
+        int count = 0;
+        std::queue<std::pair<ARegion*, int>> q;
+        std::unordered_set<ARegion*> visited;
+        q.push({reg, 0});
+        visited.insert(reg);
+        while (!q.empty()) {
+            auto [cur, dist] = q.front();
+            q.pop();
+            if (dist > 0 && cur->town) count++;
+            if (dist >= TRADE_EXCLUSION_RADIUS) continue;
+            for (int d = 0; d < NDIRS; d++) {
+                ARegion* n = cur->neighbors[d];
+                if (n && visited.find(n) == visited.end()) {
+                    visited.insert(n);
+                    q.push({n, dist + 1});
+                }
+            }
+        }
+        return count;
+    };
+
+    // Precompute constraint counts, sort most-constrained towns first
+    std::unordered_map<ARegion*, int> constraintCount;
+    for (ARegion* t : towns) {
+        constraintCount[t] = countNearbyTowns(t);
+    }
+    std::sort(towns.begin(), towns.end(), [&](ARegion* a, ARegion* b) {
+        return constraintCount[a] > constraintCount[b];
+    });
+
+    // Assign trade goods: avoid complementary M_SELL/M_BUY pairs with nearby towns
+    for (ARegion* t : towns) {
+        std::unordered_set<int> forbidden_sell; // nearby M_BUY(X) -> don't put X in our M_SELL
+        std::unordered_set<int> forbidden_buy;  // nearby M_SELL(X) -> don't put X in our M_BUY
+
+        std::queue<std::pair<ARegion*, int>> q;
+        std::unordered_set<ARegion*> visited;
+        q.push({t, 0});
+        visited.insert(t);
+        while (!q.empty()) {
+            auto [cur, dist] = q.front();
+            q.pop();
+            if (dist > 0 && cur->town) {
+                for (const auto* m : cur->markets) {
+                    if (!(ItemDefs[m->item].type & IT_TRADE)) continue;
+                    if (m->type == Market::MarketType::M_SELL)
+                        forbidden_buy.insert(m->item);
+                    else if (m->type == Market::MarketType::M_BUY)
+                        forbidden_sell.insert(m->item);
+                }
+            }
+            if (dist >= TRADE_EXCLUSION_RADIUS) continue;
+            for (int d = 0; d < NDIRS; d++) {
+                ARegion* n = cur->neighbors[d];
+                if (n && visited.find(n) == visited.end()) {
+                    visited.insert(n);
+                    q.push({n, dist + 1});
+                }
+            }
+        }
+
+        t->SetupTradeMarkets(forbidden_sell, forbidden_buy);
+    }
 }
 
 void addAncientStructure(ARegion* reg, int type, double damage, std::optional<std::string> name = std::nullopt) {

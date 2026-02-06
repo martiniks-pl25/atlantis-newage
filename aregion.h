@@ -24,6 +24,7 @@ using json = nlohmann::json;
 #include <vector>
 #include <list>
 #include <set>
+#include <unordered_set>
 #include <functional>
 
 /* Weather Types */
@@ -340,6 +341,7 @@ class ARegion
         void SetupEditRegion();
         void AddLeadersMarket();
         void AddMenMarket();
+        void SetupTradeMarkets(const std::unordered_set<int>& forbidden_sell, const std::unordered_set<int>& forbidden_buy);
     private:
         /* Private Setup Functions */
         void SetupPop();

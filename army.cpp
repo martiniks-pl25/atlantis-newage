@@ -781,19 +781,17 @@ void Army::WriteLosses(Battle * b) {
 
 void Army::GetMonSpoils(ItemList& spoils, int monitem, int free)
 {
-    if ((Globals->MONSTER_NO_SPOILS > 0) &&
-            (free >= Globals->MONSTER_SPOILS_RECOVERY)) {
-        // This monster is in it's period of absolutely no spoils.
-        return;
-    }
-
     /* First, silver */
     auto mp = find_monster(ItemDefs[monitem].abr, (ItemDefs[monitem].type & IT_ILLUSION))->get();
     int silv = mp.silver;
     if ((Globals->MONSTER_NO_SPOILS > 0) && (free > 0)) {
-        // Adjust the spoils for length of freedom.
-        silv *= (Globals->MONSTER_SPOILS_RECOVERY-free);
-        silv /= Globals->MONSTER_SPOILS_RECOVERY;
+        // Silver progression: 0% → 100% → 100% → 100%
+        // Young (free >= 3): no silver
+        // Wild+ (free <= 2): full silver
+        if (free >= Globals->MONSTER_SPOILS_RECOVERY) {
+            silv = 0;  // Young monsters have no silver
+        }
+        // Otherwise full silver (Wild/Ancient/Elder)
     }
     spoils.SetNum(I_SILVER, spoils.GetNum(I_SILVER) + rng::get_random(silv));
 
@@ -832,9 +830,19 @@ void Army::GetMonSpoils(ItemList& spoils, int monitem, int free)
 
     int val = rng::get_random(mp.silver * 2);
     if ((Globals->MONSTER_NO_SPOILS > 0) && (free > 0)) {
-        // Adjust for length of monster freedom.
-        val *= (Globals->MONSTER_SPOILS_RECOVERY-free);
-        val /= Globals->MONSTER_SPOILS_RECOVERY;
+        // Item progression: 0% → 0% → 50% → 100%
+        // Young (free >= 3): no items
+        // Wild (free == 2): no items
+        // Ancient (free == 1): 50% of items
+        // Elder (free == 0): 100% of items
+        if (free >= Globals->MONSTER_SPOILS_RECOVERY) {
+            val = 0;  // Young monsters have no items
+        } else if (free == Globals->MONSTER_SPOILS_RECOVERY - 1) {
+            val = 0;  // Wild monsters have no items (free == 2 when RECOVERY == 3)
+        } else if (free == 1) {
+            val = val / 2;  // Ancient monsters have 50% of items
+        }
+        // Otherwise full items (Elder, free == 0)
     }
 
     spoils.SetNum(

@@ -574,6 +574,7 @@ void Game::EditGameRegionMarkets(ARegion *pReg)
             pReg->markets.clear(); // empty the vector.
 
             pReg->SetupCityMarket();
+            pReg->SetupTradeMarkets({}, {});
             pReg->UpdateEditRegion();
             continue;
         }

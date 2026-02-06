@@ -101,6 +101,8 @@ class Unit {
 
         void SetMonFlags();
         void MakeWMon(char const *,int,int);
+        std::string GetMonsterDisplayName();
+        void UpdateMonsterDescription();
 
         void Writeout(std::ostream& f);
         void Readin(std::istream& f, std::list<Faction *>& facs);

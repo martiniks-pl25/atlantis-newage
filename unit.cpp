@@ -139,6 +139,135 @@ void Unit::MakeWMon(char const *monname, int mon, int num)
     SetMonFlags();
 }
 
+std::string Unit::GetMonsterDisplayName()
+{
+    if (type != U_WMON) return name;
+
+    std::string base_name = name;
+    const char* prefix = "";
+
+    // === Special categories (check by item type, not name) ===
+
+    // Humanoid warriors
+    bool has_warriors = (items.GetNum(I_WARRIORS) > 0 || items.GetNum(I_PIRATES) > 0 || items.GetNum(I_MAGICIANS) > 0);
+    if (has_warriors) {
+        if (free >= 3)      prefix = "Novice ";
+        else if (free == 2) prefix = "Trained ";
+        else if (free == 1) prefix = "Veteran ";
+        else                prefix = "Elite ";
+        return std::string(prefix) + base_name;
+    }
+
+    // Undead
+    bool is_undead = (items.GetNum(I_SKELETON) > 0 || items.GetNum(I_UNDEAD) > 0 || items.GetNum(I_LICH) > 0);
+    if (is_undead) {
+        if (free >= 3)      prefix = "Freshly Risen ";
+        else if (free == 2) prefix = "Restless ";
+        else if (free == 1) prefix = "Ancient ";
+        else                prefix = "Eternal ";
+        return std::string(prefix) + base_name;
+    }
+
+    // Demons
+    bool is_demon = (items.GetNum(I_IMP) > 0 || items.GetNum(I_DEMON) > 0 || items.GetNum(I_BALROG) > 0 || items.GetNum(I_DEVIL) > 0);
+    if (is_demon) {
+        if (free >= 3)      prefix = "Lesser ";
+        else if (free == 2) prefix = "Greater ";
+        else if (free == 1) prefix = "Arch ";
+        else                prefix = "Infernal ";
+        return std::string(prefix) + base_name;
+    }
+
+    // Special case: Clan of Wild Men (avoid "Wild Wild Men")
+    if (base_name == "Clan of Wild Men") {
+        if (free >= 3)      prefix = "Young ";
+        else if (free == 2) prefix = "Great ";
+        else if (free == 1) prefix = "Ancient ";
+        else                prefix = "Elder ";
+        return std::string(prefix) + base_name;
+    }
+
+    // === Packs/groups/plural → Wild ===
+    bool is_group = (base_name.find("Pack") != std::string::npos ||
+                     base_name.find("Horde") != std::string::npos ||
+                     base_name.find("Tribe") != std::string::npos ||
+                     base_name.find("Pride") != std::string::npos ||
+                     base_name.find("Family") != std::string::npos ||
+                     base_name.find("Clan") != std::string::npos ||
+                     (base_name.length() > 0 && base_name.back() == 's'));  // Ends with 's' (plural)
+
+    if (is_group) {
+        if (free >= 3)      prefix = "Young ";
+        else if (free == 2) prefix = "Wild ";
+        else if (free == 1) prefix = "Ancient ";
+        else                prefix = "Elder ";
+        return std::string(prefix) + base_name;
+    }
+
+    // === Singular creatures → Great ===
+    if (free >= 3)      prefix = "Young ";
+    else if (free == 2) prefix = "Great ";
+    else if (free == 1) prefix = "Ancient ";
+    else                prefix = "Elder ";
+
+    return std::string(prefix) + base_name;
+}
+
+void Unit::UpdateMonsterDescription()
+{
+    if (type != U_WMON) return;
+
+    std::string desc;
+    std::string loot_info;
+    std::string base_name = name;
+
+    // Loot info (common for all)
+    if (free >= 3)      loot_info = "Poor loot expected.";
+    else if (free == 2) loot_info = "Moderate loot.";
+    else if (free == 1) loot_info = "Good loot expected.";
+    else                loot_info = "Full treasure trove.";
+
+    // Category-specific descriptions (check by item type, not name)
+    bool is_warrior = (items.GetNum(I_WARRIORS) > 0 || items.GetNum(I_PIRATES) > 0 || items.GetNum(I_MAGICIANS) > 0);
+    bool is_undead = (items.GetNum(I_SKELETON) > 0 || items.GetNum(I_UNDEAD) > 0 || items.GetNum(I_LICH) > 0);
+    bool is_dragon = (items.GetNum(I_DRAGON) > 0 || items.GetNum(I_WYVERN) > 0);
+    bool is_demon = (items.GetNum(I_IMP) > 0 || items.GetNum(I_DEMON) > 0 || items.GetNum(I_BALROG) > 0 || items.GetNum(I_DEVIL) > 0);
+
+    if (is_warrior) {
+        if (free >= 3)      desc = "Green recruits with little experience or equipment.";
+        else if (free == 2) desc = "Seasoned fighters with decent arms and armor.";
+        else if (free == 1) desc = "Battle-hardened veterans laden with spoils of war.";
+        else                desc = "Elite warriors carrying legendary plunder.";
+    }
+    else if (is_undead) {
+        if (free >= 3)      desc = "Freshly animated corpses with no possessions.";
+        else if (free == 2) desc = "Restless spirits gathering power and treasures.";
+        else if (free == 1) desc = "Ancient horrors guarding accumulated wealth.";
+        else                desc = "Eternal guardians of vast funerary riches.";
+    }
+    else if (is_dragon) {
+        if (free >= 3)      desc = "A young drake with no hoard yet to speak of.";
+        else if (free == 2) desc = "A growing dragon beginning to amass treasure.";
+        else if (free == 1) desc = "A mighty wyrm with a considerable hoard.";
+        else                desc = "An ancient dragon guarding a legendary treasure trove.";
+    }
+    else if (is_demon) {
+        if (free >= 3)      desc = "A minor fiend with no wealth or power.";
+        else if (free == 2) desc = "A capable demon gathering infernal treasures.";
+        else if (free == 1) desc = "A powerful archfiend with significant plunder.";
+        else                desc = "An infernal lord commanding vast riches.";
+    }
+    else {
+        // Default
+        if (free >= 3)      desc = "Recently arrived in the region.";
+        else if (free == 2) desc = "Established residents beginning to accumulate possessions.";
+        else if (free == 1) desc = "Long-time inhabitants with accumulated wealth.";
+        else                desc = "Ancient beings guarding a considerable treasure hoard.";
+    }
+
+    describe = desc + " " + loot_info;
+}
+
 void Unit::Writeout(ostream& f)
 {
     set<string>::iterator it;
@@ -317,7 +446,7 @@ AString Unit::StudyableSkills()
 
 std::string Unit::get_name(int observation)
 {
-    std::string ret = name;
+    std::string ret = (type == U_WMON) ? GetMonsterDisplayName() : std::string(name);
     int stealth = GetAttribute("stealth");
     if (reveal == REVEAL_FACTION || observation > stealth) {
         ret += ", ";
@@ -521,7 +650,7 @@ json Unit::write_json_orders()
 
 json Unit::build_json_descriptor() {
     json j = json::object();
-    j["name"] = name | filter::strip_number;
+    j["name"] = (type == U_WMON) ? (GetMonsterDisplayName() | filter::strip_number) : (name | filter::strip_number);
     j["number"] = num;
     return j;
 }
@@ -933,7 +1062,10 @@ void Unit::PostTurn(ARegion *r)
             }
             ++it;
         }
-        if (free > 0) --free;
+        if (free > 0) {
+            --free;
+            UpdateMonsterDescription();
+        }
     }
 }
 

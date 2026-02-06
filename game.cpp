@@ -1556,6 +1556,7 @@ void Game::MonsterCheck(ARegion *r, Unit *u)
                         // This will be zero unless these are set. (0 means
                         // full spoils)
                         mon->free = Globals->MONSTER_NO_SPOILS + Globals->MONSTER_SPOILS_RECOVERY;
+                        mon->UpdateMonsterDescription();
                     }
                     u->event("Loses control of " + item_string(i->type, i->num) + ".", "escape");
                     u->items.SetNum(i->type, 0);
@@ -1591,6 +1592,7 @@ void Game::MonsterCheck(ARegion *r, Unit *u)
                         mon->MoveUnit(r->GetDummy());
                         // This will be zero unless these are set. (0 means full spoils)
                         mon->free = Globals->MONSTER_NO_SPOILS + Globals->MONSTER_SPOILS_RECOVERY;
+                        mon->UpdateMonsterDescription();
                     }
                     u->event("Loses control of " + item_string(i->type, i->num) + ".", "escape");
                     u->items.SetNum(i->type, 0);
@@ -1617,6 +1619,7 @@ void Game::MonsterCheck(ARegion *r, Unit *u)
                             mon->MoveUnit(r->GetDummy());
                             // This will be zero unless these are set. (0 means full spoils)
                             mon->free = Globals->MONSTER_NO_SPOILS + Globals->MONSTER_SPOILS_RECOVERY;
+                            mon->UpdateMonsterDescription();
                         }
                         u->event("Loses control of " + item_string(it->type, it->num) + ".", "escape");
                         u->items.SetNum(it->type, 0);

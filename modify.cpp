@@ -240,6 +240,16 @@ void Game::modify_race_skills(const std::string& race, int i, const std::string&
     mt->get().skills[i] = sk.empty() ? std::nullopt : std::make_optional(sk);
 }
 
+/**
+ * @brief Sets the base attack level for a monster type.
+ *
+ * Attack level determines the monster's offensive power in combat.
+ * Silently returns if monster is not found or level is negative.
+ *
+ * @param mon Monster abbreviation string (e.g. "DRAG", "WOLF")
+ * @param lev New attack level (must be >= 0)
+ * @see modify_monster_attacks_and_hits, modify_monster_defense
+ */
 void Game::modify_monster_attack_level(const std::string& mon, int lev)
 {
     auto monster = find_monster(mon, 0);
@@ -248,6 +258,20 @@ void Game::modify_monster_attack_level(const std::string& mon, int lev)
     monster->get().attackLevel = lev;
 }
 
+/**
+ * @brief Sets the defense level for a monster against a specific attack type.
+ *
+ * Defense array is indexed by the ATTACK_* enum:
+ *   0 = ATTACK_COMBAT,  1 = ATTACK_ENERGY,  2 = ATTACK_SPIRIT,
+ *   3 = ATTACK_WEATHER, 4 = ATTACK_RIDING,  5 = ATTACK_RANGED
+ *
+ * Silently returns if monster is not found or defenseType is out of [0, NUM_ATTACK_TYPES-1].
+ *
+ * @param mon         Monster abbreviation string (e.g. "DRAG", "WOLF")
+ * @param defenseType Attack type index (0–5)
+ * @param level       New defense level for the given attack type
+ * @see modify_monster_attack_level
+ */
 void Game::modify_monster_defense(const std::string& mon, int defenseType, int level)
 {
     auto monster = find_monster(mon, 0);
@@ -256,6 +280,19 @@ void Game::modify_monster_defense(const std::string& mon, int defenseType, int l
     monster->get().defense[defenseType] = level;
 }
 
+/**
+ * @brief Sets combat damage and survivability parameters for a monster type.
+ *
+ * Controls per-round damage output and hit pool of the monster group.
+ * Silently returns if monster is not found or any parameter is negative.
+ *
+ * @param mon       Monster abbreviation string (e.g. "DRAG", "WOLF")
+ * @param num       Number of attacks per combat round (must be >= 0)
+ * @param hits      Hit points of the monster (must be >= 0)
+ * @param regen     Hit points regenerated per combat round (must be >= 0)
+ * @param hitDamage Damage dealt per successful hit (must be >= 0)
+ * @see modify_monster_attack_level, modify_monster_defense
+ */
 void Game::modify_monster_attacks_and_hits(const std::string& mon, int num, int hits, int regen, int hitDamage)
 {
     auto monster = find_monster(mon, 0);
@@ -270,6 +307,21 @@ void Game::modify_monster_attacks_and_hits(const std::string& mon, int num, int 
     monster->get().hitDamage = hitDamage;
 }
 
+/**
+ * @brief Sets tactical and awareness skills for a monster type.
+ *
+ * - tactics:  Affects combat initiative and effectiveness.
+ * - stealth:  Affects ability to evade detection by scouts.
+ * - obs:      Affects ability to detect scouts and other units.
+ *
+ * Silently returns if monster is not found or any parameter is negative.
+ *
+ * @param mon     Monster abbreviation string (e.g. "DRAG", "WOLF")
+ * @param tact    Tactics skill level (must be >= 0)
+ * @param stealth Stealth skill level (must be >= 0)
+ * @param obs     Observation skill level (must be >= 0)
+ * @see modify_monster_special
+ */
 void Game::modify_monster_skills(const std::string& mon, int tact, int stealth, int obs)
 {
     auto monster = find_monster(mon, 0);
@@ -282,6 +334,20 @@ void Game::modify_monster_skills(const std::string& mon, int tact, int stealth, 
     monster->get().obs = obs;
 }
 
+/**
+ * @brief Assigns a special combat ability to a monster type.
+ *
+ * Known abilities: "firebreath", "icebreath", "lightning", "tornado",
+ * "mindblast", "hellfire", "storm", "black_wind", "fear", "fireball",
+ * "catapult strike".
+ * Pass empty string to clear an existing ability.
+ * Silently returns if monster is not found, ability name is unknown, or level is negative.
+ *
+ * @param mon     Monster abbreviation string (e.g. "DRAG", "WOLF")
+ * @param special Special ability name (empty string to clear)
+ * @param lev     Level of the special ability (must be >= 0)
+ * @see modify_monster_skills
+ */
 void Game::modify_monster_special(const std::string& mon, const std::string& special, int lev)
 {
     auto monster = find_monster(mon, 0);
@@ -292,6 +358,19 @@ void Game::modify_monster_special(const std::string& mon, const std::string& spe
     monster->get().specialLevel = lev;
 }
 
+/**
+ * @brief Sets the reward dropped by a monster when killed.
+ *
+ * - silver:    Amount of silver awarded on kill.
+ * - spoilType: Item type index of additional loot (-1 = no item loot).
+ *
+ * Silently returns if monster is not found, silver < 0, or spoilType < -1.
+ *
+ * @param mon       Monster abbreviation string (e.g. "DRAG", "WOLF")
+ * @param silver    Silver reward on kill (must be >= 0)
+ * @param spoilType Loot item type index (-1 for none)
+ * @see modify_monster_threat
+ */
 void Game::modify_monster_spoils(const std::string& mon, int silver, int spoilType)
 {
     auto monster = find_monster(mon, 0);
@@ -302,6 +381,25 @@ void Game::modify_monster_spoils(const std::string& mon, int silver, int spoilTy
     monster->get().spoiltype = spoilType;
 }
 
+/**
+ * @brief Sets the aggression and group size for a monster type.
+ *
+ * hostileChance is the BASE aggression percentage (0–100). The actual attack
+ * probability ramps up via the progressive hostility system:
+ *   - No attacks during the first MONSTER_HOSTILE_GRACE_PERIOD turns.
+ *   - After grace period, effective hostility grows by MONSTER_HOSTILE_RATE% per turn,
+ *     capping at hostileChance.
+ *
+ * num sets the number of monsters in a spawned wandering group.
+ *
+ * Silently returns if monster is not found, num < 0, or hostileChance outside [0, 100].
+ *
+ * @param mon           Monster abbreviation string (e.g. "DRAG", "WOLF")
+ * @param num           Group size — monsters in the wandering unit (must be >= 0)
+ * @param hostileChance Base aggression chance, percent (0–100)
+ * @note Effective attack probability is calculated per-turn in CheckWMonAttack()
+ * @see modify_monster_spoils, Unit::Hostile(), Game::CheckWMonAttack()
+ */
 void Game::modify_monster_threat(const std::string& mon, int num, int hostileChance)
 {
     auto monster = find_monster(mon, 0);

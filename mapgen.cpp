@@ -29,23 +29,23 @@ const int MAX_RAINFALL = 1000;
 
 const std::vector<Biome> BIOMES = {
     // -10
-    { .name = B_TUNDRA, .feritality = 0.8, .temp = { -1000,    0 }, .rainfall = {   0,  100 } },
-    { .name = B_FOREST, .feritality = 0.8, .temp = { -1000,    0 }, .rainfall = { 101, 1000 } },
+    { .name = B_TUNDRA, .feritality = 0.8, .temp = { -1000,    0 }, .rainfall = {   0,  50 } },
+    { .name = B_FOREST, .feritality = 0.8, .temp = { -1000,    0 }, .rainfall = { 51, 1000 } },
 
     // 0
     { .name = B_TUNDRA, .feritality = 1.5, .temp = {     1,   10 }, .rainfall = {   0,   50 } },
-    { .name = B_PLAINS, .feritality = 0.8, .temp = {     1,   10 }, .rainfall = {  51,  300 } },
-    { .name = B_FOREST, .feritality = 1.0, .temp = {     1,   10 }, .rainfall = { 301, 1000 } },
+    { .name = B_PLAINS, .feritality = 0.8, .temp = {     1,   10 }, .rainfall = {  51,  200 } },
+    { .name = B_FOREST, .feritality = 1.0, .temp = {     1,   10 }, .rainfall = { 201, 1000 } },
 
     // 10
-    { .name = B_PLAINS, .feritality = 1.0, .temp = {    11,   15 }, .rainfall = {   0,  300 } },
-    { .name = B_FOREST, .feritality = 1.0, .temp = {    11,   15 }, .rainfall = { 301,  800 } },
+    { .name = B_PLAINS, .feritality = 1.0, .temp = {    11,   15 }, .rainfall = {   0,  200 } },
+    { .name = B_FOREST, .feritality = 1.0, .temp = {    11,   15 }, .rainfall = { 201,  800 } },
     { .name = B_SWAMP,  .feritality = 1.0, .temp = {    11,   15 }, .rainfall = { 801, 1000 } },
 
     // 15
     { .name = B_DESERT, .feritality = 1.2, .temp = {    16,   20 }, .rainfall = {   0,  100 } },
-    { .name = B_PLAINS, .feritality = 1.0, .temp = {    16,   20 }, .rainfall = { 101,  300 } },
-    { .name = B_FOREST, .feritality = 1.0, .temp = {    16,   20 }, .rainfall = { 301,  600 } },
+    { .name = B_PLAINS, .feritality = 1.0, .temp = {    16,   20 }, .rainfall = { 101,  250 } },
+    { .name = B_FOREST, .feritality = 1.0, .temp = {    16,   20 }, .rainfall = { 251,  600 } },
     { .name = B_JUNGLE, .feritality = 1.0, .temp = {    16,   30 }, .rainfall = { 601,  800 } },
     { .name = B_SWAMP,  .feritality = 1.0, .temp = {    16,   20 }, .rainfall = { 801, 1000 } },
 
@@ -57,15 +57,15 @@ const std::vector<Biome> BIOMES = {
     { .name = B_SWAMP,  .feritality = 1.2, .temp = {    21,   30 }, .rainfall = { 801, 1000 } },
 
     // 30
-    { .name = B_DESERT, .feritality = 1.0, .temp = {    31,   40 }, .rainfall = {   0,  200 } },
-    { .name = B_PLAINS, .feritality = 1.0, .temp = {    31,   40 }, .rainfall = { 201,  300 } },
-    { .name = B_FOREST, .feritality = 1.2, .temp = {    31,   40 }, .rainfall = { 301,  400 } },
+    { .name = B_DESERT, .feritality = 1.0, .temp = {    31,   40 }, .rainfall = {   0,  150 } },
+    { .name = B_PLAINS, .feritality = 1.0, .temp = {    31,   40 }, .rainfall = { 151,  250 } },
+    { .name = B_FOREST, .feritality = 1.2, .temp = {    31,   40 }, .rainfall = { 251,  400 } },
     { .name = B_JUNGLE, .feritality = 1.2, .temp = {    31,   40 }, .rainfall = { 401,  800 } },
     { .name = B_SWAMP,  .feritality = 1.0, .temp = {    31,   40 }, .rainfall = { 801, 1000 } },
 
     // 40
-    { .name = B_DESERT, .feritality = 1.0, .temp = {    41,   50 }, .rainfall = {   0,  200 } },
-    { .name = B_PLAINS, .feritality = 1.0, .temp = {    41,   50 }, .rainfall = { 201,  300 } },
+    { .name = B_DESERT, .feritality = 1.0, .temp = {    41,   50 }, .rainfall = {   0,  150 } },
+    { .name = B_PLAINS, .feritality = 1.0, .temp = {    41,   50 }, .rainfall = { 151,  300 } },
     { .name = B_FOREST, .feritality = 1.0, .temp = {    41,   50 }, .rainfall = { 301,  400 } },
     { .name = B_JUNGLE, .feritality = 1.0, .temp = {    41,   50 }, .rainfall = { 401, 1000 } },
 

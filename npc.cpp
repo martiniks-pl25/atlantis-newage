@@ -160,6 +160,8 @@ int Game::MakeWMon(ARegion *pReg)
     Unit *u = GetNewUnit(monfac, 0);
     u->MakeWMon(monster.name.c_str(), montype, (monster.number+rng::get_random(monster.number)+1)/2);
     u->MoveUnit(pReg->GetDummy());
+    u->free = Globals->MONSTER_SPOILS_RECOVERY;
+    u->UpdateMonsterDescription();
     return(1);
 }
 
@@ -266,6 +268,8 @@ void Game::MakeLMon(Object *pObj)
             break;
     }
     u->MoveUnit(pObj);
+    u->free = Globals->MONSTER_SPOILS_RECOVERY;
+    u->UpdateMonsterDescription();
 }
 
 // Helper struct for weapon selection

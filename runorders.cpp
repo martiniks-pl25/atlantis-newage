@@ -1260,6 +1260,17 @@ void Game::CheckWMonAttack(ARegion *r, Unit *u) {
         // Cap at base hostility (100%) after max turns
         int maxHostile = baseHostile;
         if (effectiveHostile > maxHostile) effectiveHostile = maxHostile;
+
+        // Apply age modifier based on monster age (free value)
+        // Young monsters are less aggressive, elder monsters have full aggression
+        if (u->free >= 3) {
+            effectiveHostile = (effectiveHostile * 25) / 100;  // Young: 25%
+        } else if (u->free == 2) {
+            effectiveHostile = (effectiveHostile * 50) / 100;  // Wild: 50%
+        } else if (u->free == 1) {
+            effectiveHostile = (effectiveHostile * 75) / 100;  // Ancient: 75%
+        }
+        // free == 0 (Elder): 100% - no modification needed
     }
 
     if (rng::get_random(rand) >= effectiveHostile) return;
@@ -2482,6 +2493,7 @@ int Game::DoGiveOrder(ARegion *r, Unit *u, GiveOrder *o)
                 // This will result in 0 unless MONSTER_NO_SPOILS or
                 // MONSTER_SPOILS_RECOVERY are set.
                 mon->free = Globals->MONSTER_NO_SPOILS + Globals->MONSTER_SPOILS_RECOVERY;
+                mon->UpdateMonsterDescription();
             }
         } else {
             u->ConsumeShared(o->item, amt);
