@@ -1717,6 +1717,325 @@ void Game::CreateNPCFactions()
     } else monfaction = 0;
 }
 
+void Game::CreateGuardMelee(ARegion *region, int percent)
+{
+    if (!region->town && region->type != R_NEXUS) return;
+
+    int skilllevel;
+    int AC = 0;
+    int num;
+
+    if (region->type == R_NEXUS || region->IsStartingCity()) {
+        skilllevel = TOWN_CITY + 1;
+        AC = 1;
+        num = Globals->AMT_START_CITY_GUARDS;
+    } else {
+        skilllevel = region->town->TownType() + 1;
+        num = Globals->CITY_GUARD * skilllevel;
+    }
+    num = num * percent / 100;
+
+    Faction *fac = GetFaction(factions, guardfaction);
+    Unit *u = GetNewUnit(fac);
+
+    std::string townname = (region->town) ? region->town->name : "City";
+    std::string melee_name;
+
+    if (region->type == R_NEXUS) {
+        melee_name = "City Guard";
+    } else {
+        int tt = region->town ? region->town->TownType() : TOWN_CITY;
+        switch(tt) {
+            case TOWN_VILLAGE:
+                melee_name = townname + " Militia";
+                break;
+            case TOWN_TOWN:
+                melee_name = townname + " Town Guard";
+                break;
+            default:
+                melee_name = townname + " City Guard";
+                break;
+        }
+    }
+
+    if ((Globals->GUARDS_USE_LEADERS) || (region->type == R_NEXUS)) {
+        // Leader-type guards
+        u->SetMen(I_LEADERS, num);
+
+        // Equipment will be added by AdjustCityMon on next turn
+        // (unless starting city)
+        if (AC && Globals->GUARDS_EQUIPMENT_BY_TOWN_TYPE) {
+            u->items.SetNum(I_SWORD, num);
+            u->items.SetNum(I_PLATEARMOR, num);
+            u->items.SetNum(I_ISHIELD, num);
+        }
+
+        if (Globals->SAFE_START_CITIES && AC)
+            u->items.SetNum(I_AMULETOFI, num);
+
+        u->SetMoney(num * Globals->GUARD_MONEY);
+        u->SetSkill(S_COMBAT, skilllevel);
+        u->set_name(melee_name);
+        u->type = U_GUARD;
+        u->guard = GUARD_GUARD;
+        u->reveal = REVEAL_FACTION;
+    } else {
+        // Non-leader racial guards (melee front line)
+        int melee_n = 3 * num / 4;
+
+        u->SetMen(region->race, melee_n);
+        u->SetSkill(S_COMBAT, skilllevel);
+
+        // Equipment will be added by AdjustCityMon on next turn
+        if (AC && Globals->GUARDS_EQUIPMENT_BY_TOWN_TYPE) {
+            u->items.SetNum(I_SWORD, melee_n);
+            u->items.SetNum(I_PLATEARMOR, melee_n);
+            u->items.SetNum(I_ISHIELD, melee_n);
+        }
+
+        if (Globals->SAFE_START_CITIES && AC)
+            u->items.SetNum(I_AMULETOFI, melee_n);
+
+        u->SetMoney(melee_n * Globals->GUARD_MONEY);
+        u->set_name(melee_name);
+        u->type = U_GUARD;
+        u->guard = GUARD_GUARD;
+        u->reveal = REVEAL_FACTION;
+    }
+
+    if (AC) {
+        if (Globals->START_CITY_GUARDS_PLATE && Globals->GUARDS_USE_LEADERS)
+            u->items.SetNum(I_PLATEARMOR, num);
+        u->SetSkill(S_OBSERVATION, 10);
+        if (Globals->START_CITY_TACTICS)
+            u->SetSkill(S_TACTICS, Globals->START_CITY_TACTICS);
+    } else {
+        u->SetSkill(S_OBSERVATION, skilllevel + 2);  // towntype + 3
+    }
+
+    u->SetFlag(FLAG_HOLDING, 1);
+    u->MoveUnit(region->GetDummy());
+}
+
+void Game::CreateGuardRanged(ARegion *region, int percent)
+{
+    if (!region->town && region->type != R_NEXUS) return;
+    if (Globals->GUARDS_USE_LEADERS || region->type == R_NEXUS) return; // Ranged only for non-leader guards
+
+    int skilllevel;
+    int AC = 0;
+    int num;
+
+    if (region->type == R_NEXUS || region->IsStartingCity()) {
+        skilllevel = TOWN_CITY + 1;
+        AC = 1;
+        num = Globals->AMT_START_CITY_GUARDS;
+    } else {
+        skilllevel = region->town->TownType() + 1;
+        num = Globals->CITY_GUARD * skilllevel;
+    }
+    num = num * percent / 100;
+
+    Faction *fac = GetFaction(factions, guardfaction);
+    Unit *u = GetNewUnit(fac);
+
+    std::string townname = (region->town) ? region->town->name : "City";
+    std::string ranged_name;
+
+    if (region->type == R_NEXUS) {
+        ranged_name = "City Archers";
+    } else {
+        ranged_name = townname + " Archers";
+    }
+
+    // Non-leader racial guards (ranged rear line)
+    int ranged_n = num / 4;
+    if (ranged_n < 1) ranged_n = 1;
+
+    u->SetMen(region->race, ranged_n);
+    u->SetSkill(S_LONGBOW, skilllevel);
+    u->SetFlag(FLAG_BEHIND, 1);
+
+    // Equipment will be added by AdjustCityMon on next turn
+    if (AC && Globals->GUARDS_EQUIPMENT_BY_TOWN_TYPE) {
+        u->items.SetNum(I_LONGBOW, ranged_n);
+    }
+
+    if (Globals->SAFE_START_CITIES && AC)
+        u->items.SetNum(I_AMULETOFI, ranged_n);
+
+    u->SetMoney(ranged_n * Globals->GUARD_MONEY);
+    u->set_name(ranged_name);
+    u->type = U_GUARD;
+    u->guard = GUARD_GUARD;
+    u->reveal = REVEAL_FACTION;
+    u->SetSkill(S_OBSERVATION, skilllevel + 2);  // towntype + 3
+    u->SetFlag(FLAG_HOLDING, 1);
+    u->MoveUnit(region->GetDummy());
+}
+
+void Game::CreateGuardMageESHI(ARegion *region)
+{
+    if (!region->town && region->type != R_NEXUS) return;
+
+    int skilllevel;
+    int AC = 0;
+    int IV = 0;
+
+    if (region->type == R_NEXUS || region->IsStartingCity()) {
+        skilllevel = TOWN_CITY + 1;
+        if (Globals->SAFE_START_CITIES || (region->type == R_NEXUS))
+            IV = 1;
+        AC = 1;
+    } else {
+        skilllevel = region->town->TownType() + 1;
+    }
+
+    int magelevel = skilllevel;
+    if (AC && Globals->START_CITY_MAGES > magelevel)
+        magelevel = Globals->START_CITY_MAGES;
+
+    Faction *fac = GetFaction(factions, guardfaction);
+    Unit *u = GetNewUnit(fac);
+
+    std::string townname = (region->town) ? region->town->name : "City";
+    std::string eshi_name;
+
+    if (region->type == R_NEXUS) {
+        eshi_name = "Arcane Warder";
+    } else {
+        int tt = region->town ? region->town->TownType() : TOWN_CITY;
+        switch(tt) {
+            case TOWN_VILLAGE:
+                eshi_name = townname + " Mystic";
+                break;
+            case TOWN_TOWN:
+                eshi_name = townname + " Warder";
+                break;
+            default:
+                eshi_name = townname + " Arcane Warder";
+                break;
+        }
+    }
+
+    u->set_name(eshi_name);
+    u->type = U_GUARDMAGE;
+    u->reveal = REVEAL_FACTION;
+    u->SetMen(I_LEADERS, 1);
+    if (IV) u->items.SetNum(I_AMULETOFI, 1);
+    u->SetMoney(Globals->GUARD_MONEY);
+    u->SetSkill(S_FORCE, magelevel);
+    u->SetSkill(S_ENERGY_SHIELD, magelevel);
+    u->SetSkill(S_TACTICS, magelevel);
+    u->guard = GUARD_GUARD;
+    u->SetFlag(FLAG_BEHIND, 1);
+    u->SetFlag(FLAG_HOLDING, 1);
+    u->combat = S_ENERGY_SHIELD;
+    u->MoveUnit(region->GetDummy());
+}
+
+void Game::CreateGuardMageFSHI(ARegion *region)
+{
+    if (!region->town && region->type != R_NEXUS) return;
+
+    int skilllevel;
+    int AC = 0;
+    int IV = 0;
+
+    if (region->type == R_NEXUS || region->IsStartingCity()) {
+        skilllevel = TOWN_CITY + 1;
+        if (Globals->SAFE_START_CITIES || (region->type == R_NEXUS))
+            IV = 1;
+        AC = 1;
+    } else {
+        skilllevel = region->town->TownType() + 1;
+    }
+
+    int magelevel = skilllevel;
+    if (AC && Globals->START_CITY_MAGES > magelevel)
+        magelevel = Globals->START_CITY_MAGES;
+
+    Faction *fac = GetFaction(factions, guardfaction);
+    Unit *u = GetNewUnit(fac);
+
+    std::string townname = (region->town) ? region->town->name : "City";
+    std::string fshi_name;
+
+    if (region->type == R_NEXUS) {
+        fshi_name = "Shieldmaster";
+    } else {
+        int tt = region->town ? region->town->TownType() : TOWN_CITY;
+        if (tt == TOWN_TOWN) {
+            fshi_name = townname + " Enchanter";
+        } else {
+            fshi_name = townname + " Shieldmaster";
+        }
+    }
+
+    u->set_name(fshi_name);
+    u->type = U_GUARDMAGE;
+    u->reveal = REVEAL_FACTION;
+    u->SetMen(I_LEADERS, 1);
+    if (IV) u->items.SetNum(I_AMULETOFI, 1);
+    u->SetMoney(Globals->GUARD_MONEY);
+    u->SetSkill(S_FORCE, magelevel);
+    u->SetSkill(S_FORCE_SHIELD, magelevel);
+    u->SetSkill(S_TACTICS, magelevel);
+    u->guard = GUARD_GUARD;
+    u->SetFlag(FLAG_BEHIND, 1);
+    u->SetFlag(FLAG_HOLDING, 1);
+    u->combat = S_FORCE_SHIELD;
+    u->MoveUnit(region->GetDummy());
+}
+
+void Game::CreateGuardMageFIRE(ARegion *region)
+{
+    if (!region->town && region->type != R_NEXUS) return;
+
+    int skilllevel;
+    int AC = 0;
+    int IV = 0;
+
+    if (region->type == R_NEXUS || region->IsStartingCity()) {
+        skilllevel = TOWN_CITY + 1;
+        if (Globals->SAFE_START_CITIES || (region->type == R_NEXUS))
+            IV = 1;
+        AC = 1;
+    } else {
+        skilllevel = region->town->TownType() + 1;
+    }
+
+    int magelevel = skilllevel;
+    if (AC && Globals->START_CITY_MAGES > magelevel)
+        magelevel = Globals->START_CITY_MAGES;
+
+    Faction *fac = GetFaction(factions, guardfaction);
+    Unit *u = GetNewUnit(fac);
+
+    std::string townname = (region->town) ? region->town->name : "City";
+    std::string fire_name;
+
+    if (region->type == R_NEXUS) {
+        fire_name = "Court Battlemage";
+    } else {
+        fire_name = townname + " Battlemage";
+    }
+
+    u->set_name(fire_name);
+    u->type = U_GUARDMAGE;
+    u->reveal = REVEAL_FACTION;
+    u->SetMen(I_LEADERS, 1);
+    if (IV) u->items.SetNum(I_AMULETOFI, 1);
+    u->SetMoney(Globals->GUARD_MONEY);
+    u->SetSkill(S_FORCE, magelevel);
+    u->SetSkill(S_FIRE, magelevel);
+    u->guard = GUARD_GUARD;
+    u->SetFlag(FLAG_BEHIND, 1);
+    u->SetFlag(FLAG_HOLDING, 1);
+    u->combat = S_FIRE;
+    u->MoveUnit(region->GetDummy());
+}
+
 void Game::CreateCityMon(ARegion *region, int percent, int needmage)
 {
     int skilllevel;
@@ -1738,7 +2057,40 @@ void Game::CreateCityMon(ARegion *region, int percent, int needmage)
     Unit *u = GetNewUnit(fac);
     Unit *u2;
 
-    if ((Globals->LEADERS_EXIST) || (region->type == R_NEXUS)) {
+    // Determine guard unit names based on town name and type
+    std::string townname = (region->town) ? region->town->name : "City";
+    std::string melee_name, ranged_name, eshi_name, fshi_name, fire_name;
+    if (region->type == R_NEXUS) {
+        melee_name = "City Guard";
+        ranged_name = "City Archers";
+        eshi_name = "Arcane Warder";
+        fshi_name = "Shieldmaster";
+        fire_name = "Court Battlemage";
+    } else {
+        int tt = region->town ? region->town->TownType() : TOWN_CITY;
+        switch(tt) {
+            case TOWN_VILLAGE:
+                melee_name = townname + " Militia";
+                ranged_name = townname + " Archers";
+                eshi_name = townname + " Mystic";
+                break;
+            case TOWN_TOWN:
+                melee_name = townname + " Town Guard";
+                ranged_name = townname + " Archers";
+                eshi_name = townname + " Warder";
+                fshi_name = townname + " Enchanter";
+                break;
+            default:
+                melee_name = townname + " City Guard";
+                ranged_name = townname + " Archers";
+                eshi_name = townname + " Arcane Warder";
+                fshi_name = townname + " Shieldmaster";
+                fire_name = townname + " Battlemage";
+                break;
+        }
+    }
+
+    if ((Globals->GUARDS_USE_LEADERS) || (region->type == R_NEXUS)) {
         /* standard Leader-type guards */
         u->SetMen(I_LEADERS,num);
 
@@ -1760,26 +2112,57 @@ void Game::CreateCityMon(ARegion *region, int percent, int needmage)
         if (IV) u->items.SetNum(I_AMULETOFI,num);
         u->SetMoney(num * Globals->GUARD_MONEY);
         u->SetSkill(S_COMBAT,skilllevel);
-        u->set_name("City Guard");
+        u->set_name(melee_name);
         u->type = U_GUARD;
         u->guard = GUARD_GUARD;
         u->reveal = REVEAL_FACTION;
     } else {
-        /* non-leader guards */
-        int n = 3 * num / 4;
-        int plate = 0;
-        if ((AC) && (Globals->START_CITY_GUARDS_PLATE)) plate = 1;
-        u = MakeManUnit(fac, region->race, n, skilllevel, 1, plate, 0);
-        if (IV) u->items.SetNum(I_AMULETOFI,num);
-        u->SetMoney(num * Globals->GUARD_MONEY / 2);
-        u->set_name("City Guard");
+        /* non-leader racial guards: melee front + ranged rear */
+        int melee_n = 3 * num / 4;
+        int ranged_n = num / 4;
+        if (ranged_n < 1) ranged_n = 1;
+
+        /* Front line: melee unit */
+        u->SetMen(region->race, melee_n);
+        u->SetSkill(S_COMBAT, skilllevel);
+
+        if (Globals->GUARDS_EQUIPMENT_BY_TOWN_TYPE) {
+            if (AC) {
+                // Starting city/Nexus: give best equipment immediately
+                u->items.SetNum(I_SWORD, melee_n);
+                u->items.SetNum(I_PLATEARMOR, melee_n);
+                u->items.SetNum(I_ISHIELD, melee_n);
+            }
+            // Regular towns: no equipment (AdjustCityMon assigns next turn)
+        } else {
+            u->items.SetNum(I_SWORD, melee_n);
+        }
+
+        if (IV) u->items.SetNum(I_AMULETOFI, melee_n);
+        u->SetMoney(melee_n * Globals->GUARD_MONEY);
+        u->set_name(melee_name);
         u->type = U_GUARD;
         u->guard = GUARD_GUARD;
         u->reveal = REVEAL_FACTION;
-        u2 = MakeManUnit(fac, region->race, n, skilllevel, 1, plate, 1);
-        if (IV) u2->items.SetNum(I_AMULETOFI,num);
-        u2->SetMoney(num * Globals->GUARD_MONEY / 2);
-        u2->set_name("City Guard");
+
+        /* Rear line: ranged unit (longbow) */
+        u2 = GetNewUnit(fac);
+        u2->SetMen(region->race, ranged_n);
+        u2->SetSkill(S_LONGBOW, skilllevel);
+        u2->SetFlag(FLAG_BEHIND, 1);
+
+        if (Globals->GUARDS_EQUIPMENT_BY_TOWN_TYPE) {
+            if (AC) {
+                u2->items.SetNum(I_LONGBOW, ranged_n);
+            }
+            // Regular towns: no equipment (AdjustCityMon assigns next turn)
+        } else {
+            u2->items.SetNum(I_LONGBOW, ranged_n);
+        }
+
+        if (IV) u2->items.SetNum(I_AMULETOFI, ranged_n);
+        u2->SetMoney(ranged_n * Globals->GUARD_MONEY);
+        u2->set_name(ranged_name);
         u2->type = U_GUARD;
         u2->guard = GUARD_GUARD;
         u2->reveal = REVEAL_FACTION;
@@ -1787,58 +2170,166 @@ void Game::CreateCityMon(ARegion *region, int percent, int needmage)
 
     if (AC) {
         if (Globals->START_CITY_GUARDS_PLATE) {
-            if (Globals->LEADERS_EXIST) u->items.SetNum(I_PLATEARMOR, num);
+            if (Globals->GUARDS_USE_LEADERS) u->items.SetNum(I_PLATEARMOR, num);
         }
         u->SetSkill(S_OBSERVATION,10);
         if (Globals->START_CITY_TACTICS)
             u->SetSkill(S_TACTICS, Globals->START_CITY_TACTICS);
     } else {
-        u->SetSkill(S_OBSERVATION, skilllevel);
+        u->SetSkill(S_OBSERVATION, skilllevel + 2);  // towntype + 3
     }
     u->SetFlag(FLAG_HOLDING,1);
     u->MoveUnit(region->GetDummy());
-    if ((!Globals->LEADERS_EXIST) && (region->type != R_NEXUS)) {
+    if ((!Globals->GUARDS_USE_LEADERS) && (region->type != R_NEXUS)) {
         u2->SetFlag(FLAG_HOLDING,1);
         u2->MoveUnit(region->GetDummy());
     }
 
-    if (AC && Globals->START_CITY_MAGES && needmage) {
+    if (needmage) {
+        int magelevel = skilllevel; // towntype + 1: Village=1, Town=2, City=3
+        // For starting cities, use START_CITY_MAGES if higher
+        if (AC && Globals->START_CITY_MAGES > magelevel)
+            magelevel = Globals->START_CITY_MAGES;
+
+        int tt = (region->type == R_NEXUS) ? TOWN_CITY :
+                 (region->town ? region->town->TownType() : TOWN_CITY);
+
+        // ESHI mage (all towns): Energy Shield + Tactics
         u = GetNewUnit(fac);
-        u->set_name("City Mage");
+        u->set_name(eshi_name);
         u->type = U_GUARDMAGE;
         u->reveal = REVEAL_FACTION;
-        u->SetMen(I_LEADERS,1);
-        if (IV) u->items.SetNum(I_AMULETOFI,1);
+        u->SetMen(I_LEADERS, 1);
+        if (IV) u->items.SetNum(I_AMULETOFI, 1);
         u->SetMoney(Globals->GUARD_MONEY);
-        u->SetSkill(S_FORCE,Globals->START_CITY_MAGES);
-        u->SetSkill(S_FIRE,Globals->START_CITY_MAGES);
-        if (Globals->START_CITY_TACTICS) u->SetSkill(S_TACTICS, Globals->START_CITY_TACTICS);
-        u->combat = S_FIRE;
+        u->SetSkill(S_FORCE, magelevel);
+        u->SetSkill(S_ENERGY_SHIELD, magelevel);
+        u->SetSkill(S_TACTICS, magelevel);
+        u->guard = GUARD_GUARD;
         u->SetFlag(FLAG_BEHIND, 1);
         u->SetFlag(FLAG_HOLDING, 1);
+        u->combat = S_ENERGY_SHIELD;  // Set combat AFTER all other setup
         u->MoveUnit(region->GetDummy());
+
+        // FSHI mage (Town+): Force Shield + Tactics
+        if (tt >= TOWN_TOWN) {
+            u = GetNewUnit(fac);
+            u->set_name(fshi_name);
+            u->type = U_GUARDMAGE;
+            u->reveal = REVEAL_FACTION;
+            u->SetMen(I_LEADERS, 1);
+            if (IV) u->items.SetNum(I_AMULETOFI, 1);
+            u->SetMoney(Globals->GUARD_MONEY);
+            u->SetSkill(S_FORCE, magelevel);
+            u->SetSkill(S_FORCE_SHIELD, magelevel);
+            u->SetSkill(S_TACTICS, magelevel);
+            u->guard = GUARD_GUARD;
+            u->SetFlag(FLAG_BEHIND, 1);
+            u->SetFlag(FLAG_HOLDING, 1);
+            u->combat = S_FORCE_SHIELD;  // Set combat AFTER all other setup
+            u->MoveUnit(region->GetDummy());
+        }
+
+        // FIRE mage (City+): Fire attack
+        if (tt >= TOWN_CITY) {
+            u = GetNewUnit(fac);
+            u->set_name(fire_name);
+            u->type = U_GUARDMAGE;
+            u->reveal = REVEAL_FACTION;
+            u->SetMen(I_LEADERS, 1);
+            if (IV) u->items.SetNum(I_AMULETOFI, 1);
+            u->SetMoney(Globals->GUARD_MONEY);
+            u->SetSkill(S_FORCE, magelevel);
+            u->SetSkill(S_FIRE, magelevel);
+            u->guard = GUARD_GUARD;
+            u->SetFlag(FLAG_BEHIND, 1);
+            u->SetFlag(FLAG_HOLDING, 1);
+            u->combat = S_FIRE;  // Set combat AFTER all other setup
+            u->MoveUnit(region->GetDummy());
+        }
     }
 }
 
 void Game::AdjustCityMons(ARegion *r)
 {
-    int needguard = 1;
-    int needmage = 1;
+    if (!r->town && r->type != R_NEXUS) return;
+
+    int towntype = r->town ? r->town->TownType() : TOWN_CITY;
+
+    // Determine what SHOULD exist based on towntype
+    bool should_have_melee = true;
+    bool should_have_ranged = !Globals->GUARDS_USE_LEADERS && (r->type != R_NEXUS);
+    bool should_have_eshi = true;
+    bool should_have_fshi = (towntype >= TOWN_TOWN);
+    bool should_have_fire = (towntype >= TOWN_CITY);
+
+    // Check what DOES exist and if player is on guard
+    bool has_melee = false;
+    bool has_ranged = false;
+    bool has_eshi = false;
+    bool has_fshi = false;
+    bool has_fire = false;
+    bool player_on_guard = false;
+
     for(const auto o : r->objects) {
         for(const auto u : o->units) {
-            if (u->type == U_GUARD || u->type == U_GUARDMAGE) {
-                AdjustCityMon(r, u);
-                /* Don't create new city guards if we have some */
-                needguard = 0;
-                if (u->type == U_GUARDMAGE)
-                    needmage = 0;
+            // Check if player (not city guards) is on GUARD - blocks regeneration
+            if (u->guard == GUARD_GUARD && u->faction->num != guardfaction) {
+                player_on_guard = true;
             }
-            if (u->guard == GUARD_GUARD) needguard = 0;
+
+            if (u->type == U_GUARD) {
+                AdjustCityMon(r, u);
+                // Check if this is melee (front line) or ranged (behind)
+                if (u->GetFlag(FLAG_BEHIND))
+                    has_ranged = true;
+                else
+                    has_melee = true;
+            }
+
+            if (u->type == U_GUARDMAGE) {
+                AdjustCityMon(r, u);
+                // Determine mage type by combat spell
+                if (u->combat == S_ENERGY_SHIELD)
+                    has_eshi = true;
+                else if (u->combat == S_FORCE_SHIELD)
+                    has_fshi = true;
+                else if (u->combat == S_FIRE)
+                    has_fire = true;
+            }
         }
     }
 
-    if (needguard && (rng::get_random(100) < Globals->GUARD_REGEN)) {
-        CreateCityMon(r, 10, needmage);
+    // Determine what needs to be created
+    bool need_melee = should_have_melee && !has_melee;
+    bool need_ranged = should_have_ranged && !has_ranged;
+    bool need_eshi = should_have_eshi && !has_eshi;
+    bool need_fshi = should_have_fshi && !has_fshi;
+    bool need_fire = should_have_fire && !has_fire;
+
+    bool need_something = need_melee || need_ranged || need_eshi || need_fshi || need_fire;
+    bool has_any_guards = has_melee || has_ranged || has_eshi || has_fshi || has_fire;
+
+    // Regenerate guards if: no player on guard AND something is missing
+    if (!player_on_guard && need_something) {
+        bool should_regenerate = false;
+
+        if (has_any_guards) {
+            // Someone survived - regenerate missing guards WITHOUT random check (100% chance)
+            should_regenerate = true;
+        } else {
+            // Everyone killed - check random chance first (35%)
+            should_regenerate = (rng::get_random(100) < Globals->GUARD_REGEN);
+        }
+
+        if (should_regenerate) {
+            // Create missing guard types (20% of maximum each)
+            if (need_melee) CreateGuardMelee(r, 20);
+            if (need_ranged) CreateGuardRanged(r, 20);
+            if (need_eshi) CreateGuardMageESHI(r);
+            if (need_fshi) CreateGuardMageFSHI(r);
+            if (need_fire) CreateGuardMageFIRE(r);
+        }
     }
 }
 
@@ -1876,17 +2367,6 @@ void Game::AdjustCityMon(ARegion *r, Unit *u)
             maxshield = num;
         }
     }
-    int skill = S_COMBAT;
-
-    if (weapon != -1) {
-        auto weapon_def = find_weapon(ItemDefs[weapon].abr)->get();
-        auto pS = FindSkill(weapon_def.baseSkill)->get();
-        if (pS == FindSkill("XBOW")->get()) skill = S_CROSSBOW;
-        if (pS == FindSkill("LBOW")->get()) skill = S_LONGBOW;
-    }
-
-    int sl = u->GetRealSkill(skill);
-
     if (r->type == R_NEXUS || r->IsStartingCity()) {
         towntype = TOWN_CITY;
         AC = 1;
@@ -1896,53 +2376,107 @@ void Game::AdjustCityMon(ARegion *r, Unit *u)
             men = 1;
         } else {
             maxmen = Globals->AMT_START_CITY_GUARDS;
-            if ((!Globals->LEADERS_EXIST) && (r->type != R_NEXUS))
-                maxmen = 3 * maxmen / 4;
-            men = u->GetMen() + (Globals->AMT_START_CITY_GUARDS/10);
+            if ((!Globals->GUARDS_USE_LEADERS) && (r->type != R_NEXUS)) {
+                if (u->GetFlag(FLAG_BEHIND))
+                    maxmen = maxmen / 4;   // ranged rear unit
+                else
+                    maxmen = 3 * maxmen / 4; // melee front unit
+            }
+            int current_men = u->GetMen();
+            men = current_men + (Globals->AMT_START_CITY_GUARDS/10);
             if (men > maxmen)
-                men = maxmen;
+                men = std::max(current_men, maxmen);  // Don't lower count, only grow
         }
     } else {
         towntype = r->town->TownType();
-        maxmen = Globals->CITY_GUARD * (towntype+1);
-        if (!Globals->LEADERS_EXIST) maxmen = 3 * maxmen / 4;
-        men = u->GetMen() + (maxmen/10);
-        if (men > maxmen)
-            men = maxmen;
-    }
-
-    // Check if this is a newly spawned guard (has no weapon yet)
-    // Only assign equipment if GUARDS_EQUIPMENT_BY_TOWN_TYPE is enabled
-    if (weapon == -1 && Globals->GUARDS_EQUIPMENT_BY_TOWN_TYPE) {
-        // New system: equipment scales by town type
-        switch(towntype) {
-            case TOWN_VILLAGE:
-                weapon = I_SPEAR;
-                armor = I_LEATHERARMOR;
-                shield = I_WSHIELD;
-                break;
-            case TOWN_TOWN:
-                weapon = I_PIKE;
-                armor = I_CHAINARMOR;
-                shield = I_WSHIELD;
-                break;
-            case TOWN_CITY:
-                weapon = I_SWORD;
-                armor = I_PLATEARMOR;
-                shield = I_ISHIELD;
-                break;
+        if (u->type == U_GUARDMAGE) {
+            men = 1;
+        } else {
+            maxmen = Globals->CITY_GUARD * (towntype+1);
+            if (!Globals->GUARDS_USE_LEADERS) {
+                if (u->GetFlag(FLAG_BEHIND))
+                    maxmen = maxmen / 4;   // ranged rear unit
+                else
+                    maxmen = 3 * maxmen / 4; // melee front unit
+            }
+            int current_men = u->GetMen();
+            men = current_men + (maxmen/10);
+            if (men > maxmen)
+                men = std::max(current_men, maxmen);  // Don't lower count, only grow
         }
     }
+
+    // Assign equipment to newly spawned guards (no weapon yet)
+    if (weapon == -1 && Globals->GUARDS_EQUIPMENT_BY_TOWN_TYPE) {
+        if (u->GetFlag(FLAG_BEHIND)) {
+            // Ranged guard unit: longbow only, no armor/shield
+            weapon = I_LONGBOW;
+        } else {
+            // Melee guard unit: equipment scales by town type
+            switch(towntype) {
+                case TOWN_VILLAGE:
+                    weapon = I_SPEAR;
+                    armor = I_LEATHERARMOR;
+                    shield = I_WSHIELD;
+                    break;
+                case TOWN_TOWN:
+                    weapon = I_PIKE;
+                    armor = I_CHAINARMOR;
+                    shield = I_WSHIELD;
+                    break;
+                case TOWN_CITY:
+                    weapon = I_SWORD;
+                    armor = I_PLATEARMOR;
+                    shield = I_ISHIELD;
+                    break;
+            }
+        }
+    }
+
+    // Determine combat skill from weapon type (after weapon assignment)
+    int skill = S_COMBAT;
+    if (weapon != -1) {
+        auto weapon_def = find_weapon(ItemDefs[weapon].abr)->get();
+        auto pS = FindSkill(weapon_def.baseSkill)->get();
+        if (pS == FindSkill("XBOW")->get()) skill = S_CROSSBOW;
+        if (pS == FindSkill("LBOW")->get()) skill = S_LONGBOW;
+    }
+    int sl = u->GetRealSkill(skill);
 
     u->SetMen(mantype,men);
     if (IV) u->items.SetNum(I_AMULETOFI,men);
 
     if (u->type == U_GUARDMAGE) {
-        if (Globals->START_CITY_TACTICS)
-            u->SetSkill(S_TACTICS, Globals->START_CITY_TACTICS);
-        u->SetSkill(S_FORCE, Globals->START_CITY_MAGES);
-        u->SetSkill(S_FIRE, Globals->START_CITY_MAGES);
-        u->combat = S_FIRE;
+        int magelevel = towntype + 1;
+        // For starting cities, use START_CITY_MAGES if higher
+        if (AC && Globals->START_CITY_MAGES > magelevel)
+            magelevel = Globals->START_CITY_MAGES;
+
+        // Don't lower skills - keep maximum level
+        int current_force = u->GetRealSkill(S_FORCE);
+        u->SetSkill(S_FORCE, std::max(current_force, magelevel));
+
+        // Update skills based on combat spell (already set in CreateCityMon)
+        if (u->combat == S_FIRE) {
+            // Battlemage: fire attack + TACTICS
+            int current_fire = u->GetRealSkill(S_FIRE);
+            int current_tactics = u->GetRealSkill(S_TACTICS);
+            u->SetSkill(S_FIRE, std::max(current_fire, magelevel));
+            u->SetSkill(S_TACTICS, std::max(current_tactics, magelevel));
+        } else if (u->combat == S_FORCE_SHIELD) {
+            // Shieldmaster: force shield + TACTICS
+            int current_fshi = u->GetRealSkill(S_FORCE_SHIELD);
+            int current_tactics = u->GetRealSkill(S_TACTICS);
+            u->SetSkill(S_FORCE_SHIELD, std::max(current_fshi, magelevel));
+            u->SetSkill(S_TACTICS, std::max(current_tactics, magelevel));
+        } else {
+            // Warder/Mystic (default or S_ENERGY_SHIELD): energy shield + TACTICS
+            int current_eshi = u->GetRealSkill(S_ENERGY_SHIELD);
+            int current_tactics = u->GetRealSkill(S_TACTICS);
+            u->SetSkill(S_ENERGY_SHIELD, std::max(current_eshi, magelevel));
+            u->SetSkill(S_TACTICS, std::max(current_tactics, magelevel));
+            if (u->combat != S_ENERGY_SHIELD) u->combat = S_ENERGY_SHIELD;
+        }
         u->SetFlag(FLAG_BEHIND, 1);
         u->SetMoney(Globals->GUARD_MONEY);
     } else {
@@ -1956,7 +2490,9 @@ void Game::AdjustCityMon(ARegion *r, Unit *u)
             if (Globals->START_CITY_GUARDS_PLATE)
                 u->items.SetNum(armor,men);
         } else {
-            u->SetSkill(S_OBSERVATION,towntype + 1);
+            // Don't lower Observation - keep maximum level
+            int current_obs = u->GetRealSkill(S_OBSERVATION);
+            u->SetSkill(S_OBSERVATION, std::max(current_obs, towntype + 3));
             if (armor != -1) {
                 u->items.SetNum(armor,men);
             }
@@ -1967,6 +2503,10 @@ void Game::AdjustCityMon(ARegion *r, Unit *u)
         if (shield != -1) {
             u->items.SetNum(shield,men);
         }
+    }
+    // Restore guard status (lost when guards are defeated in battle)
+    if (u->type == U_GUARD || u->type == U_GUARDMAGE) {
+        u->guard = GUARD_GUARD;
     }
 }
 

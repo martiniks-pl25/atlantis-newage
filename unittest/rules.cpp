@@ -236,6 +236,8 @@ static GameDefs g = {
 
     0,   // MONSTER_HOSTILE_GRACE_PERIOD
     100, // MONSTER_HOSTILE_RATE
+
+    1,   // GUARDS_USE_LEADERS (0 = racial guards, 1 = leader guards)
 };
 
 GameDefs *Globals = &g;

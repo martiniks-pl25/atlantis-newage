@@ -154,6 +154,11 @@ private:
     void CreateWorld();
     void CreateNPCFactions();
     void CreateCityMon(ARegion *pReg, int percent, int needmage);
+    void CreateGuardMelee(ARegion *pReg, int percent);
+    void CreateGuardRanged(ARegion *pReg, int percent);
+    void CreateGuardMageESHI(ARegion *pReg);
+    void CreateGuardMageFSHI(ARegion *pReg);
+    void CreateGuardMageFIRE(ARegion *pReg);
     int MakeWMon(ARegion *pReg);
     void MakeLMon(Object *pObj);
 

@@ -1030,7 +1030,8 @@ void Unit::DefaultOrders(Object *obj)
     }
 
     else if (type == U_GUARDMAGE) {
-        combat = S_FIRE;
+        if (guard != GUARD_GUARD)
+            guard = GUARD_SET;
     }
 
     else{

@@ -849,6 +849,13 @@ public:
 	// Monster hostility progression (gradual increase over time)
 	int MONSTER_HOSTILE_GRACE_PERIOD;
 	int MONSTER_HOSTILE_RATE;
+
+	// Should guards be created from leaders or racial units?
+	// 0 = racial guards (Vikings, Plainsmen, etc.)
+	// 1 = leader guards (generic I_LEADERS)
+	// Independent from LEADERS_EXIST (which controls player recruitment)
+	// Guard mages always use I_LEADERS regardless of this setting
+	int GUARDS_USE_LEADERS;
 };
 
 extern GameDefs *Globals;

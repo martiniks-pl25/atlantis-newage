@@ -101,7 +101,7 @@ static GameDefs g = {
 
 	5,	/* HEALS_PER_MAN */
 
-	20,	/* GUARD_REGEN */ /* percent */
+	35,	/* GUARD_REGEN */ /* percent */
 	40,	/* CITY_GUARD */
 	50,	/* GUARD_MONEY */
 	10000,	/* CITY_POP */
@@ -270,6 +270,8 @@ static GameDefs g = {
 
 	5,	// MONSTER_HOSTILE_GRACE_PERIOD
 	5,	// MONSTER_HOSTILE_RATE
+
+	0,	// GUARDS_USE_LEADERS (0 = racial guards, 1 = leader guards)
 };
 
 GameDefs *Globals = &g;
