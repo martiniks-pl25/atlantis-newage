@@ -116,6 +116,7 @@ class Soldier {
         int askill;
         int attacks;
         int hitDamage;
+        int shieldPenalty;  // Attack penalty from shields (applied after weapon setup)
         char const *special;
         int slevel;
 

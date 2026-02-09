@@ -56,6 +56,7 @@ public:
     int NewGame();
     int OpenGame();
     void DummyGame();
+    void InitMinimal(); // Minimal initialization for battle tests
 
     void DefaultWorkOrder();
 

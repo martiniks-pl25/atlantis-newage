@@ -473,7 +473,7 @@ std::vector<ItemType> ItemDefs =
      "", { "", "", "", "" }, 0, 0},
     {"plate armor","plate armor","PARM",
      0,
-     "ARMO",3,3,1, {{I_IRON,3},{-1,0},{-1,0},{-1,0}},
+     "ARMO",2,2,1, {{I_IRON,2},{-1,0},{-1,0},{-1,0}},
      NULL,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
      3, IT_NORMAL | IT_ARMOR, 250,1,
      0,0,0,0,0,
@@ -553,7 +553,7 @@ std::vector<ItemType> ItemDefs =
      "", { "", "", "", "" }, 0, 0},
     {"mithril sword","mithril swords","MSWO",
      0,
-     "WEAP",3,1,1, {{I_MITHRIL,1},{-1,0},{-1,0},{-1,0}},
+     "WEAP",3,1,1, {{I_MITHRIL,1},{I_SWORD,1},{-1,0},{-1,0}},
      "ESWO",1,500, {{I_SWORD,1},{-1,0},{-1,0},{-1,0}},
      1,IT_ADVANCED | IT_WEAPON, 200,1,
      0,0,0,0,0,
@@ -563,7 +563,7 @@ std::vector<ItemType> ItemDefs =
      "", { "", "", "", "" }, 0, 0},
     {"mithril armor","mithril armor","MARM",
      0,
-     "ARMO",5,1,1, {{I_MITHRIL,1},{-1,0},{-1,0},{-1,0}},
+     "ARMO",4,2,1, {{I_PLATEARMOR,1},{I_MITHRIL,2},{-1,0},{-1,0}},
      "EARM",1,500, {{I_PLATEARMOR,1},{-1,0},{-1,0},{-1,0}},
      1,IT_ADVANCED | IT_ARMOR, 500,1,
      0,0,0,0,0,
@@ -573,7 +573,7 @@ std::vector<ItemType> ItemDefs =
      "", { "", "", "", "" }, 0, 0},
     {"double bow","double bows","DBOW",
      0,
-     "WEAP",5,1,1, {{I_YEW,1},{-1,0},{-1,0},{-1,0}},
+     "WEAP",5,1,1, {{I_YEW,1},{I_LONGBOW,1},{-1,0},{-1,0}},
      NULL,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
      1,IT_ADVANCED | IT_WEAPON, 400,1,
      0,0,0,0,0,
@@ -1393,7 +1393,7 @@ std::vector<ItemType> ItemDefs =
      "", { "", "", "", "" }, 0, 0},
     {"magic crossbow","magic crossbows","MXBO",
      ItemType::DISABLED,
-     "WEAP",4,1,1, {{I_IRONWOOD,1},{-1,0},{-1,0},{-1,0}},
+     "WEAP",4,2,1, {{I_IRONWOOD,1},{I_CROSSBOW,1},{-1,0},{-1,0}},
      NULL,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
      1,IT_ADVANCED | IT_WEAPON, 200,1,
      0,0,0,0,0,
@@ -1734,7 +1734,7 @@ std::vector<ItemType> ItemDefs =
      "", { "", "", "", "" }, 0, 0},
     {"battle axe","battle axes","BAXE",
      ItemType::DISABLED,
-     "WEAP",3,1,1, {{I_IRONWOOD,1},{-1,0},{-1,0},{-1,0}},
+     "WEAP",2,1,1, {{I_WOOD,1},{I_IRON,1},{-1,0},{-1,0}},
      NULL,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
      2, IT_ADVANCED|IT_WEAPON, 200, 1,
      0,0,0,0,0,
@@ -1744,7 +1744,7 @@ std::vector<ItemType> ItemDefs =
      "", { "", "", "", "" }, 0, 0},
     {"mithril battle axe","mithril battle axes","MBAX",
      ItemType::DISABLED,
-     "WCRA",2,2,1, {{I_MITHRIL,1},{I_IRONWOOD,1},{-1,0},{-1,0}},
+     "WEAP",3,2,1, {{I_MITHRIL,1},{I_BAXE,1},{-1,0},{-1,0}},
      NULL,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
      2, IT_ADVANCED|IT_WEAPON, 300, 1,
      0,0,0,0,0,
@@ -1764,7 +1764,7 @@ std::vector<ItemType> ItemDefs =
      "", { "", "", "", "" }, 0, 0},
     {"admantium sword", "admantium swords", "ASWR",
      ItemType::DISABLED | ItemType::NOMARKET,
-     "WCRA",3,2,1, {{I_ADMANTIUM,1},{-1,0},{-1,0},{-1,0}},
+     "WEAP",5,2,1, {{I_ADMANTIUM,1},{I_MSWORD,1},{-1,0},{-1,0}},
      NULL,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
      1, IT_ADVANCED|IT_WEAPON,600,1,
      0,0,0,0,0,
@@ -1774,7 +1774,7 @@ std::vector<ItemType> ItemDefs =
      "", { "", "", "", "" }, 0, 0},
     {"admantium battle axe","admantium battle axes","ABAX",
      ItemType::DISABLED | ItemType::NOMARKET,
-     "WCRA",5,2,1, {{I_ADMANTIUM,1},{I_YEW,1},{-1,0},{-1,0}},
+     "WEAP",5,3,1, {{I_ADMANTIUM,1},{I_MBAXE,1},{-1,0},{-1,0}},
      NULL,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
      2, IT_ADVANCED|IT_WEAPON, 1200, 1,
      0,0,0,0,0,
@@ -1794,7 +1794,7 @@ std::vector<ItemType> ItemDefs =
      "", { "", "", "", "" }, 0, 0},
     {"admantium ring mail", "admantium ring mails", "ARNG",
      ItemType::DISABLED | ItemType::NOMARKET,
-     "ACRA",3,2,1, {{I_ADMANTIUM,1},{-1,0},{-1,0},{-1,0}},
+     "ARMO",5,4,1, {{I_MCHAIN,1},{I_ADMANTIUM,1},{-1,0},{-1,0}},
      NULL,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
      2,IT_ADVANCED | IT_ARMOR, 900,1,
      0,0,0,0,0,
@@ -1804,7 +1804,7 @@ std::vector<ItemType> ItemDefs =
      "", { "", "", "", "" }, 0, 0},
     {"admantium plate mail","admantium plate mails","AARM",
      ItemType::DISABLED | ItemType::NOMARKET,
-     "ACRA",5,4,1, {{I_ADMANTIUM,3},{-1,0},{-1,0},{-1,0}},
+     "ARMO",5,4,1, {{I_MPLATE,1},{I_ADMANTIUM,2},{-1,0},{-1,0}},
      NULL,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
      3,IT_ADVANCED | IT_ARMOR, 1800,1,
      0,0,0,0,0,
@@ -2034,7 +2034,7 @@ std::vector<ItemType> ItemDefs =
      "", { "", "", "", "" }, 0, 0},
     {"mithril chain armor","mithril chain armor","MCAR",
      ItemType::DISABLED,
-     "ARMO",5,1,2, {{I_MITHRIL,1},{-1,0},{-1,0},{-1,0}},
+     "ARMO",3,2,1, {{I_CHAINARMOR,1},{I_MITHRIL,1},{-1,0},{-1,0}},
      NULL,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
      1,IT_ADVANCED | IT_ARMOR, 400,1,
      0,0,0,0,0,
@@ -2174,7 +2174,7 @@ std::vector<ItemType> ItemDefs =
      "", { "", "", "", "" }, 0, 0},
     {"mithril shield","mithril shields","MSHD",
      ItemType::DISABLED,
-     "ARMO",5,1,1, {{I_MITHRIL,1},{-1,0},{-1,0},{-1,0}},
+     "ARMO",4,1,1, {{I_ISHIELD,1},{I_MITHRIL,1},{-1,0},{-1,0}},
      "ESHD",1,500, {{I_ISHIELD,1},{-1,0},{-1,0},{-1,0}},
      1, IT_ADVANCED | IT_BATTLE, 200,1,
      0,0,0,0,0,
@@ -2184,7 +2184,7 @@ std::vector<ItemType> ItemDefs =
      "", { "", "", "", "" }, 0, 0},
     {"iron shield","iron shields","ISHD",
      ItemType::DISABLED,
-     "ARMO",3,1,1, {{I_IRON,1},{-1,0},{-1,0},{-1,0}},
+     "ARMO",3,1,1, {{I_WSHIELD,1},{I_IRON,1},{-1,0},{-1,0}},
      NULL,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
      1, IT_NORMAL | IT_BATTLE, 80,1,
      0,0,0,0,0,
@@ -2200,6 +2200,16 @@ std::vector<ItemType> ItemDefs =
      0,0,0,0,0,
      -1,0,
      I_AXE,1, 0,
+     0, NULL, 0,
+     "", { "", "", "", "" }, 0, 0},
+    {"adamantium shield","adamantium shields","ASHD",
+     ItemType::DISABLED | ItemType::NOMARKET,
+     "ARMO",5,1,1, {{I_MSHIELD,1},{I_ADMANTIUM,1},{-1,0},{-1,0}},
+     NULL,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
+     1, IT_ADVANCED | IT_BATTLE, 400,1,
+     0,0,0,0,0,
+     -1,0,
+     I_HAMMER,1, 0,
      0, NULL, 0,
      "", { "", "", "", "" }, 0, 0},
     {"aegis","aegeis","AEGS",
@@ -2315,7 +2325,7 @@ std::vector<ItemType> ItemDefs =
 
     {"catapult","catapults","CATP",
     ItemType::DISABLED | ItemType::MANPRODUCE | ItemType::NOTRANSPORT,
-    "CARP",4,4,1,{{I_WOOD,250},{I_IRONWOOD,30},{I_FUR,80},{I_SILVER,3000}},
+    "CARP",5,5,1,{{I_WOOD,250},{I_IRONWOOD,30},{I_FUR,80},{I_SILVER,3000}},
     NULL,0,0,{{-1,0},{-1,0},{-1,0},{-1,0}},
     800,IT_MONSTER,2000,1,
     800,0,0,0,2,
@@ -2326,7 +2336,7 @@ std::vector<ItemType> ItemDefs =
 
     {"steel defender","steel defenders","STED",
     ItemType::DISABLED | ItemType::MANPRODUCE | ItemType::NOTRANSPORT,
-    "CARP",4,4,1, {{I_ROOTSTONE,30},{I_IRON,250},{I_FUR,50},{I_SILVER,3000}},
+    "CARP",5,5,1, {{I_ROOTSTONE,30},{I_IRON,250},{I_FUR,50},{I_SILVER,3000}},
     NULL,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
     1000,IT_MONSTER,500,1,
     1000,0,0,0,2,
@@ -2490,7 +2500,7 @@ std::vector<MonType> MonDefs = {
      10,10,0,
      0,0,2,
      NULL,0,
-     450,-1,10,3,"Polar Bears", "POLA", 1, { R_TUNDRA }, {}},
+     450,-1,10,3,"Polar Bears", "POLA", 1, { R_TUNDRA }, { R_DESERT, R_VOLCANO }},
     {1,{1,1,1,1,1,0},
      1,1,0,
      0,2,0,
@@ -2510,12 +2520,12 @@ std::vector<MonType> MonDefs = {
      15,15,4,
      2,3,1,
      NULL,0,
-     600,IT_ADVANCED,25,7,"Living Trees", "TREN", 1, { R_FOREST }, {}},
+     600,IT_ADVANCED,25,7,"Living Trees", "TREN", 1, { R_FOREST }, { R_DESERT, R_VOLCANO }},
     {4,{4,3,0,3,4,2},
      25,25,0,
      2,2,4,
      NULL,0,
-     1500,IT_ADVANCED,40,2,"Giant Birds", "ROC", 1, { R_MOUNTAIN }, {}},
+     1500,IT_ADVANCED,40,2,"Giant Birds", "ROC", 1, { R_HILL }, {}},
     {4,{4,1,0,3,0,1},
      30,30,0,
      3,1,1,
@@ -2530,12 +2540,12 @@ std::vector<MonType> MonDefs = {
      80,80,0,
      4,0,4,
      NULL,0,
-     5000,IT_ADVANCED,30,1,"Sphinx", "SPHI", 1, { R_DESERT }, {}},
+     5000,IT_ADVANCED,30,1,"Sphinx", "SPHI", 1, { R_DESERT }, { R_FOREST, R_TUNDRA }},
     {4,{4,3,3,3,3,1},
      10,10,0,
      2,4,1,
      NULL,0,
-     500,IT_ADVANCED,25,8,"Ice Wurms", "ICEW", 1, { R_TUNDRA }, {}},
+     500,IT_ADVANCED,25,8,"Ice Wurms", "ICEW", 1, { R_TUNDRA }, { R_DESERT, R_VOLCANO }},
     {6,{6,6,6,6,5,0},
      50,60,0,
      4,1,3,
@@ -2565,7 +2575,7 @@ std::vector<MonType> MonDefs = {
      20,20,0,
      2,2,3,
      "firebreath",2,
-     1500,IT_ADVANCED,25,2,"Fire Ifrits", "IFRI", 2, { R_VOLCANO }, {}},
+     1500,IT_ADVANCED,25,2,"Fire Ifrits", "IFRI", 2, { R_VOLCANO }, { R_TUNDRA }},
     {3,{3,3,0,3,0,0},
      2,2,0,
      0,0,1,
@@ -2767,7 +2777,7 @@ std::vector<MonType> MonDefs = {
      120,120,0,
      5,1,2,
      "icebreath", 6,
-     15000,IT_MAGIC,50,1,"Ice Dragon", "IDRA", 1, { R_TUNDRA }, {}},
+     15000,IT_MAGIC,50,1,"Ice Dragon", "IDRA", 1, { R_TUNDRA }, { R_DESERT, R_VOLCANO }},
     {0,{3,0,0,0,3,3},
      0,30,0,
      0,0,0,
@@ -2810,7 +2820,7 @@ std::vector<WeaponType> WeaponDefs = {
     {"DBOW",
      WeaponType::NEEDSKILL | WeaponType::RANGED | WeaponType::NOATTACKERSKILL,
      "LBOW", NULL,
-     ARMORPIERCING, ATTACK_RANGED, WeaponType::NUM_ATTACKS_HALF_SKILL,
+     PIERCING, ATTACK_RANGED, WeaponType::NUM_ATTACKS_HALF_SKILL,
      0, 0, 0,
      1,
      { { NULL, 0, 0 }, { NULL, 0, 0 }, { NULL, 0, 0 }, { NULL, 0, 0 } }
@@ -2882,7 +2892,7 @@ std::vector<WeaponType> WeaponDefs = {
     {"JAVE",
      WeaponType::RANGED|WeaponType::RIDINGBONUSDEFENSE,
      "COMB", NULL,
-     PIERCING, ATTACK_RANGED, -2,
+     PIERCING, ATTACK_RANGED, -1,
      -1, 0, 0,
      1,
      { { NULL, 0, 0 }, { NULL, 0, 0 }, { NULL, 0, 0 }, { NULL, 0, 0 } }
@@ -2901,8 +2911,8 @@ std::vector<WeaponType> WeaponDefs = {
     {"ABAX",
      WeaponType::RIDINGBONUS,
      "COMB", NULL,
-     ARMORPIERCING, ATTACK_COMBAT, 1,
-     7, 5, 0,
+     CLEAVING, ATTACK_COMBAT, 1,
+     6, 4, 0,
      1,
      { { NULL, 0, 0 }, { NULL, 0, 0 }, { NULL, 0, 0 }, { NULL, 0, 0 } }
     },
@@ -2928,8 +2938,8 @@ std::vector<WeaponType> WeaponDefs = {
     {"MBAX",
      WeaponType::RIDINGBONUS,
      "COMB", NULL,
-     ARMORPIERCING, ATTACK_COMBAT, 1,
-     5, 4, 0,
+     CLEAVING, ATTACK_COMBAT, 1,
+     4, 2, 0,
      1,
      { { NULL, 0, 0 }, { NULL, 0, 0 }, { NULL, 0, 0 }, { NULL, 0, 0 } }
     },
@@ -2955,8 +2965,8 @@ std::vector<WeaponType> WeaponDefs = {
     {"BAXE",
      WeaponType::RIDINGBONUS,
      "COMB", NULL,
-     ARMORPIERCING, ATTACK_COMBAT, 1,
-     4, 3, 0,
+     CLEAVING, ATTACK_COMBAT, 1,
+     3, 1, 0,
      1,
      { { NULL, 0, 0 }, { NULL, 0, 0 }, { NULL, 0, 0 }, { NULL, 0, 0 } }
     },
@@ -3078,27 +3088,27 @@ std::vector<WeaponType> WeaponDefs = {
 //
 std::vector<ArmorType> ArmorDefs = {
     // ARMOR_CLOAKOFI
-    { "CLOA", 0, 100, {98, 98, 98, 98, 98, 98, 98, 98}},
-    // ARMOR_ADPLATE
-    { "AARM", 0, 100, {95, 95, 95, 95, 90, 90, 90, 90}},
-    // ARMOR_ADRING
-    { "ARNG", 0, 100, {90, 90, 90, 90, 80, 80, 80, 80}},
+    { "CLOA", 0, 100, {98, 98, 98, 98, 98, 98, 98, 98}, 0},
+    // ARMOR_ADPLATE - Heavy chain tier 3: -1 combat attack
+    { "AARM", 0, 100, {95, 95, 95, 95, 90, 90, 90, 90}, -1},
+    // ARMOR_ADRING - Light chain tier 3: +1 combat attack
+    { "ARNG", 0, 100, {90, 90, 80, 80, 80, 90, 90, 90}, 1},
     // ARMOR_IMITHRIL
-    { "IMTH", 0, 100, {90, 90, 90, 90, 75, 75, 75, 75}},
-    // ARMOR_MARMOR
-    { "MARM", 0, 100, {85, 85, 85, 85, 67, 67, 67, 67}},
-    // ARMOR_MCHAIN
-    { "MCAR", 0, 300, {225, 200, 150, 225, 150, 150, 150, 150}},
-    // ARMOR_PLATEARMOR
-    { "PARM", 0, 100, {67, 67, 67, 67, 33, 33, 33, 33}},
+    { "IMTH", 0, 100, {90, 90, 90, 90, 75, 75, 75, 75}, 0},
+    // ARMOR_MARMOR - Heavy chain tier 2: -1 combat attack
+    { "MARM", 0, 100, {75, 75, 75, 75, 65, 65, 65, 65}, -1},
+    // ARMOR_MCHAIN - Light chain tier 2: +1 combat attack
+    { "MCAR", 0, 100, {67, 67, 50, 50, 50, 60, 60, 60}, 1},
+    // ARMOR_PLATEARMOR - Heavy chain tier 1: -1 combat attack
+    { "PARM", 0, 100, {55, 55, 55, 55, 30, 30, 30, 30}, -1},
     // ARMOR_BPLATE
-    { "BPLA", 0, 300, {100, 270, 200, 75, 100, 100, 100, 100}},
-    // ARMOR_CHAINARMOR
-    { "CARM", 0, 100, {33, 33, 33, 33, 16, 16, 16, 16}},
+    { "BPLA", 0, 300, {100, 270, 200, 75, 100, 100, 100, 100}, 0},
+    // ARMOR_CHAINARMOR - Light chain tier 1: no bonus
+    { "CARM", 0, 100, {33, 33, 20, 20, 20, 25, 25, 25}, 1},
     // ARMOR_LEATHERARMOR
-    { "LARM", ArmorType::USEINASSASSINATE, 100, {30, 30, 30, 30, 13, 13, 13, 13}},
+    { "LARM", ArmorType::USEINASSASSINATE, 100, {30, 30, 20, 20, 15, 15, 15, 15}, 1},
     // ARMOR_CLOTHARMOR
-    { "CLAR", ArmorType::USEINASSASSINATE, 100, {16, 16, 16, 16, 5, 5, 5, 5}},
+    { "CLAR", ArmorType::USEINASSASSINATE, 100, {16, 16, 16, 16, 5, 5, 5, 5}, 0},
 };
 
 //
@@ -3128,42 +3138,48 @@ std::vector<MountType> MountDefs = {
 //
 // Table of other battle items
 //
-// abbr, flags, special, skillLevel, damage
+// abbr, flags, special, skillLevel, damage, attackPenalty
 //
 std::vector<BattleItemType> BattleItemDefs = {
     // BATTLE_STAFFOFL
     {"STAL", BattleItemType::MAGEONLY | BattleItemType::SPECIAL,
-     "lightning", 3, 1 },
+     "lightning", 3, 1, 0 },
     // BATTLE_STAFFOFF
     {"STAF", BattleItemType::MAGEONLY | BattleItemType::SPECIAL,
-     "fireball", 3, 1 },
+     "fireball", 3, 1, 0 },
     // BATTLE_FSWORD
     {"FSWO", BattleItemType::SPECIAL,
-     "fireball", 1, 1 },
+     "fireball", 1, 1, 0 },
     // BATTLE_RUNESWORD
     {"RUNE", BattleItemType::SPECIAL,
-     "fear", 2, 1 },
+     "fear", 2, 1, 0 },
     // BATTLE_AOFI
     {"XXXX", BattleItemType::SHIELD,
-     "invulnerable", 5, 0 },
+     "invulnerable", 5, 0, 0 },
     // BATTLE_AMULETOFP
     {"AMPR", BattleItemType::SHIELD,
-     "shield_spirit", 3, 0 },
+     "shield_spirit", 3, 0, 0 },
     // BATTLE_SHIELDSTONE
     {"SHST", BattleItemType::SHIELD,
-     "energy_shield", 3, 0 },
+     "energy_shield", 3, 0, 0 },
+    // BATTLE_MSHIELD - Mithril shield: defense 6, attack penalty -2
     {"MSHD", BattleItemType::EXCLUSIVE | BattleItemType::SHIELD,
-     "physical_shield", 6, 0 },
+     "physical_shield", 6, 0, -2 },
+    // BATTLE_ISHIELD - Iron shield: defense 4, attack penalty -1
     {"ISHD", BattleItemType::EXCLUSIVE | BattleItemType::SHIELD,
-     "physical_shield", 4, 0 },
+     "physical_shield", 4, 0, -1 },
+    // BATTLE_WSHIELD - Wooden shield: defense 2, attack penalty -1
     {"WSHD", BattleItemType::EXCLUSIVE | BattleItemType::SHIELD,
-     "physical_shield", 2, 0 },
+     "physical_shield", 2, 0, 0 },
+    // BATTLE_ASHIELD - Adamantium shield: defense 8, attack penalty -2
+    {"ASHD", BattleItemType::EXCLUSIVE | BattleItemType::SHIELD,
+     "physical_shield", 8, 0, -3 },
     {"BKEX", BattleItemType::MAGEONLY | BattleItemType::SPECIAL,
-     "banish_demon", 2, 1 },
+     "banish_demon", 2, 1, 0 },
     {"HLYS", BattleItemType::MAGEONLY | BattleItemType::SPECIAL,
-     "banish_undead", 2, 1 },
+     "banish_undead", 2, 1, 0 },
     {"CNSR", BattleItemType::MAGEONLY | BattleItemType::SPECIAL,
-     "force_shield", 3, 0 },
+     "force_shield", 3, 0, 0 },
 };
 
 //
@@ -4439,7 +4455,7 @@ std::vector<TerrainType> TerrainDefs = {
     {"hill", "hills", "hill", 'h', R_HILL,
      TerrainType::FLYINGMOUNTS| TerrainType::SHOW_RULES,
      400,12,20,2,
-     {{I_IRON,100,6},{I_STONE,100,6},{I_MITHRIL,20,3},{I_ROOTSTONE,25,3},
+     {{I_IRON,100,6},{I_STONE,100,6},{I_MITHRIL,20,3},{I_ROOTSTONE,20,3},
       {I_ADMANTIUM,10,2},{-1,0,0},{-1,0,0}},
      {I_HOBBIT,I_HIGHLANDER,I_GOBLINMAN,I_OGREMAN},
      {I_HOBBIT, I_GNOLL,-1},
@@ -4470,7 +4486,7 @@ std::vector<TerrainType> TerrainDefs = {
      TerrainType::RIDINGMOUNTS | TerrainType::FLYINGMOUNTS | TerrainType::SHOW_RULES,
      200,11,10,1,
      {{I_IRON,100,6},{I_STONE,100,8},{I_ROOTSTONE,20,4},{I_CAMEL,80,10},
-      {I_MITHRIL,10,2},{-1,0,0},{-1,0,0}},
+      {I_MITHRIL,5,2},{-1,0,0},{-1,0,0}},
      {I_NOMAD,I_DESERTDWARF,-1,-1},
      {I_SEAELF,I_VIKING,-1},
      5,I_SCORPION,I_SPHINX,I_SANDLING,
@@ -4479,8 +4495,8 @@ std::vector<TerrainType> TerrainDefs = {
     {"tundra", "tundra", "tundra", 't', R_TUNDRA,
      TerrainType::RIDINGMOUNTS | TerrainType::FLYINGMOUNTS | TerrainType::SHOW_RULES,
      100,11,10,2,
-     {{I_FUR,100,11},{I_HERBS,100,8},{I_MUSHROOM,35,4},{I_IRON,30,4},
-      {I_ROOTSTONE,30,5},{-1,0,0},{-1,0,0}},
+     {{I_FUR,100,11},{I_HERBS,100,8},{I_MUSHROOM,30,4},{I_IRON,20,4},
+      {I_ROOTSTONE,30,5},{I_WOOD,5,2},{-1,0,0}},
      {I_ESKIMO,I_ICEDWARF,-1,-1},
      {I_SEAELF,I_VIKING,-1},
      10,I_IWURM,I_ICEDRAGON,I_YETI,
@@ -4968,7 +4984,7 @@ std::vector<TerrainType> TerrainDefs = {
      {"lake", "lakes", "lake", '-', R_OCEAN,
       TerrainType::BARREN | TerrainType::SHOW_RULES | TerrainType::NO_LEADERS,
       50,0,0,1,
-      {{I_FISH,100,20},{I_ADMANTIUM,20,2},{I_MITHRIL,20,2},{-1,0,0},
+      {{I_FISH,100,20},{I_ADMANTIUM,15,2},{I_MITHRIL,15,2},{-1,0,0},
        {-1,0,0},{-1,0,0},{-1,0,0}},
       {I_FAIRY,-1,-1,-1},
       {I_FAIRY,-1,-1},

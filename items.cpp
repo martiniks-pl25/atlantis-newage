@@ -1028,6 +1028,14 @@ std::string item_description(int item, int full)
             temp += std::to_string(percent) + "% of the time versus " + weapon_class(i) + " attacks";
         }
         temp += ".";
+        // Combat attack skill modifier
+        if (armor.attackBonus > 0) {
+            temp += " This armor grants a +" + std::to_string(armor.attackBonus) +
+                    " bonus to combat attack skill due to increased mobility.";
+        } else if (armor.attackBonus < 0) {
+            temp += " This armor imposes a " + std::to_string(armor.attackBonus) +
+                    " penalty to combat attack skill due to reduced mobility.";
+        }
         if (full) {
             if (armor.flags & ArmorType::USEINASSASSINATE) {
                 temp += " This armor may be worn during assassination attempts.";
@@ -1297,6 +1305,11 @@ std::string item_description(int item, int full)
             else
                 temp += " This item can cast ";
             temp += show_special(bt->get().special ? bt->get().special : "", bt->get().skillLevel, 1, bt->get().flags & BattleItemType::SHIELD);
+            // Shield attack penalty description
+            if ((bt->get().flags & BattleItemType::SHIELD) && bt->get().attackPenalty != 0) {
+                temp += " This shield imposes a " + std::to_string(bt->get().attackPenalty) +
+                        " penalty to combat attack skill due to reduced mobility.";
+            }
         }
     } else if (ItemDefs[item].type & IT_MAGEONLY) {
         temp += " This item may only be used by a mage";

@@ -229,6 +229,7 @@ enum {
     I_MSHIELD,
     I_ISHIELD,
     I_WSHIELD,
+    I_ASHIELD,
     // new apprentice-uasble items to give them something to do
     I_AEGIS,
     I_WINDCHIME,

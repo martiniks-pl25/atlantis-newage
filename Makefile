@@ -108,6 +108,14 @@ unittest:
 unittest-build: unittest-objdir $(filter-out obj/main.o,$(OBJECTS)) $(UNITTEST_OBJECTS)
 	$(CPLUS) $(CFLAGS) -o unittest/unittest $(filter-out obj/main.o,$(OBJECTS)) $(UNITTEST_OBJECTS)
 
+# Battle test executable
+.PHONY: test_armor_battle
+test_armor_battle:
+	$(MAKE) GAME=neworigins test_armor_battle-build
+
+test_armor_battle-build: objdir $(filter-out obj/main.o,$(OBJECTS))
+	$(CPLUS) $(CFLAGS) -o test_armor_battle test_armor_battle.cpp $(filter-out obj/main.o,$(OBJECTS))
+
 FORCE:
 
 unittest-objdir: objdir

@@ -1092,11 +1092,13 @@ void Game::ModifyTablesPerRuleset(void)
     EnableItem(I_MWAGON);
     EnableItem(I_GLIDER);
     EnableItem(I_LEATHERARMOR);
+    EnableItem(I_MCHAIN);  // Mithril chain armor (MCAR) - light chain tier 2
     EnableItem(I_SPEAR);
     EnableItem(I_JAVELIN);
     EnableItem(I_MSHIELD);
     EnableItem(I_ISHIELD);
     EnableItem(I_WSHIELD);
+    EnableItem(I_ASHIELD);  // Adamantium shield (ASHD) - highest defense,
     EnableItem(I_AEGIS);
     EnableItem(I_WINDCHIME);
     EnableItem(I_GATE_CRYSTAL);
@@ -1112,7 +1114,8 @@ void Game::ModifyTablesPerRuleset(void)
     EnableItem(I_GEMS);
     EnableItem(I_PIKE);
     EnableItem(I_BAXE);
-
+    EnableItem(I_MBAXE);
+    EnableItem(I_ADBAXE);
     // Tools
     EnableItem(I_PICK);
     EnableItem(I_AXE);
@@ -1134,10 +1137,6 @@ void Game::ModifyTablesPerRuleset(void)
     EnableItem(I_ADRING);
     EnableItem(I_ADPLATE);
     ModifyItemProductionSkill(I_ADMANTIUM, "MINI", 5);
-    ModifyItemProductionSkill(I_ADSWORD, "WEAP", 5);
-    ModifyItemProductionSkill(I_ADBAXE, "WEAP", 5);
-    ModifyItemProductionSkill(I_ADRING, "ARMO", 5);
-    ModifyItemProductionSkill(I_ADPLATE, "ARMO", 5);
 
     // Artifacts of power
     DisableItem(I_RELICOFGRACE);
@@ -1146,8 +1145,6 @@ void Game::ModifyTablesPerRuleset(void)
     DisableItem(I_SUPERBOW);
     DisableItem(I_BOOTS);
     DisableItem(I_CLOTHARMOR);
-    DisableItem(I_MBAXE);
-    DisableItem(I_ADBAXE);
     DisableItem(I_ROUGHGEM);
 
     // No staff of lightning
@@ -1674,7 +1671,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainLair(R_VOLCANO, 0, O_DEMONPIT);
     ModifyTerrainLair(R_VOLCANO, 1, O_IFRITLAIR);
     ModifyTerrainLair(R_VOLCANO, 2, O_GIANTCASTLE);
-    ModifyTerrainLair(R_VOLCANO, 3, -1);
+    ModifyTerrainLair(R_VOLCANO, 3, O_IFRITLAIR);
     ModifyTerrainLair(R_VOLCANO, 4, -1);
     ModifyTerrainLair(R_VOLCANO, 5, -1);
 

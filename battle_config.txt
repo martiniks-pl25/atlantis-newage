@@ -1,0 +1,21 @@
+# Battle Test Configuration
+# Format: men,weapon,shield,armor,skills,flags,name
+# shield: MSHD, ISHD, WSHD или пусто AARM ARNG ASWR
+# skills: COMB5:TACT2 (несколько навыков) или LBOW4 (один навык)
+# flags: BEHIND (для лучников) или пусто
+
+num_battles=10
+
+[army1]
+100,MSWO,WSHD,AARM,COMB5:TACT2,,Heavy Infantry
+
+#50,FSWO,MSHD,AARM,COMB5:TACT2,,FIRE Infantry
+#100,DBOW,,LARM,LBOW3,BEHIND,Archers
+# 50,SWOR,,CARM,COMB3,,Light Infantry
+#100,XBOW,,LARM,XBOW3,BEHIND,Crossbowmen
+
+[army2]
+100,MSWO,ISHD,AARM,COMB5:TACT2,,Light Infantry
+#50,FSWO,MSHD,ARNG,COMB5:TACT2,,FIRE Infantry
+#100,DBOW,,LARM,LBOW3,BEHIND,Archers
+#1#00,XBOW,,LARM,XBOW3,BEHIND,Crossbowmen

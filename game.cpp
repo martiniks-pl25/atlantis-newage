@@ -8,6 +8,7 @@
 #include <fstream>
 #include <filesystem>
 #include <string.h>
+#include <ctime>
 
 #include "astring.h"
 #include "game.h"
@@ -528,6 +529,31 @@ void Game::DummyGame()
     //
     // No need to set anything up; we're just syntax checking some orders.
     //
+}
+
+void Game::InitMinimal()
+{
+    // Minimal initialization for battle tests without full world generation
+    year = 1;
+    month = 0;
+    gameStatus = GAME_STATUS_RUNNING;
+
+    // Seed RNG for battle randomness
+    rng::seed_random(static_cast<unsigned int>(time(nullptr)));
+
+    // Initialize faction/unit sequences
+    factionseq = 1;
+    unitseq = 1;
+    shipseq = 100;
+    guardfaction = 0;
+    monfaction = 0;
+
+    // Initialize unit array for GetNewUnit()
+    maxppunits = 1000;
+    ppUnits = new Unit*[maxppunits];
+    for (unsigned int i = 0; i < maxppunits; i++) {
+        ppUnits[i] = nullptr;
+    }
 }
 
 #define PLAYERS_FIRST_LINE "AtlantisPlayerStatus"

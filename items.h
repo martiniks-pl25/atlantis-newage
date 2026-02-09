@@ -346,6 +346,13 @@ class ArmorType
         //
         int from;
         int saves[NUM_WEAPON_CLASSES];
+
+        //
+        // Combat skill modifier (added to attack skill only)
+        // Positive values for light armor (more mobile)
+        // Negative values for heavy armor (less mobile, but not below 1)
+        //
+        int attackBonus;
 };
 
 extern std::vector<ArmorType> ArmorDefs;
@@ -400,6 +407,12 @@ class BattleItemType
         int skillLevel;
 
         int hitDamage;
+
+        //
+        // Attack penalty for shields (negative value reduces attack skill)
+        // Applied when wielding a shield (harder to attack with a shield)
+        //
+        int attackPenalty;
 };
 
 extern std::vector<BattleItemType> BattleItemDefs;

@@ -180,6 +180,7 @@ Soldier::Soldier(Unit * u,Object * o,int regtype,int r,int ass)
     slevel = 0;
 
     askill = 0;
+    shieldPenalty = 0;
 
     dskill[ATTACK_COMBAT] = 0;
     dskill[ATTACK_ENERGY] = -2;
@@ -400,9 +401,30 @@ Soldier::Soldier(Unit * u,Object * o,int regtype,int r,int ass)
 
     unit->PracticeAttribute("combat");
 
+    // Apply armor combat modifier (affects attack skill only)
+    if (armor != -1) {
+        auto armorRef = find_armor(ItemDefs[armor].abr);
+        if (armorRef) {
+            attackBonus += armorRef->get().attackBonus;
+        }
+    }
+
+    // Apply shield attack penalty (shields make attacking harder)
+    if (shieldPenalty != 0) {
+        attackBonus += shieldPenalty;
+    }
+
     // Set the attack and defense skills
     // These will include the riding bonus if they should be included.
+    int originalAskill = askill;  // Save original value before applying bonuses
     askill += attackBonus;
+    // Apply minimum limits:
+    // - Never allow negative attack skill
+    if (askill < 0) askill = 0;
+    // - If unit had combat skill (>=1) before bonuses, ensure it doesn't drop below 1 after penalties
+    if (originalAskill >= 1 && askill < 1) {
+        askill = 1;
+    }
     dskill[ATTACK_COMBAT] += defenseBonus;
     attacks = numAttacks;
     hitDamage = numHitDamage;
@@ -505,6 +527,10 @@ void Soldier::SetupCombatItems()
                         if (dskill[sp.shield[i]] < pBat.skillLevel)
                             dskill[sp.shield[i]] = pBat.skillLevel;
                     }
+                }
+                // Save shield attack penalty for later application (after weapon setup)
+                if (pBat.attackPenalty != 0) {
+                    shieldPenalty = pBat.attackPenalty;
                 }
             }
         } else {
