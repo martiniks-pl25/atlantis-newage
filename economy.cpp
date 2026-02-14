@@ -1381,7 +1381,7 @@ int ARegion::TownGrowth()
         }
 
         // Entertainment production contribution to improvement
-        for (const auto& p : region->products) {
+        for (const auto& p : products) {
             if (p->itemtype == I_SILVER && p->skill == S_ENTERTAINMENT) {
                 // Entertainment: 0.5× (like IT_FOOD)
                 improvement += (p->activity / Globals->ENTERTAIN_FRACTION) / 2;
