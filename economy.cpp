@@ -406,25 +406,43 @@ void ARegion::Recruit(int amt)
     AdjustPop(-loss);
 }
 
+/**
+ * @brief Distribute population growth between town and region
+ *
+ * Proportional allocation based on available space:
+ * - town_growth = adjustment × (town_space / total_space)
+ * - region_growth = adjustment × (region_space / total_space)
+ *
+ * Formula:
+ * - town gets: adjustment × tspace / (tspace + rspace)
+ * - region gets: adjustment × rspace / (tspace + rspace)
+ *
+ * @param adjustment Total population change (can be negative)
+ */
 void ARegion::AdjustPop(int adjustment)
 {
+    // Regions without towns: all growth goes to regional population
     if (!town) {
         population += adjustment;
         return;
     }
-    // split between town and rural pop
-    int tspace = town->hab - town->pop;
-    int rspace = habitat - population;
 
-    // Region with zero room to
+    // Calculate available space in town and region
+    int tspace = town->hab - town->pop;      // Town capacity remaining
+    int rspace = habitat - population;        // Region capacity remaining
+
+    // No space anywhere: no growth possible
     if (tspace == 0 && rspace == 0) {
         return;
     }
 
+    // Proportional allocation: growth distributed by available space
+    // Formula ensures growth goes where there's room
     town->pop += adjustment * tspace / (tspace + rspace);
-    if (town->pop < 0) town->pop = 0;
+    if (town->pop < 0) town->pop = 0;  // Prevent negative population
+
     population += adjustment * rspace / (tspace + rspace);
-    if (population < 0) population = 0;
+    if (population < 0) population = 0;  // Prevent negative population
 }
 
 void ARegion::SetupCityMarket()
@@ -827,7 +845,7 @@ void ARegion::SetupTradeMarkets(const std::unordered_set<int>& forbidden_sell,
         int offset = tradebuy++ * (citymax / 6);
         if (cap + offset < citymax) {
             Market* m = new Market(
-                Market::MarketType::M_BUY, i, price, amt / 6, cap + population + offset,
+                Market::MarketType::M_BUY, i, price, amt / 8, cap + population + offset,
                 citymax + population, 0, amt
             );
             markets.push_back(m);
@@ -1280,57 +1298,119 @@ int ARegion::TownDevelopment()
     return df;
 }
 
-// Checks the growth potential of towns
-// and cancels unlimited markets for Starting Cities
-// that have been taken over
+/**
+ * @brief Calculate target town population based on market trading activity
+ *
+ * Market terminology:
+ * - M_BUY market: Player BUYS from town (report shows "For Sale")
+ * - M_SELL market: Player SELLS to town (report shows "Wanted")
+ *
+ * Formula: tarpop = town->pop + (CITY_POP × amt / tot)
+ * Where:
+ *   amt = weighted sum of market activity
+ *   tot = weighted sum of maxamt for mandatory items only
+ *
+ * Market activity weights:
+ *   M_BUY + IT_TRADE: 4×
+ *   M_SELL + IT_FOOD: 2×
+ *   M_SELL + other: 1×
+ *
+ * Tot (mandatory) calculation:
+ *   M_BUY + IT_TRADE: 4× maxamt
+ *   M_SELL + IT_FOOD (m->item != I_FISH): 2× maxamt
+ *
+ * Constraints:
+ *   if (amt > tot) amt = tot
+ *   if (tarpop > CITY_POP) tarpop = CITY_POP
+ *
+ * @return Target population for town growth calculation
+ */
 int ARegion::TownGrowth()
 {
     int tarpop = town->pop;
 
-    // Don't update population in Starting Cities
+    // Starting Cities don't grow (Nexus cities)
     if (!IsStartingCity()) {
-        // Calculate target population from market activity
+        // amt = weighted sum of market activity (numerator)
+        // tot = weighted sum of mandatory item capacity (denominator)
         int amt = 0;
         int tot = 0;
         for (const auto& m : markets) {
+            // Only count markets if population exceeds minpop threshold
             if (Population() > m->minpop) {
+
+                // M_BUY: Player BUYS from town (town SELLS)
                 if (m->type == Market::MarketType::M_BUY) {
+                    // Only IT_TRADE items count
                     if (ItemDefs[m->item].type & IT_TRADE) {
-                        amt += 5 * m->activity;
-                        tot += 5 * m->maxamt;
-                        /* regional economic improvement */
-                        improvement += 3 * amt;
+                        amt += 4 * m->activity;      // 4× weight
+                        tot += 4 * m->maxamt;        // Count in denominator
+                        improvement += 3 * amt;      // Generate development
                     }
+                    // Non-trade M_BUY items don't affect growth
+
+                // M_SELL: Player SELLS to town (town BUYS)
                 } else { // m->type == M_SELL
-                    // Only food items except fish are mandatory
-                    // for town growth - other items can
-                    // be used in replacement
+                    // Add to amt based on item type
                     if (ItemDefs[m->item].type & IT_FOOD) {
-                        amt += 2 * m->activity;
-                    } else amt += m->activity;
-                    if ((ItemDefs[m->item].type & IT_FOOD) && (m->item != I_FISH))
-                        tot += 2 * m->maxamt;
+                        amt += 2 * m->activity;      // 2× weight for food
+                    } else {
+                        amt += m->activity;          // 1× weight for non-food
+                    }
+
+                    // Add to tot ONLY for mandatory food (NOT FISH!)
+                    // GRAIN and LIVESTOCK are mandatory, FISH is not
+                    if ((ItemDefs[m->item].type & IT_FOOD) && (m->item != I_FISH)) {
+                        tot += 2 * m->maxamt;        // 2× weight in denominator
+                    }
+
+                    // Trade goods also generate development
                     if (ItemDefs[m->item].type & IT_TRADE) {
-                        /* regional economic improvement */
-                        improvement += 3 * amt;
+                        improvement += 3 * amt;  // Trade goods: 3× (highest)
+                    }
+                    // Food goods generate moderate development
+                    else if (ItemDefs[m->item].type & IT_FOOD) {
+                        improvement += amt / 2;  // Food goods: 0.5×
+                    }
+                    // Other normal goods generate development
+                    else if (ItemDefs[m->item].type & IT_NORMAL) {
+                        improvement += amt;  // Normal goods: 1×
                     }
                 }
             }
         }
 
+        // Entertainment production contribution to improvement
+        for (const auto& p : region->products) {
+            if (p->itemtype == I_SILVER && p->skill == S_ENTERTAINMENT) {
+                // Entertainment: 0.5× (like IT_FOOD)
+                improvement += (p->activity / Globals->ENTERTAIN_FRACTION) / 2;
+            }
+        }
+
+        // Cap: selling more than tot doesn't increase amt
         if (amt > tot) amt = tot;
 
+        // Calculate target population: tarpop += (CITY_POP × amt / tot)
         if (tot) {
             tarpop += (Globals->CITY_POP * amt) / tot;
         }
-        // Let's bump tarpop up
+
+        // Optional boost (commented out in code)
         // tarpop = (tarpop * 5) / 4;
-        if (tarpop > Globals->CITY_POP) tarpop = Globals->CITY_POP;
+
+        // DYNAMIC CAP: Based on habitat and max multiplier
+        // Allows cities to grow beyond fixed 10000 limit
+        // Cap grows with town development (via hab which reflects dev bonus)
+        // Consistent with growth multiplier formula (2.0 + dev/100*2 = max 4.0)
+        int max_tarpop = town->hab * 4;
+        if (tarpop > max_tarpop) tarpop = max_tarpop;
     }
     return tarpop;
 }
 
 /* Damage region because of pillaging */
+
 void ARegion::Pillage()
 {
     wealth = 0;
@@ -1346,117 +1426,167 @@ void ARegion::Pillage()
 }
 
 
-/* Grow region and town population and set basic
- * migration parameters */
+/**
+ * @brief Calculate and apply population growth for region and town
+ *
+ * Two-phase growth:
+ * 1. Regional growth (from production activity)
+ * 2. Town growth (from TownGrowth result)
+ *
+ * Growth rate divisor (line 1436-1443):
+ * - if (!VILLAGES_ONLY && DYNAMIC_POPULATION): tgrowth /= 4
+ * - else: tgrowth /= 2
+ *
+ * Formulas:
+ * Regional: dgrow = (adiff × habitat) / (5 × (habitat + 3×adiff))
+ * Town: increase = tgrowth × (2×hab - pop), then divide by (10×hab)
+ * Total: growpop = regional_dgrow + town_damped
+ *
+ * Distribution: AdjustPop(growpop)
+ */
 void ARegion::Grow()
 {
-    // We don't need to grow 0 pop regions
+    // Skip regions with no base population
     if (basepopulation == 0) return;
 
-    // growpop is the overall population growth
+    // Total population growth accumulator (regional + town)
     int growpop = 0;
 
-    // Init migration parameters
-    // immigrants = entering this region,
-    // emigrants = leaving
+    // ===== MIGRATION PARAMETERS SETUP =====
+    // immigrants = potential population that could enter
+    // emigrants = excess population that could leave
     immigrants = habitat - basepopulation;
     emigrants = population - basepopulation;
 
-    // First, check regional population growth
-    // Check resource production activity
-    int activity = 0;
-    int amount = 0;
+    // ===== PHASE 1: REGIONAL POPULATION GROWTH (from production) =====
+
+    // Sum up all production activity (PRODUCE orders executed)
+    // IT_NORMAL items and entertainment production count
+    int activity = 0;  // How much was actually produced this turn
+    int amount = 0;    // Base production capacity (from products)
+
     for (const auto& p : products) {
         if (ItemDefs[p->itemtype].type & IT_NORMAL && p->itemtype != I_SILVER) {
-            activity += p->activity;
-            // bonuses for productivity are calculated from
-            // the _baseamount_ of all resources.
-            // because trade structures increase the produceable
-            // amount and not the baseamount this creates an
-            // effective advantage for trade structures
-            amount += p->baseamount;
+            activity += p->activity;  // Accumulated in RunAProduction()
+            amount += p->baseamount;  // Static base amount
+        }
+        // Entertainment production attracts population
+        else if (p->itemtype == I_SILVER && p->skill == S_ENTERTAINMENT) {
+            activity += p->activity / Globals->ENTERTAIN_FRACTION;  // Normalize to person-levels
+            amount += p->baseamount;  // Already divided by ENTERTAIN_FRACTION in SetIncome()
+        }
+    }
+    // Example: activity=33 (18 LIVESTOCK + 15 WOOD), amount=44 (baseamounts)
+
+    // Calculate target regional population
+    // Base formula: restore toward equilibrium (habitat vs population)
+    int tarpop = habitat - population + basepopulation;
+
+    // Add bonus from production activity
+    // Formula: bonus = (habitat - basepopulation) × 2×activity / 3×amount
+    // Higher activity/amount ratio → higher target population
+    if (amount) {
+        tarpop += ((habitat - basepopulation) * 2 * activity) / (3 * amount);
+    }
+    // Example: tarpop = 2408 - 1671 + 802 + ((2408-802)×2×33)/(3×44) = 2342
+
+    // Growth/shrinkage amount
+    int diff = tarpop - population;
+    int adiff = abs(diff);
+
+    // --- Basepopulation adjustment (long-term equilibrium point) ---
+
+    // Increase basepop if sustained high production
+    if (diff > (basepopulation / 20)) {
+        int gpop = rng::get_random(Globals->CITY_POP / 600);  // Random 0-16
+        if (gpop > diff / 20) gpop = diff / 20;
+        int relativeg = basepopulation * gpop / 1000;
+        if (diff > habitat / 20) {
+            basepopulation += gpop + relativeg;
         }
     }
 
-    // Now set the target population for the hex
-    // Ant: I'm not sure why population's being subtracted here..
-    //      Shouldn't it be something like :
-    //          tarpop = habitat + basepopulation?
-    int tarpop = habitat - population + basepopulation;
-
-    // Ant: Increase tarpop for any trading that's going on?
-    //      Not sure why (habitat - basepopulation) is included
-    if (amount) tarpop += ((habitat - basepopulation) * 2 * activity) /
-                (3 * amount);
-
-    // diff is the amount we can grow?
-    int diff = tarpop - population;
-    int adiff = abs(diff);
-    //if (adiff < 0) adiff = adiff * (- 1);
-
-    // Adjust basepop?
-    // raise basepop depending on production
-    // absolute basepop increase
-    if (diff > (basepopulation / 20)) {
-        int gpop = rng::get_random(Globals->CITY_POP / 600);
-        if (gpop > diff / 20) gpop = diff / 20;
-        // relative basepop increase
-        int relativeg = basepopulation * gpop / 1000;
-        if (diff > habitat / 20) basepopulation += gpop + relativeg;
-    }
-    // lower basepop for extremely low levels of population
+    // Decrease basepop if population is very low
     if (population < basepopulation) {
         int depop = (basepopulation - population) / 4;
         basepopulation -= depop + rng::get_random(depop);
     }
 
-    // Limit excessive growth at low pop / hab ratios
-    // and avoid overflowing
-    // What are grow2 and grow representing? Maybe these formulae
-    // could be broken up a bit more and commented?
+    // --- Calculate actual regional growth with damping ---
+
+    // Damping formula prevents explosive growth
+    // grow2 = denominator for damping calculation
     long int grow2 = 5 * ((long int) habitat + (3 * (long int) adiff));
 
-    // Ant: In the following formula, dgrow is almost always 0!
-    long int dgrow = ((long int) adiff * (long int) habitat ) / grow2;
-    if (diff < 0) growpop -= (int) dgrow;
-    if (diff > 0) growpop += (int) dgrow;
+    // dgrow = actual growth amount (heavily damped)
+    // Formula: dgrow = (adiff × habitat) / grow2
+    // Example: dgrow = (671 × 2408) / 22105 = 73
+    long int dgrow = ((long int) adiff * (long int) habitat) / grow2;
 
-    // update emigrants - only if region has a decent population level
+    // Apply growth or shrinkage to regional population
+    if (diff < 0) growpop -= (int) dgrow;  // Shrinking
+    if (diff > 0) growpop += (int) dgrow;  // Growing
+
+    // Update emigration potential (for migration system)
     if (emigrants > 0) emigrants += diff;
 
+    // ===== PHASE 2: TOWN POPULATION GROWTH (from trading) =====
 
-    // Now check town population growth
     if (town) {
+        // Get target population from market activity (see TownGrowth())
         int maxpop = TownGrowth();
-        int tgrowth = maxpop - town->pop; // available room to grow
+
+        // Growth potential = difference between target and current
+        int tgrowth = maxpop - town->pop;
+
+        // Track immigration potential
         immigrants += tgrowth;
-        // less growth of towns in DYNAMIC_POPULATION
-        // to balance town creation and population dynamics
-        // through migration
+
+        // --- Apply growth rate divisor ---
+        // CRITICAL: Rate depends on VILLAGES_ONLY setting
+
         if (!Globals->VILLAGES_ONLY && Globals->DYNAMIC_POPULATION) {
-            // Standard dynamic population rules, more aggressive slowdown
+            // Condition: VILLAGES_ONLY=0 AND DYNAMIC_POPULATION=1
+            // More aggressive slowdown (÷4) for dynamic worlds
             tgrowth = tgrowth / 4;
         } else {
-            // Slower growth for non-dynamic pop, or for VILLAGES_ONLY games
-            // to allow villages a better chance to evolve.
+            // Condition: VILLAGES_ONLY=1 OR DYNAMIC_POPULATION=0
+            // Moderate slowdown (÷2)
+            // NewOrigins uses this (VILLAGES_ONLY=1, DYNAMIC_POPULATION=1)
             tgrowth = tgrowth / 2;
         }
-        // Dampen growth curve at high population levels
-        // Ant: maybe this formula could be broken up a bit?
-        //      also, is (2 * town->hab - town->pop) correct?
-        //      it's not meant to be 2 * (town->hab - town->pop)?
-        //      ((2 * town->hab) - town->pop) seems clearer
-        float increase = tgrowth * (2 * town->hab - town->pop);
+        // Example NewOrigins: tgrowth = 1148 / 2 = 574
+
+        // --- Apply damping based on town habitat capacity ---
+        // Damping increases as town->pop approaches town->hab
+
+        // DYNAMIC MULTIPLIER: Based on town development
+        // Formula: multiplier = 2.0 + (dev / 100.0) × 2.0
+        // Range: 2.0 (dev=0) to 4.0 (dev=100+)
+        // Effect: Higher development → higher population capacity
+        float multiplier = 2.0 + (town->dev / 100.0) * 2.0;
+
+        // Numerator: tgrowth × (multiplier×hab - pop)
+        // When pop << hab: factor ≈ multiplier×hab
+        // When pop = hab: factor = (multiplier-1)×hab
+        // When pop → multiplier×hab: factor → 0 (growth stops)
+        float increase = tgrowth * (multiplier * town->hab - town->pop);
+
+        // Denominator: 10 × hab
         float limitingfactor = (10 * town->hab);
 
-        // Ant: Not sure whether we still need the typecasts here
+        // Final damped growth added to total
+        // Example: (574 × 4219) / 31640 = 76
         growpop += (int) (increase / limitingfactor);
     }
+    // At this point: growpop = regional_growth + town_growth_damped
 
-    // Update population
+    // ===== APPLY TOTAL GROWTH =====
+    // AdjustPop() distributes growpop between town->pop and region->population
+    // based on available space in each (proportional allocation)
     AdjustPop(growpop);
 
-    /* Initialise the migration variables */
+    // Reset migration tracking variables
     migdev = 0;
     migfrom.clear();
 }
