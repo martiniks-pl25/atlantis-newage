@@ -263,6 +263,8 @@ class ARegion
 
         int CountWMons();
         int IsGuarded();
+        int HasCityGuards();
+        Unit* GetCityGuard();
         int HasLair();
 
         int Wages();

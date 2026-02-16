@@ -1703,7 +1703,10 @@ Location *Game::DoAMoveOrder(Unit *unit, ARegion *region, Object *obj)
     }
 
     // Check deep ocean restriction for SWIMMERS_COASTAL_ONLY
-    if (Globals->SWIMMERS_COASTAL_ONLY && !unit->CanSwimTo(newreg)) {
+    // Only apply to units that are actually swimming (not in ships, not flying, not walking)
+    if (Globals->SWIMMERS_COASTAL_ONLY &&
+        unit->MoveType(newreg) == M_SWIM &&
+        !unit->CanSwimTo(newreg)) {
         unit->error("MOVE: Can only swim in coastal waters and lakes.");
         goto done_moving;
     }

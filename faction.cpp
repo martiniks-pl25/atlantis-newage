@@ -91,6 +91,7 @@ Faction::Faction()
     noStartLeader = 0;
     startturn = 0;
     battleLogFormat = 0;
+    guard_attack_this_turn = 0;
 }
 
 Faction::Faction(int n)
@@ -117,6 +118,7 @@ Faction::Faction(int n)
     noStartLeader = 0;
     startturn = 0;
     battleLogFormat = 0;
+    guard_attack_this_turn = 0;
 }
 
 Faction::~Faction()

@@ -102,7 +102,7 @@ static GameDefs g = {
 	5,	/* HEALS_PER_MAN */
 
 	35,	/* GUARD_REGEN */ /* percent */
-	40,	/* CITY_GUARD */
+	60,	/* CITY_GUARD */
 	50,	/* GUARD_MONEY */
 	10000,	/* CITY_POP */
 
@@ -238,7 +238,7 @@ static GameDefs g = {
 	100,	// POP_GROWTH
 	3,	// DELAY_MORTALITY
 	6,	// DELAY_GROWTH
-	25,	// RECRUIT_POP_LOSS_PERCENT (25% = recruit 100 men, lose 25 population)
+	100,	// RECRUIT_POP_LOSS_PERCENT (25% = recruit 100 men, lose 25 population)
 	1,	// DISABLE_PILLAGE (1 = disabled and hidden from rules)
 	100,	// TOWN_DEVELOPMENT
 	1,	// VILLAGES_ONLY - all settlements start as villages

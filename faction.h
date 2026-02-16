@@ -204,6 +204,9 @@ public:
     // For now, just making it a vector of attitudes.  More will come later.
     std::vector<Attitude> attitudes;
 
+    // Guard reputation tracking (temporary, not serialized)
+    int guard_attack_this_turn;  // 0=no attacks, 1=attacked in guarded city
+
     SkillList skills;
     ItemList items;
 

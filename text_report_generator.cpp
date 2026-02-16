@@ -484,6 +484,9 @@ void TextReportGenerator::output_region(
             f << "There is a Gate here (Gate " << region["gate"]["number"];
             if (region["gate"].contains("total")) {
                 f << " of " << region["gate"]["total"];
+            } else {
+                // for advisor client
+                f << " of 999";
             }
             f << ").\n\n";
         } else {

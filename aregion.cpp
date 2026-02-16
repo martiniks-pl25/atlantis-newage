@@ -1613,6 +1613,42 @@ int ARegion::IsGuarded()
 }
 
 /**
+ * @brief Checks if region has city guards (U_GUARD or U_GUARDMAGE)
+ *
+ * @return 1 if at least one alive city guard unit exists, 0 otherwise
+ */
+int ARegion::HasCityGuards()
+{
+    for (const auto o : objects) {
+        for (const auto u : o->units) {
+            if ((u->type == U_GUARD || u->type == U_GUARDMAGE) && u->IsAlive()) {
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+/**
+ * @brief Gets the first alive city guard unit in the region
+ *
+ * Used for checking guard attitudes towards targets in combat.
+ *
+ * @return Pointer to first city guard unit found, or nullptr if none exist
+ */
+Unit* ARegion::GetCityGuard()
+{
+    for (const auto o : objects) {
+        for (const auto u : o->units) {
+            if ((u->type == U_GUARD || u->type == U_GUARDMAGE) && u->IsAlive()) {
+                return u;
+            }
+        }
+    }
+    return nullptr;
+}
+
+/**
  * @brief Checks if region contains at least one lair object
  *
  * A lair is any object with ObjectDefs[type].monster != -1 (e.g., O_LAIR, O_CAVE, O_RUIN).

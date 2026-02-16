@@ -1099,6 +1099,51 @@ void Game::PostProcessTurn()
         if (victor) EndGame(victor);
     }
 
+    // Apply guard reputation changes with probabilistic recovery
+    for (const auto f : factions) {
+        if (!f || f->num == guardfaction || f->num == monfaction) continue;
+
+        AttitudeType current = f->get_attitude(guardfaction);
+
+        if (f->guard_attack_this_turn > 0) {
+            // Attacked in guarded city: decrease by 1 level
+            if (current > AttitudeType::HOSTILE) {
+                int new_level = static_cast<int>(current) - 1;
+                AttitudeType new_attitude = static_cast<AttitudeType>(new_level);
+                f->set_attitude(guardfaction, new_attitude);
+
+                f->event("Your relationship with city guards has worsened to " +
+                        AttitudeStrs[static_cast<int>(new_attitude)] + ".", "reputation");
+            } else {
+                f->event("The city guards remain hostile to your faction.", "reputation");
+            }
+
+        } else if (current < AttitudeType::NEUTRAL) {
+            // No attacks this turn: probabilistic recovery
+            int recover = 0;
+
+            if (current == AttitudeType::HOSTILE) {
+                // HOSTILE -> UNFRIENDLY: 33% chance (1 in 3)
+                if (rng::get_random(3) == 0) recover = 1;
+            } else if (current == AttitudeType::UNFRIENDLY) {
+                // UNFRIENDLY -> NEUTRAL: 50% chance (1 in 2)
+                if (rng::get_random(2) == 0) recover = 1;
+            }
+
+            if (recover) {
+                int new_level = static_cast<int>(current) + 1;
+                AttitudeType new_attitude = static_cast<AttitudeType>(new_level);
+                f->set_attitude(guardfaction, new_attitude);
+
+                f->event("Your relationship with city guards has improved to " +
+                        AttitudeStrs[static_cast<int>(new_attitude)] + ".", "reputation");
+            }
+        }
+
+        // Reset flag for next turn
+        f->guard_attack_this_turn = 0;
+    }
+
     for(const auto r : regions) {
         r->PostTurn();
 

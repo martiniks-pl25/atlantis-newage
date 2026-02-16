@@ -854,10 +854,20 @@ void Game::GetSides(
                         if (!(i != -1 && noaidd)) {
                             if (u->type == U_GUARD) {
                                 /* The unit is a city guardsman */
-                                if (i == -1 && adv == 0) add = ADD_DEFENSE;
+                                if (i == -1 && adv == 0) {
+                                    // Only defend if attitude to target is NEUTRAL or better
+                                    if (u->GetAttitude(r, tar) >= AttitudeType::NEUTRAL) {
+                                        add = ADD_DEFENSE;
+                                    }
+                                }
                             } else if (u->type == U_GUARDMAGE) {
                                 /* the unit is a city guard support mage */
-                                if (i == -1 && adv == 0) add = ADD_DEFENSE;
+                                if (i == -1 && adv == 0) {
+                                    // Only defend if attitude to target is NEUTRAL or better
+                                    if (u->GetAttitude(r, tar) >= AttitudeType::NEUTRAL) {
+                                        add = ADD_DEFENSE;
+                                    }
+                                }
                             } else {
                                 /*
                                  * The unit is not a city guardsman, check if
@@ -1041,6 +1051,34 @@ int Game::RunBattle(ARegion * r,Unit * attacker,Unit * target,int ass,
         }
     }
     result = b->Run(events, r, attacker, atts, target, defs,ass);
+
+    // Track guard reputation (after battle completes)
+    if (r->HasCityGuards() && !ass) {
+        Unit* guard = r->GetCityGuard();
+        if (guard) {
+            bool penalize = false;
+
+            // Check if attacked city guards directly
+            if (target->type == U_GUARD || target->type == U_GUARDMAGE) {
+                penalize = true;
+            }
+            // Check if attacked player defended by guards (not monster)
+            else if (target->faction->num > 0 &&
+                     target->faction->num != monfaction &&
+                     guard->GetAttitude(r, target) >= AttitudeType::NEUTRAL) {
+                penalize = true;
+            }
+
+            if (penalize) {
+                // Apply penalty to ALL attacking factions
+                for (auto f : afacs) {
+                    if (f->num != guardfaction && f->num != monfaction) {
+                        f->guard_attack_this_turn = 1;
+                    }
+                }
+            }
+        }
+    }
 
     int attaker_max_susk = 0;
     int attaker_max_rais = 0;

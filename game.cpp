@@ -1807,7 +1807,7 @@ void Game::CreateGuardMelee(ARegion *region, int percent)
         u->reveal = REVEAL_FACTION;
     } else {
         // Non-leader racial guards (melee front line)
-        int melee_n = 3 * num / 4;
+        int melee_n = 2 * num / 3;
 
         u->SetMen(region->race, melee_n);
         u->SetSkill(S_COMBAT, skilllevel);
@@ -1875,7 +1875,7 @@ void Game::CreateGuardRanged(ARegion *region, int percent)
     }
 
     // Non-leader racial guards (ranged rear line)
-    int ranged_n = num / 4;
+    int ranged_n = num / 3;
     if (ranged_n < 1) ranged_n = 1;
 
     u->SetMen(region->race, ranged_n);
@@ -1884,7 +1884,9 @@ void Game::CreateGuardRanged(ARegion *region, int percent)
 
     // Equipment will be added by AdjustCityMon on next turn
     if (AC && Globals->GUARDS_EQUIPMENT_BY_TOWN_TYPE) {
+        // Starting city archers: longbow + chain armor
         u->items.SetNum(I_LONGBOW, ranged_n);
+        u->items.SetNum(I_CHAINARMOR, ranged_n);
     }
 
     if (Globals->SAFE_START_CITIES && AC)
@@ -1917,7 +1919,7 @@ void Game::CreateGuardMageESHI(ARegion *region)
         skilllevel = region->town->TownType() + 1;
     }
 
-    int magelevel = skilllevel;
+    int magelevel = skilllevel + 1;  // ESHI gets +1 bonus level
     if (AC && Globals->START_CITY_MAGES > magelevel)
         magelevel = Globals->START_CITY_MAGES;
 
@@ -1952,7 +1954,7 @@ void Game::CreateGuardMageESHI(ARegion *region)
     u->SetMoney(Globals->GUARD_MONEY);
     u->SetSkill(S_FORCE, magelevel);
     u->SetSkill(S_ENERGY_SHIELD, magelevel);
-    u->SetSkill(S_TACTICS, magelevel);
+    u->SetSkill(S_TACTICS, skilllevel);  // Tactics without bonus
     u->guard = GUARD_GUARD;
     u->SetFlag(FLAG_BEHIND, 1);
     u->SetFlag(FLAG_HOLDING, 1);
@@ -2143,9 +2145,9 @@ void Game::CreateCityMon(ARegion *region, int percent, int needmage)
         u->guard = GUARD_GUARD;
         u->reveal = REVEAL_FACTION;
     } else {
-        /* non-leader racial guards: melee front + ranged rear */
-        int melee_n = 3 * num / 4;
-        int ranged_n = num / 4;
+        /* non-leader racial guards: melee front + ranged rear (2:1 ratio) */
+        int melee_n = 2 * num / 3;
+        int ranged_n = num / 3;
         if (ranged_n < 1) ranged_n = 1;
 
         /* Front line: melee unit */
@@ -2220,7 +2222,7 @@ void Game::CreateCityMon(ARegion *region, int percent, int needmage)
         int tt = (region->type == R_NEXUS) ? TOWN_CITY :
                  (region->town ? region->town->TownType() : TOWN_CITY);
 
-        // ESHI mage (all towns): Energy Shield + Tactics
+        // ESHI mage (all towns): Energy Shield (+1 bonus) + Tactics (normal)
         u = GetNewUnit(fac);
         u->set_name(eshi_name);
         u->type = U_GUARDMAGE;
@@ -2228,9 +2230,9 @@ void Game::CreateCityMon(ARegion *region, int percent, int needmage)
         u->SetMen(I_LEADERS, 1);
         if (IV) u->items.SetNum(I_AMULETOFI, 1);
         u->SetMoney(Globals->GUARD_MONEY);
-        u->SetSkill(S_FORCE, magelevel);
-        u->SetSkill(S_ENERGY_SHIELD, magelevel);
-        u->SetSkill(S_TACTICS, magelevel);
+        u->SetSkill(S_FORCE, magelevel + 1);
+        u->SetSkill(S_ENERGY_SHIELD, magelevel + 1);  // +1 bonus for ESHI
+        u->SetSkill(S_TACTICS, magelevel);  // No bonus for tactics
         u->guard = GUARD_GUARD;
         u->SetFlag(FLAG_BEHIND, 1);
         u->SetFlag(FLAG_HOLDING, 1);
@@ -2359,6 +2361,39 @@ void Game::AdjustCityMons(ARegion *r)
     }
 }
 
+/**
+ * @brief Helper function: Determine weapon tier level
+ * @return 1-3 for standard guard weapons, 0 for unknown
+ */
+int GetWeaponTier(int itemtype) {
+    if (itemtype == I_SPEAR) return 1;
+    if (itemtype == I_PIKE) return 2;
+    if (itemtype == I_SWORD) return 3;
+    if (itemtype == I_LONGBOW) return 1; // Longbow doesn't upgrade by town type
+    return 0; // Unknown weapon
+}
+
+/**
+ * @brief Helper function: Determine armor tier level
+ * @return 1-3 for standard guard armor, 0 for none/unknown
+ */
+int GetArmorTier(int itemtype) {
+    if (itemtype == I_LEATHERARMOR) return 1;
+    if (itemtype == I_CHAINARMOR) return 2;
+    if (itemtype == I_PLATEARMOR) return 3;
+    return 0; // No armor or unknown
+}
+
+/**
+ * @brief Helper function: Determine shield tier level
+ * @return 1-2 for standard guard shields, 0 for none/unknown
+ */
+int GetShieldTier(int itemtype) {
+    if (itemtype == I_WSHIELD) return 1; // Wooden shield
+    if (itemtype == I_ISHIELD) return 2; // Iron shield
+    return 0; // No shield or unknown
+}
+
 void Game::AdjustCityMon(ARegion *r, Unit *u)
 {
     int towntype;
@@ -2409,7 +2444,7 @@ void Game::AdjustCityMon(ARegion *r, Unit *u)
                     maxmen = 3 * maxmen / 4; // melee front unit
             }
             int current_men = u->GetMen();
-            men = current_men + (Globals->AMT_START_CITY_GUARDS/10);
+            men = current_men + (Globals->AMT_START_CITY_GUARDS/5);
             if (men > maxmen)
                 men = std::max(current_men, maxmen);  // Don't lower count, only grow
         }
@@ -2421,40 +2456,101 @@ void Game::AdjustCityMon(ARegion *r, Unit *u)
             maxmen = Globals->CITY_GUARD * (towntype+1);
             if (!Globals->GUARDS_USE_LEADERS) {
                 if (u->GetFlag(FLAG_BEHIND))
-                    maxmen = maxmen / 4;   // ranged rear unit
+                    maxmen = maxmen / 3;   // ranged rear unit
                 else
-                    maxmen = 3 * maxmen / 4; // melee front unit
+                    maxmen = 2 * maxmen / 3; // melee front unit
             }
             int current_men = u->GetMen();
-            men = current_men + (maxmen/10);
+            men = current_men + (maxmen/5);
             if (men > maxmen)
                 men = std::max(current_men, maxmen);  // Don't lower count, only grow
         }
     }
 
-    // Assign equipment to newly spawned guards (no weapon yet)
-    if (weapon == -1 && Globals->GUARDS_EQUIPMENT_BY_TOWN_TYPE) {
+    // Assign/upgrade equipment based on town type
+    if (Globals->GUARDS_EQUIPMENT_BY_TOWN_TYPE) {
+        // Determine required equipment for current town type
+        int req_weapon = -1;
+        int req_armor = -1;
+        int req_shield = -1;
+
         if (u->GetFlag(FLAG_BEHIND)) {
-            // Ranged guard unit: longbow only, no armor/shield
-            weapon = I_LONGBOW;
+            // Ranged guard unit: longbow + armor (no shield)
+            req_weapon = I_LONGBOW;
+            switch(towntype) {
+                case TOWN_VILLAGE:
+                case TOWN_TOWN:
+                    req_armor = I_LEATHERARMOR;
+                    break;
+                case TOWN_CITY:
+                    req_armor = I_CHAINARMOR;
+                    break;
+            }
         } else {
             // Melee guard unit: equipment scales by town type
             switch(towntype) {
                 case TOWN_VILLAGE:
-                    weapon = I_SPEAR;
-                    armor = I_LEATHERARMOR;
-                    shield = I_WSHIELD;
+                    req_weapon = I_SPEAR;
+                    req_armor = I_LEATHERARMOR;
+                    req_shield = I_WSHIELD;
                     break;
                 case TOWN_TOWN:
-                    weapon = I_PIKE;
-                    armor = I_CHAINARMOR;
-                    shield = I_WSHIELD;
+                    req_weapon = I_PIKE;
+                    req_armor = I_CHAINARMOR;
+                    req_shield = I_WSHIELD;
                     break;
                 case TOWN_CITY:
-                    weapon = I_SWORD;
-                    armor = I_PLATEARMOR;
-                    shield = I_ISHIELD;
+                    req_weapon = I_SWORD;
+                    req_armor = I_PLATEARMOR;
+                    req_shield = I_ISHIELD;
                     break;
+            }
+        }
+
+        // Upgrade weapon if required tier is higher than current tier
+        if (weapon == -1) {
+            // New guard: assign required weapon
+            weapon = req_weapon;
+        } else {
+            // Existing guard: upgrade only (never downgrade)
+            int current_tier = GetWeaponTier(weapon);
+            int required_tier = GetWeaponTier(req_weapon);
+            if (required_tier > current_tier) {
+                // Remove old weapon, assign new weapon
+                u->items.SetNum(weapon, 0);
+                weapon = req_weapon;
+            }
+        }
+
+        // Upgrade armor if required tier is higher than current tier
+        if (armor == -1) {
+            // New guard: assign required armor
+            armor = req_armor;
+        } else {
+            // Existing guard: upgrade only (never downgrade)
+            int current_tier = GetArmorTier(armor);
+            int required_tier = GetArmorTier(req_armor);
+            if (required_tier > current_tier) {
+                // Remove old armor, assign new armor
+                u->items.SetNum(armor, 0);
+                armor = req_armor;
+            }
+        }
+
+        // Upgrade shield if required tier is higher than current tier
+        if (req_shield != -1) {  // Only for melee guards
+            if (shield == -1) {
+                // New guard: assign required shield
+                shield = req_shield;
+            } else {
+                // Existing guard: upgrade only (never downgrade)
+                int current_tier = GetShieldTier(shield);
+                int required_tier = GetShieldTier(req_shield);
+                if (required_tier > current_tier) {
+                    // Remove old shield, assign new shield
+                    u->items.SetNum(shield, 0);
+                    shield = req_shield;
+                }
             }
         }
     }
@@ -2480,7 +2576,9 @@ void Game::AdjustCityMon(ARegion *r, Unit *u)
 
         // Don't lower skills - keep maximum level
         int current_force = u->GetRealSkill(S_FORCE);
-        u->SetSkill(S_FORCE, std::max(current_force, magelevel));
+        // ESHI gets +1 bonus to all magic skills
+        int force_level = (u->combat == S_ENERGY_SHIELD) ? magelevel + 1 : magelevel;
+        u->SetSkill(S_FORCE, std::max(current_force, force_level));
 
         // Update skills based on combat spell (already set in CreateCityMon)
         if (u->combat == S_FIRE) {
@@ -2496,11 +2594,12 @@ void Game::AdjustCityMon(ARegion *r, Unit *u)
             u->SetSkill(S_FORCE_SHIELD, std::max(current_fshi, magelevel));
             u->SetSkill(S_TACTICS, std::max(current_tactics, magelevel));
         } else {
-            // Warder/Mystic (default or S_ENERGY_SHIELD): energy shield + TACTICS
+            // Warder/Mystic (ESHI): energy shield gets +1 bonus, tactics normal level
+            int eshi_level = magelevel + 1;
             int current_eshi = u->GetRealSkill(S_ENERGY_SHIELD);
             int current_tactics = u->GetRealSkill(S_TACTICS);
-            u->SetSkill(S_ENERGY_SHIELD, std::max(current_eshi, magelevel));
-            u->SetSkill(S_TACTICS, std::max(current_tactics, magelevel));
+            u->SetSkill(S_ENERGY_SHIELD, std::max(current_eshi, eshi_level));
+            u->SetSkill(S_TACTICS, std::max(current_tactics, magelevel));  // No bonus for tactics
             if (u->combat != S_ENERGY_SHIELD) u->combat = S_ENERGY_SHIELD;
         }
         u->SetFlag(FLAG_BEHIND, 1);
