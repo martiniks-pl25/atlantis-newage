@@ -5,6 +5,9 @@
 #include "object.h"
 #include "rng.hpp"
 
+#include "external/nlohmann/json.hpp"
+using json = nlohmann::json;
+
 #include <map>
 #include <queue>
 #include <algorithm>
@@ -411,4 +414,138 @@ void AnomalyFact::GetEvents(std::list<Event> &events) {
         .score = 100,
         .text = "A strange anomaly was detected in region " + location->print() + "."
     });
+}
+
+// --- GuardAttitudeFact ---
+
+static const std::vector<std::string> unfriendly_templates = {
+    "By official decree of the City Guard, the faction known as {NAME} is henceforth "
+    "declared persona non grata. Their protection within guarded settlements is revoked.",
+
+    "Notice is hereby given: {NAME} has been placed on the City Guard's watch-list. "
+    "Guard patrols will no longer answer their calls for aid.",
+
+    "The gates of our cities grow cold. The City Guard has withdrawn its protection "
+    "from {NAME}, who must now seek shelter at their own risk.",
+
+    "Hear ye, hear ye! The City Guard announces that {NAME} is no longer under its "
+    "protection. They walk the streets of our towns as strangers, not as guests.",
+
+    "From this day forth, {NAME} shall receive no aid from the City Guard. "
+    "Their conduct has earned them the status of unwelcome wanderers in our realm.",
+
+    "The City Guard's ledger marks {NAME} as suspect. Citizens are advised: "
+    "their protection at the city gates has been suspended."
+};
+
+static const std::vector<std::string> hostile_templates = {
+    "WANTED: By order of the City Guard, {NAME} is declared an enemy of the realm! "
+    "Their units may be attacked without consequence in any settlement under our "
+    "protection. No mercy shall be shown.",
+
+    "OUTLAWED! The City Guard has issued a warrant of aggression against {NAME}. "
+    "All guard units are ordered to attack them on sight. Citizens in protected "
+    "settlements are granted the right to defend themselves against their forces.",
+
+    "A dark proclamation echoes through the city: {NAME} stands condemned by the "
+    "City Guard. Their presence in guarded settlements is forbidden — by sword if "
+    "necessary. Any who strike them within our walls commit no crime.",
+
+    "The drums of justice beat for {NAME}! Declared enemies of all guarded cities, "
+    "they have forfeited their right to safety within our walls. The City Guard "
+    "commands: drive them out, or cut them down.",
+
+    "By solemn decree: {NAME} is branded outlaw. City guards are authorized — nay, "
+    "commanded — to engage their forces within any settlement they patrol. "
+    "Let no gate offer them shelter.",
+
+    "The realm speaks with one voice: {NAME} is exiled and condemned. They shall "
+    "find no sanctuary in our cities. Every sword arm in every guarded town "
+    "is raised against them."
+};
+
+static std::string applyTemplate(const std::string &tmpl, const std::string &faction_name) {
+    std::string text = tmpl;
+    size_t pos;
+    while ((pos = text.find("{NAME}")) != std::string::npos)
+        text.replace(pos, 6, faction_name);
+    return text;
+}
+
+GuardAttitudeFact::GuardAttitudeFact() : faction_num(0), new_attitude(AttitudeType::UNFRIENDLY) {}
+GuardAttitudeFact::~GuardAttitudeFact() {}
+
+void GuardAttitudeFact::GetEvents(std::list<Event> &events) {
+    const auto &templates = (new_attitude == AttitudeType::HOSTILE)
+        ? hostile_templates : unfriendly_templates;
+
+    int idx = rng::get_random(templates.size());
+    std::string text = applyTemplate(templates[idx], faction_name);
+
+    events.push_back({
+        .category = EVENT_GUARD_REPUTATION,
+        .score = (new_attitude == AttitudeType::HOSTILE) ? 90 : 70,
+        .text = text
+    });
+}
+
+// --- JSON output ---
+
+static std::string categoryToString(EventCategory cat) {
+    switch (cat) {
+        case EVENT_BATTLE:           return "battle";
+        case EVENT_CITY_CAPTURE:     return "city_capture";
+        case EVENT_MONSTER_HUNT:     return "monster_hunt";
+        case EVENT_MONSTER_AGGRESSION: return "monster_aggression";
+        case EVENT_ASSASSINATION:    return "assassination";
+        case EVENT_ANNIHILATION:     return "annihilation";
+        case EVENT_ANOMALY:          return "anomaly";
+        case EVENT_GUARD_REPUTATION: return "guard_reputation";
+        default:                     return "unknown";
+    }
+}
+
+std::string Events::WriteJSON(std::string worldName, std::string month, int year,
+                              std::vector<std::pair<int,std::string>> wanted) {
+    std::list<Event> events;
+    for (auto &fact : this->facts) {
+        fact->GetEvents(events);
+    }
+
+    // Group by category, sort by score descending, cap at 10 per category
+    std::map<EventCategory, std::vector<Event>> categories;
+    for (auto &event : events) {
+        categories[event.category].push_back(event);
+    }
+
+    json j;
+    j["world"] = worldName;
+    j["month"] = month;
+    j["year"]  = year;
+
+    json eventArray = json::array();
+    for (auto &cat : categories) {
+        auto list = cat.second;
+        std::sort(list.begin(), list.end(), compareEvents);
+        if ((int)list.size() > 10) list.resize(10);
+
+        for (auto &e : list) {
+            json item;
+            item["category"] = categoryToString(e.category);
+            item["text"]     = e.text;
+            eventArray.push_back(item);
+        }
+    }
+    j["events"] = eventArray;
+
+    json wantedArray = json::array();
+    for (auto &w : wanted) {
+        json item;
+        item["faction_num"]  = w.first;
+        item["faction_name"] = w.second;
+        wantedArray.push_back(item);
+    }
+    j["wanted"] = wantedArray;
+
+    return j.dump(2);
 }

@@ -423,6 +423,8 @@ private:
     void DoWithdrawOrders();
 
     void write_times_article(std::string article);
+    std::string GenerateWantedSection();
+    std::vector<std::pair<int,std::string>> CollectWanted();
 
     void DoExchangeOrders();
     void DoExchangeOrder(ARegion *, Unit *, ExchangeOrder *);

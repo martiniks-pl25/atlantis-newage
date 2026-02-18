@@ -6,11 +6,13 @@ class Events;
 class FactBase;
 class BattleFact;
 class AssassinationFact;
+class GuardAttitudeFact;
 
 #include "unit.h"
 #include <string>
 #include <list>
 #include <vector>
+#include <utility>
 
 std::string townType(const int type);
 
@@ -22,6 +24,7 @@ enum EventCategory {
     EVENT_ASSASSINATION,
     EVENT_ANNIHILATION,
     EVENT_ANOMALY,
+    EVENT_GUARD_REPUTATION,
 };
 
 struct Event {
@@ -43,6 +46,8 @@ public:
     ~Events();
 
     std::string Write(std::string worldName, std::string month, int year);
+    std::string WriteJSON(std::string worldName, std::string month, int year,
+                          std::vector<std::pair<int,std::string>> wanted);
 
     void AddFact(FactBase *fact);
 
@@ -167,5 +172,17 @@ class AnomalyFact : public FactBase {
         void GetEvents(std::list<Event> &events);
 
         ARegion *location;
+};
+
+class GuardAttitudeFact : public FactBase {
+    public:
+        GuardAttitudeFact();
+        ~GuardAttitudeFact();
+
+        void GetEvents(std::list<Event> &events) override;
+
+        std::string faction_name;
+        int faction_num;
+        AttitudeType new_attitude;  // UNFRIENDLY or HOSTILE
 };
 #endif // EVENTS_H

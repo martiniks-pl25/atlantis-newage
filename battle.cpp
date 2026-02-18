@@ -772,6 +772,11 @@ void Game::GetSides(
     std::list<Location *>& defs, Unit *att, Unit *tar, int ass, int adv
 )
 {
+    // When the target of an advance attack is a guard unit, all other city guard units
+    // should join the defense (they fight together). This also prevents BATTLE_IMPOSSIBLE
+    // when HOSTILE/UNFRIENDLY guards Forbid an advancing player.
+    const bool targetIsGuard = (tar->type == U_GUARD || tar->type == U_GUARDMAGE);
+
     if (ass) {
         /* Assassination attempt */
         Location * l = new Location;
@@ -854,17 +859,19 @@ void Game::GetSides(
                         if (!(i != -1 && noaidd)) {
                             if (u->type == U_GUARD) {
                                 /* The unit is a city guardsman */
-                                if (i == -1 && adv == 0) {
-                                    // Only defend if attitude to target is NEUTRAL or better
-                                    if (u->GetAttitude(r, tar) >= AttitudeType::NEUTRAL) {
+                                // In advance battles (adv=1): all guards join when any guard is
+                                // the target (targetIsGuard). This ensures city guard units fight
+                                // together, and prevents BATTLE_IMPOSSIBLE when guards Forbid
+                                // an advancing unit.
+                                if (i == -1 && (adv == 0 || targetIsGuard)) {
+                                    if (targetIsGuard || u->GetAttitude(r, tar) >= AttitudeType::NEUTRAL) {
                                         add = ADD_DEFENSE;
                                     }
                                 }
                             } else if (u->type == U_GUARDMAGE) {
                                 /* the unit is a city guard support mage */
-                                if (i == -1 && adv == 0) {
-                                    // Only defend if attitude to target is NEUTRAL or better
-                                    if (u->GetAttitude(r, tar) >= AttitudeType::NEUTRAL) {
+                                if (i == -1 && (adv == 0 || targetIsGuard)) {
+                                    if (targetIsGuard || u->GetAttitude(r, tar) >= AttitudeType::NEUTRAL) {
                                         add = ADD_DEFENSE;
                                     }
                                 }
@@ -1050,31 +1057,33 @@ int Game::RunBattle(ARegion * r,Unit * attacker,Unit * target,int ass,
             }
         }
     }
+    // Capture guard info BEFORE battle - guards may die during combat
+    bool hadCityGuards = r->HasCityGuards() && !ass;
+    Unit* guardForRep = hadCityGuards ? r->GetCityGuard() : nullptr;
+
     result = b->Run(events, r, attacker, atts, target, defs,ass);
 
     // Track guard reputation (after battle completes)
-    if (r->HasCityGuards() && !ass) {
-        Unit* guard = r->GetCityGuard();
-        if (guard) {
-            bool penalize = false;
+    // Note: guardForRep captured before battle because guards may die during combat
+    if (hadCityGuards && guardForRep) {
+        bool penalize = false;
 
-            // Check if attacked city guards directly
-            if (target->type == U_GUARD || target->type == U_GUARDMAGE) {
-                penalize = true;
-            }
-            // Check if attacked player defended by guards (not monster)
-            else if (target->faction->num > 0 &&
-                     target->faction->num != monfaction &&
-                     guard->GetAttitude(r, target) >= AttitudeType::NEUTRAL) {
-                penalize = true;
-            }
+        // Check if attacked city guards directly
+        if (target->type == U_GUARD || target->type == U_GUARDMAGE) {
+            penalize = true;
+        }
+        // Check if attacked player defended by guards (not monster)
+        else if (target->faction->num > 0 &&
+                 target->faction->num != monfaction &&
+                 guardForRep->GetAttitude(r, target) >= AttitudeType::NEUTRAL) {
+            penalize = true;
+        }
 
-            if (penalize) {
-                // Apply penalty to ALL attacking factions
-                for (auto f : afacs) {
-                    if (f->num != guardfaction && f->num != monfaction) {
-                        f->guard_attack_this_turn = 1;
-                    }
+        if (penalize) {
+            // Apply penalty to ALL attacking factions
+            for (auto f : afacs) {
+                if (f->num != guardfaction && f->num != monfaction) {
+                    f->guard_attack_this_turn = 1;
                 }
             }
         }

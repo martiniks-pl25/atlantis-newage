@@ -1055,8 +1055,6 @@ void Game::ProcessEconomics()
     if (!(Globals->DYNAMIC_POPULATION || Globals->REGIONS_ECONOMY)) return;
 
     for(const auto r : regions) {
-        // Do not process not visited regions
-        if (!r->visited) continue;
         /* regional population dynamics */
         r->Grow();
     }
@@ -1100,48 +1098,61 @@ void Game::PostProcessTurn()
     }
 
     // Apply guard reputation changes with probabilistic recovery
-    for (const auto f : factions) {
-        if (!f || f->num == guardfaction || f->num == monfaction) continue;
+    Faction *guard_faction = GetFaction(factions, guardfaction);
+    if (guard_faction) {
+        for (const auto f : factions) {
+            if (!f || f->num == guardfaction || f->num == monfaction) continue;
 
-        AttitudeType current = f->get_attitude(guardfaction);
+            // Get GUARD's attitude towards player (not player's attitude towards guards!)
+            AttitudeType current = guard_faction->get_attitude(f->num);
 
-        if (f->guard_attack_this_turn > 0) {
-            // Attacked in guarded city: decrease by 1 level
-            if (current > AttitudeType::HOSTILE) {
-                int new_level = static_cast<int>(current) - 1;
-                AttitudeType new_attitude = static_cast<AttitudeType>(new_level);
-                f->set_attitude(guardfaction, new_attitude);
+            if (f->guard_attack_this_turn > 0) {
+                // Attacked in guarded city: decrease by 1 level
+                if (current > AttitudeType::HOSTILE) {
+                    int new_level = static_cast<int>(current) - 1;
+                    AttitudeType new_attitude = static_cast<AttitudeType>(new_level);
+                    guard_faction->set_attitude(f->num, new_attitude);
 
-                f->event("Your relationship with city guards has worsened to " +
-                        AttitudeStrs[static_cast<int>(new_attitude)] + ".", "reputation");
-            } else {
-                f->event("The city guards remain hostile to your faction.", "reputation");
+                    f->event("City guards' attitude towards you has worsened to " +
+                            AttitudeStrs[static_cast<int>(new_attitude)] + ".", "reputation");
+
+                    // Publish guard decree to the world newspaper
+                    if (new_attitude == AttitudeType::UNFRIENDLY || new_attitude == AttitudeType::HOSTILE) {
+                        auto fact = new GuardAttitudeFact();
+                        fact->faction_name = f->name;
+                        fact->faction_num  = f->num;
+                        fact->new_attitude = new_attitude;
+                        RecordFact(fact);
+                    }
+                } else {
+                    f->event("The city guards remain hostile to your faction.", "reputation");
+                }
+
+            } else if (current < AttitudeType::NEUTRAL) {
+                // No attacks this turn: probabilistic recovery
+                int recover = 0;
+
+                if (current == AttitudeType::HOSTILE) {
+                    // HOSTILE -> UNFRIENDLY: 33% chance (1 in 3)
+                    if (rng::get_random(3) == 0) recover = 1;
+                } else if (current == AttitudeType::UNFRIENDLY) {
+                    // UNFRIENDLY -> NEUTRAL: 50% chance (1 in 2)
+                    if (rng::get_random(2) == 0) recover = 1;
+                }
+
+                if (recover) {
+                    int new_level = static_cast<int>(current) + 1;
+                    AttitudeType new_attitude = static_cast<AttitudeType>(new_level);
+                    guard_faction->set_attitude(f->num, new_attitude);
+
+                    f->event("City guards' attitude towards you has improved to " +
+                            AttitudeStrs[static_cast<int>(new_attitude)] + ".", "reputation");
+                }
             }
 
-        } else if (current < AttitudeType::NEUTRAL) {
-            // No attacks this turn: probabilistic recovery
-            int recover = 0;
-
-            if (current == AttitudeType::HOSTILE) {
-                // HOSTILE -> UNFRIENDLY: 33% chance (1 in 3)
-                if (rng::get_random(3) == 0) recover = 1;
-            } else if (current == AttitudeType::UNFRIENDLY) {
-                // UNFRIENDLY -> NEUTRAL: 50% chance (1 in 2)
-                if (rng::get_random(2) == 0) recover = 1;
-            }
-
-            if (recover) {
-                int new_level = static_cast<int>(current) + 1;
-                AttitudeType new_attitude = static_cast<AttitudeType>(new_level);
-                f->set_attitude(guardfaction, new_attitude);
-
-                f->event("Your relationship with city guards has improved to " +
-                        AttitudeStrs[static_cast<int>(new_attitude)] + ".", "reputation");
-            }
+            // Reset flag for next turn
+            f->guard_attack_this_turn = 0;
         }
-
-        // Reset flag for next turn
-        f->guard_attack_this_turn = 0;
     }
 
     for(const auto r : regions) {

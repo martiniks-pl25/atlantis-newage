@@ -1058,11 +1058,65 @@ void Game::RecordFact(FactBase* fact) {
     this->events->AddFact(fact);
 }
 
-void Game::WriteWorldEvents() {
-    std::string text = this->events->Write(Globals->RULESET_NAME, MonthNames[this->month], this->year);
-    if (text.empty() || text.length() == 0) return;
+std::vector<std::pair<int,std::string>> Game::CollectWanted() {
+    std::vector<std::pair<int,std::string>> result;
+    Faction *guard = GetFaction(factions, guardfaction);
+    if (!guard) return result;
 
-    this->write_times_article(text);
+    for (const auto f : factions) {
+        if (!f || f->num == guardfaction || f->num == monfaction || !f->exists) continue;
+        if (guard->get_attitude(f->num) == AttitudeType::HOSTILE)
+            result.push_back({f->num, f->name});
+    }
+    return result;
+}
+
+std::string Game::GenerateWantedSection() {
+    auto wanted = CollectWanted();
+    if (wanted.empty()) return "";
+
+    std::string result =
+        "\n*** WANTED BY ORDER OF THE CITY GUARD ***\n\n"
+        "The following factions are declared enemies of the realm.\n"
+        "Their forces may be attacked in any guarded settlement:\n\n";
+    for (const auto &w : wanted)
+        result += "  * " + w.second + " (" + std::to_string(w.first) + ")\n";
+    result += "\nAny who strike them within protected walls commit no crime.\n";
+    return result;
+}
+
+void Game::WriteWorldEvents() {
+    constexpr bool write_legacy_text = true;  // set to false to disable times.N text files
+
+    auto wanted = CollectWanted();
+
+    std::string json_str = this->events->WriteJSON(
+        Globals->RULESET_NAME, MonthNames[this->month], this->year, wanted);
+
+    // Pick a shared base filename for both outputs
+    std::string base;
+    do {
+        base = "times." + std::to_string(rng::get_random(10000));
+    } while (filesystem::exists(base) || filesystem::exists(base + ".json"));
+
+    if (write_legacy_text) {
+        std::string text = this->events->Write(Globals->RULESET_NAME, MonthNames[this->month], this->year);
+        std::string wanted_text = GenerateWantedSection();
+        std::string full = text + wanted_text;
+        if (!full.empty()) {
+            std::ofstream tf(base, std::ios::out | std::ios::trunc);
+            if (tf.is_open()) {
+                tf << indent::wrap(78, 70, 0) << full << '\n';
+            }
+        }
+    }
+
+    if (!json_str.empty()) {
+        std::ofstream jf(base + ".json", std::ios::out | std::ios::trunc);
+        if (jf.is_open()) {
+            jf << json_str << '\n';
+        }
+    }
 }
 
 void Game::PreProcessTurn()
