@@ -2839,7 +2839,7 @@ std::vector<WeaponType> WeaponDefs = {
      WeaponType::NEEDSKILL | WeaponType::RANGED | WeaponType::NOATTACKERSKILL,
      "XBOW", NULL,
      ARMORPIERCING, ATTACK_RANGED, 1,
-     0, 0, 0,
+     1, 0, 0,
      1,
      { { NULL, 0, 0 }, { NULL, 0, 0 }, { NULL, 0, 0 }, { NULL, 0, 0 } }
     },
@@ -2884,7 +2884,7 @@ std::vector<WeaponType> WeaponDefs = {
      WeaponType::NEEDSKILL | WeaponType::RANGED | WeaponType::NOATTACKERSKILL,
      "XBOW", NULL,
      ARMORPIERCING, ATTACK_RANGED, -3,
-     0, 0, 0,
+     1, 0, 0,
      1,
      { { NULL, 0, 0 }, { NULL, 0, 0 }, { NULL, 0, 0 }, { NULL, 0, 0 } }
     },

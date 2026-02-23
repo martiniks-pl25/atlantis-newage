@@ -476,11 +476,14 @@ int Game::OpenGame()
     if (!i) return 0;
 
     // read in quests
+    logger::write("Reading quests...");
     if (!quests.read_quests(f))
         return 0;
 
+    logger::write("Setting up unit numbers...");
     SetupUnitNums();
 
+    logger::write("Game file loaded.");
     return(1);
 }
 
@@ -1112,9 +1115,89 @@ void Game::WriteWorldEvents() {
     }
 
     if (!json_str.empty()) {
+        // Add active quests to the JSON newspaper
+        json j = json::parse(json_str);
+        json questArray = json::array();
+        for (const auto& q : quests) {
+            json item;
+            switch (q->type) {
+                case Quest::SLAY:     item["type"] = "slay";     break;
+                case Quest::HARVEST:  item["type"] = "harvest";  break;
+                case Quest::BUILD:    item["type"] = "build";    break;
+                case Quest::VISIT:    item["type"] = "visit";    break;
+                case Quest::DEMOLISH: item["type"] = "demolish"; break;
+                default:              item["type"] = "unknown";  break;
+            }
+            // Generate roleplay narrative text only — no coordinates or rewards
+            // to prevent players from trivially locating quest targets via the JSON.
+            std::string text;
+            if (q->type == Quest::SLAY) {
+                Location *l = regions.FindUnit(q->target);
+                if (l) {
+                    text = "Quest: In the ";
+                    text += TerrainDefs[TerrainDefs[l->region->type].similar_type].name;
+                    text += " of ";
+                    text += l->region->name;
+                    text += (l->obj->type == O_DUMMY) ? " roams" : " lurks";
+                    text += " the ";
+                    text += l->unit->name;
+                    text += ".  Free the world from this menace and be rewarded!";
+                    delete l;
+                }
+            } else if (q->type == Quest::HARVEST) {
+                ARegion *r = regions.GetRegion(q->regionnum);
+                if (r) {
+                    text = "Quest: Seek a token of the Ancient Ones legacy amongst the ";
+                    text += ItemDefs[q->objective.type].names;
+                    text += " of ";
+                    text += r->name;
+                    text += ".";
+                }
+            } else if (q->type == Quest::BUILD) {
+                text = "Quest: Build a ";
+                text += ObjectDefs[q->building].name;
+                text += " in ";
+                text += q->regionname;
+                text += " for the glory of the Gods.";
+            } else if (q->type == Quest::VISIT) {
+                text = "Quest: Show your devotion by visiting ";
+                text += ObjectDefs[q->building].name;
+                text += "s in ";
+                unsigned ucount = 0;
+                for (const auto& dest : q->destinations) {
+                    ucount++;
+                    if (ucount == q->destinations.size())
+                        text += " and ";
+                    else if (ucount > 1)
+                        text += ", ";
+                    text += dest;
+                }
+                text += ".";
+            } else if (q->type == Quest::DEMOLISH) {
+                ARegion *r = regions.GetRegion(q->regionnum);
+                if (r) {
+                    Object *o = r->GetObject(q->target);
+                    if (o) {
+                        text = "Quest: Tear down the blasphemous ";
+                        text += o->name;
+                        text += " : ";
+                        text += ObjectDefs[o->type].name;
+                        text += " in ";
+                        text += r->name;
+                        text += "!";
+                    }
+                }
+            }
+            if (!text.empty()) {
+                item["text"] = text;
+                questArray.push_back(item);
+            }
+        }
+        j["quests"] = questArray;
+
         std::ofstream jf(base + ".json", std::ios::out | std::ios::trunc);
         if (jf.is_open()) {
-            jf << json_str << '\n';
+            jf << j.dump(2) << '\n';
         }
     }
 }

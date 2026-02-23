@@ -805,8 +805,14 @@ void Army::WriteLosses(Battle * b) {
     }
 }
 
-void Army::GetMonSpoils(ItemList& spoils, int monitem, int free)
+void Army::GetMonSpoils(ItemList& spoils, int monitem, int free, std::set<int>& chosen_types)
 {
+    // Maximum number of distinct item types that can drop from one monster group.
+    // First MAX_SPOIL_ITEM_TYPES monsters each introduce a new random item type;
+    // subsequent monsters randomly add quantity to one of the already-chosen types.
+    // Change this value to tune loot variety across all monsters on this server.
+    constexpr int MAX_SPOIL_ITEM_TYPES = 4;
+
     /* First, silver */
     auto mp = find_monster(ItemDefs[monitem].abr, (ItemDefs[monitem].type & IT_ILLUSION))->get();
     int silv = mp.silver;
@@ -822,37 +828,52 @@ void Army::GetMonSpoils(ItemList& spoils, int monitem, int free)
     spoils.SetNum(I_SILVER, spoils.GetNum(I_SILVER) + rng::get_random(silv));
 
     int thespoil = mp.spoiltype;
-
     if (thespoil == -1) return;
-    if (thespoil == IT_NORMAL && rng::get_random(2) && !Globals->SPOILS_NO_TRADE) thespoil = IT_TRADE;
 
-    int count = 0;
-    int i;
-    for (i=0; i<NITEMS; i++) {
-        if (
-            (ItemDefs[i].type & thespoil) && !(ItemDefs[i].type & IT_SPECIAL) && !(ItemDefs[i].type & IT_SHIP) &&
-            !(ItemDefs[i].type & IT_NEVER_SPOIL) && (ItemDefs[i].baseprice <= mp.silver) &&
-            !(ItemDefs[i].flags & ItemType::DISABLED)
-        ) {
-            count ++;
-        }
-    }
-    if (count == 0) return;
-    count = rng::get_random(count) + 1;
+    int chosen_item = -1;
 
-    for (i=0; i<NITEMS; i++) {
-        if (
-            (ItemDefs[i].type & thespoil) && !(ItemDefs[i].type & IT_SPECIAL) && !(ItemDefs[i].type & IT_SHIP) &&
-            !(ItemDefs[i].type & IT_NEVER_SPOIL) && (ItemDefs[i].baseprice <= mp.silver) &&
-            !(ItemDefs[i].flags & ItemType::DISABLED)
-        ) {
-            count--;
-            if (count == 0) {
-                thespoil = i;
-                break;
+    if ((int)chosen_types.size() < MAX_SPOIL_ITEM_TYPES) {
+        // Pool not full: pick a new item type not yet in chosen_types
+        int type_to_use = thespoil;
+        if (type_to_use == IT_NORMAL && rng::get_random(2) && !Globals->SPOILS_NO_TRADE)
+            type_to_use = IT_TRADE;
+
+        int count = 0;
+        for (int i = 0; i < NITEMS; i++) {
+            if (
+                (ItemDefs[i].type & type_to_use) && !(ItemDefs[i].type & IT_SPECIAL) &&
+                !(ItemDefs[i].type & IT_SHIP) && !(ItemDefs[i].type & IT_NEVER_SPOIL) &&
+                (ItemDefs[i].baseprice <= mp.silver) && !(ItemDefs[i].flags & ItemType::DISABLED) &&
+                chosen_types.find(i) == chosen_types.end()
+            ) {
+                count++;
             }
         }
+        if (count > 0) {
+            count = rng::get_random(count) + 1;
+            for (int i = 0; i < NITEMS; i++) {
+                if (
+                    (ItemDefs[i].type & type_to_use) && !(ItemDefs[i].type & IT_SPECIAL) &&
+                    !(ItemDefs[i].type & IT_SHIP) && !(ItemDefs[i].type & IT_NEVER_SPOIL) &&
+                    (ItemDefs[i].baseprice <= mp.silver) && !(ItemDefs[i].flags & ItemType::DISABLED) &&
+                    chosen_types.find(i) == chosen_types.end()
+                ) {
+                    if (--count == 0) { chosen_item = i; break; }
+                }
+            }
+            chosen_types.insert(chosen_item);
+        }
     }
+
+    if (chosen_item == -1 && !chosen_types.empty()) {
+        // Pool full (or no new items found): pick from already-chosen types
+        int idx = rng::get_random(chosen_types.size());
+        auto it = chosen_types.begin();
+        std::advance(it, idx);
+        chosen_item = *it;
+    }
+
+    if (chosen_item == -1) return;
 
     int val = rng::get_random(mp.silver * 2);
     if ((Globals->MONSTER_NO_SPOILS > 0) && (free > 0)) {
@@ -872,8 +893,8 @@ void Army::GetMonSpoils(ItemList& spoils, int monitem, int free)
     }
 
     spoils.SetNum(
-        thespoil,
-        spoils.GetNum(thespoil) + (val + rng::get_random(ItemDefs[thespoil].baseprice)) / ItemDefs[thespoil].baseprice
+        chosen_item,
+        spoils.GetNum(chosen_item) + (val + rng::get_random(ItemDefs[chosen_item].baseprice)) / ItemDefs[chosen_item].baseprice
     );
 }
 
@@ -909,13 +930,16 @@ void Army::Regenerate(Battle *b)
 void Army::Lose(Battle *b, ItemList& spoils)
 {
     WriteLosses(b);
+    // Track chosen item types per monster unit to limit spoils variety.
+    // Each unit builds its own pool; soldiers from the same unit share it.
+    std::map<Unit*, std::set<int>> unit_chosen_types;
     for (int i=0; i<count; i++) {
         Soldier *s = soldiers[i];
         if (i < notbehind) {
             s->Alive(LOSS);
         } else {
             if ((s->unit->type==U_WMON) && (ItemDefs[s->race].type&IT_MONSTER))
-                GetMonSpoils(spoils,s->race,s->unit->free);
+                GetMonSpoils(spoils, s->race, s->unit->free, unit_chosen_types[s->unit]);
             s->Dead();
         }
         delete s;

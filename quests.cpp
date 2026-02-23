@@ -1,6 +1,7 @@
 #include "quests.h"
 #include "object.h"
 #include "rng.hpp"
+#include "logger.hpp"
 #include <iterator>
 #include <memory>
 
@@ -52,9 +53,12 @@ int QuestList::read_quests(std::istream& f)
     quests.clear();
 
     f >> count;
+    logger::write("  Quest count: " + std::to_string(count));
     if (count < 0)
         return 0;
+    int quest_index = 0;
     while (count-- > 0) {
+        quest_index++;
         quest = std::make_shared<Quest>();
         f >> quest->type;
         switch (quest->type) {
@@ -68,7 +72,7 @@ int QuestList::read_quests(std::istream& f)
             case Quest::BUILD:
                 std::getline(f >> std::ws, name);
                 quest->building = lookup_object(name);
-                f >> std::ws >> quest->regionname;
+                std::getline(f >> std::ws, quest->regionname);
                 break;
             case Quest::VISIT:
                 std::getline(f >> std::ws, name);
@@ -84,18 +88,25 @@ int QuestList::read_quests(std::istream& f)
                 f >> quest->regionnum;
                 break;
             default:
+                logger::write("Warning: quest " + std::to_string(quest_index) + " has unknown type " +
+                              std::to_string(quest->type) + ", skipping");
                 f >> quest->target;
                 quest->objective.Readin(f);
                 std::getline(f >> std::ws, name);
                 quest->building = lookup_object(name);
                 f >> quest->regionnum;
-                f >> std::ws >> quest->regionname;
+                std::getline(f >> std::ws, quest->regionname);
                 f >> dests;
                 while (dests-- > 0) {
                     std::getline(f >> std::ws, name);
                     quest->destinations.insert(name);
                 }
-                break;
+                f >> rewards;
+                while (rewards-- > 0) {
+                    Item item;
+                    item.Readin(f);
+                }
+                continue;  // не добавляем в список
         }
         f >> rewards;
         while (rewards-- > 0) {

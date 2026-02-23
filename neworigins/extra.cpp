@@ -800,6 +800,7 @@ Faction *Game::CheckVictory()
                 }
                 break;
             default:
+                questsWithProblems.push_back(q);
                 break;
         }
     }
@@ -1788,6 +1789,72 @@ void Game::ModifyTablesPerRuleset(void)
     modify_monster_threat("WARR",  30,  100); // Evil Warriors
     modify_monster_threat("DMAG",  1,   100); // Dark Mage
     modify_monster_threat("MAGI",  2,   100); // Evil Magicians
+
+    // --- Monster loot drops (modify_monster_spoils) ---
+    // Format: modify_monster_spoils(abbr, silver, spoiltype)
+    // spoiltype: -1=no items, IT_NORMAL=basic goods, IT_ADVANCED=advanced items, IT_MAGIC=magic items
+    // Comment shows default from gamedata.cpp for easy comparison when tuning.
+    // Silver is max pool: actual drop = random(0, silver-1) per dead monster.
+    // Pool system: max 3 distinct item types per unit; 4th+ monsters add qty to existing types.
+
+    // Natural wandering monsters — mostly animal, no item drops
+    modify_monster_spoils("LION",  200,  IT_NORMAL);           // Pride of Lions      (default: 200, -1)
+    modify_monster_spoils("WOLF",  120,  IT_NORMAL);           // Wolf Pack           (default: 120, -1)
+    modify_monster_spoils("GRIZ",  450,  IT_NORMAL);           // Grizzly Bears       (default: 450, -1)
+    modify_monster_spoils("CROC",  120,  IT_NORMAL);           // Crocodiles          (default: 120, -1)
+    modify_monster_spoils("ANAC",  120,  IT_NORMAL);           // Anacondas           (default: 120, -1)
+    modify_monster_spoils("SCOR",  160,  IT_NORMAL);           // Giant Scorpions     (default: 160, -1)
+    modify_monster_spoils("POLA",  450,  IT_NORMAL);           // Polar Bears         (default: 450, -1)
+    modify_monster_spoils("GRAT",  30,   IT_NORMAL);           // Pack of Rats        (default: 30,  -1)
+    modify_monster_spoils("GSPI",  300,  IT_NORMAL);           // Giant Spiders       (default: 300, -1)
+    modify_monster_spoils("GLIZ",  400,  IT_NORMAL);           // Giant Lizards       (default: 400, -1)
+    modify_monster_spoils("TREN",  600,  IT_ADVANCED);  // Living Trees        (default: 600, IT_ADVANCED)
+    modify_monster_spoils("ROC",   1500, IT_ADVANCED);  // Giant Birds         (default: 1500, IT_ADVANCED)
+    modify_monster_spoils("BOGT",  2000, IT_ADVANCED);  // Swamp Creatures     (default: 2000, IT_ADVANCED)
+    modify_monster_spoils("KONG",  2500, IT_ADVANCED);  // Great Apes          (default: 2500, IT_ADVANCED)
+    modify_monster_spoils("SPHI",  5000, IT_ADVANCED);  // Sphinx              (default: 5000, IT_ADVANCED)
+    modify_monster_spoils("ICEW",  500,  IT_ADVANCED);  // Ice Wurms           (default: 500,  IT_ADVANCED)
+    modify_monster_spoils("DRAG",  8000, IT_MAGIC);     // Dragon              (default: 8000, IT_MAGIC)
+    modify_monster_spoils("WYVR",  3000, IT_ADVANCED);  // Wyvern              (default: 3000, IT_ADVANCED)
+
+    // Humanoid wandering monsters — drop basic goods/items
+    modify_monster_spoils("CENT",  250,  IT_NORMAL);    // Tribe of Centaurs   (default: 250,  IT_NORMAL)
+    modify_monster_spoils("KOBO",  60,   IT_NORMAL);    // Kobold Pack         (default: 60,   IT_NORMAL)
+    modify_monster_spoils("OGRE",  800,  IT_NORMAL);    // Family of Ogres     (default: 800,  IT_NORMAL)
+    modify_monster_spoils("IFRI",  1500, IT_ADVANCED);  // Fire Ifrits         (default: 1500, IT_ADVANCED)
+    modify_monster_spoils("LMAN",  120,  IT_NORMAL);    // Lizard Men          (default: 120,  IT_NORMAL)
+    modify_monster_spoils("WMAN",  120,  IT_NORMAL);    // Clan of Wild Men    (default: 120,  IT_NORMAL)
+    modify_monster_spoils("SAND",  60,   IT_NORMAL);    // Sandlings           (default: 60,   IT_NORMAL)
+    modify_monster_spoils("YETI",  250,  IT_NORMAL);    // Yeti                (default: 250,  IT_NORMAL)
+    modify_monster_spoils("GOBL",  50,   IT_NORMAL);    // Goblin Horde        (default: 50,   IT_NORMAL)
+    modify_monster_spoils("TROL",  500,  IT_ADVANCED);  // Troll Pack          (default: 500,  IT_ADVANCED)
+    modify_monster_spoils("ETTI",  1200, IT_ADVANCED);  // Ettins              (default: 1200, IT_ADVANCED)
+
+    // Summoned / undead monsters
+    modify_monster_spoils("SKEL",  60,   IT_NORMAL);    // Skeleton            (default: 60,   IT_NORMAL)
+    modify_monster_spoils("UNDE",  400,  IT_ADVANCED);  // Undead              (default: 400,  IT_ADVANCED)
+    modify_monster_spoils("LICH",  5000, IT_MAGIC);     // Lich                (default: 5000, IT_MAGIC)
+    modify_monster_spoils("IMP",   60,   IT_NORMAL);    // Imp                 (default: 60,   IT_NORMAL)
+    modify_monster_spoils("DEMO",  800,  IT_ADVANCED);  // Demon               (default: 800,  IT_ADVANCED)
+    modify_monster_spoils("BALR",  25000,IT_MAGIC);     // Balrog              (default: 25000, IT_MAGIC)
+    modify_monster_spoils("EAGL",  20,   -1);           // Eagle               (default: 20,  -1)
+
+    // Sea creatures
+    modify_monster_spoils("PIRA",  300,  IT_ADVANCED);  // Pirates             (default: 300,  IT_ADVANCED)
+    modify_monster_spoils("KRAK",  20000,IT_MAGIC);     // Kraken              (default: 20000, IT_MAGIC)
+    modify_monster_spoils("MERF",  70,   IT_NORMAL);    // Merfolk             (default: 70,   IT_NORMAL)
+    modify_monster_spoils("ELEM",  1300, IT_ADVANCED);  // Living Water        (default: 1300, IT_ADVANCED)
+
+    // Special monsters (enabled via EnableItem)
+    modify_monster_spoils("HYDR",  10000,IT_MAGIC);     // Hydra               (default: 10000, IT_MAGIC)
+    modify_monster_spoils("IDRA",  15000,IT_MAGIC);     // Ice Dragon          (default: 15000, IT_MAGIC)
+    modify_monster_spoils("ILLY",  4000, IT_MAGIC);     // Illyrthid           (default: 4000, IT_MAGIC)
+    modify_monster_spoils("STGI",  13000,IT_MAGIC);     // Storm Giant         (default: 13000, IT_MAGIC)
+    modify_monster_spoils("CLGI",  20000,IT_MAGIC);     // Cloud Giant         (default: 20000, IT_MAGIC)
+    modify_monster_spoils("DEVL",  40000,IT_MAGIC);     // Devil               (default: 40000, IT_MAGIC)
+    modify_monster_spoils("WARR",  120,  IT_NORMAL);    // Evil Warriors       (default: 120,  IT_NORMAL)
+    modify_monster_spoils("DMAG",  5000, IT_MAGIC);     // Dark Mage           (default: 5000, IT_MAGIC)
+    modify_monster_spoils("MAGI",  4000, IT_MAGIC);     // Evil Magicians      (default: 4000, IT_MAGIC)
 
     // Modify the various spells which are allowed to cross levels
     if (Globals->EASIER_UNDERWORLD) {

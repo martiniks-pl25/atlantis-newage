@@ -1147,6 +1147,9 @@ void Game::PostProcessTurn()
 
                     f->event("City guards' attitude towards you has improved to " +
                             AttitudeStrs[static_cast<int>(new_attitude)] + ".", "reputation");
+                } else {
+                    f->event("City guards remain " +
+                            AttitudeStrs[static_cast<int>(current)] + " towards your faction.", "reputation");
                 }
             }
 

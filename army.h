@@ -4,6 +4,7 @@
 
 #include <functional>
 #include <map>
+#include <set>
 #include <vector>
 #include <unordered_set>
 
@@ -159,7 +160,7 @@ class Army
         void DoHealLevel(Battle *b, int level, int rate, int useItems);
         void Regenerate(Battle *b);
 
-        void GetMonSpoils(ItemList& spoils, int monitem, int free);
+        void GetMonSpoils(ItemList& spoils, int monitem, int free, std::set<int>& chosen_types);
 
         int Broken();
         int NumAlive();
