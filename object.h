@@ -39,6 +39,7 @@ class ObjectType {
             SACRIFICE   = 0x200,  // This object requires the sacrifice command
             GRANTSKILL  = 0x400,  // This object grants a skill to the owner
             NOANNIHILATE = 0x800, // This object cannot be annihilated
+            SETTLEMENT_ONLY = 0x1000, // Can only be constructed in regions with a settlement
         };
         int flags;
 

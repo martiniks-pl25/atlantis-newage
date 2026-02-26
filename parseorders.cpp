@@ -1435,6 +1435,14 @@ BuildOrder* Game::ProcessBuildStructure(Unit *unit, int object_type, orders_chec
         return nullptr;
     }
 
+    if (ObjectDefs[object_type].flags & ObjectType::SETTLEMENT_ONLY) {
+        if (!unit->object->region->town) {
+            unit->error("BUILD: " + ObjectDefs[object_type].name +
+                        " can only be built in settlements.");
+            return nullptr;
+        }
+    }
+
     BuildOrder* order = new BuildOrder;
     order->new_building = object_type;
     return order;

@@ -2796,6 +2796,23 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
         if (comma) f << "and ";
         f << ObjectDefs[last].name << ".\n" << enclose("p", false);
 
+        {
+            std::vector<std::string> settlement_only;
+            for (int i = 0; i < NOBJECTS; i++) {
+                if (ObjectDefs[i].flags & ObjectType::DISABLED) continue;
+                if (!(ObjectDefs[i].flags & ObjectType::TRANSPORT)) continue;
+                if (!(ObjectDefs[i].flags & ObjectType::SETTLEMENT_ONLY)) continue;
+                settlement_only.push_back(ObjectDefs[i].name);
+            }
+            if (!settlement_only.empty()) {
+                f << enclose("p", true) << "Note: The "
+                  << strings::join(settlement_only, ", ", " and ")
+                  << (settlement_only.size() > 1 ? " structures can" : " can")
+                  << " only be built in a settlement (village, town or city).\n"
+                  << enclose("p", false);
+            }
+        }
+
         if (Globals->SHIPPING_COST > 0) {
             f << enclose("p", true) << "The cost of transport items from one quartermaster to "
               << "another is based on the weight of the items and costs " << Globals->SHIPPING_COST

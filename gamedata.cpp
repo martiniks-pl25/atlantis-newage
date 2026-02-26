@@ -4329,7 +4329,7 @@ std::vector<ObjectType> ObjectDefs = {
      -1,-1,
      {0,0,0,0,0,0}},
     {"Caravanserai",
-     ObjectType::DISABLED | ObjectType::CANENTER | ObjectType::CANMODIFY | ObjectType::TRANSPORT,
+     ObjectType::DISABLED | ObjectType::CANENTER | ObjectType::CANMODIFY | ObjectType::TRANSPORT | ObjectType::SETTLEMENT_ONLY,
      0, 0, 0, 0,
      I_WOOD_OR_STONE, 20, "BUIL", 2,
      -1, -1, 0, -1, 0,

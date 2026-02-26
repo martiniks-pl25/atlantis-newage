@@ -712,6 +712,10 @@ std::string object_description(int obj)
 
     if (o->flags & ObjectType::CANENTER) temp += " Units may enter this structure.";
 
+    if (o->flags & ObjectType::SETTLEMENT_ONLY) {
+        temp += " This structure can only be built in settlements (villages, towns or cities).";
+    }
+
     if (o->protect) {
         temp += " This structure provides defense to the first " + std::to_string(o->protect) + " men inside it. " +
             "This structure gives a defensive bonus of ";
