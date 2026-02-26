@@ -101,7 +101,7 @@ static GameDefs g = {
 
 	5,	/* HEALS_PER_MAN */
 
-	35,	/* GUARD_REGEN */ /* percent */
+	25,	/* GUARD_REGEN */ /* percent */
 	60,	/* CITY_GUARD */
 	50,	/* GUARD_MONEY */
 	10000,	/* CITY_POP */

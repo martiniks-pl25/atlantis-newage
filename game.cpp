@@ -2067,18 +2067,18 @@ void Game::CreateGuardMageESHI(ARegion *region)
     std::string eshi_name;
 
     if (region->type == R_NEXUS) {
-        eshi_name = "Arcane Warder";
+        eshi_name = "Arcane Flameguard";
     } else {
         int tt = region->town ? region->town->TownType() : TOWN_CITY;
         switch(tt) {
             case TOWN_VILLAGE:
-                eshi_name = townname + " Mystic";
+                eshi_name = townname + " Flameguard";
                 break;
             case TOWN_TOWN:
-                eshi_name = townname + " Warder";
+                eshi_name = townname + " Flame Warden";
                 break;
             default:
-                eshi_name = townname + " Arcane Warder";
+                eshi_name = townname + " Arcane Flameguard";
                 break;
         }
     }
@@ -2131,7 +2131,7 @@ void Game::CreateGuardMageFSHI(ARegion *region)
     } else {
         int tt = region->town ? region->town->TownType() : TOWN_CITY;
         if (tt == TOWN_TOWN) {
-            fshi_name = townname + " Enchanter";
+            fshi_name = townname + " Shield Warden";
         } else {
             fshi_name = townname + " Shieldmaster";
         }
@@ -2181,9 +2181,9 @@ void Game::CreateGuardMageFIRE(ARegion *region)
     std::string fire_name;
 
     if (region->type == R_NEXUS) {
-        fire_name = "Court Battlemage";
+        fire_name = "Court Fire Arcanist";
     } else {
-        fire_name = townname + " Battlemage";
+        fire_name = townname + " Fire Arcanist";
     }
 
     u->set_name(fire_name);
@@ -2228,29 +2228,29 @@ void Game::CreateCityMon(ARegion *region, int percent, int needmage)
     if (region->type == R_NEXUS) {
         melee_name = "City Guard";
         ranged_name = "City Archers";
-        eshi_name = "Arcane Warder";
+        eshi_name = "Arcane Flameguard";
         fshi_name = "Shieldmaster";
-        fire_name = "Court Battlemage";
+        fire_name = "Court Fire Arcanist";
     } else {
         int tt = region->town ? region->town->TownType() : TOWN_CITY;
         switch(tt) {
             case TOWN_VILLAGE:
                 melee_name = townname + " Militia";
                 ranged_name = townname + " Archers";
-                eshi_name = townname + " Mystic";
+                eshi_name = townname + " Flameguard";
                 break;
             case TOWN_TOWN:
                 melee_name = townname + " Town Guard";
                 ranged_name = townname + " Archers";
-                eshi_name = townname + " Warder";
-                fshi_name = townname + " Enchanter";
+                eshi_name = townname + " Flame Warden";
+                fshi_name = townname + " Shield Warden";
                 break;
             default:
                 melee_name = townname + " City Guard";
                 ranged_name = townname + " Archers";
-                eshi_name = townname + " Arcane Warder";
+                eshi_name = townname + " Arcane Flameguard";
                 fshi_name = townname + " Shieldmaster";
-                fire_name = townname + " Battlemage";
+                fire_name = townname + " Fire Arcanist";
                 break;
         }
     }
@@ -2350,6 +2350,12 @@ void Game::CreateCityMon(ARegion *region, int percent, int needmage)
         u2->MoveUnit(region->GetDummy());
     }
 
+    // Always create a Guard Commander (tactical cavalry leader)
+    CreateGuardCommander(region);
+
+    // Always create a Mayor (city administrator, symbolic leader)
+    CreateMayor(region);
+
     if (needmage) {
         int magelevel = skilllevel; // towntype + 1: Village=1, Town=2, City=3
         // For starting cities, use START_CITY_MAGES if higher
@@ -2359,7 +2365,7 @@ void Game::CreateCityMon(ARegion *region, int percent, int needmage)
         int tt = (region->type == R_NEXUS) ? TOWN_CITY :
                  (region->town ? region->town->TownType() : TOWN_CITY);
 
-        // ESHI mage (all towns): Energy Shield (+1 bonus) + Tactics (normal)
+        // ESHI mage (all towns): Energy Shield (+1 bonus), no Tactics
         u = GetNewUnit(fac);
         u->set_name(eshi_name);
         u->type = U_GUARDMAGE;
@@ -2369,14 +2375,13 @@ void Game::CreateCityMon(ARegion *region, int percent, int needmage)
         u->SetMoney(Globals->GUARD_MONEY);
         u->SetSkill(S_FORCE, magelevel + 1);
         u->SetSkill(S_ENERGY_SHIELD, magelevel + 1);  // +1 bonus for ESHI
-        u->SetSkill(S_TACTICS, magelevel);  // No bonus for tactics
-        u->guard = GUARD_GUARD;
+        u->guard = GUARD_NONE;
         u->SetFlag(FLAG_BEHIND, 1);
         u->SetFlag(FLAG_HOLDING, 1);
         u->combat = S_ENERGY_SHIELD;  // Set combat AFTER all other setup
         u->MoveUnit(region->GetDummy());
 
-        // FSHI mage (Town+): Force Shield + Tactics
+        // FSHI mage (Town+): Force Shield, no Tactics
         if (tt >= TOWN_TOWN) {
             u = GetNewUnit(fac);
             u->set_name(fshi_name);
@@ -2387,15 +2392,14 @@ void Game::CreateCityMon(ARegion *region, int percent, int needmage)
             u->SetMoney(Globals->GUARD_MONEY);
             u->SetSkill(S_FORCE, magelevel);
             u->SetSkill(S_FORCE_SHIELD, magelevel);
-            u->SetSkill(S_TACTICS, magelevel);
-            u->guard = GUARD_GUARD;
+            u->guard = GUARD_NONE;
             u->SetFlag(FLAG_BEHIND, 1);
             u->SetFlag(FLAG_HOLDING, 1);
             u->combat = S_FORCE_SHIELD;  // Set combat AFTER all other setup
             u->MoveUnit(region->GetDummy());
         }
 
-        // FIRE mage (City+): Fire attack
+        // FIRE mage (City+): Fire attack, no Tactics
         if (tt >= TOWN_CITY) {
             u = GetNewUnit(fac);
             u->set_name(fire_name);
@@ -2406,7 +2410,7 @@ void Game::CreateCityMon(ARegion *region, int percent, int needmage)
             u->SetMoney(Globals->GUARD_MONEY);
             u->SetSkill(S_FORCE, magelevel);
             u->SetSkill(S_FIRE, magelevel);
-            u->guard = GUARD_GUARD;
+            u->guard = GUARD_NONE;
             u->SetFlag(FLAG_BEHIND, 1);
             u->SetFlag(FLAG_HOLDING, 1);
             u->combat = S_FIRE;  // Set combat AFTER all other setup
@@ -2427,6 +2431,7 @@ void Game::AdjustCityMons(ARegion *r)
     bool should_have_eshi = true;
     bool should_have_fshi = (towntype >= TOWN_TOWN);
     bool should_have_fire = (towntype >= TOWN_CITY);
+    bool should_have_commander = true;
 
     // Check what DOES exist and if player is on guard
     bool has_melee = false;
@@ -2434,7 +2439,10 @@ void Game::AdjustCityMons(ARegion *r)
     bool has_eshi = false;
     bool has_fshi = false;
     bool has_fire = false;
+    bool has_commander = false;
+    bool has_mayor = false;
     bool player_on_guard = false;
+    Unit *mayor_unit = nullptr;
 
     for(const auto o : r->objects) {
         for(const auto u : o->units) {
@@ -2462,7 +2470,52 @@ void Game::AdjustCityMons(ARegion *r)
                 else if (u->combat == S_FIRE)
                     has_fire = true;
             }
+
+            if (u->type == U_GUARDCOMMANDER) {
+                AdjustCityMon(r, u);
+                has_commander = true;
+            }
+
+            if (u->type == U_MAYOR) {
+                has_mayor = true;
+                mayor_unit = u;
+            }
         }
+    }
+
+    // Calculate melee men count (after AdjustCityMon top-up) and expected max
+    int melee_men = 0;
+    int melee_max = 0;
+    if (r->type == R_NEXUS || r->IsStartingCity()) {
+        int base = Globals->AMT_START_CITY_GUARDS;
+        melee_max = Globals->GUARDS_USE_LEADERS ? base : 3 * base / 4;
+    } else {
+        int base = Globals->CITY_GUARD * (towntype + 1);
+        melee_max = Globals->GUARDS_USE_LEADERS ? base : 2 * base / 3;
+    }
+    if (has_melee) {
+        // Find the melee unit and get its current men count
+        for(const auto o : r->objects) {
+            for(const auto u : o->units) {
+                if (u->type == U_GUARD && !u->GetFlag(FLAG_BEHIND)) {
+                    melee_men = u->GetMen();
+                    break;
+                }
+            }
+        }
+    }
+
+    // Mayor flee check: if front line below 50% of max, mayor flees
+    if (has_mayor && mayor_unit && melee_men < melee_max * 50 / 100) {
+        // Mayor flees — takes cornucopia with him (items disappear with unit)
+        mayor_unit->SetMen(I_LEADERS, 0);
+        has_mayor = false;
+        mayor_unit = nullptr;
+    }
+
+    // Mayor adjust (equipment, treasury payment, name upgrade)
+    if (has_mayor && mayor_unit) {
+        AdjustCityMon(r, mayor_unit);
     }
 
     // Determine what needs to be created
@@ -2471,9 +2524,10 @@ void Game::AdjustCityMons(ARegion *r)
     bool need_eshi = should_have_eshi && !has_eshi;
     bool need_fshi = should_have_fshi && !has_fshi;
     bool need_fire = should_have_fire && !has_fire;
+    bool need_commander = should_have_commander && !has_commander;
 
-    bool need_something = need_melee || need_ranged || need_eshi || need_fshi || need_fire;
-    bool has_any_guards = has_melee || has_ranged || has_eshi || has_fshi || has_fire;
+    bool need_something = need_melee || need_ranged || need_eshi || need_fshi || need_fire || need_commander;
+    bool has_any_guards = has_melee || has_ranged || has_eshi || has_fshi || has_fire || has_commander;
 
     // Regenerate guards if: no player on guard AND something is missing
     if (!player_on_guard && need_something) {
@@ -2483,7 +2537,7 @@ void Game::AdjustCityMons(ARegion *r)
             // Someone survived - regenerate missing guards WITHOUT random check (100% chance)
             should_regenerate = true;
         } else {
-            // Everyone killed - check random chance first (35%)
+            // Everyone killed - check random chance first (25%)
             should_regenerate = (rng::get_random(100) < Globals->GUARD_REGEN);
         }
 
@@ -2494,8 +2548,25 @@ void Game::AdjustCityMons(ARegion *r)
             if (need_eshi) CreateGuardMageESHI(r);
             if (need_fshi) CreateGuardMageFSHI(r);
             if (need_fire) CreateGuardMageFIRE(r);
+            if (need_commander) CreateGuardCommander(r);
         }
     }
+
+    // Mayor spawn check: appears only when melee >= 75% of max
+    if (!has_mayor && has_melee && melee_men >= melee_max * 75 / 100) {
+        CreateMayor(r);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Mayor treasury constants — edit here to tune mayor starting funds / income
+// ---------------------------------------------------------------------------
+namespace {
+    /// Silver granted per town tier on spawn (village=1×, town=2×, city=3×)
+    /// and also added as a bonus when the town levels up.
+    constexpr int MAYOR_TREASURY_PER_LEVEL = 1000;
+    /// Percent of region taxable income added to mayor's treasury each turn.
+    constexpr int MAYOR_INCOME_PCT = 10;
 }
 
 /**
@@ -2531,8 +2602,212 @@ int GetShieldTier(int itemtype) {
     return 0; // No shield or unknown
 }
 
+
 void Game::AdjustCityMon(ARegion *r, Unit *u)
 {
+    // Mayor has its own dedicated upgrade logic
+    if (u->type == U_MAYOR) {
+        bool AC = r->IsStartingCity() || r->type == R_NEXUS;
+        int tt = AC ? TOWN_CITY : (r->town ? r->town->TownType() : TOWN_CITY);
+        bool IV = AC && (Globals->SAFE_START_CITIES || r->type == R_NEXUS);
+
+        // Weapon tier: SWOR(1) → MSWO(2) → ASWR(3)
+        auto get_sword_tier = [](int item) -> int {
+            if (item == I_SWORD)   return 1;
+            if (item == I_MSWORD)  return 2;
+            if (item == I_ADSWORD) return 3;
+            return 0;
+        };
+        // Armor tier: CARM(1) → MCAR(2) → ARNG(3)
+        auto get_chain_tier = [](int item) -> int {
+            if (item == I_CHAINARMOR) return 1;
+            if (item == I_MCHAIN)     return 2;
+            if (item == I_ADRING)     return 3;
+            return 0;
+        };
+
+        int req_weapon, req_armor;
+        switch (tt) {
+            case TOWN_VILLAGE: req_weapon = I_SWORD;   req_armor = I_CHAINARMOR; break;
+            case TOWN_TOWN:    req_weapon = I_MSWORD;  req_armor = I_MCHAIN;     break;
+            default:           req_weapon = I_ADSWORD; req_armor = I_ADRING;     break;
+        }
+
+        int cur_weapon = -1, cur_armor = -1;
+        for (int i = 0; i < NITEMS; i++) {
+            if (u->items.GetNum(i) == 0) continue;
+            if (i == I_SWORD || i == I_MSWORD || i == I_ADSWORD)         cur_weapon = i;
+            if (i == I_CHAINARMOR || i == I_MCHAIN || i == I_ADRING)     cur_armor  = i;
+        }
+
+        // Upgrade weapon (never downgrade)
+        if (cur_weapon == -1) {
+            cur_weapon = req_weapon;
+        } else if (get_sword_tier(req_weapon) > get_sword_tier(cur_weapon)) {
+            u->items.SetNum(cur_weapon, 0);
+            cur_weapon = req_weapon;
+        }
+        // Upgrade armor (never downgrade)
+        if (cur_armor == -1) {
+            cur_armor = req_armor;
+        } else if (get_chain_tier(req_armor) > get_chain_tier(cur_armor)) {
+            u->items.SetNum(cur_armor, 0);
+            cur_armor = req_armor;
+        }
+
+        u->SetMen(I_LEADERS, 1);
+        u->items.SetNum(cur_weapon, 1);
+        u->items.SetNum(cur_armor, 1);
+        u->items.SetNum(I_CORNUCOPIA, 1);    // City key: enables EART casting
+        u->items.SetNum(I_SHIELDSTONE, 1);   // Mayor's protective artifact
+        if (IV) u->items.SetNum(I_AMULETOFI, 1);
+        if (u->GetMoney() < (int)Globals->GUARD_MONEY)
+            u->SetMoney(Globals->GUARD_MONEY);
+
+        // S_OBSERVATION 3/4/5 — rank indicator (upgrade only)
+        int cur_obs = u->GetRealSkill(S_OBSERVATION);
+        u->SetSkill(S_OBSERVATION, std::max(cur_obs, tt + 3));
+
+        u->SetFlag(FLAG_BEHIND, 1);
+        u->SetFlag(FLAG_HOLDING, 1);
+        u->guard = GUARD_NONE;
+
+        // City treasury: MAYOR_INCOME_PCT% of region taxable income per turn
+        int income = r->Population() * (r->Wages() - 10 * Globals->MAINTENANCE_COST) / 50;
+        if (income > 0) {
+            u->SetMoney(u->GetMoney() + income * MAYOR_INCOME_PCT / 100);
+        }
+
+        // Name + level-up bonus: fires on town tier upgrade (obs rank tracks tier)
+        if (tt + 3 > cur_obs) {
+            // Town leveled up: add 1000 silver bonus (same as per-level step)
+            u->SetMoney(u->GetMoney() + MAYOR_TREASURY_PER_LEVEL);
+            std::string tn = r->town ? r->town->name : "City";
+            std::string nm;
+            if (r->type == R_NEXUS)         nm = "City Lord Mayor";
+            else if (tt == TOWN_VILLAGE)    nm = tn + " Elder";
+            else if (tt == TOWN_TOWN)       nm = tn + " Mayor";
+            else                            nm = tn + " Lord Mayor";
+            u->set_name(nm);
+        }
+        return;
+    }
+
+    // Commander has its own dedicated upgrade logic
+    if (u->type == U_GUARDCOMMANDER) {
+        bool AC = r->IsStartingCity() || r->type == R_NEXUS;
+        int tt = AC ? TOWN_CITY : (r->town ? r->town->TownType() : TOWN_CITY);
+        bool IV = AC && (Globals->SAFE_START_CITIES || r->type == R_NEXUS);
+
+        // Equipment by town type (upgrade only, never downgrade)
+        int req_weapon, req_armor, req_shield, req_horse;
+        int tact, ridi, comb;
+        switch (tt) {
+            case TOWN_VILLAGE:
+                req_weapon = I_BAXE; req_armor = I_PLATEARMOR;
+                req_shield = I_ISHIELD; req_horse = I_HORSE;
+                tact = 2; ridi = 1; comb = 3;
+                break;
+            case TOWN_TOWN:
+                req_weapon = I_MBAXE; req_armor = I_MPLATE;
+                req_shield = I_MSHIELD; req_horse = I_HORSE;
+                tact = 3; ridi = 2; comb = 4;
+                break;
+            default: // TOWN_CITY and Nexus
+                req_weapon = I_ADBAXE; req_armor = I_ADPLATE;
+                req_shield = I_ASHIELD; req_horse = I_WHORSE;
+                tact = 4; ridi = 3; comb = 5;
+                break;
+        }
+
+        // Detect current weapon (to support upgrade logic)
+        auto get_baxe_tier = [](int item) -> int {
+            if (item == I_BAXE)  return 1;
+            if (item == I_MBAXE) return 2;
+            if (item == I_ADBAXE) return 3;
+            return 0;
+        };
+        auto get_ashield_tier = [](int item) -> int {
+            if (item == I_ISHIELD) return 1;
+            if (item == I_MSHIELD) return 2;
+            if (item == I_ASHIELD) return 3;
+            return 0;
+        };
+        auto get_parm_tier = [](int item) -> int {
+            if (item == I_PLATEARMOR) return 1;
+            if (item == I_MPLATE)     return 2;
+            if (item == I_ADPLATE)    return 3;
+            return 0;
+        };
+
+        int cur_weapon = -1, cur_armor = -1, cur_shield = -1, cur_horse = -1;
+        for (int i = 0; i < NITEMS; i++) {
+            if (u->items.GetNum(i) == 0) continue;
+            if (i == I_BAXE || i == I_MBAXE || i == I_ADBAXE) cur_weapon = i;
+            if (i == I_PLATEARMOR || i == I_MPLATE || i == I_ADPLATE) cur_armor = i;
+            if (i == I_ISHIELD || i == I_MSHIELD || i == I_ASHIELD) cur_shield = i;
+            if (i == I_HORSE || i == I_WHORSE) cur_horse = i;
+        }
+
+        // Assign weapon (upgrade only)
+        if (cur_weapon == -1) {
+            cur_weapon = req_weapon;
+        } else if (get_baxe_tier(req_weapon) > get_baxe_tier(cur_weapon)) {
+            u->items.SetNum(cur_weapon, 0);
+            cur_weapon = req_weapon;
+        }
+        // Assign armor (upgrade only)
+        if (cur_armor == -1) {
+            cur_armor = req_armor;
+        } else if (get_parm_tier(req_armor) > get_parm_tier(cur_armor)) {
+            u->items.SetNum(cur_armor, 0);
+            cur_armor = req_armor;
+        }
+        // Assign shield (upgrade only)
+        if (cur_shield == -1) {
+            cur_shield = req_shield;
+        } else if (get_ashield_tier(req_shield) > get_ashield_tier(cur_shield)) {
+            u->items.SetNum(cur_shield, 0);
+            cur_shield = req_shield;
+        }
+        // Assign horse (upgrade only: regular → warhorse)
+        if (cur_horse == -1) {
+            cur_horse = req_horse;
+        } else if (req_horse == I_WHORSE && cur_horse == I_HORSE) {
+            u->items.SetNum(I_HORSE, 0);
+            cur_horse = I_WHORSE;
+        }
+
+        u->SetMen(I_LEADERS, 1);
+        u->items.SetNum(cur_weapon, 1);
+        u->items.SetNum(cur_armor, 1);
+        u->items.SetNum(cur_shield, 1);
+        u->items.SetNum(cur_horse, 1);
+        if (IV) u->items.SetNum(I_AMULETOFI, 1);
+        u->SetMoney(Globals->GUARD_MONEY);
+        // Skills: never downgrade
+        u->SetSkill(S_TACTICS, std::max(u->GetRealSkill(S_TACTICS), tact));
+        u->SetSkill(S_RIDING,  std::max(u->GetRealSkill(S_RIDING),  ridi));
+        u->SetSkill(S_COMBAT,  std::max(u->GetRealSkill(S_COMBAT),  comb));
+        // Observation 3/4/5 — also serves as rank indicator for name protection
+        int cur_obs = u->GetRealSkill(S_OBSERVATION);
+        u->SetSkill(S_OBSERVATION, std::max(cur_obs, tt + 3));
+        u->SetFlag(FLAG_BEHIND, 1);
+        u->SetFlag(FLAG_HOLDING, 1);
+        u->guard = GUARD_GUARD;
+        // Update name only if town rank increased (obs-based, never downgrade)
+        if (tt + 3 > cur_obs) {
+            std::string tn = r->town ? r->town->name : "City";
+            std::string nm;
+            if (r->type == R_NEXUS)         nm = "City General";
+            else if (tt == TOWN_VILLAGE)    nm = tn + " Chieftain";
+            else if (tt == TOWN_TOWN)       nm = tn + " Marshal";
+            else                            nm = tn + " General";
+            u->set_name(nm);
+        }
+        return;
+    }
+
     int towntype;
     int AC = 0;
     int men;
@@ -2719,32 +2994,51 @@ void Game::AdjustCityMon(ARegion *r, Unit *u)
 
         // Update skills based on combat spell (already set in CreateCityMon)
         if (u->combat == S_FIRE) {
-            // Battlemage: fire attack + TACTICS
+            // Fire Arcanist: fire attack
             int current_fire = u->GetRealSkill(S_FIRE);
-            int current_tactics = u->GetRealSkill(S_TACTICS);
             u->SetSkill(S_FIRE, std::max(current_fire, magelevel));
-            u->SetSkill(S_TACTICS, std::max(current_tactics, magelevel));
         } else if (u->combat == S_FORCE_SHIELD) {
-            // Shieldmaster: force shield + TACTICS
+            // Shieldmaster: force shield
             int current_fshi = u->GetRealSkill(S_FORCE_SHIELD);
-            int current_tactics = u->GetRealSkill(S_TACTICS);
             u->SetSkill(S_FORCE_SHIELD, std::max(current_fshi, magelevel));
-            u->SetSkill(S_TACTICS, std::max(current_tactics, magelevel));
         } else {
-            // Warder/Mystic (ESHI): energy shield gets +1 bonus, tactics normal level
+            // Flameguard (ESHI): energy shield gets +1 bonus
             int eshi_level = magelevel + 1;
             int current_eshi = u->GetRealSkill(S_ENERGY_SHIELD);
-            int current_tactics = u->GetRealSkill(S_TACTICS);
             u->SetSkill(S_ENERGY_SHIELD, std::max(current_eshi, eshi_level));
-            u->SetSkill(S_TACTICS, std::max(current_tactics, magelevel));  // No bonus for tactics
             if (u->combat != S_ENERGY_SHIELD) u->combat = S_ENERGY_SHIELD;
         }
+        // Observation 3/4/5 — also serves as rank indicator for name protection
+        int cur_obs = u->GetRealSkill(S_OBSERVATION);
+        u->SetSkill(S_OBSERVATION, std::max(cur_obs, towntype + 3));
         u->SetFlag(FLAG_BEHIND, 1);
         u->SetMoney(Globals->GUARD_MONEY);
+        // Update name only if town rank increased (obs-based, never downgrade)
+        if (towntype + 3 > cur_obs) {
+            std::string tn = r->town ? r->town->name : "City";
+            std::string nm;
+            if (r->type == R_NEXUS) {
+                if (u->combat == S_ENERGY_SHIELD)     nm = "Arcane Flameguard";
+                else if (u->combat == S_FORCE_SHIELD) nm = "Shieldmaster";
+                else if (u->combat == S_FIRE)         nm = "Court Fire Arcanist";
+            } else if (towntype == TOWN_VILLAGE) {
+                nm = tn + " Flameguard";
+            } else if (towntype == TOWN_TOWN) {
+                if (u->combat == S_ENERGY_SHIELD)     nm = tn + " Flame Warden";
+                else if (u->combat == S_FORCE_SHIELD) nm = tn + " Shield Warden";
+            } else {
+                if (u->combat == S_ENERGY_SHIELD)     nm = tn + " Arcane Flameguard";
+                else if (u->combat == S_FORCE_SHIELD) nm = tn + " Shieldmaster";
+                else if (u->combat == S_FIRE)         nm = tn + " Fire Arcanist";
+            }
+            if (!nm.empty()) u->set_name(nm);
+        }
     } else {
         int money = men * (Globals->GUARD_MONEY * men / maxmen);
         u->SetMoney(money);
-        u->SetSkill(skill, sl);
+        // Upgrade combat skill by town type (never downgrade): village=1, town=2, city=3
+        u->SetSkill(skill, std::max(sl, towntype + 1));
+        int current_obs = u->GetRealSkill(S_OBSERVATION);
         if (AC) {
             u->SetSkill(S_OBSERVATION,10);
             if (Globals->START_CITY_TACTICS)
@@ -2753,7 +3047,6 @@ void Game::AdjustCityMon(ARegion *r, Unit *u)
                 u->items.SetNum(armor,men);
         } else {
             // Don't lower Observation - keep maximum level
-            int current_obs = u->GetRealSkill(S_OBSERVATION);
             u->SetSkill(S_OBSERVATION, std::max(current_obs, towntype + 3));
             if (armor != -1) {
                 u->items.SetNum(armor,men);
@@ -2765,11 +3058,132 @@ void Game::AdjustCityMon(ARegion *r, Unit *u)
         if (shield != -1) {
             u->items.SetNum(shield,men);
         }
+        // Update name only if town rank increased (obs-based, never downgrade)
+        if (towntype + 3 > current_obs) {
+            std::string tn = r->town ? r->town->name : "City";
+            std::string nm;
+            if (r->type == R_NEXUS) {
+                nm = u->GetFlag(FLAG_BEHIND) ? "City Archers" : "City Guard";
+            } else if (u->GetFlag(FLAG_BEHIND)) {
+                nm = tn + " Archers";
+            } else if (towntype == TOWN_VILLAGE) {
+                nm = tn + " Militia";
+            } else if (towntype == TOWN_TOWN) {
+                nm = tn + " Town Guard";
+            } else {
+                nm = tn + " City Guard";
+            }
+            u->set_name(nm);
+        }
     }
     // Restore guard status (lost when guards are defeated in battle)
-    if (u->type == U_GUARD || u->type == U_GUARDMAGE) {
+    // Mages (U_GUARDMAGE) use GUARD_NONE - they fight but don't block taxation
+    if (u->type == U_GUARD || u->type == U_GUARDCOMMANDER) {
         u->guard = GUARD_GUARD;
+    } else if (u->type == U_GUARDMAGE) {
+        u->guard = GUARD_NONE;
     }
+}
+
+/**
+ * @brief Creates a Guard Commander unit for a settlement.
+ *
+ * Spawns 1 leader with TACTICS/RIDING/COMBAT skills scaled by town type.
+ * No equipment on creation — AdjustCityMon delivers it next turn.
+ * Names: Village="X Chieftain", Town="X Marshal", City/Nexus="X General".
+ *
+ * @param r  Region containing the settlement
+ */
+void Game::CreateGuardCommander(ARegion *r)
+{
+    bool AC = r->IsStartingCity() || r->type == R_NEXUS;
+    int tt = AC ? TOWN_CITY : (r->town ? r->town->TownType() : TOWN_CITY);
+    bool IV = AC && (Globals->SAFE_START_CITIES || r->type == R_NEXUS);
+
+    int tact, ridi, comb;
+    switch (tt) {
+        case TOWN_VILLAGE: tact = 2; ridi = 1; comb = 3; break;
+        case TOWN_TOWN:    tact = 3; ridi = 2; comb = 4; break;
+        default:           tact = 4; ridi = 3; comb = 5; break;
+    }
+
+    std::string townname = r->town ? r->town->name : "City";
+    std::string name;
+    if (r->type == R_NEXUS) {
+        name = "City General";
+    } else {
+        switch (tt) {
+            case TOWN_VILLAGE: name = townname + " Chieftain"; break;
+            case TOWN_TOWN:    name = townname + " Marshal";   break;
+            default:           name = townname + " General";   break;
+        }
+    }
+
+    Faction *fac = GetFaction(factions, guardfaction);
+    Unit *u = GetNewUnit(fac);
+    u->set_name(name);
+    u->type = U_GUARDCOMMANDER;
+    u->guard = GUARD_GUARD;
+    u->reveal = REVEAL_FACTION;
+    u->SetMen(I_LEADERS, 1);
+    if (IV) u->items.SetNum(I_AMULETOFI, 1);
+    u->SetMoney(Globals->GUARD_MONEY);
+    u->SetSkill(S_TACTICS,      tact);
+    u->SetSkill(S_RIDING,       ridi);
+    u->SetSkill(S_COMBAT,       comb);
+    u->SetSkill(S_OBSERVATION,  tt + 3);
+    u->SetFlag(FLAG_BEHIND, 1);
+    u->SetFlag(FLAG_HOLDING, 1);
+    // Equipment (axe/armor/shield/horse) delivered by AdjustCityMon next turn
+    u->MoveUnit(r->GetDummy());
+}
+
+/**
+ * @brief Creates the city Mayor (symbolic administrator NPC).
+ *
+ * Mayor participates in combat (rear line), carries I_CORNUCOPIA (city key),
+ * accumulates city treasury (5% of region income per turn via AdjustCityMon).
+ * Flees when melee guards < 50% of max. Respawns when melee >= 75% of max.
+ *
+ * Names: Village Elder / Town Mayor / City Lord Mayor / Nexus City Lord Mayor
+ * Weapons: SWOR → MSWO → ASWR (by town type, upgrade only)
+ * Armor:   CARM → MCAR → ARNG (by town type, upgrade only)
+ *
+ * @see AdjustCityMon() for equipment/treasury, AdjustCityMons() for flee/spawn logic
+ */
+void Game::CreateMayor(ARegion *r)
+{
+    bool AC = r->IsStartingCity() || r->type == R_NEXUS;
+    int tt = AC ? TOWN_CITY : (r->town ? r->town->TownType() : TOWN_CITY);
+    bool IV = AC && (Globals->SAFE_START_CITIES || r->type == R_NEXUS);
+
+    std::string townname = r->town ? r->town->name : "City";
+    std::string name;
+    if (r->type == R_NEXUS) {
+        name = "City Lord Mayor";
+    } else {
+        switch (tt) {
+            case TOWN_VILLAGE: name = townname + " Elder";      break;
+            case TOWN_TOWN:    name = townname + " Mayor";      break;
+            default:           name = townname + " Lord Mayor"; break;
+        }
+    }
+
+    Faction *fac = GetFaction(factions, guardfaction);
+    Unit *u = GetNewUnit(fac);
+    u->set_name(name);
+    u->type = U_MAYOR;
+    u->guard = GUARD_NONE;
+    u->reveal = REVEAL_FACTION;
+    u->SetMen(I_LEADERS, 1);
+    if (IV) u->items.SetNum(I_AMULETOFI, 1);
+    // Initial treasury: base + 1000 per town tier (village=1000, town=2000, city=3000)
+    u->SetMoney(Globals->GUARD_MONEY + MAYOR_TREASURY_PER_LEVEL * (tt + 1));
+    u->SetSkill(S_OBSERVATION, tt + 3);
+    u->SetFlag(FLAG_BEHIND, 1);
+    u->SetFlag(FLAG_HOLDING, 1);
+    u->MoveUnit(r->GetDummy());
+    AdjustCityMon(r, u);  // Equip immediately on spawn
 }
 
 void Game::Equilibrate()

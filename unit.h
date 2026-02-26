@@ -47,6 +47,8 @@ enum {
     U_WMON,
     U_GUARDMAGE,
     U_APPRENTICE,
+    U_GUARDCOMMANDER,
+    U_MAYOR,
     NUNITTYPES
 };
 

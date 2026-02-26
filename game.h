@@ -160,6 +160,8 @@ private:
     void CreateGuardMageESHI(ARegion *pReg);
     void CreateGuardMageFSHI(ARegion *pReg);
     void CreateGuardMageFIRE(ARegion *pReg);
+    void CreateGuardCommander(ARegion *pReg);
+    void CreateMayor(ARegion *pReg);
     int MakeWMon(ARegion *pReg);
     void MakeLMon(Object *pObj);
 
