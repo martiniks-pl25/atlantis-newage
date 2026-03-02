@@ -716,6 +716,13 @@ std::string object_description(int obj)
         temp += " This structure can only be built in settlements (villages, towns or cities).";
     }
 
+    if (obj == O_TOWER) {
+        temp += " Units garrisoning this tower observe all adjacent regions at basic observation level,"
+                " regardless of their Observation skill."
+                " Skills such as Observation, True Seeing and Mind Reading do not enhance this ability:"
+                " stealth units and invisible items will not be detected.";
+    }
+
     if (o->protect) {
         temp += " This structure provides defense to the first " + std::to_string(o->protect) + " men inside it. " +
             "This structure gives a defensive bonus of ";

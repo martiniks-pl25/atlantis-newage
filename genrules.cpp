@@ -3102,6 +3102,16 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
     }
     f << '\n' << enclose("p", false);
 
+    if (!(ObjectDefs[O_TOWER].flags & ObjectType::DISABLED)) {
+        f << enclose("p", true) << "A Tower also grants its garrison a commanding view of the surrounding terrain. "
+          << "Any faction with units inside a Tower will automatically receive a scouting report for all "
+          << "adjacent regions each turn. This observation is performed at basic level (Observation 0): "
+          << "non-stealthy units will be visible, but stealth units and invisible items will not be detected. "
+          << "Skills such as Observation [OBSE], True Seeing [MINI] and Mind Reading do not enhance this ability "
+          << "-- the tower provides a fixed, unaugmented view of its surroundings.\n"
+          << enclose("p", false);
+    }
+
     f << enclose("p", true) << "Units which have the Behind flag set are at the rear and cannot be attacked by "
       << "any means until all non-Behind units have been wiped out.  On the other hand, neither can they attack "
       << "with melee weapons, but only with ranged weapons or magic.  Once all front-line units have been wiped "

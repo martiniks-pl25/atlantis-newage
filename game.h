@@ -494,6 +494,7 @@ private:
     void MidProcessTurn();
     void PostProcessUnitExtra(ARegion *, Unit *);
     void PostProcessTurn();
+    void DoTowerObservation();
 
     // Processing regions grow after production phase
     void ProcessEconomics();

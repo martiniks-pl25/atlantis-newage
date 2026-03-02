@@ -1176,6 +1176,42 @@ void Game::PostProcessTurn()
     if (Globals->LAIR_MONSTERS_EXIST) GrowLMons(Globals->LAIR_FREQUENCY);
 
     if (Globals->LAIR_MONSTERS_EXIST) GrowVMons();
+
+    DoTowerObservation();
+}
+
+void Game::DoTowerObservation()
+{
+    for (const auto r : regions) {
+        // Collect player factions that have units inside a Tower building
+        std::set<Faction *> tower_factions;
+        for (const auto o : r->objects) {
+            if (o->type != O_TOWER) continue;
+            for (const auto u : o->units) {
+                if (!u->faction->is_npc) {
+                    tower_factions.insert(u->faction);
+                }
+            }
+        }
+        if (tower_factions.empty()) continue;
+
+        // Add a basic farsight entry (obs=0, unit=nullptr) to each adjacent region.
+        // Using unit=nullptr ensures no skills (OBSE, TRUE_SEEING, MIND_READING, etc.) are applied.
+        for (int i = 0; i < NDIRS; i++) {
+            ARegion *neigh = r->neighbors[i];
+            if (!neigh) continue;
+            for (Faction *fac : tower_factions) {
+                if (!GetFarsight(neigh->farsees, fac)) {
+                    Farsight *f = new Farsight;
+                    f->faction = fac;
+                    f->level = 0;
+                    f->unit = nullptr;   // No skill bonuses: OBSE, TRUE_SEEING, etc. are not applied
+                    f->observation = 0;  // Base observation level (OBSE=0)
+                    neigh->farsees.push_back(f);
+                }
+            }
+        }
+    }
 }
 
 void Game::DoAutoAttacks()
