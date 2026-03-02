@@ -85,11 +85,17 @@ void ARegion::AddMenMarket() {
  * @brief Creates recruitment market for leaders
  *
  * Creates a M_BUY market for leaders with quantity based on population.
- * Formula: amount = Population() / LEADERS_PER_MARKET_UNIT
+ * Formula: amount = Population() / LEADERS_PER_MARKET_UNIT  (1 per 900 pop)
+ *
+ * In regions WITHOUT a settlement the market is created with the calculated
+ * amount, but PostTurn() (and UpdateEditRegion()) will apply a 35% wilderness
+ * chance roll afterward — on a failed roll amount is set to 0 for that turn.
+ * Regions WITH a settlement are not subject to the roll (leaders always available).
  *
  * @note Skips if LEADERS_EXIST is disabled or terrain has NO_LEADERS flag
- * @note Market amount will be recalculated by Market::post_turn() each turn
- * @see AddMenMarket(), Market::post_turn()
+ * @note Market amount will be recalculated by Market::post_turn() each turn,
+ *       then wilderness roll is applied (see PostTurn(), UpdateEditRegion())
+ * @see AddMenMarket(), Market::post_turn(), ARegion::PostTurn()
  */
 void ARegion::AddLeadersMarket() {
     if (!Globals->LEADERS_EXIST) return;
@@ -1032,6 +1038,16 @@ void ARegion::UpdateEditRegion()
 
     AddMenMarket();
     AddLeadersMarket();
+
+    // Wilderness leader availability: same 35% roll as in PostTurn()
+    if (!town && Globals->LEADERS_EXIST) {
+        constexpr int WILDERNESS_LEADER_CHANCE = 35; // % chance leaders are available this turn
+        if (rng::get_random(100) >= WILDERNESS_LEADER_CHANCE) {
+            for (auto& m : markets)
+                if (ItemDefs[m->item].type & IT_LEADER)
+                    m->amount = 0;
+        }
+    }
 }
 
 /**
@@ -1733,11 +1749,14 @@ void ARegion::Migrate()
  * - Starting city markets (if city was captured)
  * - Wages and entertainment income
  * - All market quantities/prices via Market::post_turn()
+ * - Wilderness leader chance (35% roll for regions without a settlement)
  * - Production resources
  * - Unit PostTurn processing
  *
  * @note This is where Market::post_turn() recalculates recruitment markets
- * @see Market::post_turn(), UpdateProducts(), SetIncome()
+ * @note After market update, regions without a settlement apply a 35% roll
+ *       for leader availability (WILDERNESS_LEADER_CHANCE local constant)
+ * @see Market::post_turn(), UpdateProducts(), SetIncome(), AddLeadersMarket()
  */
 void ARegion::PostTurn()
 {
@@ -1805,6 +1824,18 @@ void ARegion::PostTurn()
 
     /* update markets */
     for (auto& m : markets) m->post_turn(Population(), Wages());
+
+    // Wilderness leader availability: in regions without a settlement, leaders are
+    // not permanently present — they appear with 35% probability per turn
+    // (wandering leaders "passing through"). In settlements supply is stable.
+    if (!town && Globals->LEADERS_EXIST) {
+        constexpr int WILDERNESS_LEADER_CHANCE = 35; // % chance leaders are available this turn
+        if (rng::get_random(100) >= WILDERNESS_LEADER_CHANCE) {
+            for (auto& m : markets)
+                if (ItemDefs[m->item].type & IT_LEADER)
+                    m->amount = 0;
+        }
+    }
 
     /* update resources */
     UpdateProducts();

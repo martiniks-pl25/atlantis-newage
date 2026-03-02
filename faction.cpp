@@ -282,6 +282,20 @@ static inline GmData collect_gm_data() {
     return data;
 }
 
+// Categorizes a structure type using ObjectDefs data.
+// Used in both GM and player JSON report generation.
+// Categories: fleet, ship, road, lair, military, production, other.
+static std::string object_category(int obj) {
+    auto& def = ObjectDefs[obj];
+    if (def.flags & ObjectType::GROUP)      return "fleet";
+    if (ObjectIsShip(obj))                  return "ship";
+    if (def.name.rfind("Road ", 0) == 0)    return "road";
+    if (def.monster != -1)                  return "lair";
+    if (def.protect > 0)                    return "military";
+    if (def.productionAided != -1)          return "production";
+    return "other";
+}
+
 void Faction::build_gm_json_report(json& j, Game *game) {
     GmData data = collect_gm_data();
 
@@ -291,8 +305,18 @@ void Faction::build_gm_json_report(json& j, Game *game) {
         std::string abbr = SkillDefs[skillshow.skill].abbr;
         std::string description = skillshow.Report(this);
         if (description.empty()) continue;
+        // Build human-readable flags array for frontend (avoids bitwise ops in JS)
+        json skill_flags = json::array();
+        int sflags = SkillDefs[skillshow.skill].flags;
+        if (sflags & SkillType::MAGIC)      skill_flags.push_back("magic");
+        if (sflags & SkillType::COMBAT)     skill_flags.push_back("combat");
+        if (sflags & SkillType::CAST)       skill_flags.push_back("cast");
+        if (sflags & SkillType::FOUNDATION) skill_flags.push_back("foundation");
+        if (sflags & SkillType::APPRENTICE) skill_flags.push_back("apprentice");
         skills.push_back({
-            { "name", skill_name }, { "tag", abbr }, { "level", skillshow.level }, { "description", description }
+            { "name", skill_name }, { "tag", abbr }, { "level", skillshow.level },
+            { "flags", skill_flags },
+            { "description", description }
         });
     }
     j["skill_reports"] = skills;
@@ -303,7 +327,29 @@ void Faction::build_gm_json_report(json& j, Game *game) {
         std::string tag = itemshow.display_tag();
         std::string description = item_description(itemshow.item, itemshow.full);
         if (description.empty()) continue;
-        items.push_back({ { "name", item_name }, {"tag", tag }, { "description", description } });
+        // Build human-readable types array for frontend
+        json item_types = json::array();
+        int itype = ItemDefs[itemshow.item].type;
+        if (itype & IT_NORMAL)   item_types.push_back("normal");
+        if (itype & IT_ADVANCED) item_types.push_back("advanced");
+        if (itype & IT_TRADE)    item_types.push_back("trade");
+        if (itype & IT_MAN)      item_types.push_back("man");
+        if (itype & IT_MONSTER)  item_types.push_back("monster");
+        if (itype & IT_MAGIC)    item_types.push_back("magic");
+        if (itype & IT_WEAPON)   item_types.push_back("weapon");
+        if (itype & IT_ARMOR)    item_types.push_back("armor");
+        if (itype & IT_MOUNT)    item_types.push_back("mount");
+        if (itype & IT_BATTLE)   item_types.push_back("battle");
+        if (itype & IT_TOOL)     item_types.push_back("tool");
+        if (itype & IT_FOOD)     item_types.push_back("food");
+        if (itype & IT_ILLUSION) item_types.push_back("illusion");
+        if (itype & IT_UNDEAD)   item_types.push_back("undead");
+        if (itype & IT_DEMON)    item_types.push_back("demon");
+        if (itype & IT_LEADER)   item_types.push_back("leader");
+        if (itype & IT_MONEY)    item_types.push_back("money");
+        if (itype & IT_ANIMAL)   item_types.push_back("animal");
+        if (itype & IT_SHIP)     item_types.push_back("ship");
+        items.push_back({ { "name", item_name }, { "tag", tag }, { "types", item_types }, { "description", description } });
     }
     j["item_reports"] = items;
 
@@ -312,7 +358,7 @@ void Faction::build_gm_json_report(json& j, Game *game) {
         std::string obj_name = ObjectDefs[objectshow.obj].name;
         std::string description = object_description(objectshow.obj);
         if (description.empty()) continue;
-        objects.push_back({ { "name", obj_name }, { "description", description } });
+        objects.push_back({ { "name", obj_name }, { "description", description }, { "category", object_category(objectshow.obj) } });
     }
     j["object_reports"] = objects;
 
@@ -502,7 +548,7 @@ void Faction::build_json_report(json& j, Game *game, size_t **citems) {
         std::string obj_name = ObjectDefs[objectshow.obj].name;
         std::string description = object_description(objectshow.obj);
         if(description.empty()) continue;
-        objects.push_back({ { "name", obj_name }, { "description", description } });
+        objects.push_back({ { "name", obj_name }, { "description", description }, { "category", object_category(objectshow.obj) } });
     }
     j["object_reports"] = objects;
 

@@ -82,7 +82,7 @@ enum DestroyBehavior {
 
 // Market population ratios (used in Market::post_turn and AddMenMarket/AddLeadersMarket)
 constexpr int MEN_PER_MARKET_UNIT = 25;
-constexpr int LEADERS_PER_MARKET_UNIT = 800;
+constexpr int LEADERS_PER_MARKET_UNIT = 900;
 
 class GameDefs {
 public:
