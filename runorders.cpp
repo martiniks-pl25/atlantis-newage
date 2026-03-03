@@ -1183,10 +1183,10 @@ void Game::PostProcessTurn()
 void Game::DoTowerObservation()
 {
     for (const auto r : regions) {
-        // Collect player factions that have units inside a Tower building
+        // Collect player factions that have units inside a Tower or Magical Tower building
         std::set<Faction *> tower_factions;
         for (const auto o : r->objects) {
-            if (o->type != O_TOWER) continue;
+            if (o->type != O_TOWER && o->type != O_MTOWER) continue;
             for (const auto u : o->units) {
                 if (!u->faction->is_npc) {
                     tower_factions.insert(u->faction);
