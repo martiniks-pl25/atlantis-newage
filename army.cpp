@@ -1489,6 +1489,12 @@ int Army::DoAnAttack(Battle * b, char const *special, int numAttacks, int attack
             /* 7. Last chance... Check armor */
             if (tar->armor_protect(weaponClass)) {
                 attackers->stats.RecordAttackBlocked(attacker->unit->num, weaponIndex, sp);
+                // Stun on armor block: hammer hit absorbed by armor stuns non-monster targets
+                if ((flags & WeaponType::STUN_ON_ARMOR) &&
+                    !(ItemDefs[tar->race].type & IT_MONSTER) &&
+                    !tar->has_effect("stun")) {
+                    tar->set_effect("stun");
+                }
                 continue;
             }
 

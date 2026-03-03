@@ -172,6 +172,12 @@ void Battle::FreeRound(Army * att,Army * def, int ass)
 void Battle::DoAttack(int round, Soldier *a, Army *attackers, Army *def,
         int behind, int ass, bool canAttackBehind, bool canAttackFromBehind)
 {
+    // Stun: unit is stunned from a hammer blow absorbed by armor — skip this turn
+    if (a->has_effect("stun")) {
+        a->clear_effect("stun");
+        return;
+    }
+
     DoSpecialAttack(round, a, attackers, def, behind, canAttackBehind);
     if (!def->NumAlive()) return;
 

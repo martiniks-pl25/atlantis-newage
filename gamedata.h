@@ -219,6 +219,8 @@ enum {
     I_DAGGER,
     I_PDAGGER,
     I_BHAMMER,
+    I_MBHAM,
+    I_ABHAM,
     I_BOW,
     I_SHORTBOW,
     I_HEAVYCROSSBOW,

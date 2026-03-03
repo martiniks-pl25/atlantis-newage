@@ -1114,9 +1114,13 @@ void Game::ModifyTablesPerRuleset(void)
     EnableItem(I_HEALPOTION);
     EnableItem(I_GEMS);
     EnableItem(I_PIKE);
+    EnableItem(I_LANCE);
     EnableItem(I_BAXE);
     EnableItem(I_MBAXE);
     EnableItem(I_ADBAXE);
+    EnableItem(I_BHAMMER);
+    EnableItem(I_MBHAM);
+    EnableItem(I_ABHAM);
     // Tools
     EnableItem(I_PICK);
     EnableItem(I_AXE);

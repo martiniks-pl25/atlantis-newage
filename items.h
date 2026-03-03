@@ -275,6 +275,7 @@ class WeaponType
             NOATTACKERSKILL = 0x100, // Attacker gets no combat/skill defense.
             RIDINGBONUS = 0x200, // Unit gets riding bonus on att and def.
             RIDINGBONUSDEFENSE = 0x400, // Unit gets riding bonus on def only.
+            STUN_ON_ARMOR = 0x800, // Stuns non-monster target when armor blocks the hit.
         };
         int flags;
 
@@ -299,6 +300,7 @@ class WeaponType
         enum {
             NUM_ATTACKS_HALF_SKILL = 50,
             NUM_ATTACKS_SKILL = 100,
+            NUM_ATTACKS_THIRD_SKILL = 150, // (skill+2)/3 attacks per round
         };
         int numAttacks;
 

@@ -242,14 +242,14 @@ void Unit::UpdateMonsterDescription()
     else if (is_undead) {
         if (free >= 3)      desc = "Freshly animated corpses with no possessions.";
         else if (free == 2) desc = "Restless spirits gathering power and treasures.";
-        else if (free == 1) desc = "Ancient horrors guarding accumulated wealth.";
+        else if (free == 1) desc = "Ancient horrors protecting accumulated wealth.";
         else                desc = "Eternal guardians of vast funerary riches.";
     }
     else if (is_dragon) {
         if (free >= 3)      desc = "A young drake with no hoard yet to speak of.";
         else if (free == 2) desc = "A growing dragon beginning to amass treasure.";
         else if (free == 1) desc = "A mighty wyrm with a considerable hoard.";
-        else                desc = "An ancient dragon guarding a legendary treasure trove.";
+        else                desc = "An ancient dragon protecting a legendary treasure trove.";
     }
     else if (is_demon) {
         if (free >= 3)      desc = "A minor fiend with no wealth or power.";
@@ -262,7 +262,7 @@ void Unit::UpdateMonsterDescription()
         if (free >= 3)      desc = "Recently arrived in the region.";
         else if (free == 2) desc = "Established residents beginning to accumulate possessions.";
         else if (free == 1) desc = "Long-time inhabitants with accumulated wealth.";
-        else                desc = "Ancient beings guarding a considerable treasure hoard.";
+        else                desc = "Ancient beings protecting a considerable treasure hoard.";
     }
 
     describe = desc + " " + loot_info;
@@ -2576,11 +2576,13 @@ int Unit::get_weapon(
         defenseBonus += ridingBonus;
     // Number of attacks
     attacks = weapon.numAttacks;
-    // Note: NUM_ATTACKS_SKILL must be > NUM_ATTACKS_HALF_SKILL
-    if (attacks >= WeaponType::NUM_ATTACKS_SKILL)
+    // Note: constants must be in descending order: THIRD_SKILL > SKILL > HALF_SKILL
+    if (attacks >= WeaponType::NUM_ATTACKS_THIRD_SKILL)
+        attacks = (baseSkillLevel + 2) / 3;
+    else if (attacks >= WeaponType::NUM_ATTACKS_SKILL)
         attacks += baseSkillLevel - WeaponType::NUM_ATTACKS_SKILL;
     else if (attacks >= WeaponType::NUM_ATTACKS_HALF_SKILL)
-        attacks += (baseSkillLevel +1)/2 - WeaponType::NUM_ATTACKS_HALF_SKILL;
+        attacks += (baseSkillLevel + 1) / 2 - WeaponType::NUM_ATTACKS_HALF_SKILL;
     // Sanity check
     if (attacks == 0) attacks = 1;
 
