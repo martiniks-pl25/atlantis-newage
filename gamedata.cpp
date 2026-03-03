@@ -3115,19 +3115,19 @@ std::vector<WeaponType> WeaponDefs = {
      1,
      { { NULL, 0, 0 }, { NULL, 0, 0 }, { NULL, 0, 0 }, { NULL, 0, 0 } }
     },
-    // WEAPON_NET — requires FISH skill; +1 attack bonus, 1 attack every 2 rounds, 0 HP damage (entangle only)
+    // WEAPON_NET — FISH or COMB skill; +1 attack bonus, 1 attack every 2 rounds, 0 HP damage (entangle only)
     {"NET",
-     WeaponType::NEEDSKILL | WeaponType::RANGED | WeaponType::RIDINGBONUSDEFENSE,
-     "FISH", NULL,
+     WeaponType::RANGED | WeaponType::RIDINGBONUSDEFENSE,
+     "FISH", "COMB",
      CRUSHING, ATTACK_RANGED, -2,
      1, 0, 0,
      0,
      { { NULL, 0, 0 }, { NULL, 0, 0 }, { NULL, 0, 0 }, { NULL, 0, 0 } }
     },
-    // WEAPON_LASSO — requires FARM skill; 0 attack bonus, 1 attack per round, 0 HP damage (entangle only)
+    // WEAPON_LASSO — FARM or HORS skill; 0 attack bonus, 1 attack per round, 0 HP damage (entangle only)
     {"LASS",
-     WeaponType::NEEDSKILL | WeaponType::RANGED | WeaponType::RIDINGBONUSDEFENSE,
-     "FARM", NULL,
+     WeaponType::RANGED | WeaponType::RIDINGBONUSDEFENSE,
+     "FARM", "HORS",
      CRUSHING, ATTACK_RANGED, 1,
      0, 0, 0,
      0,

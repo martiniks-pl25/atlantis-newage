@@ -949,6 +949,10 @@ std::string item_description(int item, int full)
             temp += " Attackers do not get skill bonus on defense.";
         }
 
+        if (weapon.flags & WeaponType::STUN_ON_ARMOR) {
+            temp += " When a hit from this weapon is blocked by armor, the target is stunned and skips all of its attacks on its next turn.";
+        }
+
         if (weapon.flags & WeaponType::ALWAYSREADY) {
             temp += " Wielders of this weapon never miss a round to ready their weapon.";
         } else {

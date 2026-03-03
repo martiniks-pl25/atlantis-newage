@@ -2091,8 +2091,7 @@ void Game::CreateGuardMageESHI(ARegion *region)
     u->SetMoney(Globals->GUARD_MONEY);
     u->SetSkill(S_FORCE, magelevel);
     u->SetSkill(S_ENERGY_SHIELD, magelevel);
-    u->SetSkill(S_TACTICS, skilllevel);  // Tactics without bonus
-    u->guard = GUARD_GUARD;
+    u->guard = GUARD_NONE;
     u->SetFlag(FLAG_BEHIND, 1);
     u->SetFlag(FLAG_HOLDING, 1);
     u->combat = S_ENERGY_SHIELD;
@@ -2145,8 +2144,7 @@ void Game::CreateGuardMageFSHI(ARegion *region)
     u->SetMoney(Globals->GUARD_MONEY);
     u->SetSkill(S_FORCE, magelevel);
     u->SetSkill(S_FORCE_SHIELD, magelevel);
-    u->SetSkill(S_TACTICS, magelevel);
-    u->guard = GUARD_GUARD;
+    u->guard = GUARD_NONE;
     u->SetFlag(FLAG_BEHIND, 1);
     u->SetFlag(FLAG_HOLDING, 1);
     u->combat = S_FORCE_SHIELD;
@@ -2194,7 +2192,7 @@ void Game::CreateGuardMageFIRE(ARegion *region)
     u->SetMoney(Globals->GUARD_MONEY);
     u->SetSkill(S_FORCE, magelevel);
     u->SetSkill(S_FIRE, magelevel);
-    u->guard = GUARD_GUARD;
+    u->guard = GUARD_NONE;
     u->SetFlag(FLAG_BEHIND, 1);
     u->SetFlag(FLAG_HOLDING, 1);
     u->combat = S_FIRE;
