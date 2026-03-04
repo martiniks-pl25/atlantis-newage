@@ -250,6 +250,7 @@ enum {
     I_DEVIL,
     // NO 7 victory condition items
     I_IMPRISONED_ENTITY,
+    I_BEHEMOTH,
     NITEMS
 };
 

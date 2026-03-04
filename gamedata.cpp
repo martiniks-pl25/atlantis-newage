@@ -2388,6 +2388,18 @@ std::vector<ItemType> ItemDefs =
     -1,0, 0,
     0, NULL, 0,
     "", { "", "", "", "" }, 0, 0},
+
+    // Plains colossus: massive, slow, earth-shaking
+    {"behemoth","behemoths","BEHE",
+     ItemType::CANTGIVE | ItemType::NOTRANSPORT,
+     NULL,0,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
+     NULL,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
+     400, IT_MONSTER | IT_ANIMAL, 50,1,
+     400,0,0,0,2,
+     -1,0,
+     -1,0, 0,
+     0, NULL, 0,
+     "", { "", "", "", "" }, 0, 0},
 };
 
 //
@@ -2813,6 +2825,16 @@ std::vector<MonType> MonDefs = {
      5,1,5,
      "hellfire", 5,
      40000,IT_MAGIC,100,1,"Devil","DEVL",1, {}, {}},
+
+    // Plains colossus: thick hide, earth-shaking stomp
+    // combat=4 (slow but crushing), hits=60 (very tanky)
+    // def: melee 4 (hide), energy 3, spirit 1, weather 2, ranged 4 (massive profile)
+    // earthquake lvl 2: devastating vs garrisoned units
+    {4,{3,4,3,1,2,4},
+     20,60,0,
+     3,0,2,
+     "earthquake", 2,
+     4000,IT_MAGIC,50,1,"Behemoths","BEHE",1, { R_PLAIN }, { R_MOUNTAIN, R_VOLCANO, R_SWAMP }},
 };
 
 //
@@ -4488,7 +4510,7 @@ std::vector<TerrainType> TerrainDefs = {
       {-1,0,0},{-1,0,0},{-1,0,0}},
      {I_PLAINSMAN,I_NOMAD,I_HIGHELF,-1},
      {I_VIKING,I_SEAELF,-1},
-     1,I_LION,-1,I_CENTAUR,
+     1,I_LION,I_BEHEMOTH,I_CENTAUR,
      10,{O_RUIN,O_CRYPT,O_MAGETOWER,-1,-1,-1}},
     // NewOrigins: Surface Level 1
     {"forest", "forests", "forest", 'f', R_FOREST,
@@ -4609,7 +4631,7 @@ std::vector<TerrainType> TerrainDefs = {
       {-1,0,0},{-1,0,0},{-1,0,0}},
      {I_PLAINSMAN,I_NOMAD,I_HIGHELF,-1},
      {I_VIKING,I_SEAELF,-1},
-     1,I_LION,-1,I_CENTAUR,
+     1,I_LION,I_BEHEMOTH,I_CENTAUR,
      10,{O_RUIN,O_CRYPT,O_MAGETOWER,-1,-1,-1}},
     {"swamp", "swamps", "island_swamp", 'w', R_SWAMP,
      TerrainType::FLYINGMOUNTS,
@@ -4638,7 +4660,7 @@ std::vector<TerrainType> TerrainDefs = {
       {-1,0,0},{-1,0,0},{-1,0,0}},
      {I_PLAINSMAN,I_NOMAD,I_GNOME,I_GOBLINMAN},
      {I_VIKING,I_HOBBIT,-1},
-     1,I_LION,-1,I_CENTAUR,
+     1,I_LION,I_BEHEMOTH,I_CENTAUR,
      10,{O_RUIN,O_CRYPT,O_MAGETOWER,-1,-1,-1}},
     {"plain", "plains", "ceran_plain2", 'p', R_PLAIN,
      TerrainType::RIDINGMOUNTS | TerrainType::FLYINGMOUNTS,
@@ -4647,7 +4669,7 @@ std::vector<TerrainType> TerrainDefs = {
       {-1,0,0},{-1,0,0},{-1,0,0}},
      {I_PLAINSMAN,I_NOMAD,I_HIGHELF,I_GNOME},
      {I_SEAELF,I_HOBBIT,-1},
-     1,I_LION,-1,I_CENTAUR,
+     1,I_LION,I_BEHEMOTH,I_CENTAUR,
      10,{O_RUIN,O_CRYPT,O_MAGETOWER,-1,-1,-1}},
     {"plain", "plains", "ceran_plain3", 'p', R_PLAIN,
      TerrainType::RIDINGMOUNTS | TerrainType::FLYINGMOUNTS,
