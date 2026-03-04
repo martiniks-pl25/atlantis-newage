@@ -1297,6 +1297,10 @@ int Game::CountWMonTars(ARegion *r, Unit *mon) {
     for(const auto o : r->objects) {
         for(const auto u : o->units) {
             if (u->type == U_NORMAL || u->type == U_MAGE || u->type == U_APPRENTICE) {
+                // Per-faction grace period: new factions are immune to monster attacks
+                // for MONSTER_HOSTILE_GRACE_PERIOD turns after joining.
+                int age = TurnNumber() - u->faction->startturn;
+                if (Globals->MONSTER_HOSTILE_GRACE_PERIOD > 0 && age < Globals->MONSTER_HOSTILE_GRACE_PERIOD) continue;
                 if (mon->CanSee(r, u) && mon->CanCatch(r, u)) {
                     retval += u->GetMen();
                 }
@@ -1310,6 +1314,10 @@ Unit *Game::GetWMonTar(ARegion *r, int tarnum, Unit *mon) {
     for(const auto o : r->objects) {
         for(const auto u : o->units) {
             if (u->type == U_NORMAL || u->type == U_MAGE || u->type == U_APPRENTICE) {
+                // Per-faction grace period: new factions are immune to monster attacks
+                // for MONSTER_HOSTILE_GRACE_PERIOD turns after joining.
+                int age = TurnNumber() - u->faction->startturn;
+                if (Globals->MONSTER_HOSTILE_GRACE_PERIOD > 0 && age < Globals->MONSTER_HOSTILE_GRACE_PERIOD) continue;
                 if (mon->CanSee(r, u) && mon->CanCatch(r, u)) {
                     int num = u->GetMen();
                     if (num && tarnum < num) return u;

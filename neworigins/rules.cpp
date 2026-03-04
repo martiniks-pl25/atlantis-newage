@@ -268,7 +268,7 @@ static GameDefs g = {
 	5, // BATTLE_STOP_MOVE_PERCENT
 	GameDefs::NewShipJoinsFleetBehavior::NO_CROSS_JOIN, // NEW_SHIP_JOINS_FLEET_BEHAVIOR
 
-	5,	// MONSTER_HOSTILE_GRACE_PERIOD
+	10,	// MONSTER_HOSTILE_GRACE_PERIOD
 	5,	// MONSTER_HOSTILE_RATE
 
 	0,	// GUARDS_USE_LEADERS (0 = racial guards, 1 = leader guards)

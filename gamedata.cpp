@@ -3117,7 +3117,7 @@ std::vector<WeaponType> WeaponDefs = {
     },
     // WEAPON_NET — FISH or COMB skill; +1 attack bonus, 1 attack every 2 rounds, 0 HP damage (entangle only)
     {"NET",
-     WeaponType::RANGED | WeaponType::RIDINGBONUSDEFENSE,
+     WeaponType::RANGED | WeaponType::RIDINGBONUSDEFENSE | WeaponType::NOTAX,
      "FISH", "COMB",
      CRUSHING, ATTACK_RANGED, -2,
      1, 0, 0,
@@ -3126,7 +3126,7 @@ std::vector<WeaponType> WeaponDefs = {
     },
     // WEAPON_LASSO — FARM or HORS skill; 0 attack bonus, 1 attack per round, 0 HP damage (entangle only)
     {"LASS",
-     WeaponType::RANGED | WeaponType::RIDINGBONUSDEFENSE,
+     WeaponType::RANGED | WeaponType::RIDINGBONUSDEFENSE | WeaponType::NOTAX,
      "FARM", "HORS",
      CRUSHING, ATTACK_RANGED, 1,
      0, 0, 0,

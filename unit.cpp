@@ -2196,6 +2196,7 @@ int Unit::Taxers(int numtaxers)
 
         if (ItemDefs[item->type].type & IT_WEAPON) {
             auto weapon = find_weapon(ItemDefs[item->type].abr)->get();
+            if (weapon.flags & WeaponType::NOTAX) continue;
             int num = item->num;
             int basesk = 0;
             int sk = lookup_skill(weapon.baseSkill);

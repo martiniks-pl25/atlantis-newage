@@ -101,9 +101,9 @@ int Game::SetupFaction( Faction *pFac )
     temp2->MoveUnit(reg->GetDummy());
 
     if (Globals->LAIR_MONSTERS_EXIST || Globals->WANDERING_MONSTERS_EXIST) {
-        // Try to auto-declare all player factions unfriendly
-        // to Creatures, since all they do is attack you.
-        pFac->set_attitude(monfaction, AttitudeType::UNFRIENDLY);
+        // Set neutral attitude towards Creatures: avoids unintended guard blocks
+        // and noisy "Forbids entry" messages for new players.
+        pFac->set_attitude(monfaction, AttitudeType::NEUTRAL);
     }
 
     return( 1 );
@@ -1588,7 +1588,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainWMons(R_DESERT,8,I_SCORPION,I_SPHINX,I_SANDLING);
     ModifyTerrainWMons(R_TUNDRA,8,I_PBEAR,I_IWURM,I_YETI);
 
-    ModifyTerrainWMons(R_VOLCANO,12,I_DEMON,I_DEVIL,I_IFRIT);
+    ModifyTerrainWMons(R_VOLCANO,12,I_IMP,I_DEMON,I_IFRIT);
     ModifyTerrainWMons(R_LAKE,4,I_PIRATES,I_ELEMENTAL,I_MERFOLK);
 
     ModifyTerrainWMons(R_CAVERN,12,I_RAT,I_DRAGON,I_GOBLIN);
@@ -1747,13 +1747,13 @@ void Game::ModifyTablesPerRuleset(void)
     modify_monster_threat("POLA",  3,   20);  // Polar Bears
     modify_monster_threat("GRAT",  30,  20);  // Pack of Rats
     modify_monster_threat("GSPI",  4,   20);  // Giant Spiders
-    modify_monster_threat("GLIZ",  3,   30);  // Giant Lizards
-    modify_monster_threat("TREN",  7,   30);  // Living Trees
+    modify_monster_threat("GLIZ",  3,   25);  // Giant Lizards
+    modify_monster_threat("TREN",  7,   25);  // Living Trees
     modify_monster_threat("ROC",   2,   50);  // Giant Birds
-    modify_monster_threat("BOGT",  2,   30);  // Swamp Creatures
+    modify_monster_threat("BOGT",  2,   25);  // Swamp Creatures
     modify_monster_threat("KONG",  2,   80);  // Great Apes
     modify_monster_threat("SPHI",  1,   50);  // Sphinx
-    modify_monster_threat("ICEW",  8,   30);  // Ice Wurms
+    modify_monster_threat("ICEW",  8,   25);  // Ice Wurms
     modify_monster_threat("DRAG",  1,   80);  // Dragon
     modify_monster_threat("WYVR",  1,   50);  // Wyvern
     modify_monster_threat("CENT",  8,   20);  // Tribe of Centaurs
@@ -1778,18 +1778,18 @@ void Game::ModifyTablesPerRuleset(void)
     modify_monster_threat("EAGL",  1,   20);  // Eagle
 
     // Sea creatures
-    modify_monster_threat("PIRA",  20,  60);  // Pirates
-    modify_monster_threat("KRAK",  1,   60);  // Kraken
+    modify_monster_threat("PIRA",  20,  50);  // Pirates
+    modify_monster_threat("KRAK",  1,   50);  // Kraken
     modify_monster_threat("MERF",  100, 20);  // Merfolk
     modify_monster_threat("ELEM",  7,   30);  // Living Water
 
     // Special monsters (enabled via EnableItem)
-    modify_monster_threat("HYDR",  1,   60);  // Hydra
-    modify_monster_threat("IDRA",  1,   60);  // Ice Dragon
-    modify_monster_threat("ILLY",  1,   60);  // Illyrthid
-    modify_monster_threat("STGI",  1,   60);  // Storm Giant
-    modify_monster_threat("CLGI",  1,   60);  // Cloud Giant
-    modify_monster_threat("DEVL",  1,   100); // Devil
+    modify_monster_threat("HYDR",  1,   50);  // Hydra
+    modify_monster_threat("IDRA",  1,   50);  // Ice Dragon
+    modify_monster_threat("ILLY",  1,   50);  // Illyrthid
+    modify_monster_threat("STGI",  1,   50);  // Storm Giant
+    modify_monster_threat("CLGI",  1,   50);  // Cloud Giant
+    modify_monster_threat("DEVL",  1,   80); // Devil
     modify_monster_threat("WARR",  30,  100); // Evil Warriors
     modify_monster_threat("DMAG",  1,   100); // Dark Mage
     modify_monster_threat("MAGI",  2,   100); // Evil Magicians
