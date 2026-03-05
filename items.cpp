@@ -367,6 +367,9 @@ std::string show_special(const std::string& special, int level, int expandLevel,
     if (spd.targflags & SpecialType::HIT_NOMONSTER) {
         temp += " This ability cannot target monsters.";
     }
+    if (spd.targflags & SpecialType::HIT_NOLARGEMONSTER) {
+        temp += " This ability cannot target large or huge monsters.";
+    }
     if (spd.effectflags & SpecialType::FX_NOBUILDING) {
         temp += " The bonus given to units inside buildings is not effective against this ability.";
     }
@@ -699,6 +702,13 @@ std::string item_description(int item, int full)
     if ((ItemDefs[item].type & IT_MONSTER) && !(ItemDefs[item].flags & ItemType::MANPRODUCE)) {
         temp += " This is a monster.";
         auto monster = find_monster(ItemDefs[item].abr, (ItemDefs[item].type & IT_ILLUSION))->get();
+        {
+            const char* sizeNames[] = { "", "small", "medium", "large", "huge" };
+            int sz = monster.size;
+            if (sz < 1) sz = 1;
+            if (sz > 4) sz = 4;
+            temp += std::string(" It is a ") + sizeNames[sz] + " monster.";
+        }
         temp += " This monster attacks with a combat skill of " + std::to_string(monster.attackLevel);
 
         for (int c = 0; c < NUM_ATTACK_TYPES; c++) {

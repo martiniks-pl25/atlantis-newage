@@ -180,6 +180,7 @@ class SpecialType {
             HIT_EFFECTEXCEPT    = 0x080,    /* mutually exclusive (3) */
             HIT_ILLUSION        = 0x100,
             HIT_NOMONSTER       = 0x200,
+            HIT_NOLARGEMONSTER  = 0x400,    /* immune for size >= 3 (large/huge) */
         };
         int targflags;
 

@@ -208,6 +208,11 @@ class MonType
 
         int hitDamage;
 
+        // Physical size category:
+        // 1=small, 2=medium, 3=large, 4=huge
+        // large+ (size >= 3) are immune to entangle (NET/LASSO)
+        int size;
+
         // Terrain types which monster like to be in.
         // When the list is left empty, it will mean all terrains are possible.
         std::vector<int> preferredTerrain;

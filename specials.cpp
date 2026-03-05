@@ -148,6 +148,15 @@ int Army::CheckSpecialTarget(char const *special,int tar)
         if (ItemDefs[soldiers[tar]->race].type & IT_MONSTER)
             return 0;
     }
+
+    if (spd.targflags & SpecialType::HIT_NOLARGEMONSTER) {
+        if (ItemDefs[soldiers[tar]->race].type & IT_MONSTER) {
+            auto mon = find_monster(ItemDefs[soldiers[tar]->race].abr,
+                                    (ItemDefs[soldiers[tar]->race].type & IT_ILLUSION));
+            if (mon && mon->get().size >= 3)
+                return 0;
+        }
+    }
     return 1;
 }
 
