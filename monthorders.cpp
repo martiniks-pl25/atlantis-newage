@@ -3,6 +3,7 @@
 
 #include "game.h"
 #include "gamedata.h"
+#include "namegen.h"
 #include "quests.h"
 #include "rng.hpp"
 
@@ -650,7 +651,35 @@ void Game::AddNewBuildings(ARegion *r)
                         obj->type = o->new_building;
                         obj->incomplete = ObjectDefs[obj->type].cost;
                         obj->num = i;
-                        obj->set_name("Building");
+                        {
+                            // Determine builder's primary race for cultural name generation.
+                            // Use the most numerous non-leader race in the unit;
+                            // fall back to region race if the unit has only leaders.
+                            int builderRace = r->race;
+                            {
+                                int bestCount = 0;
+                                for (auto item : u->items) {
+                                    const ItemType& idef = ItemDefs[item->type];
+                                    if ((idef.type & IT_MAN) && !(idef.type & IT_LEADER)) {
+                                        if (item->num > bestCount) {
+                                            bestCount = item->num;
+                                            builderRace = item->type;
+                                        }
+                                    }
+                                }
+                            }
+
+                            const ObjectType& ot = ObjectDefs[obj->type];
+                            std::string autoName;
+                            if (obj->type == O_INN)
+                                autoName = getInnName();
+                            else if (ot.productionAided != -1)
+                                autoName = getProductionBuildingName(obj->type, ot.productionAided, builderRace);
+                            else
+                                autoName = getObjectName(obj->type, ot);
+                            obj->set_name(autoName.empty() ? "Building" : autoName);
+                            u->event("Construction started: " + obj->name + " (" + ot.name + ")", "building");
+                        }
                         u->build = obj->num;
                         r->objects.push_back(obj);
 

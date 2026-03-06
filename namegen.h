@@ -32,6 +32,8 @@
 
 std::string getAbstractName();
 std::string getEthnicName(const Ethnicity etnos);
+std::string getInnName();
+std::string getFortressName(const ObjectType& type);
 std::string getObjectName(const int typeIndex, const ObjectType& type);
 std::string getRegionName(const Ethnicity etnos, const int type, const int size, const bool island);
 std::string getRiverName(const int size, const int min, const int max);

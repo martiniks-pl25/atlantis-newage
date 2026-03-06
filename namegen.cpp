@@ -109,7 +109,7 @@ std::vector<std::string> aSufElven2 = { "ael", "aer", "aera", "aias", "aia", "ai
 std::vector<std::string> aPrefDwarven = { "agar", "agaz", "barak", "baruk", "baraz", "bizar", "bizul", "bul", "buzar", "garak", "gor", "gog", "gorog", "gothol", "guzib", "ibin", "ibiz", "izil", "izuk", "kelek", "kezan", "kibil", "kinil", "kun", "kheled", "khelek", "khimil", "khuz", "laruk", "luz", "moran", "moril", "nibin", "nukul"};
 std::vector<std::string> aSufDwarven = { "akar", "agul", "amen", "gib", "gol", "gog", "gul", "guluth", "gundil", "gundag", "guzun", "lib", "lizil", "loth", "mab", "mor", "mud", "mur", "nazar", "nigin", "niz", "nizil", "nuz", "nuzum", "thibil", "thizar", "ulin", "uzar", "uzun", "zad", "zakar", "zal", "zalak", "zam", "zan", "zaral", "zarak", "zeg", "zerek", "zibith", "zikil", "zokh", "zukum"};
 
-std::vector<std::string> aPrefOrchish = { "Arg", "Az", "Bad", "Balkh", "Bol", "Dreg", "Dur", "Durba", "Ghash", "Lurg", "Luz", "Mor", "Nazg", "Og", "Tarkh", "Urg", "Ug", "Vol", "Yazh"};
+std::vector<std::string> aPrefOrchish = { "Arg", "Az", "Azog", "Bad", "Balkh", "Bol", "Bolg", "Dreg", "Dur", "Durba", "Ghash", "Gork", "Grish", "Gruk", "Gul", "Gurz", "Lurg", "Luz", "Mor", "Muzg", "Naz", "Nazg", "Og", "Olog", "Shag", "Skag", "Skarn", "Slag", "Snag", "Tarkh", "Thrak", "Urg", "Ug", "Uzg", "Vol", "Vrak", "Yazh", "Zag", "Zorn", "Zug"};
 std::vector<std::string> aSufOrchish = { "agal", "buz", "dor", "dur", "gar", "mog", "narb", "nazg", "rod", "shak", "waz", "ubal"};
 
 std::vector<std::string> aPrefArabic = { "Aaza", "Abha", "Ad", "Aga", "Ah", "Ain", "Ait", "Ajda", "Ali", "Al", "Arrer", "As", "Ash", "Ay", "Az", "Bab", "Bani", "Bari", "Bat", "Birak", "Bitam", "Bou", "Dakh", "Dha", "Dham", "Djaz", "Djeb", "Fash", "Ghad", "Ghar", "Ghat", "Gra", "Had", "Ham", "Har", "Jawf", "Jer", "Jid", "Jir", "Kabir", "Kebir", "Ket", "Khat", "Khem", "Kher", "Khum", "Ksar", "Mak", "Mara", "Men", "Mu", "Qat", "Qay", "Sa", "Sab", "Sah", "Sal", "Sidi", "Sma", "Sulay", "Tabel", "Tar", "Tay", "Taza", "Ubay", "Wah", "Yab", "Yaf", "Yous", "Zil", "Zou"};
@@ -124,7 +124,7 @@ std::vector<std::string> aSufHumans = { "dare", "don", "field", "ford", "grove",
 std::vector<std::string> aPrefInn = { "Bent", "Black", "Blind", "Blue", "Bob's", "Joe's", "Broken", "Buxom", "Cat's", "Crow's", "Dirty", "Dragon", "Dragon's", "Drunken", "Diamond", "Eagle's", "Eastern", "Falcon's", "Fawning", "Fiend's", "Flaming", "Frosty", "Frozen", "Gilded", "Genie's", "Golden", "Golden", "Gray", "Green", "King's", "Licked", "Lion's", "Iron", "Mended", "Octopus", "Old", "Old", "Orc's", "Pink", "Pot", "Puking", "Queen's", "Red", "Ruby", "Delicate", "Sea", "Sexy", "Shining", "Silver", "Singing", "Steel", "Strange", "Thirsty", "Violet", "White", "Wild", "Yawing"};
 std::vector<std::string> aSufInn = { " Axe", " Anchor", " Barrel", " Basilisk", " Belly", " Blade", " Boar", " Breath", " Brew", " Claw", " Coin", " Delight", " Den", " Dragon", " Drum", " Dwarf", " Fist", " Flower", " Gem", " Gryphon", " Hand", " Head", " Hole", " Inn", " Lady", " Maiden", " Lantern", " Monk", " Mug", " Nest", " Orc", " Paradise", " Pearl", " Pig", " Pit", " Place", " Tavern", " Portal", " Ranger", " Rest", " Sailor", " Sleep", " Song", " Swan", " Swords", " Tree", " Unicorn", " Whale", " Wish", " Wizard", " Rain"};
 
-std::vector<std::string> aPrefFort = { "Mind ", "Iron ", "Demention ", "Demonic ", "Blood ", "Mistery ", "Ancient ", "Doom ", "Black ", "Crimson ", "Blue ", "Eternal ", "Cursed ", "Funny ", "Stone", "Etherial ", "Phantom ", "Forgotten ", "King's ", "Queen's ", "Royal ", "Fallen", "Lost ", "Warrior's ", "Sorcerer's ", "Steel ", "Blademaster's ", "Screaming ", "Ice ", "Frozen ", "Dragon ", "Glorious ", "Infernal "};
+std::vector<std::string> aPrefFort = { "Mind ", "Iron ", "Dimension ", "Demonic ", "Blood ", "Mystery ", "Ancient ", "Doom ", "Black ", "Crimson ", "Blue ", "Eternal ", "Cursed ", "Ruined ", "Stone ", "Ethereal ", "Phantom ", "Forgotten ", "King's ", "Queen's ", "Royal ", "Fallen ", "Lost ", "Warrior's ", "Sorcerer's ", "Steel ", "Blademaster's ", "Screaming ", "Ice ", "Frozen ", "Dragon ", "Glorious ", "Infernal "};
 std::vector<std::string> aSufFort = { "Storm", "Fist", "Keep", "Rage", "Rose", "Residence", "Mansion", "Haven", "Gates", "" };
 
 std::vector<std::string> aPrefShip = { "Absolute", "Adventure", "Alisa", "Altered", "Amber", "Ancient", "Angel's", "Animal", "Another", "Azure", "Bad", "Bad Moon", "Betty", "Big", "Black", "Blue", "Breaking", "Crime", "Crimson", "Dancing", "Dark", "Dawn", "Dirty", "Distant", "Double", "Dragon", "Dream", "Emerald", "Empty", "Enchanted", "Exotic", "Extra", "Extreme", "Fallen", "Fast", "Fatal", "Fifth", "Final", "Fine", "Fire", "First", "Flying", "Foreign", "Fortune", "Funny", "Gentle", "Golden", "Grand", "Great", "Green", "Grey", "Gypsy", "Half", "Happy", "High", "Impossible", "Jade", "Little", "Lone", "Lucky", "Mad", "Mermaid", "Midnight", "Moon", "Morning", "Naked", "Naughty", "Naval", "New", "Night", "Ocean", "Old", "Pacific", "Perfect", "Pretty", "Quick", "Quiet", "Red", "Saint", "Sea", "Sapphire", "Second", "Silver", "Southern", "Stella", "Sun", "Sunset", "Sweet", "Third", "Thunder", "Treasure", "Ultimate", "Wave", "Zephyr", "Zodiac" };
@@ -183,18 +183,18 @@ std::vector<std::string> aElfOasis = { "lothwen", "nenar", "ethil", "galewen", "
 std::vector<std::string> aElfCamel = { "harad", "rochim", "lavan", "silroch" };
 
 // Orcish resource words
-std::vector<std::string> aOrcIron = { "dur", "nazg", "gul", "krug", "skorn" };
-std::vector<std::string> aOrcStone = { "buz", "rod", "gar", "drak", "mog" };
-std::vector<std::string> aOrcWood = { "shak", "waz", "rag", "chop" };
-std::vector<std::string> aOrcFood = { "narb", "ubal", "mog", "flesh", "grub" };
-std::vector<std::string> aOrcFur = { "ghash", "shak", "hidek", "skal" };
-std::vector<std::string> aOrcHerbs = { "glob", "snaga", "rot", "slime" };
-std::vector<std::string> aOrcHorse = { "lug", "tark", "snort", "beast" };
-std::vector<std::string> aOrcMine = { "gar", "gul", "durbul", "blackpit", "skarg" };
-std::vector<std::string> aOrcQuarry = { "buz", "agal", "rockmaw", "crag" };
-std::vector<std::string> aOrcWorkshop = { "zog", "uruk", "bang", "smash" };
-std::vector<std::string> aOrcFarm = { "waz", "ubal", "bloodfield", "mud" };
-std::vector<std::string> aOrcStable = { "lugburz", "lugdush", "beastden", "maw" };
+std::vector<std::string> aOrcIron = { "dur", "nazg", "gul", "krug", "skorn", "blacksteel", "crushore", "ironpit" };
+std::vector<std::string> aOrcStone = { "buz", "rod", "gar", "drak", "mog", "grit", "rubble", "hardbit" };
+std::vector<std::string> aOrcWood = { "shak", "waz", "rag", "chop", "splint", "hackwood", "stumpwood" };
+std::vector<std::string> aOrcFood = { "narb", "ubal", "mog", "flesh", "grub", "slop", "gruel", "dungchow" };
+std::vector<std::string> aOrcFur = { "ghash", "shak", "hidek", "skal", "scraghide", "roughskin", "stinkpelt" };
+std::vector<std::string> aOrcHerbs = { "glob", "snaga", "rot", "slime", "murkhwort", "scragmoss", "fetidweed" };
+std::vector<std::string> aOrcHorse = { "lug", "tark", "snort", "beast", "horsemeat", "saddlebrute", "warbeast" };
+std::vector<std::string> aOrcMine = { "gar", "gul", "durbul", "blackpit", "skarg", "deephole", "darkgut", "ironpit" };
+std::vector<std::string> aOrcQuarry = { "buz", "agal", "rockmaw", "crag", "stonegut", "greypit", "crackpit" };
+std::vector<std::string> aOrcWorkshop = { "zog", "uruk", "bang", "smash", "bludgeon", "grind", "scrappit" };
+std::vector<std::string> aOrcFarm = { "waz", "ubal", "bloodfield", "mud", "dungmound", "meatfield", "scrapmoor" };
+std::vector<std::string> aOrcStable = { "lugburz", "lugdush", "beastden", "maw", "warbeast", "stamphole", "brutepit" };
 std::vector<std::string> aOrcOasis = { "mudhole", "drinkpit", "ghashnar", "rotwater", "snar" };
 std::vector<std::string> aOrcCamel = { "lug", "snortbeast", "gruk", "packmaw" };
 
@@ -214,6 +214,92 @@ std::vector<std::string> aHumanStable = { "stable", "mews", "paddock", "barn", "
 std::vector<std::string> aHumanShrine = { "temple", "shrine", "chapel", "fane", "sanctum", "altar" };
 std::vector<std::string> aHumanOasis = { "oasis", "spring", "well", "greenrest", "waterhold" };
 std::vector<std::string> aHumanCamel = { "camel", "dromedary", "packbeast", "caravan", "sandsteed" };
+
+//---------------------------------------------------------------------------
+// Advanced material resource words (by race)
+//---------------------------------------------------------------------------
+
+// Mithril (I_MITHRIL) - for Arcane Mine
+std::vector<std::string> aDwarfMithril = { "kibil", "mithrim", "zirak", "silrak", "laug" };
+std::vector<std::string> aElfMithril   = { "celebrin", "mithril", "thilorn", "silivren", "thinras" };
+std::vector<std::string> aOrcMithril   = { "shinyrock", "brightore", "moonpit", "glistrock", "silverbone" };
+std::vector<std::string> aHumanMithril = { "mithril", "moonsteel", "starore", "brightmetal", "silvervein" };
+
+// Rootstone (I_ROOTSTONE) - for Mystic Quarry
+std::vector<std::string> aDwarfRootstone = { "rakhal", "ibrul", "zarim", "nuzum", "thibrak" };
+std::vector<std::string> aElfRootstone   = { "celebrond", "sildur", "arnond", "lithron", "gonnsar" };
+std::vector<std::string> aOrcRootstone   = { "rootrock", "soulstone", "greyroot", "deepbit", "ancrock" };
+std::vector<std::string> aHumanRootstone = { "rootstone", "deeprock", "veinstone", "soulstone", "arkstone" };
+
+// Ironwood (I_IRONWOOD) - for Forest Preserve
+std::vector<std::string> aDwarfIronwood = { "zirik", "khelehorn", "gundtree", "mazorn", "bintree" };
+std::vector<std::string> aElfIronwood   = { "galvorntaur", "ninglor", "echor", "ornmeth", "galadththil" };
+std::vector<std::string> aOrcIronwood   = { "hardtree", "irontree", "metalwood", "stifftwig", "stonebark" };
+std::vector<std::string> aHumanIronwood = { "ironwood", "hardwood", "armorwood", "steelwood", "bladewood" };
+
+// Yew (I_YEW) - for Sacred Grove
+std::vector<std::string> aDwarfYew = { "ulinoth", "zahalorn", "ithtree", "spiritwood", "elderbark" };
+std::vector<std::string> aElfYew   = { "galadh", "lothornl", "yavanna", "celeborn", "neldor" };
+std::vector<std::string> aOrcYew   = { "cursedtree", "bloodwood", "darktwig", "spiritbark", "darkroot" };
+std::vector<std::string> aHumanYew = { "yew", "spiritwood", "blessedwood", "elderwood", "sacredoak" };
+
+// Winged Horse (I_WHORSE) - for Mythic Stables
+std::vector<std::string> aDwarfWhorse = { "winguzar", "skyruk", "cloudmur", "windsteed", "airbaruk" };
+std::vector<std::string> aElfWhorse   = { "roccoair", "skyarod", "winglin", "celebroch", "aearoch" };
+std::vector<std::string> aOrcWhorse   = { "wingbeast", "skymount", "cloudbrute", "flighthoof", "skysteed" };
+std::vector<std::string> aHumanWhorse = { "winged", "skymare", "cloudsteed", "windmount", "skyhorse" };
+
+// Floater (I_FLOATER) - for Trapping Lodge
+std::vector<std::string> aDwarfFloater = { "airbaraz", "floattum", "skyuzar", "windgol", "cloudzad" };
+std::vector<std::string> aElfFloater   = { "aerraw", "cloudlhaw", "skyfael", "windraew", "airsnare" };
+std::vector<std::string> aOrcFloater   = { "cloudtrap", "airgit", "floathole", "windsnare", "skygit" };
+std::vector<std::string> aHumanFloater = { "floater", "cloudtrap", "skysnare", "windtrap", "airhunt" };
+
+// Mushroom (I_MUSHROOM) - for Faerie Ring
+std::vector<std::string> aDwarfMushroom = { "zarithniz", "spiritlib", "faeithil", "moonspore", "mysticzarn" };
+std::vector<std::string> aElfMushroom   = { "faeriegalen", "spiritglas", "lindlaeg", "moonspore", "aerniph" };
+std::vector<std::string> aOrcMushroom   = { "mushroom", "rotspore", "darkspore", "slimedark", "funguspit" };
+std::vector<std::string> aHumanMushroom = { "mushroom", "moonspore", "elderbloom", "nightcap", "fairybloom" };
+
+// Adamantium (I_ADMANTIUM) - for Alchemist Lab
+std::vector<std::string> aDwarfAdamant = { "admant-zad", "voiduzun", "shadowzakar", "blackgol", "darkzikil" };
+std::vector<std::string> aElfAdamant   = { "voidmith", "shadowthil", "darkril", "eluchil", "voidtin" };
+std::vector<std::string> aOrcAdamant   = { "blackpit", "darksteel", "voidgut", "shadowore", "adamrock" };
+std::vector<std::string> aHumanAdamant = { "adamantine", "darksteel", "voidmetal", "shadowore", "starstone" };
+
+//---------------------------------------------------------------------------
+// Advanced building type words (by race)
+//---------------------------------------------------------------------------
+
+// Forest Preserve (O_PRESERVE)
+std::vector<std::string> aDwarfPreserve = { "ithilorn", "bintaur", "malbethgal", "urnorn", "zirikgal" };
+std::vector<std::string> aElfPreserve   = { "galadhbar", "taurcaer", "silvaost", "woodbarad", "foresttham" };
+std::vector<std::string> aOrcPreserve   = { "woodhut", "treehole", "barkden", "grovepit", "foresthide" };
+std::vector<std::string> aHumanPreserve = { "preserve", "grove", "woodland", "greenhold", "forestkeep" };
+
+// Sacred Grove (O_SACGROVE)
+std::vector<std::string> aDwarfGrove = { "ulinbarak", "zahalgal", "spiritgal", "holybund", "sacredgundag" };
+std::vector<std::string> aElfGrove   = { "galadhiaur", "yavannaost", "blessedbar", "spirittham", "holyminas" };
+std::vector<std::string> aOrcGrove   = { "darkgrove", "cursedpit", "spirithole", "bloodgrove", "shadowgrove" };
+std::vector<std::string> aHumanGrove = { "sacred grove", "holy grove", "spirit grove", "elder grove", "blessed grove" };
+
+// Faerie Ring (O_FAERIERING)
+std::vector<std::string> aDwarfRing = { "spiritbund", "faezaral", "mysticgol", "faenazar", "holybarak" };
+std::vector<std::string> aElfRing   = { "faerierond", "spiritost", "blessedrond", "faecaer", "spirittham" };
+std::vector<std::string> aOrcRing   = { "spirithole", "darkring", "cursedpit", "ghostring", "bonecircle" };
+std::vector<std::string> aHumanRing = { "faerie ring", "spirit circle", "mystic ring", "fae circle", "enchanted ring" };
+
+// Alchemist Lab (O_ALCHEMISTLAB)
+std::vector<std::string> aDwarfLab = { "greatzal", "masterthibil", "arcaneagul", "spiritmazgal", "voidthrakul" };
+std::vector<std::string> aElfLab   = { "arcanesammath", "masterangos", "spiritcurun", "voidgwaith", "greatangos" };
+std::vector<std::string> aOrcLab   = { "arcanezog", "spirituruk", "voidbang", "mastersmash", "darkforge" };
+std::vector<std::string> aHumanLab = { "laboratory", "alchemy works", "arcane hall", "spirit forge", "void lab" };
+
+// Trapping Lodge (O_TRAPPINGLODGE)
+std::vector<std::string> aDwarfLodge = { "grandguzib", "lodgekhuz", "mastersnar", "huntdurak", "greatthizar" };
+std::vector<std::string> aElfLodge   = { "grandfael", "masterlhaw", "huntraew", "greatraw", "lordfael" };
+std::vector<std::string> aOrcLodge   = { "bigghash", "greatshak", "masterhidek", "huntskal", "lordscar" };
+std::vector<std::string> aHumanLodge = { "lodge", "hunting hall", "trappers hall", "manor", "great hall" };
 
 //---------------------------------------------------------------------------
 // LAIR NAMING SYSTEM - Monster and Lair Type Words
@@ -450,21 +536,37 @@ std::string getProductionBuildingName(int buildingType, int resourceType, int ra
                 case I_HERBS:     resourceWord = rng::one_of(aDwarfHerbs); break;
                 case I_HORSE:     resourceWord = rng::one_of(aDwarfHorse); break;
                 case I_CAMEL:     resourceWord = rng::one_of(aDwarfCamel); break;
+                case I_MITHRIL:   resourceWord = rng::one_of(aDwarfMithril); break;
+                case I_ROOTSTONE: resourceWord = rng::one_of(aDwarfRootstone); break;
+                case I_IRONWOOD:  resourceWord = rng::one_of(aDwarfIronwood); break;
+                case I_YEW:       resourceWord = rng::one_of(aDwarfYew); break;
+                case I_WHORSE:    resourceWord = rng::one_of(aDwarfWhorse); break;
+                case I_FLOATER:   resourceWord = rng::one_of(aDwarfFloater); break;
+                case I_MUSHROOM:  resourceWord = rng::one_of(aDwarfMushroom); break;
+                case I_ADMANTIUM: resourceWord = rng::one_of(aDwarfAdamant); break;
                 default:          resourceWord = "barak";
             }
 
             // Building type words
             switch(buildingType) {
-                case O_MINE:        buildingWord = rng::one_of(aDwarfMine); break;
-                case O_QUARRY:      buildingWord = rng::one_of(aDwarfQuarry); break;
-                case O_TIMBERYARD:  buildingWord = rng::one_of(aDwarfWorkshop); break;
+                case O_MINE:          buildingWord = rng::one_of(aDwarfMine); break;
+                case O_QUARRY:        buildingWord = rng::one_of(aDwarfQuarry); break;
+                case O_TIMBERYARD:    buildingWord = rng::one_of(aDwarfWorkshop); break;
                 case O_FARM:
-                case O_RANCH:       buildingWord = rng::one_of(aDwarfFarm); break;
-                case O_STABLE:      buildingWord = rng::one_of(aDwarfStable); break;
-                case O_OASIS:       buildingWord = rng::one_of(aDwarfOasis); break;
-                case O_TRAPPINGHUT: buildingWord = rng::one_of(aDwarfWorkshop); break;
-                case O_TEMPLE:      buildingWord = rng::one_of(aDwarfQuarry); break; // stone hall
-                default:            buildingWord = "zal";
+                case O_RANCH:         buildingWord = rng::one_of(aDwarfFarm); break;
+                case O_STABLE:        buildingWord = rng::one_of(aDwarfStable); break;
+                case O_OASIS:         buildingWord = rng::one_of(aDwarfOasis); break;
+                case O_TRAPPINGHUT:   buildingWord = rng::one_of(aDwarfWorkshop); break;
+                case O_TEMPLE:        buildingWord = rng::one_of(aDwarfQuarry); break; // stone hall
+                case O_AMINE:         buildingWord = rng::one_of(aDwarfMine); break;
+                case O_MQUARRY:       buildingWord = rng::one_of(aDwarfQuarry); break;
+                case O_MSTABLE:       buildingWord = rng::one_of(aDwarfStable); break;
+                case O_PRESERVE:      buildingWord = rng::one_of(aDwarfPreserve); break;
+                case O_SACGROVE:      buildingWord = rng::one_of(aDwarfGrove); break;
+                case O_FAERIERING:    buildingWord = rng::one_of(aDwarfRing); break;
+                case O_ALCHEMISTLAB:  buildingWord = rng::one_of(aDwarfLab); break;
+                case O_TRAPPINGLODGE: buildingWord = rng::one_of(aDwarfLodge); break;
+                default:              buildingWord = "zal";
             }
 
             // Dwarven format: prefix + resource + building
@@ -486,21 +588,37 @@ std::string getProductionBuildingName(int buildingType, int resourceType, int ra
                 case I_HERBS:     resourceWord = rng::one_of(aElfHerbs); break;
                 case I_HORSE:     resourceWord = rng::one_of(aElfHorse); break;
                 case I_CAMEL:     resourceWord = rng::one_of(aElfCamel); break;
+                case I_MITHRIL:   resourceWord = rng::one_of(aElfMithril); break;
+                case I_ROOTSTONE: resourceWord = rng::one_of(aElfRootstone); break;
+                case I_IRONWOOD:  resourceWord = rng::one_of(aElfIronwood); break;
+                case I_YEW:       resourceWord = rng::one_of(aElfYew); break;
+                case I_WHORSE:    resourceWord = rng::one_of(aElfWhorse); break;
+                case I_FLOATER:   resourceWord = rng::one_of(aElfFloater); break;
+                case I_MUSHROOM:  resourceWord = rng::one_of(aElfMushroom); break;
+                case I_ADMANTIUM: resourceWord = rng::one_of(aElfAdamant); break;
                 default:          resourceWord = "las";
             }
 
             // Building type words
             switch(buildingType) {
-                case O_MINE:        buildingWord = rng::one_of(aElfMine); break;
-                case O_QUARRY:      buildingWord = rng::one_of(aElfQuarry); break;
-                case O_TIMBERYARD:  buildingWord = rng::one_of(aElfWorkshop); break;
+                case O_MINE:          buildingWord = rng::one_of(aElfMine); break;
+                case O_QUARRY:        buildingWord = rng::one_of(aElfQuarry); break;
+                case O_TIMBERYARD:    buildingWord = rng::one_of(aElfWorkshop); break;
                 case O_FARM:
-                case O_RANCH:       buildingWord = rng::one_of(aElfFarm); break;
-                case O_STABLE:      buildingWord = rng::one_of(aElfStable); break;
-                case O_OASIS:       buildingWord = rng::one_of(aElfOasis); break;
-                case O_TRAPPINGHUT: buildingWord = rng::one_of(aElfWorkshop); break;
-                case O_TEMPLE:      buildingWord = rng::one_of(aElfShrine); break;
-                default:            buildingWord = "ost";
+                case O_RANCH:         buildingWord = rng::one_of(aElfFarm); break;
+                case O_STABLE:        buildingWord = rng::one_of(aElfStable); break;
+                case O_OASIS:         buildingWord = rng::one_of(aElfOasis); break;
+                case O_TRAPPINGHUT:   buildingWord = rng::one_of(aElfWorkshop); break;
+                case O_TEMPLE:        buildingWord = rng::one_of(aElfShrine); break;
+                case O_AMINE:         buildingWord = rng::one_of(aElfMine); break;
+                case O_MQUARRY:       buildingWord = rng::one_of(aElfQuarry); break;
+                case O_MSTABLE:       buildingWord = rng::one_of(aElfStable); break;
+                case O_PRESERVE:      buildingWord = rng::one_of(aElfPreserve); break;
+                case O_SACGROVE:      buildingWord = rng::one_of(aElfGrove); break;
+                case O_FAERIERING:    buildingWord = rng::one_of(aElfRing); break;
+                case O_ALCHEMISTLAB:  buildingWord = rng::one_of(aElfLab); break;
+                case O_TRAPPINGLODGE: buildingWord = rng::one_of(aElfLodge); break;
+                default:              buildingWord = "ost";
             }
 
             // Elven format: prefix + resource + building
@@ -521,21 +639,37 @@ std::string getProductionBuildingName(int buildingType, int resourceType, int ra
                 case I_HERBS:     resourceWord = rng::one_of(aOrcHerbs); break;
                 case I_HORSE:     resourceWord = rng::one_of(aOrcHorse); break;
                 case I_CAMEL:     resourceWord = rng::one_of(aOrcCamel); break;
+                case I_MITHRIL:   resourceWord = rng::one_of(aOrcMithril); break;
+                case I_ROOTSTONE: resourceWord = rng::one_of(aOrcRootstone); break;
+                case I_IRONWOOD:  resourceWord = rng::one_of(aOrcIronwood); break;
+                case I_YEW:       resourceWord = rng::one_of(aOrcYew); break;
+                case I_WHORSE:    resourceWord = rng::one_of(aOrcWhorse); break;
+                case I_FLOATER:   resourceWord = rng::one_of(aOrcFloater); break;
+                case I_MUSHROOM:  resourceWord = rng::one_of(aOrcMushroom); break;
+                case I_ADMANTIUM: resourceWord = rng::one_of(aOrcAdamant); break;
                 default:          resourceWord = "dur";
             }
 
             // Building type words
             switch(buildingType) {
-                case O_MINE:        buildingWord = rng::one_of(aOrcMine); break;
-                case O_QUARRY:      buildingWord = rng::one_of(aOrcQuarry); break;
-                case O_TIMBERYARD:  buildingWord = rng::one_of(aOrcWorkshop); break;
+                case O_MINE:          buildingWord = rng::one_of(aOrcMine); break;
+                case O_QUARRY:        buildingWord = rng::one_of(aOrcQuarry); break;
+                case O_TIMBERYARD:    buildingWord = rng::one_of(aOrcWorkshop); break;
                 case O_FARM:
-                case O_RANCH:       buildingWord = rng::one_of(aOrcFarm); break;
-                case O_STABLE:      buildingWord = rng::one_of(aOrcStable); break;
-                case O_OASIS:       buildingWord = rng::one_of(aOrcOasis); break;
-                case O_TRAPPINGHUT: buildingWord = rng::one_of(aOrcWorkshop); break;
-                case O_TEMPLE:      buildingWord = "nazgul"; break; // dark shrine
-                default:            buildingWord = "gar";
+                case O_RANCH:         buildingWord = rng::one_of(aOrcFarm); break;
+                case O_STABLE:        buildingWord = rng::one_of(aOrcStable); break;
+                case O_OASIS:         buildingWord = rng::one_of(aOrcOasis); break;
+                case O_TRAPPINGHUT:   buildingWord = rng::one_of(aOrcWorkshop); break;
+                case O_TEMPLE:        buildingWord = rng::one_of(aOrcWorkshop); break; // dark shrine
+                case O_AMINE:         buildingWord = rng::one_of(aOrcMine); break;
+                case O_MQUARRY:       buildingWord = rng::one_of(aOrcQuarry); break;
+                case O_MSTABLE:       buildingWord = rng::one_of(aOrcStable); break;
+                case O_PRESERVE:      buildingWord = rng::one_of(aOrcPreserve); break;
+                case O_SACGROVE:      buildingWord = rng::one_of(aOrcGrove); break;
+                case O_FAERIERING:    buildingWord = rng::one_of(aOrcRing); break;
+                case O_ALCHEMISTLAB:  buildingWord = rng::one_of(aOrcLab); break;
+                case O_TRAPPINGLODGE: buildingWord = rng::one_of(aOrcLodge); break;
+                default:              buildingWord = "gar";
             }
 
             // Orcish format: prefix + resource + building
@@ -564,21 +698,37 @@ std::string getProductionBuildingName(int buildingType, int resourceType, int ra
                 case I_HERBS:     resourceWord = rng::one_of(aHumanHerbs); break;
                 case I_HORSE:     resourceWord = rng::one_of(aHumanHorse); break;
                 case I_CAMEL:     resourceWord = rng::one_of(aHumanCamel); break;
+                case I_MITHRIL:   resourceWord = rng::one_of(aHumanMithril); break;
+                case I_ROOTSTONE: resourceWord = rng::one_of(aHumanRootstone); break;
+                case I_IRONWOOD:  resourceWord = rng::one_of(aHumanIronwood); break;
+                case I_YEW:       resourceWord = rng::one_of(aHumanYew); break;
+                case I_WHORSE:    resourceWord = rng::one_of(aHumanWhorse); break;
+                case I_FLOATER:   resourceWord = rng::one_of(aHumanFloater); break;
+                case I_MUSHROOM:  resourceWord = rng::one_of(aHumanMushroom); break;
+                case I_ADMANTIUM: resourceWord = rng::one_of(aHumanAdamant); break;
                 default:          resourceWord = "stone";
             }
 
             // Building type words
             switch(buildingType) {
-                case O_MINE:        buildingWord = rng::one_of(aHumanMine); break;
-                case O_QUARRY:      buildingWord = rng::one_of(aHumanQuarry); break;
-                case O_TIMBERYARD:  buildingWord = rng::one_of(aHumanWorkshop); break;
+                case O_MINE:          buildingWord = rng::one_of(aHumanMine); break;
+                case O_QUARRY:        buildingWord = rng::one_of(aHumanQuarry); break;
+                case O_TIMBERYARD:    buildingWord = rng::one_of(aHumanWorkshop); break;
                 case O_FARM:
-                case O_RANCH:       buildingWord = rng::one_of(aHumanFarm); break;
-                case O_STABLE:      buildingWord = rng::one_of(aHumanStable); break;
-                case O_OASIS:       buildingWord = rng::one_of(aHumanOasis); break;
-                case O_TRAPPINGHUT: buildingWord = rng::one_of(aHumanWorkshop); break;
-                case O_TEMPLE:      buildingWord = rng::one_of(aHumanShrine); break;
-                default:            buildingWord = "works";
+                case O_RANCH:         buildingWord = rng::one_of(aHumanFarm); break;
+                case O_STABLE:        buildingWord = rng::one_of(aHumanStable); break;
+                case O_OASIS:         buildingWord = rng::one_of(aHumanOasis); break;
+                case O_TRAPPINGHUT:   buildingWord = rng::one_of(aHumanWorkshop); break;
+                case O_TEMPLE:        buildingWord = rng::one_of(aHumanShrine); break;
+                case O_AMINE:         buildingWord = rng::one_of(aHumanMine); break;
+                case O_MQUARRY:       buildingWord = rng::one_of(aHumanQuarry); break;
+                case O_MSTABLE:       buildingWord = rng::one_of(aHumanStable); break;
+                case O_PRESERVE:      buildingWord = rng::one_of(aHumanPreserve); break;
+                case O_SACGROVE:      buildingWord = rng::one_of(aHumanGrove); break;
+                case O_FAERIERING:    buildingWord = rng::one_of(aHumanRing); break;
+                case O_ALCHEMISTLAB:  buildingWord = rng::one_of(aHumanLab); break;
+                case O_TRAPPINGLODGE: buildingWord = rng::one_of(aHumanLodge); break;
+                default:              buildingWord = "works";
             }
 
             // Human format: prefix + " " + resource + " " + building

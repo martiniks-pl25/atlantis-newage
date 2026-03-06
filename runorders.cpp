@@ -1,5 +1,6 @@
 #include "game.h"
 #include "gamedata.h"
+#include "namegen.h"
 #include "quests.h"
 
 using namespace std;
@@ -1177,7 +1178,38 @@ void Game::PostProcessTurn()
 
     if (Globals->LAIR_MONSTERS_EXIST) GrowVMons();
 
+    AutoNameBuildings();
     DoTowerObservation();
+}
+
+void Game::AutoNameBuildings()
+{
+    for (const auto r : regions) {
+        for (const auto o : r->objects) {
+            // name is stored as "Building [N]" by set_name()
+            if (!o->name.starts_with("Building [")) continue;
+            if (o->type <= 0 || o->type >= NOBJECTS) continue;
+            if (ObjectDefs[o->type].flags & ObjectType::DISABLED) continue;
+
+            const ObjectType& ot = ObjectDefs[o->type];
+            std::string newName;
+
+            if (o->type == O_INN)
+                newName = getInnName();
+            else if (ot.productionAided != -1)
+                newName = getProductionBuildingName(o->type, ot.productionAided, r->race);
+            else
+                newName = getFortressName(ot);
+
+            if (newName.empty() || newName == "Building") continue;
+
+            o->set_name(newName);
+            Unit *owner = o->GetOwner();
+            if (owner && !owner->faction->is_npc)
+                owner->event("Your " + ot.name + " has been automatically named '" +
+                             newName + "'.", "building");
+        }
+    }
 }
 
 void Game::DoTowerObservation()
@@ -1294,13 +1326,18 @@ void Game::DoAutoAttack(ARegion *r, Unit *u) {
 
 int Game::CountWMonTars(ARegion *r, Unit *mon) {
     int retval = 0;
+    // Danger zones: underground, surface with shaft, or volcano - no grace period applies
+    bool dangerZone = (r->level->levelType != ARegionArray::LEVEL_SURFACE)
+                   || r->HasShaft()
+                   || r->type == R_VOLCANO;
     for(const auto o : r->objects) {
         for(const auto u : o->units) {
             if (u->type == U_NORMAL || u->type == U_MAGE || u->type == U_APPRENTICE) {
                 // Per-faction grace period: new factions are immune to monster attacks
                 // for MONSTER_HOSTILE_GRACE_PERIOD turns after joining.
+                // Does not apply in danger zones (underground, shafts, volcanoes).
                 int age = TurnNumber() - u->faction->startturn;
-                if (Globals->MONSTER_HOSTILE_GRACE_PERIOD > 0 && age < Globals->MONSTER_HOSTILE_GRACE_PERIOD) continue;
+                if (!dangerZone && Globals->MONSTER_HOSTILE_GRACE_PERIOD > 0 && age < Globals->MONSTER_HOSTILE_GRACE_PERIOD) continue;
                 if (mon->CanSee(r, u) && mon->CanCatch(r, u)) {
                     retval += u->GetMen();
                 }
@@ -1311,13 +1348,18 @@ int Game::CountWMonTars(ARegion *r, Unit *mon) {
 }
 
 Unit *Game::GetWMonTar(ARegion *r, int tarnum, Unit *mon) {
+    // Danger zones: underground, surface with shaft, or volcano - no grace period applies
+    bool dangerZone = (r->level->levelType != ARegionArray::LEVEL_SURFACE)
+                   || r->HasShaft()
+                   || r->type == R_VOLCANO;
     for(const auto o : r->objects) {
         for(const auto u : o->units) {
             if (u->type == U_NORMAL || u->type == U_MAGE || u->type == U_APPRENTICE) {
                 // Per-faction grace period: new factions are immune to monster attacks
                 // for MONSTER_HOSTILE_GRACE_PERIOD turns after joining.
+                // Does not apply in danger zones (underground, shafts, volcanoes).
                 int age = TurnNumber() - u->faction->startturn;
-                if (Globals->MONSTER_HOSTILE_GRACE_PERIOD > 0 && age < Globals->MONSTER_HOSTILE_GRACE_PERIOD) continue;
+                if (!dangerZone && Globals->MONSTER_HOSTILE_GRACE_PERIOD > 0 && age < Globals->MONSTER_HOSTILE_GRACE_PERIOD) continue;
                 if (mon->CanSee(r, u) && mon->CanCatch(r, u)) {
                     int num = u->GetMen();
                     if (num && tarnum < num) return u;
@@ -1332,10 +1374,13 @@ Unit *Game::GetWMonTar(ARegion *r, int tarnum, Unit *mon) {
 /**
  * @brief Checks if wandering monster attacks player units
  *
- * Hostility calculation:
+ * Hostility calculation (normal surface regions):
  * - Turns 1-GRACE_PERIOD: 0% hostility (peaceful)
  * - Turn GRACE_PERIOD+1 onwards: hostility increases by INCREASE_RATE per turn
  * - Capped at baseHostile (100%)
+ *
+ * Danger zones (underground, regions with shafts, volcanoes):
+ * - Immediate full hostility, no grace period or progression.
  *
  * @param r Region where potential attack occurs
  * @param u Monster unit checking for attack
@@ -1351,21 +1396,30 @@ void Game::CheckWMonAttack(ARegion *r, Unit *u) {
     int rand = 300 - tars;
     if (rand < 100) rand = 100;
 
-    // Calculate progressive hostility based on game turn
     int baseHostile = u->Hostile();
     int turn = TurnNumber();
 
+    // Danger zones: underground, surface with shaft, or volcano.
+    // Monsters attack at full hostility immediately with no grace period or progression.
+    bool dangerZone = (r->level->levelType != ARegionArray::LEVEL_SURFACE)
+                   || r->HasShaft()
+                   || r->type == R_VOLCANO;
+
     int effectiveHostile = 0;
-    if (turn > Globals->MONSTER_HOSTILE_GRACE_PERIOD) {
+    if (dangerZone) {
+        effectiveHostile = baseHostile;
+    } else if (turn > Globals->MONSTER_HOSTILE_GRACE_PERIOD) {
+        // Calculate progressive hostility based on game turn
         int turnsActive = turn - Globals->MONSTER_HOSTILE_GRACE_PERIOD;
         effectiveHostile = (baseHostile * turnsActive * Globals->MONSTER_HOSTILE_RATE) / 100;
 
         // Cap at base hostility (100%) after max turns
-        int maxHostile = baseHostile;
-        if (effectiveHostile > maxHostile) effectiveHostile = maxHostile;
+        if (effectiveHostile > baseHostile) effectiveHostile = baseHostile;
+    }
 
-        // Apply age modifier based on monster age (free value)
-        // Young monsters are less aggressive, elder monsters have full aggression
+    // Apply age modifier based on monster age (free value)
+    // Young monsters are less aggressive, elder monsters have full aggression
+    if (effectiveHostile > 0) {
         if (u->free >= 3) {
             effectiveHostile = (effectiveHostile * 25) / 100;  // Young: 25%
         } else if (u->free == 2) {

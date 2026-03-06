@@ -243,7 +243,7 @@ void Unit::UpdateMonsterDescription()
         if (free >= 3)      desc = "Freshly animated corpses with no possessions.";
         else if (free == 2) desc = "Restless spirits gathering power and treasures.";
         else if (free == 1) desc = "Ancient horrors protecting accumulated wealth.";
-        else                desc = "Eternal guardians of vast funerary riches.";
+        else                desc = "Eternal sentinels of vast funerary riches.";
     }
     else if (is_dragon) {
         if (free >= 3)      desc = "A young drake with no hoard yet to speak of.";
@@ -1065,8 +1065,8 @@ void Unit::PostTurn(ARegion *r)
         }
         if (free > 0) {
             --free;
-            UpdateMonsterDescription();
         }
+        UpdateMonsterDescription();
     }
 }
 
