@@ -1344,6 +1344,14 @@ int ARegion::GetObservation(Faction *f, int usepassers)
             }
         }
     }
+    // Tower-based farsight (unit=nullptr): contributes reduced observation independently of IMPROVED_FARSIGHT.
+    // No TRUE_SEEING, MIND_READING, or GATE_LORE bonuses apply.
+    for(const auto farsight : farsees) {
+        if (farsight && farsight->faction == f && !farsight->unit && farsight->observation > 0) {
+            int o = farsight->observation;
+            if (o > obs) obs = o;
+        }
+    }
 
     if (usepassers &&
             (Globals->TRANSIT_REPORT & GameDefs::REPORT_USE_UNIT_SKILLS) &&

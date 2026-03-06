@@ -1215,30 +1215,33 @@ void Game::AutoNameBuildings()
 void Game::DoTowerObservation()
 {
     for (const auto r : regions) {
-        // Collect player factions that have units inside a Tower or Magical Tower building
-        std::set<Faction *> tower_factions;
+        // Collect player factions in completed towers, tracking max OBSE per faction.
+        std::map<Faction *, int> tower_factions;
         for (const auto o : r->objects) {
-            if (o->type != O_TOWER && o->type != O_MTOWER) continue;
+            if ((o->type != O_TOWER && o->type != O_MTOWER) || o->incomplete > 0) continue;
             for (const auto u : o->units) {
                 if (!u->faction->is_npc) {
-                    tower_factions.insert(u->faction);
+                    int obs = u->GetAttribute("observation");
+                    auto& cur = tower_factions[u->faction];
+                    if (obs > cur) cur = obs;
                 }
             }
         }
         if (tower_factions.empty()) continue;
 
-        // Add a basic farsight entry (obs=0, unit=nullptr) to each adjacent region.
-        // Using unit=nullptr ensures no skills (OBSE, TRUE_SEEING, MIND_READING, etc.) are applied.
+        // Add a farsight entry to each adjacent region.
+        // observation = (max_obse + 1) / 2: OBSE 1-2 -> 1, 3-4 -> 2, 5-6 -> 3, etc.
+        // unit=nullptr: no TRUE_SEEING, MIND_READING, GATE_LORE bonuses from the tower.
         for (int i = 0; i < NDIRS; i++) {
             ARegion *neigh = r->neighbors[i];
             if (!neigh) continue;
-            for (Faction *fac : tower_factions) {
+            for (auto& [fac, max_obse] : tower_factions) {
                 if (!GetFarsight(neigh->farsees, fac)) {
                     Farsight *f = new Farsight;
                     f->faction = fac;
                     f->level = 0;
-                    f->unit = nullptr;   // No skill bonuses: OBSE, TRUE_SEEING, etc. are not applied
-                    f->observation = 0;  // Base observation level (OBSE=0)
+                    f->unit = nullptr;
+                    f->observation = (max_obse + 1) / 2;
                     neigh->farsees.push_back(f);
                 }
             }
