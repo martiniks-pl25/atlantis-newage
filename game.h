@@ -495,6 +495,7 @@ private:
     void PostProcessUnitExtra(ARegion *, Unit *);
     void PostProcessTurn();
     void AutoNameBuildings();
+    void ResetCityMarketsExceptTrade(); // TEMPORARY — remove after one server turn
     void DoTowerObservation();
 
     // Processing regions grow after production phase

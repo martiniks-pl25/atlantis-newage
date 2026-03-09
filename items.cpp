@@ -975,17 +975,17 @@ std::string item_description(int item, int full)
                 attack_type(weapon.attackType) + " attacks.";
             temp += " This weapon allows ";
             if (atts > 0) {
-                if (atts >= WeaponType::NUM_ATTACKS_HALF_SKILL) {
-                    int max = WeaponType::NUM_ATTACKS_HALF_SKILL;
-                    std::string attd = "half the skill level (rounded up)";
-                    if (atts >= WeaponType::NUM_ATTACKS_SKILL) {
-                        max = WeaponType::NUM_ATTACKS_SKILL;
-                        attd = "the skill level";
-                    }
-                    temp += "a number of attacks equal to ";
-                    temp += attd;
-                    temp += " of the attacker";
-                    int val = atts - max;
+                if (atts >= WeaponType::NUM_ATTACKS_THIRD_SKILL) {
+                    temp += "a number of attacks equal to (skill+2)/3 (a third of the skill level, rounded up) of the attacker";
+                    int val = atts - WeaponType::NUM_ATTACKS_THIRD_SKILL;
+                    if (val > 0) temp += " plus " + std::to_string(val);
+                } else if (atts >= WeaponType::NUM_ATTACKS_SKILL) {
+                    temp += "a number of attacks equal to the skill level of the attacker";
+                    int val = atts - WeaponType::NUM_ATTACKS_SKILL;
+                    if (val > 0) temp += " plus " + std::to_string(val);
+                } else if (atts >= WeaponType::NUM_ATTACKS_HALF_SKILL) {
+                    temp += "a number of attacks equal to half the skill level (rounded up) of the attacker";
+                    int val = atts - WeaponType::NUM_ATTACKS_HALF_SKILL;
                     if (val > 0) temp += " plus " + std::to_string(val);
                 } else {
                     temp += std::to_string(atts) + ((atts==1)?" attack":" attacks");

@@ -401,11 +401,12 @@ Soldier::Soldier(Unit * u,Object * o,int regtype,int r,int ass)
 
     unit->PracticeAttribute("combat");
 
-    // Apply armor combat modifier (affects attack skill only)
+    // Apply armor combat modifiers
     if (armor != -1) {
         auto armorRef = find_armor(ItemDefs[armor].abr);
         if (armorRef) {
             attackBonus += armorRef->get().attackBonus;
+            defenseBonus += armorRef->get().defenseBonus;
         }
     }
 

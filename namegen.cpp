@@ -183,20 +183,20 @@ std::vector<std::string> aElfOasis = { "lothwen", "nenar", "ethil", "galewen", "
 std::vector<std::string> aElfCamel = { "harad", "rochim", "lavan", "silroch" };
 
 // Orcish resource words
-std::vector<std::string> aOrcIron = { "dur", "nazg", "gul", "krug", "skorn", "blacksteel", "crushore", "ironpit" };
+std::vector<std::string> aOrcIron = { "dur", "nazg", "gul", "krug", "skorn", "blakst", "cruhor", "ironak" };
 std::vector<std::string> aOrcStone = { "buz", "rod", "gar", "drak", "mog", "grit", "rubble", "hardbit" };
-std::vector<std::string> aOrcWood = { "shak", "waz", "rag", "chop", "splint", "hackwood", "stumpwood" };
-std::vector<std::string> aOrcFood = { "narb", "ubal", "mog", "flesh", "grub", "slop", "gruel", "dungchow" };
-std::vector<std::string> aOrcFur = { "ghash", "shak", "hidek", "skal", "scraghide", "roughskin", "stinkpelt" };
-std::vector<std::string> aOrcHerbs = { "glob", "snaga", "rot", "slime", "murkhwort", "scragmoss", "fetidweed" };
-std::vector<std::string> aOrcHorse = { "lug", "tark", "snort", "beast", "horsemeat", "saddlebrute", "warbeast" };
-std::vector<std::string> aOrcMine = { "gar", "gul", "durbul", "blackpit", "skarg", "deephole", "darkgut", "ironpit" };
-std::vector<std::string> aOrcQuarry = { "buz", "agal", "rockmaw", "crag", "stonegut", "greypit", "crackpit" };
-std::vector<std::string> aOrcWorkshop = { "zog", "uruk", "bang", "smash", "bludgeon", "grind", "scrappit" };
-std::vector<std::string> aOrcFarm = { "waz", "ubal", "bloodfield", "mud", "dungmound", "meatfield", "scrapmoor" };
-std::vector<std::string> aOrcStable = { "lugburz", "lugdush", "beastden", "maw", "warbeast", "stamphole", "brutepit" };
+std::vector<std::string> aOrcWood = { "shak", "waz", "rag", "chop", "splint", "hackwz", "stumpk" };
+std::vector<std::string> aOrcFood = { "narb", "ubal", "mog", "flesh", "grub", "slop", "gruel", "narbl" };
+std::vector<std::string> aOrcFur = { "ghash", "shak", "hidek", "skal", "grakh", "skrag", "peltz" };
+std::vector<std::string> aOrcHerbs = { "glob", "snaga", "rot", "slime", "muzg", "skagz", "blort" };
+std::vector<std::string> aOrcHorse = { "lug", "tark", "snort", "beast", "lughak", "drakul", "snarg" };
+std::vector<std::string> aOrcMine = { "gar", "gul", "durbul", "grukul", "skarg", "durzad", "mogar", "nazk" };
+std::vector<std::string> aOrcQuarry = { "buz", "agal", "gorak", "crag", "buzgal", "krazg", "skorn" };
+std::vector<std::string> aOrcWorkshop = { "zog", "uruk", "bang", "smash", "urgol", "grind", "drazh" };
+std::vector<std::string> aOrcFarm = { "waz", "ubal", "wazok", "mud", "ubnak", "grunak", "mudar" };
+std::vector<std::string> aOrcStable = { "lugburz", "lugdush", "lurkan", "maw", "gruksh", "mugoth", "kragul" };
 std::vector<std::string> aOrcOasis = { "mudhole", "drinkpit", "ghashnar", "rotwater", "snar" };
-std::vector<std::string> aOrcCamel = { "lug", "snortbeast", "gruk", "packmaw" };
+std::vector<std::string> aOrcCamel = { "lug", "snorg", "gruk", "packul" };
 
 // Human resource words
 std::vector<std::string> aHumanIron = { "iron", "metal", "steel", "forge", "anvil", "ingot", "smithy" };
@@ -222,49 +222,49 @@ std::vector<std::string> aHumanCamel = { "camel", "dromedary", "packbeast", "car
 // Mithril (I_MITHRIL) - for Arcane Mine
 std::vector<std::string> aDwarfMithril = { "kibil", "mithrim", "zirak", "silrak", "laug" };
 std::vector<std::string> aElfMithril   = { "celebrin", "mithril", "thilorn", "silivren", "thinras" };
-std::vector<std::string> aOrcMithril   = { "shinyrock", "brightore", "moonpit", "glistrock", "silverbone" };
+std::vector<std::string> aOrcMithril   = { "gilrok", "glenak", "lunzad", "shilok", "silvok" };
 std::vector<std::string> aHumanMithril = { "mithril", "moonsteel", "starore", "brightmetal", "silvervein" };
 
 // Rootstone (I_ROOTSTONE) - for Mystic Quarry
 std::vector<std::string> aDwarfRootstone = { "rakhal", "ibrul", "zarim", "nuzum", "thibrak" };
 std::vector<std::string> aElfRootstone   = { "celebrond", "sildur", "arnond", "lithron", "gonnsar" };
-std::vector<std::string> aOrcRootstone   = { "rootrock", "soulstone", "greyroot", "deepbit", "ancrock" };
+std::vector<std::string> aOrcRootstone   = { "rakbol", "gorith", "duzrak", "nardul", "oldrok" };
 std::vector<std::string> aHumanRootstone = { "rootstone", "deeprock", "veinstone", "soulstone", "arkstone" };
 
 // Ironwood (I_IRONWOOD) - for Forest Preserve
 std::vector<std::string> aDwarfIronwood = { "zirik", "khelehorn", "gundtree", "mazorn", "bintree" };
-std::vector<std::string> aElfIronwood   = { "galvorntaur", "ninglor", "echor", "ornmeth", "galadththil" };
+std::vector<std::string> aElfIronwood   = { "galorn", "ninglor", "echor", "ornmeth", "gladil" };
 std::vector<std::string> aOrcIronwood   = { "hardtree", "irontree", "metalwood", "stifftwig", "stonebark" };
 std::vector<std::string> aHumanIronwood = { "ironwood", "hardwood", "armorwood", "steelwood", "bladewood" };
 
 // Yew (I_YEW) - for Sacred Grove
 std::vector<std::string> aDwarfYew = { "ulinoth", "zahalorn", "ithtree", "spiritwood", "elderbark" };
 std::vector<std::string> aElfYew   = { "galadh", "lothornl", "yavanna", "celeborn", "neldor" };
-std::vector<std::string> aOrcYew   = { "cursedtree", "bloodwood", "darktwig", "spiritbark", "darkroot" };
+std::vector<std::string> aOrcYew   = { "mordak", "gorak", "durwig", "ghostk", "nazbol" };
 std::vector<std::string> aHumanYew = { "yew", "spiritwood", "blessedwood", "elderwood", "sacredoak" };
 
 // Winged Horse (I_WHORSE) - for Mythic Stables
 std::vector<std::string> aDwarfWhorse = { "winguzar", "skyruk", "cloudmur", "windsteed", "airbaruk" };
 std::vector<std::string> aElfWhorse   = { "roccoair", "skyarod", "winglin", "celebroch", "aearoch" };
-std::vector<std::string> aOrcWhorse   = { "wingbeast", "skymount", "cloudbrute", "flighthoof", "skysteed" };
+std::vector<std::string> aOrcWhorse   = { "skywng", "skyrak", "guzwng", "flyrak", "airmak" };
 std::vector<std::string> aHumanWhorse = { "winged", "skymare", "cloudsteed", "windmount", "skyhorse" };
 
 // Floater (I_FLOATER) - for Trapping Lodge
 std::vector<std::string> aDwarfFloater = { "airbaraz", "floattum", "skyuzar", "windgol", "cloudzad" };
 std::vector<std::string> aElfFloater   = { "aerraw", "cloudlhaw", "skyfael", "windraew", "airsnare" };
-std::vector<std::string> aOrcFloater   = { "cloudtrap", "airgit", "floathole", "windsnare", "skygit" };
+std::vector<std::string> aOrcFloater   = { "luftak", "airgit", "guzbol", "winsnag", "skygit" };
 std::vector<std::string> aHumanFloater = { "floater", "cloudtrap", "skysnare", "windtrap", "airhunt" };
 
 // Mushroom (I_MUSHROOM) - for Faerie Ring
 std::vector<std::string> aDwarfMushroom = { "zarithniz", "spiritlib", "faeithil", "moonspore", "mysticzarn" };
 std::vector<std::string> aElfMushroom   = { "faeriegalen", "spiritglas", "lindlaeg", "moonspore", "aerniph" };
-std::vector<std::string> aOrcMushroom   = { "mushroom", "rotspore", "darkspore", "slimedark", "funguspit" };
+std::vector<std::string> aOrcMushroom   = { "shrumk", "rotnak", "darkspor", "slimak", "fungak" };
 std::vector<std::string> aHumanMushroom = { "mushroom", "moonspore", "elderbloom", "nightcap", "fairybloom" };
 
 // Adamantium (I_ADMANTIUM) - for Alchemist Lab
 std::vector<std::string> aDwarfAdamant = { "admant-zad", "voiduzun", "shadowzakar", "blackgol", "darkzikil" };
 std::vector<std::string> aElfAdamant   = { "voidmith", "shadowthil", "darkril", "eluchil", "voidtin" };
-std::vector<std::string> aOrcAdamant   = { "blackpit", "darksteel", "voidgut", "shadowore", "adamrock" };
+std::vector<std::string> aOrcAdamant   = { "grukpit", "shadok", "voidgut", "guldak", "adamok" };
 std::vector<std::string> aHumanAdamant = { "adamantine", "darksteel", "voidmetal", "shadowore", "starstone" };
 
 //---------------------------------------------------------------------------
@@ -274,32 +274,63 @@ std::vector<std::string> aHumanAdamant = { "adamantine", "darksteel", "voidmetal
 // Forest Preserve (O_PRESERVE)
 std::vector<std::string> aDwarfPreserve = { "ithilorn", "bintaur", "malbethgal", "urnorn", "zirikgal" };
 std::vector<std::string> aElfPreserve   = { "galadhbar", "taurcaer", "silvaost", "woodbarad", "foresttham" };
-std::vector<std::string> aOrcPreserve   = { "woodhut", "treehole", "barkden", "grovepit", "foresthide" };
+std::vector<std::string> aOrcPreserve   = { "warhut", "trohol", "barkut", "gruvak", "holtok" };
 std::vector<std::string> aHumanPreserve = { "preserve", "grove", "woodland", "greenhold", "forestkeep" };
 
 // Sacred Grove (O_SACGROVE)
 std::vector<std::string> aDwarfGrove = { "ulinbarak", "zahalgal", "spiritgal", "holybund", "sacredgundag" };
 std::vector<std::string> aElfGrove   = { "galadhiaur", "yavannaost", "blessedbar", "spirittham", "holyminas" };
-std::vector<std::string> aOrcGrove   = { "darkgrove", "cursedpit", "spirithole", "bloodgrove", "shadowgrove" };
+std::vector<std::string> aOrcGrove   = { "dargal", "nazpit", "gholhol", "gorgrv", "shadgal" };
 std::vector<std::string> aHumanGrove = { "sacred grove", "holy grove", "spirit grove", "elder grove", "blessed grove" };
 
 // Faerie Ring (O_FAERIERING)
 std::vector<std::string> aDwarfRing = { "spiritbund", "faezaral", "mysticgol", "faenazar", "holybarak" };
 std::vector<std::string> aElfRing   = { "faerierond", "spiritost", "blessedrond", "faecaer", "spirittham" };
-std::vector<std::string> aOrcRing   = { "spirithole", "darkring", "cursedpit", "ghostring", "bonecircle" };
+std::vector<std::string> aOrcRing   = { "gholzad", "darkrng", "curnak", "ghstok", "bonzad" };
 std::vector<std::string> aHumanRing = { "faerie ring", "spirit circle", "mystic ring", "fae circle", "enchanted ring" };
 
 // Alchemist Lab (O_ALCHEMISTLAB)
 std::vector<std::string> aDwarfLab = { "greatzal", "masterthibil", "arcaneagul", "spiritmazgal", "voidthrakul" };
 std::vector<std::string> aElfLab   = { "arcanesammath", "masterangos", "spiritcurun", "voidgwaith", "greatangos" };
-std::vector<std::string> aOrcLab   = { "arcanezog", "spirituruk", "voidbang", "mastersmash", "darkforge" };
+std::vector<std::string> aOrcLab   = { "arkzog", "ghulurk", "voidzg", "mastzog", "drkfrg" };
 std::vector<std::string> aHumanLab = { "laboratory", "alchemy works", "arcane hall", "spirit forge", "void lab" };
 
 // Trapping Lodge (O_TRAPPINGLODGE)
 std::vector<std::string> aDwarfLodge = { "grandguzib", "lodgekhuz", "mastersnar", "huntdurak", "greatthizar" };
 std::vector<std::string> aElfLodge   = { "grandfael", "masterlhaw", "huntraew", "greatraw", "lordfael" };
-std::vector<std::string> aOrcLodge   = { "bigghash", "greatshak", "masterhidek", "huntskal", "lordscar" };
+std::vector<std::string> aOrcLodge   = { "grugal", "warbunk", "maskhid", "huntskal", "lordnk" };
 std::vector<std::string> aHumanLodge = { "lodge", "hunting hall", "trappers hall", "manor", "great hall" };
+
+//---------------------------------------------------------------------------
+// ROAD NAMING SYSTEM - Cultural road type words per ethnicity
+//---------------------------------------------------------------------------
+// Road type words meaning "road/path/track/way" in each culture's language
+std::vector<std::string> aDwarfRoad  = { "gard", "tum", "raz", "naz", "zul", "keled" };
+std::vector<std::string> aElfRoad    = { "iant", "men", "peth", "rath", "sir", "lond" };
+std::vector<std::string> aOrcRoad    = { "gar", "naz", "gul", "raz", "gruk", "bol" };
+std::vector<std::string> aNomadRoad  = { "tariq", "sikka", "darb", "maslak" };
+std::vector<std::string> aHumanRoad  = { "Road", "Path", "Trail", "Track", "Way", "Tract" };
+
+//---------------------------------------------------------------------------
+// CARAVANSERAI NAMING SYSTEM - Trade waystation words per ethnicity
+//---------------------------------------------------------------------------
+// "What moves through / is valued" — Dwarven (precious metals / packed goods)
+std::vector<std::string> aDwarfCaravanTrade = { "kibil", "baruk", "khad", "mazar", "durak" };
+// "The structure itself" — Dwarven (hall / workshop / chamber)
+std::vector<std::string> aDwarfCaravanHall  = { "zal", "dum", "thibil", "bar", "tum" };
+// "What moves through / is valued" — Elvish (silver / path / guardian)
+std::vector<std::string> aElfCaravanTrade   = { "celeb", "mith", "pant", "tirn", "narw" };
+// "The structure itself" — Elvish (dwelling / place / chambers)
+std::vector<std::string> aElfCaravanHall    = { "bar", "ost", "sammath", "gwaith", "lodh" };
+// "What moves through / is valued" — Orcish (iron / haul / loot)
+std::vector<std::string> aOrcCaravanTrade   = { "dur", "lug", "skag", "gash", "drag" };
+// "The structure itself" — Orcish (den / post / grind)
+std::vector<std::string> aOrcCaravanHall    = { "zog", "bang", "drazh", "urgol", "grind" };
+// Nomad type words — historically authentic Arabic/Persian terms for caravan inn
+std::vector<std::string> aNomadCaravan      = { "Khan", "Serai", "Funduq", "Ribat", "Wikala" };
+// Human trade and building words (English)
+std::vector<std::string> aHumanCaravanTrade = { "road", "merchant", "trade", "caravan", "way" };
+std::vector<std::string> aHumanCaravanHall  = { "inn", "post", "house", "hall", "lodge" };
 
 //---------------------------------------------------------------------------
 // LAIR NAMING SYSTEM - Monster and Lair Type Words
@@ -460,6 +491,127 @@ std::string getInnName() {
     return (first + second) | filter::capitalize;
 }
 
+/**
+ * @brief Generate a culturally-flavoured road name based on direction and builder race.
+ *
+ * Format by ethnicity:
+ *   Dwarf/Elf/Orc: prefix + "-" + dir + "-" + roadWord  (e.g. "Khuz-north-gard")
+ *   Nomad:         prefix + " " + dir + " " + roadWord  (e.g. "Al northeast tariq")
+ *   Human/default: dir + " " + roadWord                 (e.g. "North Road")
+ *
+ * @param objectType  One of O_ROADN, O_ROADNE, O_ROADNW, O_ROADS, O_ROADSE, O_ROADSW
+ * @param race        Builder's primary race item ID (falls back to MAN if unknown)
+ */
+std::string getRoadName(int objectType, int race) {
+    // Map object type to English direction word
+    std::string dir;
+    switch(objectType) {
+        case O_ROADN:  dir = "north";     break;
+        case O_ROADNE: dir = "northeast"; break;
+        case O_ROADNW: dir = "northwest"; break;
+        case O_ROADS:  dir = "south";     break;
+        case O_ROADSE: dir = "southeast"; break;
+        case O_ROADSW: dir = "southwest"; break;
+        default:       dir = "north";     break;
+    }
+
+    Ethnicity ethnicity = raceToEthnicity(race);
+    std::string prefix;
+    std::string roadWord;
+
+    switch(ethnicity) {
+        case Ethnicity::DWARF:
+            prefix = getPrefix(aPrefDwarven);
+            roadWord = rng::one_of(aDwarfRoad);
+            // Example: "Khuz-north-gard"
+            return (prefix + "-" + dir + "-" + roadWord) | filter::capitalize;
+
+        case Ethnicity::ELF:
+        case Ethnicity::HIGHELF:
+            prefix = getPrefix(aPrefElven2);
+            roadWord = rng::one_of(aElfRoad);
+            // Example: "Nim-north-men"
+            return (prefix + "-" + dir + "-" + roadWord) | filter::capitalize;
+
+        case Ethnicity::ORC:
+            prefix = getPrefix(aPrefOrchish);
+            roadWord = rng::one_of(aOrcRoad);
+            // Example: "Lurg-north-gar"
+            return (prefix + "-" + dir + "-" + roadWord) | filter::capitalize;
+
+        case Ethnicity::NOMAD:
+            prefix = getPrefix(aPrefArabic);
+            roadWord = rng::one_of(aNomadRoad);
+            // Example: "Al northeast tariq"
+            return (prefix + " " + dir + " " + roadWord) | filter::title_case;
+
+        case Ethnicity::MAN:
+        case Ethnicity::VIKING:
+        case Ethnicity::BARBARIAN:
+        default:
+            roadWord = rng::one_of(aHumanRoad);
+            // Example: "North Road", "Southwest Trail"
+            return (dir + " " + roadWord) | filter::title_case;
+    }
+}
+
+/**
+ * @brief Generates a culturally-themed name for a Caravanserai (trade waystation).
+ *
+ * Each culture names their caravanserai differently:
+ * - Nomad:   historically authentic Arabic/Persian terms (Khan, Serai, Funduq, ...)
+ *            Format: prefix + typeWord  → "Ali Khan", "Bab Serai"
+ * - Dwarf:   prefix + trade-word + hall-word → "Khuz Kibil Zal"
+ * - Elf:     prefix + path-word + haven-word → "Nim Celeb Bar"
+ * - Orc:     prefix + haul-word + den-word   → "Ghash Dur Zog"
+ * - Human/default: prefix + trade-word + building-word → "Brent Trade Hall"
+ *
+ * @param race  Builder's race item ID (0 or unknown → human format)
+ * @return      Title-cased name string
+ */
+std::string getCaravanseraiName(int race) {
+    Ethnicity ethnicity = raceToEthnicity(race);
+    std::string prefix;
+
+    switch(ethnicity) {
+        case Ethnicity::DWARF: {
+            prefix = getPrefix(aPrefDwarven);
+            std::string tradeWord = rng::one_of(aDwarfCaravanTrade);
+            std::string hallWord  = rng::one_of(aDwarfCaravanHall);
+            return (prefix + " " + tradeWord + " " + hallWord) | filter::title_case;
+        }
+        case Ethnicity::ELF:
+        case Ethnicity::HIGHELF: {
+            prefix = getPrefix(aPrefElven2);
+            std::string tradeWord = rng::one_of(aElfCaravanTrade);
+            std::string hallWord  = rng::one_of(aElfCaravanHall);
+            return (prefix + " " + tradeWord + " " + hallWord) | filter::title_case;
+        }
+        case Ethnicity::ORC: {
+            prefix = getPrefix(aPrefOrchish);
+            std::string tradeWord = rng::one_of(aOrcCaravanTrade);
+            std::string hallWord  = rng::one_of(aOrcCaravanHall);
+            return (prefix + " " + tradeWord + " " + hallWord) | filter::title_case;
+        }
+        case Ethnicity::NOMAD: {
+            prefix = getPrefix(aPrefArabic);
+            std::string typeWord = rng::one_of(aNomadCaravan);
+            return (prefix + " " + typeWord) | filter::title_case;
+        }
+        case Ethnicity::VIKING:
+        case Ethnicity::BARBARIAN:
+        case Ethnicity::MAN:
+        default: {
+            prefix = (ethnicity == Ethnicity::VIKING)    ? getPrefix(aPrefViking) :
+                     (ethnicity == Ethnicity::BARBARIAN) ? getPrefix(aPrefScotish) :
+                                                           getPrefix(aPrefHumans);
+            std::string tradeWord = rng::one_of(aHumanCaravanTrade);
+            std::string hallWord  = rng::one_of(aHumanCaravanHall);
+            return (prefix + " " + tradeWord + " " + hallWord) | filter::title_case;
+        }
+    }
+}
+
 // Helper function: convert race ID to ethnicity for name generation
 Ethnicity raceToEthnicity(int race) {
     switch(race) {
@@ -571,7 +723,7 @@ std::string getProductionBuildingName(int buildingType, int resourceType, int ra
 
             // Dwarven format: prefix + resource + building
             // Example: "Khuz-uzun-gundag" = "Deep Iron Mine"
-            return (prefix + resourceWord + buildingWord) | filter::capitalize;
+            return (prefix + "-" + resourceWord + "-" + buildingWord) | filter::capitalize;
 
         case Ethnicity::ELF:
         case Ethnicity::HIGHELF:
@@ -623,7 +775,7 @@ std::string getProductionBuildingName(int buildingType, int resourceType, int ra
 
             // Elven format: prefix + resource + building
             // Example: "Nim-las-sammath" = "White Forest Workshop"
-            return (prefix + resourceWord + buildingWord) | filter::capitalize;
+            return (prefix + "-" + resourceWord + "-" + buildingWord) | filter::capitalize;
 
         case Ethnicity::ORC:
             prefix = getPrefix(aPrefOrchish);
@@ -674,7 +826,7 @@ std::string getProductionBuildingName(int buildingType, int resourceType, int ra
 
             // Orcish format: prefix + resource + building
             // Example: "Ghash-dur-gar" = "Fire Black Pit"
-            return (prefix + resourceWord + buildingWord) | filter::capitalize;
+            return (prefix + "-" + resourceWord + "-" + buildingWord) | filter::capitalize;
 
         case Ethnicity::MAN:
         case Ethnicity::VIKING:
@@ -988,7 +1140,8 @@ std::string getObjectName(const int typeIndex, const ObjectType& type) {
         case O_ROADSW:
         case O_ROADSE:
         case O_ROADS:
-            return "Ancient Road";
+            // Fallback: no builder race known — use human format
+            return getRoadName(typeIndex, 0);
 
         case O_TEMPLE:
         case O_BKEEP:

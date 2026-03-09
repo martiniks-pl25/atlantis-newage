@@ -285,7 +285,7 @@ std::vector<ItemType> ItemDefs =
      0,
      "FISH",1,1,1, {{-1,0}, {-1,0},{-1,0},{-1,0}},
      NULL,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
-     1, IT_NORMAL | IT_FOOD, 25,0,
+     1, IT_NORMAL | IT_FOOD, 28,0,
      0,0,0,0,0,
      -1,0,
      I_NET,2, 0,
@@ -473,9 +473,9 @@ std::vector<ItemType> ItemDefs =
      "", { "", "", "", "" }, 0, 0},
     {"plate armor","plate armor","PARM",
      0,
-     "ARMO",2,2,1, {{I_IRON,2},{-1,0},{-1,0},{-1,0}},
+     "ARMO",2,2,1, {{I_IRON,2},{I_FUR,1},{-1,0},{-1,0}},
      NULL,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
-     3, IT_NORMAL | IT_ARMOR, 250,1,
+     2, IT_NORMAL | IT_ARMOR, 250,1,
      0,0,0,0,0,
      -1,0,
      I_HAMMER,1, 0,
@@ -554,7 +554,7 @@ std::vector<ItemType> ItemDefs =
     {"mithril sword","mithril swords","MSWO",
      0,
      "WEAP",3,2,1, {{I_MITHRIL,1},{I_SWORD,1},{-1,0},{-1,0}},
-     "ESWO",1,500, {{I_SWORD,1},{-1,0},{-1,0},{-1,0}},
+     "ESWO",2,500, {{I_SWORD,1},{-1,0},{-1,0},{-1,0}},
      1,IT_ADVANCED | IT_WEAPON, 200,1,
      0,0,0,0,0,
      -1,0,
@@ -563,9 +563,9 @@ std::vector<ItemType> ItemDefs =
      "", { "", "", "", "" }, 0, 0},
     {"mithril armor","mithril armor","MARM",
      0,
-     "ARMO",4,2,1, {{I_PLATEARMOR,1},{I_MITHRIL,2},{-1,0},{-1,0}},
-     "EARM",1,500, {{I_PLATEARMOR,1},{-1,0},{-1,0},{-1,0}},
-     1,IT_ADVANCED | IT_ARMOR, 500,1,
+     "ARMO",4,3,1, {{I_PLATEARMOR,1},{I_MITHRIL,2},{-1,0},{-1,0}},
+     "EARM",2,900, {{I_PLATEARMOR,1},{-1,0},{-1,0},{-1,0}},
+     3,IT_ADVANCED | IT_ARMOR, 500,1,
      0,0,0,0,0,
      -1,0,
      I_HAMMER,1, 0,
@@ -1736,7 +1736,7 @@ std::vector<ItemType> ItemDefs =
      ItemType::DISABLED,
      "WEAP",2,2,1, {{I_WOOD,1},{I_IRON,1},{-1,0},{-1,0}},
      NULL,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
-     2, IT_ADVANCED|IT_WEAPON, 200, 1,
+     2, IT_NORMAL|IT_WEAPON, 200, 1,
      0,0,0,0,0,
      -1,0,
      I_HAMMER,1, 0,
@@ -2194,8 +2194,8 @@ std::vector<ItemType> ItemDefs =
      "", { "", "", "", "" }, 0, 0},
     {"mithril shield","mithril shields","MSHD",
      ItemType::DISABLED,
-     "ARMO",4,1,1, {{I_ISHIELD,1},{I_MITHRIL,1},{-1,0},{-1,0}},
-     "ESHD",1,500, {{I_ISHIELD,1},{-1,0},{-1,0},{-1,0}},
+     "ARMO",4,2,1, {{I_ISHIELD,1},{I_MITHRIL,1},{-1,0},{-1,0}},
+     "ESHD",2,500, {{I_ISHIELD,1},{-1,0},{-1,0},{-1,0}},
      1, IT_ADVANCED | IT_BATTLE, 300,1,
      0,0,0,0,0,
      -1,0,
@@ -2214,7 +2214,7 @@ std::vector<ItemType> ItemDefs =
      "", { "", "", "", "" }, 0, 0},
     {"wooden shield","wooden shields","WSHD",
      ItemType::DISABLED,
-     "ARMO",1,1,1, {{I_WOOD,1},{-1,0},{-1,0},{-1,0}},
+     "ARMO",2,1,1, {{I_WOOD,1},{I_FUR,1},{-1,0},{-1,0}},
      NULL,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
      1, IT_NORMAL | IT_BATTLE, 40,1,
      0,0,0,0,0,
@@ -2224,9 +2224,9 @@ std::vector<ItemType> ItemDefs =
      "", { "", "", "", "" }, 0, 0},
     {"adamantium shield","adamantium shields","ASHD",
      ItemType::DISABLED | ItemType::NOMARKET,
-     "ARMO",5,1,1, {{I_MSHIELD,1},{I_ADMANTIUM,1},{-1,0},{-1,0}},
+     "ARMO",5,3,1, {{I_MSHIELD,1},{I_ADMANTIUM,1},{-1,0},{-1,0}},
      NULL,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
-     1, IT_ADVANCED | IT_BATTLE, 600,1,
+     2, IT_ADVANCED | IT_BATTLE, 600,1,
      0,0,0,0,0,
      -1,0,
      I_HAMMER,1, 0,
@@ -3167,27 +3167,27 @@ std::vector<WeaponType> WeaponDefs = {
 //
 std::vector<ArmorType> ArmorDefs = {
     // ARMOR_CLOAKOFI
-    { "CLOA", 0, 100, {98, 98, 98, 98, 98, 98, 98, 98}, 0},
-    // ARMOR_ADPLATE - Heavy chain tier 3: -1 combat attack
-    { "AARM", 0, 100, {95, 95, 95, 95, 90, 90, 90, 90}, -1},
-    // ARMOR_ADRING - Light chain tier 3: +1 combat attack
-    { "ARNG", 0, 100, {90, 90, 80, 80, 80, 90, 90, 90}, 1},
+    { "CLOA", 0, 100, {98, 98, 98, 98, 98, 98, 98, 98}, 0, 0},
+    // ARMOR_ADPLATE - Heavy chain tier 3: -1 attack
+    { "AARM", 0, 100, {95, 95, 90, 90, 75, 85, 85, 85}, -1, 0},
+    // ARMOR_ADRING - Light chain tier 3: +1 defense
+    { "ARNG", 0, 100, {90, 90, 80, 80, 66, 80, 80, 80}, 0, 1},
     // ARMOR_IMITHRIL
-    { "IMTH", 0, 100, {90, 90, 90, 90, 75, 75, 75, 75}, 0},
-    // ARMOR_MARMOR - Heavy chain tier 2: -1 combat attack
-    { "MARM", 0, 100, {75, 75, 75, 75, 65, 65, 65, 65}, -1},
-    // ARMOR_MCHAIN - Light chain tier 2: +1 combat attack
-    { "MCAR", 0, 100, {67, 67, 50, 50, 50, 60, 60, 60}, 1},
-    // ARMOR_PLATEARMOR - Heavy chain tier 1: -1 combat attack
-    { "PARM", 0, 100, {55, 55, 55, 55, 30, 30, 30, 30}, -1},
+    { "IMTH", 0, 100, {90, 90, 90, 90, 75, 75, 75, 75}, 0, 0},
+    // ARMOR_MARMOR - Heavy chain tier 2: -1 attack
+    { "MARM", 0, 100, {80, 80, 67, 67, 50, 75, 75, 75}, -1, 0},
+    // ARMOR_MCHAIN - Light chain tier 2: +1 defense
+    { "MCAR", 0, 100, {67, 67, 50, 50, 33, 67, 67, 67}, 0, 1},
+    // ARMOR_PLATEARMOR - Heavy chain tier 1: -1 attack
+    { "PARM", 0, 100, {55, 55, 33, 33, 25, 30, 30, 30}, -1, 0},
     // ARMOR_BPLATE
-    { "BPLA", 0, 300, {100, 270, 200, 75, 100, 100, 100, 100}, 0},
-    // ARMOR_CHAINARMOR - Light chain tier 1: no bonus
-    { "CARM", 0, 100, {33, 33, 20, 20, 20, 25, 25, 25}, 1},
+    { "BPLA", 0, 300, {100, 270, 200, 75, 100, 100, 100, 100}, 0, 0},
+    // ARMOR_CHAINARMOR - Light chain tier 1: +1 defense
+    { "CARM", 0, 100, {33, 33, 20, 20, 16, 20, 20, 20}, 0, 1},
     // ARMOR_LEATHERARMOR
-    { "LARM", ArmorType::USEINASSASSINATE, 100, {30, 30, 20, 20, 15, 15, 15, 15}, 1},
+    { "LARM", ArmorType::USEINASSASSINATE, 100, {30, 30, 20, 20, 15, 15, 15, 15}, 1, 0},
     // ARMOR_CLOTHARMOR
-    { "CLAR", ArmorType::USEINASSASSINATE, 100, {16, 16, 16, 16, 5, 5, 5, 5}, 0},
+    { "CLAR", ArmorType::USEINASSASSINATE, 100, {16, 16, 16, 16, 5, 5, 5, 5}, 0, 0},
 };
 
 //

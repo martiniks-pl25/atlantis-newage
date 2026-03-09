@@ -1179,6 +1179,7 @@ void Game::PostProcessTurn()
     if (Globals->LAIR_MONSTERS_EXIST) GrowVMons();
 
     AutoNameBuildings();
+    ResetCityMarketsExceptTrade(); // TEMPORARY — remove after one server turn
     DoTowerObservation();
 }
 
@@ -1196,6 +1197,8 @@ void Game::AutoNameBuildings()
 
             if (o->type == O_INN)
                 newName = getInnName();
+            else if (o->type == O_CARAVANSERAI)
+                newName = getCaravanseraiName(r->race);
             else if (ot.productionAided != -1)
                 newName = getProductionBuildingName(o->type, ot.productionAided, r->race);
             else
@@ -1211,6 +1214,94 @@ void Game::AutoNameBuildings()
         }
     }
 }
+
+/**
+ * @brief ONE-TIME MIGRATION: regenerates city market items with updated base prices.
+ *
+ * Removes all market entries that are not IT_TRADE, IT_MAN, or IT_LEADER,
+ * then calls SetupCityMarket() to recreate them using current ItemDefs base prices.
+ * Trade goods (IT_TRADE) and men/leaders markets are preserved unchanged.
+ *
+ * Required after weapon/armor baseprice rebalance: existing markets store baseprice
+ * in the save file and are not affected by ItemDefs changes in code.
+ *
+ * @note TEMPORARY — remove this call from PostProcessTurn() after one server turn.
+ */
+void Game::ResetCityMarketsExceptTrade()
+{
+    for (const auto r : regions) {
+        if (!r->town) continue;
+
+        // Remove weapon/armor/tool markets only — preserve food, trade goods, men
+        auto& mv = r->markets;
+        for (auto it = mv.begin(); it != mv.end(); ) {
+            int itype = ItemDefs[(*it)->item].type;
+            if (!(itype & IT_TRADE) && !(itype & IT_MAN) && !(itype & IT_LEADER)
+                && !(itype & IT_FOOD)) {
+                delete *it;
+                it = mv.erase(it);
+            } else {
+                ++it;
+            }
+        }
+
+        // Regenerate weapons, armor, tools, advanced items with new prices.
+        // SetupCityMarket() unconditionally adds food too, so strip those out afterward.
+        size_t before = r->markets.size();
+        r->SetupCityMarket();
+        for (auto it = r->markets.begin() + before; it != r->markets.end(); ) {
+            if (ItemDefs[(*it)->item].type & IT_FOOD) {
+                delete *it;
+                it = r->markets.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+}
+
+/*
+ * ARCHIVED: ONE-TIME MIGRATION for hyphen-less building names (applied turn 2026-03).
+ * Remove permanently once no longer needed as reference.
+ *
+void Game::RenameOldConcatenatedBuildings()
+{
+    for (const auto r : regions) {
+        for (const auto o : r->objects) {
+            if (o->type <= 0 || o->type >= NOBJECTS) continue;
+            if (ObjectDefs[o->type].flags & ObjectType::DISABLED) continue;
+
+            std::string baseName = o->name | filter::strip_number;
+            // Skip: has spaces (player-set name) or hyphens (already new format)
+            if (baseName.find(' ') != std::string::npos) continue;
+            if (baseName.find('-') != std::string::npos) continue;
+            // Skip: short name — unlikely to be a bad auto-generated concatenation
+            if ((int)baseName.length() <= 10) continue;
+
+            const ObjectType& ot = ObjectDefs[o->type];
+            // Only rename production buildings and inns — skip lairs, fortresses, roads, etc.
+            if (ot.productionAided == -1 && o->type != O_INN) continue;
+
+            std::string newName;
+            if (o->type == O_INN)
+                newName = getInnName();
+            else if (ot.productionAided != -1)
+                newName = getProductionBuildingName(o->type, ot.productionAided, r->race);
+            else
+                newName = getFortressName(ot);
+
+            if (newName.empty() || newName == "Building") continue;
+
+            std::string oldName = o->name;
+            o->set_name(newName);
+            Unit *owner = o->GetOwner();
+            if (owner && !owner->faction->is_npc)
+                owner->event("Your " + ot.name + " '" + oldName + "' has been renamed to '" +
+                             o->name + "'.", "building");
+        }
+    }
+}
+*/
 
 void Game::DoTowerObservation()
 {

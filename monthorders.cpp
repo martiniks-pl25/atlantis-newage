@@ -673,6 +673,10 @@ void Game::AddNewBuildings(ARegion *r)
                             std::string autoName;
                             if (obj->type == O_INN)
                                 autoName = getInnName();
+                            else if (obj->IsRoad())
+                                autoName = getRoadName(obj->type, builderRace);
+                            else if (obj->type == O_CARAVANSERAI)
+                                autoName = getCaravanseraiName(builderRace);
                             else if (ot.productionAided != -1)
                                 autoName = getProductionBuildingName(obj->type, ot.productionAided, builderRace);
                             else

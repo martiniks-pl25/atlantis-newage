@@ -356,11 +356,14 @@ class ArmorType
         int saves[NUM_WEAPON_CLASSES];
 
         //
-        // Combat skill modifier (added to attack skill only)
-        // Positive values for light armor (more mobile)
-        // Negative values for heavy armor (less mobile, but not below 1)
+        // Combat skill modifiers
+        // attackBonus: added to attack skill only
+        //   Negative values for heavy armor (less mobile, but not below 1)
+        // defenseBonus: added to defense skill (ATTACK_COMBAT) only
+        //   Positive values for light armor (more evasive)
         //
         int attackBonus;
+        int defenseBonus;
 };
 
 extern std::vector<ArmorType> ArmorDefs;

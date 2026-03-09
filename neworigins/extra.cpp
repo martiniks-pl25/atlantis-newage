@@ -1860,6 +1860,69 @@ void Game::ModifyTablesPerRuleset(void)
     modify_monster_spoils("DMAG",  5000, IT_MAGIC);     // Dark Mage           (default: 5000, IT_MAGIC)
     modify_monster_spoils("MAGI",  4000, IT_MAGIC);     // Evil Magicians      (default: 4000, IT_MAGIC)
 
+        // --- Base prices: weapons, armor, tools ---
+    // Resources: IRON=30  WOOD=30  FUR=30  HERBS=30  MITH=100  IRWD=100  ADMT=300
+    // Training:  L1=10s(1mo)  L2=30s(3mo)  L3=60s(6mo)  L4=100s(10mo)  L5=150s(15mo)
+    // Upkeep: 30 silver/production month
+    // Cost = materials + training(level) + 30*production_months
+
+    // --- Weapons IT_NORMAL L1 ---
+    ModifyItemBasePrice(I_SPEAR,        70); // was:60  | WEAP1 1m 1xWOOD(30)
+    ModifyItemBasePrice(I_JAVELIN,      70); // was:60  | WEAP1 1m 1xWOOD(30)
+    ModifyItemBasePrice(I_PICK,         70); // was:60  | WEAP1 1m 1xIRON(30)
+    ModifyItemBasePrice(I_AXE,          70); // was:60  | WEAP1 1m 1xWOOD(30)
+    ModifyItemBasePrice(I_HAMMER,       70); // was:60  | WEAP1 1m 1xIRON(30)
+    ModifyItemBasePrice(I_NET,          70); // was:80  | FISH1 1m 1xHERBS(30)
+    ModifyItemBasePrice(I_LASSO,        70); // was:60  | HERB1 1m 1xHERBS(30)
+    ModifyItemBasePrice(I_BAG,          70); // was:60  | HERB1 1m 1xHERBS(30)
+    ModifyItemBasePrice(I_SPINNING,     70); // was:60  | CARP1 1m 1xWOOD(30)
+
+    // --- Weapons IT_NORMAL L2 ---
+    ModifyItemBasePrice(I_SWORD,       120); // was:80  | WEAP2 2m 2xIRON(60)
+    ModifyItemBasePrice(I_CROSSBOW,    120); // was:80  | WEAP2 2m 1xWOOD+1xIRON(60)
+    ModifyItemBasePrice(I_LONGBOW,     120); // was:80  | WEAP2 2m 1xWOOD+1xHERBS(60)
+    ModifyItemBasePrice(I_PIKE,        120); // was:100 | WEAP2 2m 2xWOOD(60)
+    ModifyItemBasePrice(I_BHAMMER,     120); // was:100 | WEAP2 2m 1xIRON+1xWOOD(60)
+    ModifyItemBasePrice(I_BAXE,        120); // was:200 | WEAP2 2m 1xWOOD+1xIRON(60)
+
+    // --- Weapons IT_ADVANCED ---
+    ModifyItemBasePrice(I_MCROSSBOW,   350); // was:200 | WEAP4 2m 1xIRWD+1xXBOW(220)
+    ModifyItemBasePrice(I_LANCE,       350); // was:300 | WEAP4 2m 1xPIKE(100)+1xIRWD(220)
+    ModifyItemBasePrice(I_MBAXE,       300); // was:300 | WEAP3 2m 1xMITH+1xBAXE(220)
+    ModifyItemBasePrice(I_MBHAM,       300); // was:300 | WEAP3 2m 1xMITH+1xBHAM(220)
+    ModifyItemBasePrice(I_MSWORD,      300); // was:300 | WEAP3 2m 1xMITH+1xSWOR(220)
+
+    // --- Weapons IT_ADVANCED + NOMARKET ---
+    ModifyItemBasePrice(I_ADBAXE,      800); // was:1200 | WEAP5 3m 1xADMT+1xMBAX(600)
+    ModifyItemBasePrice(I_ABHAM,       800); // was:1000 | WEAP5 3m 1xADMT+1xMBAH(600)
+    ModifyItemBasePrice(I_ADSWORD,     800); // was:800  | WEAP5 3m 1xADMT+1xMSWO(600)
+    ModifyItemBasePrice(I_DOUBLEBOW,   800); // was:400  | WEAP5 3m 1xYEW+1xLBOW+1xHERBS(450)
+
+    // --- Armor IT_NORMAL L1 ---
+    ModifyItemBasePrice(I_LEATHERARMOR, 70); // was:45  | ARMO1 1m 1xFUR(30)
+    ModifyItemBasePrice(I_CHAINARMOR,   70); // was:60  | ARMO1 1m 1xIRON(30)
+
+    // --- Armor IT_NORMAL L2 ---
+    ModifyItemBasePrice(I_PLATEARMOR,  150); // was:250 | ARMO2 2m 2xIRON(60)
+
+    // --- Armor IT_ADVANCED ---
+    ModifyItemBasePrice(I_MCHAIN,      450); // was:400 | ARMO3 2m 1xCARM(70)+1xMITH(100)
+    ModifyItemBasePrice(I_MPLATE,      900); // was:500 | ARMO4 2m 1xPARM(120)+2xMITH(200)
+
+    // --- Armor IT_ADVANCED + NOMARKET ---
+    ModifyItemBasePrice(I_ADRING,     1200); // was:1500 | ARMO5 4m 1xMCAR(400)+1xADMT(300)
+    ModifyItemBasePrice(I_ADPLATE,    1800); // was:1800 | ARMO5 4m 1xMARM(900)+2xADMT(600)
+
+    // --- Shields IT_NORMAL ---
+    ModifyItemBasePrice(I_WSHIELD,     120); // was:40  | ARMO1 1m 1xWOOD(30)
+    ModifyItemBasePrice(I_ISHIELD,     220); // was:80  | ARMO3 1m 1xWSHD(120)+1xIRON(30)
+
+    // --- Shields IT_ADVANCED ---
+    ModifyItemBasePrice(I_MSHIELD,     450); // was:300 | ARMO4 1m 1xISHD(220)+1xMITH(100)
+
+    // --- Shields IT_ADVANCED + NOMARKET ---
+    ModifyItemBasePrice(I_ASHIELD,    1200); // was:600 | ARMO5 1m 1xMSHD(450)+1xADMT(300)
+
     // Modify the various spells which are allowed to cross levels
     if (Globals->EASIER_UNDERWORLD) {
         modify_range_flags("rng_teleport", RangeType::RNG_CROSS_LEVELS);
