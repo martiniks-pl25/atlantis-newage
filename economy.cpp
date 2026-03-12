@@ -734,129 +734,94 @@ void ARegion::SetupCityMarket()
 }
 
 /**
- * @brief Assigns trade goods to a city market with geographic exclusion.
+ * @brief Creates trade markets for a city from pre-assigned item lists.
  *
- * Selects 2 M_SELL and 2 M_BUY trade items, avoiding items that would create
- * a complementary buy/sell pair with nearby settlements. Falls back to
- * unrestricted random selection if exclusion leaves fewer than 2 candidates.
+ * Items are pre-assigned globally by ARegionList::economy() using round-robin
+ * distribution to guarantee all 18 trade goods appear in both M_BUY and M_SELL
+ * across the world. This function just creates the Market objects with correct
+ * prices and population thresholds.
  *
- * @param forbidden_sell Items nearby towns have in M_BUY — must not appear in our M_SELL
- * @param forbidden_buy  Items nearby towns have in M_SELL — must not appear in our M_BUY
- * @see economy() in aregion.cpp for the geographic BFS and ordering logic
+ * Population thresholds are absolute, tied to town type transitions:
+ *   idx=0: village→town boundary = CITY_POP*270/(4*(dev+220))
+ *   idx=1: midpoint of town range
+ *   idx=2: town→city boundary = CITY_POP*4*270/(5*(dev+220))
+ *
+ * @param buy_items  Items city sells to player (M_BUY, always visible)
+ * @param sell_items Items city buys from player (M_SELL, hidden until player has item)
  */
-void ARegion::SetupTradeMarkets(const std::unordered_set<int>& forbidden_sell,
-                                const std::unordered_set<int>& forbidden_buy)
+void ARegion::SetupTradeMarkets(const std::vector<int>& buy_items,
+                                const std::vector<int>& sell_items)
 {
     int citymax = Globals->CITY_POP;
 
-    // Build candidate pools respecting exclusion constraints
-    std::vector<int> all_trade;
-    std::vector<int> sell_pool;
-    std::vector<int> buy_pool;
+    int dev_factor       = town ? (town->dev + 220) : 220;
+    int pop_village_town = citymax * 270 / (4 * dev_factor);
+    int pop_town_city    = citymax * 4 * 270 / (5 * dev_factor);
+    int pop_mid          = (pop_village_town + pop_town_city) / 2;
+    int thresholds[3]    = { pop_village_town, pop_mid, pop_town_city };
 
+    // M_SELL: town buys from player — hidden until player has the item (aregion.cpp report)
+    for (int idx = 0; idx < (int)sell_items.size() && idx < 3; idx++) {
+        int i = sell_items[idx];
+        int amt = Globals->CITY_MARKET_TRADE_AMT;
+        int price;
+        if (Globals->RANDOM_ECONOMY) {
+            amt += rng::get_random(amt);
+            price = Globals->MORE_PROFITABLE_TRADE_GOODS
+                ? (ItemDefs[i].baseprice * (300 + rng::get_random(100))) / 100
+                : (ItemDefs[i].baseprice * (150 + rng::get_random(50))) / 100;
+        } else {
+            price = ItemDefs[i].baseprice;
+        }
+        markets.push_back(new Market(
+            Market::MarketType::M_SELL, i, price, amt / 5,
+            thresholds[idx], citymax, 0, amt
+        ));
+    }
+
+    // M_BUY: town sells to player — always visible in report
+    for (int idx = 0; idx < (int)buy_items.size() && idx < 3; idx++) {
+        int i = buy_items[idx];
+        int amt = Globals->CITY_MARKET_TRADE_AMT;
+        int price;
+        if (Globals->RANDOM_ECONOMY) {
+            amt += rng::get_random(amt);
+            price = Globals->MORE_PROFITABLE_TRADE_GOODS
+                ? (ItemDefs[i].baseprice * (100 + rng::get_random(90))) / 100
+                : (ItemDefs[i].baseprice * (100 + rng::get_random(50))) / 100;
+        } else {
+            price = ItemDefs[i].baseprice;
+        }
+        markets.push_back(new Market(
+            Market::MarketType::M_BUY, i, price, amt / 8,
+            thresholds[idx], citymax, 0, amt
+        ));
+    }
+}
+
+/**
+ * @brief Assigns random trade goods for a single city (used by edit/reset, no global context).
+ */
+void ARegion::SetupRandomTradeMarkets()
+{
+    const int TRADE_COUNT = 3;
+    std::vector<int> pool;
     for (int i = 0; i < NITEMS; i++) {
         if (ItemDefs[i].flags & ItemType::DISABLED) continue;
         if (ItemDefs[i].flags & ItemType::NOMARKET) continue;
         if (!(ItemDefs[i].type & IT_TRADE)) continue;
-
-        all_trade.push_back(i);
-        if (forbidden_sell.count(i) == 0) sell_pool.push_back(i);
-        if (forbidden_buy.count(i) == 0) buy_pool.push_back(i);
+        pool.push_back(i);
     }
+    if ((int)pool.size() < TRADE_COUNT * 2) return;
 
-    if ((int)all_trade.size() < 4) return;
-
-    // Fallback: if exclusion leaves too few candidates, use full pool
-    if ((int)sell_pool.size() < 2) sell_pool = all_trade;
-    if ((int)buy_pool.size() < 2) buy_pool = all_trade;
-
-    // Pick 2 M_SELL items (town buys from player at 250-350%)
-    int si1 = rng::get_random((int)sell_pool.size());
-    int si2 = rng::get_random((int)sell_pool.size() - 1);
-    if (si2 >= si1) si2++;
-    int sell_item1 = sell_pool[si1];
-    int sell_item2 = sell_pool[si2];
-
-    // Pick 2 M_BUY items (town sells to player at 100-190%), excluding chosen sell items
-    std::vector<int> buy_filtered;
-    for (int i : buy_pool) {
-        if (i != sell_item1 && i != sell_item2) buy_filtered.push_back(i);
+    // Shuffle and split: first half → buy, second half → sell (no overlap guaranteed)
+    for (int i = (int)pool.size() - 1; i > 0; i--) {
+        int j = rng::get_random(i + 1);
+        std::swap(pool[i], pool[j]);
     }
-    if ((int)buy_filtered.size() < 2) {
-        // Fallback: full pool minus sell items
-        buy_filtered.clear();
-        for (int i : all_trade) {
-            if (i != sell_item1 && i != sell_item2) buy_filtered.push_back(i);
-        }
-    }
-    if ((int)buy_filtered.size() < 2) return;
-
-    int bi1 = rng::get_random((int)buy_filtered.size());
-    int bi2 = rng::get_random((int)buy_filtered.size() - 1);
-    if (bi2 >= bi1) bi2++;
-    int buy_item1 = buy_filtered[bi1];
-    int buy_item2 = buy_filtered[bi2];
-
-    // Create M_SELL markets (town BUYS from player - player receives high price 250-350%)
-    int items_sell[2] = {sell_item1, sell_item2};
-    int tradesell = 0;
-    for (int idx = 0; idx < 2; idx++) {
-        int i = items_sell[idx];
-        int amt = Globals->CITY_MARKET_TRADE_AMT;
-        int price;
-
-        if (Globals->RANDOM_ECONOMY) {
-            amt += rng::get_random(amt);
-            if (Globals->MORE_PROFITABLE_TRADE_GOODS) {
-                price = (ItemDefs[i].baseprice * (250 + rng::get_random(100))) / 100;
-            } else {
-                price = (ItemDefs[i].baseprice * (150 + rng::get_random(50))) / 100;
-            }
-        } else {
-            price = ItemDefs[i].baseprice;
-        }
-
-        int cap = citymax / 2;
-        tradesell++;
-        int offset = -(citymax / 20) + tradesell * (tradesell * tradesell * citymax / 40);
-        if (cap + offset < citymax) {
-            Market* m = new Market(
-                Market::MarketType::M_SELL, i, price, amt / 5, cap + population + offset,
-                citymax + population, 0, amt
-            );
-            markets.push_back(m);
-        }
-    }
-
-    // Create M_BUY markets (town SELLS to player - player pays low price 100-190%)
-    int items_buy[2] = {buy_item1, buy_item2};
-    int tradebuy = 0;
-    for (int idx = 0; idx < 2; idx++) {
-        int i = items_buy[idx];
-        int amt = Globals->CITY_MARKET_TRADE_AMT;
-        int price;
-
-        if (Globals->RANDOM_ECONOMY) {
-            amt += rng::get_random(amt);
-            if (Globals->MORE_PROFITABLE_TRADE_GOODS) {
-                price = (ItemDefs[i].baseprice * (100 + rng::get_random(90))) / 100;
-            } else {
-                price = (ItemDefs[i].baseprice * (100 + rng::get_random(50))) / 100;
-            }
-        } else {
-            price = ItemDefs[i].baseprice;
-        }
-
-        int cap = citymax / 2;
-        int offset = tradebuy++ * (citymax / 6);
-        if (cap + offset < citymax) {
-            Market* m = new Market(
-                Market::MarketType::M_BUY, i, price, amt / 8, cap + population + offset,
-                citymax + population, 0, amt
-            );
-            markets.push_back(m);
-        }
-    }
+    std::vector<int> buy_items(pool.begin(), pool.begin() + TRADE_COUNT);
+    std::vector<int> sell_items(pool.begin() + TRADE_COUNT, pool.begin() + TRADE_COUNT * 2);
+    SetupTradeMarkets(buy_items, sell_items);
 }
 
 void ARegion::SetupProds(double weight)
@@ -1027,7 +992,11 @@ void ARegion::UpdateEditRegion()
 {
     // redo markets and entertainment/tax income for extra people.
     SetIncome();
-    for (auto& m : markets) m->post_turn(Population(), Wages());
+    for (auto& m : markets) {
+        // Trade goods thresholds are prestige-based (town->pop), other markets use total Population()
+        int pop = (town && (ItemDefs[m->item].type & IT_TRADE)) ? town->pop : Population();
+        m->post_turn(pop, Wages());
+    }
 
     // Recreate recruitment markets to reset market state (prices, activity)
     // and update race if it changed
@@ -1811,7 +1780,7 @@ void ARegion::PostTurn()
             for (auto& m : markets) delete m; // Free the allocated object
             markets.clear(); // empty the vector.
             SetupCityMarket();
-            SetupTradeMarkets({}, {});
+            SetupRandomTradeMarkets();
             AddMenMarket();
             AddLeadersMarket();
         }
@@ -1823,7 +1792,11 @@ void ARegion::PostTurn()
     }
 
     /* update markets */
-    for (auto& m : markets) m->post_turn(Population(), Wages());
+    for (auto& m : markets) {
+        // Trade goods thresholds are prestige-based (town->pop), other markets use total Population()
+        int pop = (town && (ItemDefs[m->item].type & IT_TRADE)) ? town->pop : Population();
+        m->post_turn(pop, Wages());
+    }
 
     // Wilderness leader availability: in regions without a settlement, leaders are
     // not permanently present — they appear with 35% probability per turn

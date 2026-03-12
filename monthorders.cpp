@@ -652,33 +652,18 @@ void Game::AddNewBuildings(ARegion *r)
                         obj->incomplete = ObjectDefs[obj->type].cost;
                         obj->num = i;
                         {
-                            // Determine builder's primary race for cultural name generation.
-                            // Use the most numerous non-leader race in the unit;
-                            // fall back to region race if the unit has only leaders.
-                            int builderRace = r->race;
-                            {
-                                int bestCount = 0;
-                                for (auto item : u->items) {
-                                    const ItemType& idef = ItemDefs[item->type];
-                                    if ((idef.type & IT_MAN) && !(idef.type & IT_LEADER)) {
-                                        if (item->num > bestCount) {
-                                            bestCount = item->num;
-                                            builderRace = item->type;
-                                        }
-                                    }
-                                }
-                            }
-
+                            // Use region race for cultural name generation.
+                            // Buildings reflect the culture of the land, not the builder.
                             const ObjectType& ot = ObjectDefs[obj->type];
                             std::string autoName;
                             if (obj->type == O_INN)
                                 autoName = getInnName();
                             else if (obj->IsRoad())
-                                autoName = getRoadName(obj->type, builderRace);
+                                autoName = getRoadName(obj->type, r->race);
                             else if (obj->type == O_CARAVANSERAI)
-                                autoName = getCaravanseraiName(builderRace);
+                                autoName = getCaravanseraiName(r->race);
                             else if (ot.productionAided != -1)
-                                autoName = getProductionBuildingName(obj->type, ot.productionAided, builderRace);
+                                autoName = getProductionBuildingName(obj->type, ot.productionAided, r->race);
                             else
                                 autoName = getObjectName(obj->type, ot);
                             obj->set_name(autoName.empty() ? "Building" : autoName);
@@ -1603,51 +1588,185 @@ Location *Game::DoAMoveOrder(Unit *unit, ARegion *region, Object *obj)
 
         newreg = regions.GetRegion(obj->inner);
         if (obj->type == O_GATEWAY) {
-            // Gateways should only exist in the nexus, and move the
-            // user to a semi-random instance of the target terrain
-            // type, so select where they will actually move to.
-            ARegionArray *level = regions.GetRegionArray(newreg->zloc);
-            std::vector<ARegion *> start_locations = level->get_starting_region_candidates(newreg->type);
+            // Gateways exist in the nexus and move the unit to a region of the target terrain type.
+            // See docs/GATEWAY_ENTRY_SYSTEM.md for full algorithm description.
+            //
+            // Block A — own terrain (chosen gateway), phases 1 and 2, with filter then without:
+            //   1  : VILLAGE, no player units,              resource filter ON
+            //   2  : VILLAGE, guard + 1-2 small units,     resource filter ON
+            //   1a : VILLAGE, no player units,              resource filter OFF
+            //   2a : VILLAGE, guard + 1-2 small units,     resource filter OFF
+            // Block B — other 7 terrain types (cycling), same phases 1, 2, 1a, 2a
+            // Phases 3/3a — all terrains (own first), any village players, filter ON then OFF
+            // Phase 4 — TOWN or CITY, ≤3 players, all gateways, no filter
+            // Phase 5 — empty non-town hex, own terrain, no filter
+            // Phase 6 — any region of own terrain, ultimate fallback
+            // Monsters (monfaction) disqualify a region in phases 1-5.
 
-            // match levels to try for, in order:
-            // 0 - completely empty towns
-            // 1 - towns with only guardsmen
-            // 2 - towns with guardsmen and other players
-            // 3 - completely empty hexes
-            // 4 - anywhere that matches terrain (out of options)
-            int match = 0;
-            std::vector<ARegion *> candidates = {};
-            while (candidates.empty() && match < 5) {
-                for (const auto scanReg : start_locations) {
-                    // ignore any region that isn't a town before match level 3
-                    if (match < 3 && !scanReg->town) continue;
-                    int guards = 0;
-                    int others = 0;
-                    for (const auto o : scanReg->objects) {
-                        for (const auto u : o->units) {
-                            if (u->faction->num == guardfaction)
-                                guards = 1;
-                            else
-                                others = 1;
+            ARegion *anchor = newreg;
+            ARegionArray *level = regions.GetRegionArray(anchor->zloc);
+            int own_terrain = anchor->type;
+
+            // Collect all gateways in the nexus and find index of the entered one
+            std::vector<Object *> gateways;
+            for (const auto g : region->objects)
+                if (g->type == O_GATEWAY) gateways.push_back(g);
+            int startIdx = 0;
+            for (int i = 0; i < (int)gateways.size(); i++)
+                if (gateways[i] == obj) { startIdx = i; break; }
+
+            // Count non-guard, non-monster player units in a region
+            auto count_players = [&](ARegion *r) -> int {
+                int cnt = 0;
+                for (const auto ro : r->objects)
+                    for (const auto u : ro->units)
+                        if (u->faction->num != guardfaction && u->faction->num != monfaction)
+                            cnt++;
+                return cnt;
+            };
+
+            // True if any monster units are present in the region
+            auto has_monsters = [&](ARegion *r) -> bool {
+                for (const auto ro : r->objects)
+                    for (const auto u : ro->units)
+                        if (u->faction->num == monfaction) return true;
+                return false;
+            };
+
+            // Phase 2 eligibility: 1-2 non-guard non-monster units, each with ≤2 men
+            auto is_phase2 = [&](ARegion *r) -> bool {
+                int cnt = 0;
+                for (const auto ro : r->objects) {
+                    for (const auto u : ro->units) {
+                        if (u->faction->num == guardfaction || u->faction->num == monfaction) continue;
+                        if (u->GetMen() > 2) return false;
+                        if (++cnt >= 3) return false;
+                    }
+                }
+                return cnt > 0;
+            };
+
+            // Find matching villages of a given terrain type
+            // vphase: 1=empty, 2=small players, 3=any players
+            auto find_villages = [&](int terrain, int vphase, bool use_filter) -> std::vector<ARegion *> {
+                auto cands = level->get_starting_region_candidates(terrain, use_filter);
+                std::vector<ARegion *> matching;
+                for (const auto r : cands) {
+                    if (!r->town || r->town->TownType() != TOWN_VILLAGE) continue;
+                    if (has_monsters(r)) continue;
+                    int np = count_players(r);
+                    if (vphase == 1 && np == 0) matching.push_back(r);
+                    else if (vphase == 2 && is_phase2(r)) matching.push_back(r);
+                    else if (vphase == 3 && np > 0) matching.push_back(r);
+                }
+                return matching;
+            };
+
+            ARegion *found = nullptr;
+            int found_phase = 0; // 1=Block A, 2=Block B, 3=Phase3, 4=Town, 5=Empty hex, 6=Fallback
+
+            // Block A: own terrain, phases 1 and 2 (with filter, then without)
+            for (int vphase = 1; vphase <= 2 && !found; vphase++) {
+                for (int use_filter = 1; use_filter >= 0 && !found; use_filter--) {
+                    auto matching = find_villages(own_terrain, vphase, use_filter == 1);
+                    if (!matching.empty()) {
+                        found = matching[rng::get_random(matching.size())];
+                        found_phase = 1;
+                    }
+                }
+            }
+
+            // Block B: other terrain types, phases 1 and 2 (with filter, then without)
+            for (int vphase = 1; vphase <= 2 && !found; vphase++) {
+                for (int use_filter = 1; use_filter >= 0 && !found; use_filter--) {
+                    for (int gi = 1; gi < (int)gateways.size() && !found; gi++) {
+                        int idx = (startIdx + gi) % (int)gateways.size();
+                        ARegion *gw_anchor = regions.GetRegion(gateways[idx]->inner);
+                        auto matching = find_villages(gw_anchor->type, vphase, use_filter == 1);
+                        if (!matching.empty()) {
+                            found = matching[rng::get_random(matching.size())];
+                            found_phase = 2;
                         }
                     }
-                    // match level 0 - ignore anything that isn't completely empty
-                    if (match == 0 && (guards || others)) continue;
-                    // match level 1 - ignore anything that has other players
-                    if (match == 1 && (!guards || others)) continue;
-                    // match level 2 - ignore anything that doesn't have guards
-                    if (match == 2 && !guards) continue;
-                    // match level 3 - ignore anything that has guards or others
-                    if (match == 3 && (guards || others)) continue;
-                    // match level 4 or we were legal by the above rules
-                    candidates.push_back(scanReg);
                 }
-                // increment match level.  If we found anything above, we'll break at the top of the while
-                match++;
             }
-            if (!candidates.empty()) {
-                int index = rng::get_random(candidates.size()); // Corrected namespace
-                newreg = candidates[index];
+
+            // Phases 3/3a: all terrain types, any village with players (own first, then others)
+            for (int use_filter = 1; use_filter >= 0 && !found; use_filter--) {
+                auto matching = find_villages(own_terrain, 3, use_filter == 1);
+                if (!matching.empty()) {
+                    found = matching[rng::get_random(matching.size())];
+                    found_phase = 3;
+                    break;
+                }
+                for (int gi = 1; gi < (int)gateways.size() && !found; gi++) {
+                    int idx = (startIdx + gi) % (int)gateways.size();
+                    ARegion *gw_anchor = regions.GetRegion(gateways[idx]->inner);
+                    matching = find_villages(gw_anchor->type, 3, use_filter == 1);
+                    if (!matching.empty()) {
+                        found = matching[rng::get_random(matching.size())];
+                        found_phase = 3;
+                    }
+                }
+            }
+
+            // Phase 4: TOWN or CITY, guard + ≤3 players, no monsters, all gateways, no filter
+            if (!found) {
+                for (int gi = 0; gi < (int)gateways.size() && !found; gi++) {
+                    int idx = (startIdx + gi) % (int)gateways.size();
+                    ARegion *gw_anchor = regions.GetRegion(gateways[idx]->inner);
+                    auto cands = level->get_starting_region_candidates(gw_anchor->type, false);
+                    std::vector<ARegion *> matching;
+                    for (const auto r : cands) {
+                        if (!r->town || r->town->TownType() == TOWN_VILLAGE) continue;
+                        if (has_monsters(r)) continue;
+                        if (count_players(r) <= 3) matching.push_back(r);
+                    }
+                    if (!matching.empty()) {
+                        found = matching[rng::get_random(matching.size())];
+                        found_phase = 4;
+                    }
+                }
+            }
+
+            // Phase 5: empty non-town hex, no monsters, own terrain only, no filter
+            if (!found) {
+                auto cands = level->get_starting_region_candidates(own_terrain, false);
+                std::vector<ARegion *> matching;
+                for (const auto r : cands) {
+                    if (r->town) continue;
+                    if (has_monsters(r)) continue;
+                    if (count_players(r) == 0) matching.push_back(r);
+                }
+                if (!matching.empty()) {
+                    found = matching[rng::get_random(matching.size())];
+                    found_phase = 5;
+                }
+            }
+
+            // Phase 6: any region of own terrain, ultimate fallback, no filter
+            if (!found) {
+                auto cands = level->get_starting_region_candidates(own_terrain, false);
+                if (!cands.empty()) {
+                    found = cands[rng::get_random(cands.size())];
+                    found_phase = 6;
+                }
+            }
+
+            if (found) {
+                newreg = found;
+                string terrain_name = TerrainDefs[own_terrain].name;
+                if (found_phase == 2) {
+                    string dest_terrain = TerrainDefs[found->type].name;
+                    unit->event("Warning: all " + terrain_name + " villages are occupied. "
+                        "You were redirected to a " + dest_terrain + " village instead.", "move");
+                } else if (found_phase == 3) {
+                    unit->event("Warning: all empty " + terrain_name + " villages are occupied. "
+                        "You share this village with existing players.", "move");
+                } else if (found_phase >= 4) {
+                    unit->event("Warning: all " + terrain_name + " villages are occupied. "
+                        "You were placed in a non-village region.", "move");
+                }
             }
         }
     } else if (x->dir == MOVE_PAUSE) {

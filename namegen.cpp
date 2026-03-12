@@ -530,8 +530,8 @@ std::string getRoadName(int objectType, int race) {
         case Ethnicity::HIGHELF:
             prefix = getPrefix(aPrefElven2);
             roadWord = rng::one_of(aElfRoad);
-            // Example: "Nim-north-men"
-            return (prefix + "-" + dir + "-" + roadWord) | filter::capitalize;
+            // Example: "Nim North Men"
+            return (prefix + " " + dir + " " + roadWord) | filter::title_case;
 
         case Ethnicity::ORC:
             prefix = getPrefix(aPrefOrchish);
@@ -774,8 +774,8 @@ std::string getProductionBuildingName(int buildingType, int resourceType, int ra
             }
 
             // Elven format: prefix + resource + building
-            // Example: "Nim-las-sammath" = "White Forest Workshop"
-            return (prefix + "-" + resourceWord + "-" + buildingWord) | filter::capitalize;
+            // Example: "Nim Las Sammath" = "White Forest Workshop"
+            return (prefix + " " + resourceWord + " " + buildingWord) | filter::title_case;
 
         case Ethnicity::ORC:
             prefix = getPrefix(aPrefOrchish);

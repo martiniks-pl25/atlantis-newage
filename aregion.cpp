@@ -1144,8 +1144,24 @@ void ARegion::build_json_report(json& j, Faction *fac, int month, ARegionList& r
         ? json{ { "amount", wages }, { "max", max_wages } }
         : json{ { "amount", 0 } };
 
+    // Find max QUAM level among faction units present in this region.
+    // Used to reveal hidden trade goods (M_SELL IT_TRADE) in city markets.
+    // QUAM 2 = 1 item visible, QUAM 3 = 2 items, QUAM 4 = 3 items.
+    int quam_level = 0;
+    if (present) {
+        for (const auto o : objects) {
+            for (const auto u : o->units) {
+                if (u->faction == fac) {
+                    int lvl = u->GetSkill(S_QUARTERMASTER);
+                    if (lvl > quam_level) quam_level = lvl;
+                }
+            }
+        }
+    }
+
     json wanted = json::array();
     json for_sale = json::array();
+    int quam_revealed = 0;
     for (const auto& m : markets) {
         if (!m->amount) continue;
         if (!present && !farsight && !(Globals->TRANSIT_REPORT & GameDefs::REPORT_SHOW_MARKETS)) continue;
@@ -1158,6 +1174,15 @@ void ARegion::build_json_report(json& j, Faction *fac, int month, ARegionList& r
         else item["unlimited"] = true;
 
         if (m->type == Market::MarketType::M_SELL) {
+            // Trade goods: hidden until player has the item OR a QUAM unit is present.
+            // QUAM level 2+ reveals hidden trade goods: quota = quam_level - 1.
+            if (ItemDefs[m->item].type & IT_TRADE) {
+                if (!HasItem(fac, m->item)) {
+                    int quam_quota = (quam_level >= 2) ? (quam_level - 1) : 0;
+                    if (quam_revealed >= quam_quota) continue;
+                    quam_revealed++;
+                }
+            }
             if (ItemDefs[m->item].type & IT_ADVANCED) {
                 if (!Globals->MARKETS_SHOW_ADVANCED_ITEMS) {
                     if (!HasItem(fac, m->item)) continue;
@@ -2441,6 +2466,10 @@ ARegion *ARegionArray::GetRegion(int xx, int yy)
 }
 
 std::vector<ARegion *> ARegionArray::get_starting_region_candidates(int terrain) {
+    return get_starting_region_candidates(terrain, true);
+}
+
+std::vector<ARegion *> ARegionArray::get_starting_region_candidates(int terrain, bool require_resources) {
     ARegionGraph graph = ARegionGraph(this);
     graph.setInclusion([](ARegion *current, ARegion *next) { return next->type != R_OCEAN; });
 
@@ -2455,31 +2484,34 @@ std::vector<ARegion *> ARegionArray::get_starting_region_candidates(int terrain)
             auto result = graphs::breadthFirstSearch(graph, loc, 2);
             // if hex is part of a landmass smaller than 10 hexes within 2 moves, skip it
             if (result.size() < 10) continue;
-            // Now, check for the required items
-            std::map<int, bool> requiredItems = {
-                {I_WOOD, false},
-                {I_IRON, false},
-                {I_STONE, false},
-                {I_GRAIN, false},
-                {I_LIVESTOCK, false},
-                {I_HORSE, false},
-                {I_CAMEL, false}
-            };
-            for(const auto &kv : result) {
-                ARegion *tReg = graph.get(kv.first);
-                if (tReg->produces_item(I_WOOD)) requiredItems[I_WOOD] = true;
-                if (tReg->produces_item(I_IRON)) requiredItems[I_IRON] = true;
-                if (tReg->produces_item(I_STONE)) requiredItems[I_STONE] = true;
-                if (tReg->produces_item(I_GRAIN)) requiredItems[I_GRAIN] = true;
-                if (tReg->produces_item(I_LIVESTOCK)) requiredItems[I_LIVESTOCK] = true;
-                if (tReg->produces_item(I_HORSE)) requiredItems[I_HORSE] = true;
-                if (tReg->produces_item(I_CAMEL)) requiredItems[I_CAMEL] = true;
+
+            if (require_resources) {
+                // Check for the required items within 2 hexes
+                std::map<int, bool> requiredItems = {
+                    {I_WOOD, false},
+                    {I_IRON, false},
+                    {I_STONE, false},
+                    {I_GRAIN, false},
+                    {I_LIVESTOCK, false},
+                    {I_HORSE, false},
+                    {I_CAMEL, false}
+                };
+                for(const auto &kv : result) {
+                    ARegion *tReg = graph.get(kv.first);
+                    if (tReg->produces_item(I_WOOD)) requiredItems[I_WOOD] = true;
+                    if (tReg->produces_item(I_IRON)) requiredItems[I_IRON] = true;
+                    if (tReg->produces_item(I_STONE)) requiredItems[I_STONE] = true;
+                    if (tReg->produces_item(I_GRAIN)) requiredItems[I_GRAIN] = true;
+                    if (tReg->produces_item(I_LIVESTOCK)) requiredItems[I_LIVESTOCK] = true;
+                    if (tReg->produces_item(I_HORSE)) requiredItems[I_HORSE] = true;
+                    if (tReg->produces_item(I_CAMEL)) requiredItems[I_CAMEL] = true;
+                }
+                if (requiredItems[I_WOOD] == false) continue;
+                if (requiredItems[I_IRON] == false) continue;
+                if (requiredItems[I_STONE] == false) continue;
+                if (requiredItems[I_GRAIN] == false && requiredItems[I_LIVESTOCK] == false) continue;
+                if (requiredItems[I_HORSE] == false && requiredItems[I_CAMEL] == false) continue;
             }
-            if (requiredItems[I_WOOD] == false) continue;
-            if (requiredItems[I_IRON] == false) continue;
-            if (requiredItems[I_STONE] == false) continue;
-            if (requiredItems[I_GRAIN] == false && requiredItems[I_LIVESTOCK] == false) continue;
-            if (requiredItems[I_HORSE] == false && requiredItems[I_CAMEL] == false) continue;
 
             candidates.push_back(reg);
         }
@@ -3613,87 +3645,76 @@ void economy(ARegionArray* arr, const int w, const int h) {
         }
     }
 
-    // Pass 3: Assign trade goods with geographic exclusion to prevent
-    // buy/sell pairs in nearby settlements. Process most-constrained
-    // towns first so dense clusters get priority on item selection.
+    // Pass 3: Round-robin trade good assignment.
+    // Guarantees all IT_TRADE items appear in both M_BUY and M_SELL globally.
+    // Two independent shuffled queues (buy_order / sell_order) cycle through all
+    // items round-robin. sell_order starts at offset P/2 to place M_SELL of item X
+    // in geographically different cities than its M_BUY (natural arbitrage barrier).
     logger::write("Assigning trade goods");
-    const int TRADE_EXCLUSION_RADIUS = 12;
+
+    // Build pool of all active IT_TRADE items
+    std::vector<int> trade_pool;
+    for (int i = 0; i < NITEMS; i++) {
+        if (ItemDefs[i].flags & ItemType::DISABLED) continue;
+        if (ItemDefs[i].flags & ItemType::NOMARKET) continue;
+        if (!(ItemDefs[i].type & IT_TRADE)) continue;
+        trade_pool.push_back(i);
+    }
 
     std::vector<ARegion*> towns;
     for (int x = 0; x < w; x++) {
         for (int y = 0; y < h; y++) {
             if ((x + y) % 2) continue;
             ARegion* reg = arr->GetRegion(x, y);
-            if (reg && reg->town) {
-                towns.push_back(reg);
-            }
+            if (reg && reg->town) towns.push_back(reg);
         }
     }
 
-    // Count nearby towns within exclusion radius for sorting
-    auto countNearbyTowns = [&](ARegion* reg) -> int {
-        int count = 0;
-        std::queue<std::pair<ARegion*, int>> q;
-        std::unordered_set<ARegion*> visited;
-        q.push({reg, 0});
-        visited.insert(reg);
-        while (!q.empty()) {
-            auto [cur, dist] = q.front();
-            q.pop();
-            if (dist > 0 && cur->town) count++;
-            if (dist >= TRADE_EXCLUSION_RADIUS) continue;
-            for (int d = 0; d < NDIRS; d++) {
-                ARegion* n = cur->neighbors[d];
-                if (n && visited.find(n) == visited.end()) {
-                    visited.insert(n);
-                    q.push({n, dist + 1});
-                }
-            }
-        }
-        return count;
-    };
+    int P = (int)trade_pool.size();
+    if (P >= 6 && !towns.empty()) {
+        const int TRADE_COUNT = 3;
 
-    // Precompute constraint counts, sort most-constrained towns first
-    std::unordered_map<ARegion*, int> constraintCount;
-    for (ARegion* t : towns) {
-        constraintCount[t] = countNearbyTowns(t);
-    }
-    std::sort(towns.begin(), towns.end(), [&](ARegion* a, ARegion* b) {
-        return constraintCount[a] > constraintCount[b];
-    });
+        // Two independent shuffles for M_BUY and M_SELL queues
+        std::vector<int> buy_order = trade_pool;
+        std::vector<int> sell_order = trade_pool;
+        for (int i = P - 1; i > 0; i--) { int j = rng::get_random(i+1); std::swap(buy_order[i],  buy_order[j]);  }
+        for (int i = P - 1; i > 0; i--) { int j = rng::get_random(i+1); std::swap(sell_order[i], sell_order[j]); }
 
-    // Assign trade goods: avoid complementary M_SELL/M_BUY pairs with nearby towns
-    for (ARegion* t : towns) {
-        std::unordered_set<int> forbidden_sell; // nearby M_BUY(X) -> don't put X in our M_SELL
-        std::unordered_set<int> forbidden_buy;  // nearby M_SELL(X) -> don't put X in our M_BUY
-
-        std::queue<std::pair<ARegion*, int>> q;
-        std::unordered_set<ARegion*> visited;
-        q.push({t, 0});
-        visited.insert(t);
-        while (!q.empty()) {
-            auto [cur, dist] = q.front();
-            q.pop();
-            if (dist > 0 && cur->town) {
-                for (const auto* m : cur->markets) {
-                    if (!(ItemDefs[m->item].type & IT_TRADE)) continue;
-                    if (m->type == Market::MarketType::M_SELL)
-                        forbidden_buy.insert(m->item);
-                    else if (m->type == Market::MarketType::M_BUY)
-                        forbidden_sell.insert(m->item);
-                }
-            }
-            if (dist >= TRADE_EXCLUSION_RADIUS) continue;
-            for (int d = 0; d < NDIRS; d++) {
-                ARegion* n = cur->neighbors[d];
-                if (n && visited.find(n) == visited.end()) {
-                    visited.insert(n);
-                    q.push({n, dist + 1});
-                }
-            }
+        // Shuffle towns for geographic spread
+        std::vector<ARegion*> shuffled_towns = towns;
+        for (int i = (int)shuffled_towns.size() - 1; i > 0; i--) {
+            int j = rng::get_random(i + 1);
+            std::swap(shuffled_towns[i], shuffled_towns[j]);
         }
 
-        t->SetupTradeMarkets(forbidden_sell, forbidden_buy);
+        int buy_idx  = 0;
+        int sell_idx = P / 2;  // Offset by half pool: M_SELL and M_BUY of same item land in different cities
+
+        for (ARegion* t : shuffled_towns) {
+            // Pick TRADE_COUNT M_BUY items round-robin
+            std::vector<int> city_buy;
+            std::unordered_set<int> used;
+            for (int k = 0; k < TRADE_COUNT; k++) {
+                city_buy.push_back(buy_order[buy_idx % P]);
+                used.insert(buy_order[buy_idx % P]);
+                buy_idx++;
+            }
+
+            // Pick TRADE_COUNT M_SELL items, skipping any that overlap with M_BUY
+            std::vector<int> city_sell;
+            int guard = P * 2;
+            for (int k = 0; k < TRADE_COUNT && guard > 0; guard--) {
+                int item = sell_order[sell_idx % P];
+                sell_idx++;
+                if (!used.count(item)) {
+                    city_sell.push_back(item);
+                    used.insert(item);
+                    k++;
+                }
+            }
+
+            t->SetupTradeMarkets(city_buy, city_sell);
+        }
     }
 }
 

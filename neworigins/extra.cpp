@@ -1146,6 +1146,19 @@ void Game::ModifyTablesPerRuleset(void)
     // Artifacts of power
     DisableItem(I_RELICOFGRACE);
 
+    // Trade goods - enable 7 additional items (total pool: 18)
+    // Must use ModifyItemFlags(0) to clear both DISABLED and NOMARKET
+    ModifyItemFlags(I_FIGURINES, 0);
+    ModifyItemFlags(I_CAVIAR, 0);
+    ModifyItemFlags(I_ROSES, 0);
+    ModifyItemFlags(I_VELVET, 0);
+    ModifyItemFlags(I_MINK, 0);
+    ModifyItemFlags(I_DYES, 0);
+    ModifyItemFlags(I_WOOL, 0);
+    ModifyItemBasePrice(I_VELVET, 90);
+    ModifyItemBasePrice(I_ROSES, 80);
+    ModifyItemBasePrice(I_MINK, 80);
+
     // Disable items
     DisableItem(I_SUPERBOW);
     DisableItem(I_BOOTS);

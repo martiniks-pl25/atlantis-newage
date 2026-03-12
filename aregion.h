@@ -343,7 +343,8 @@ class ARegion
         void SetupEditRegion();
         void AddLeadersMarket();
         void AddMenMarket();
-        void SetupTradeMarkets(const std::unordered_set<int>& forbidden_sell, const std::unordered_set<int>& forbidden_buy);
+        void SetupTradeMarkets(const std::vector<int>& buy_items, const std::vector<int>& sell_items);
+        void SetupRandomTradeMarkets();
     private:
         /* Private Setup Functions */
         void SetupPop();
@@ -373,6 +374,7 @@ class ARegionArray
         void set_name(const std::string& name);
 
         std::vector<ARegion *> get_starting_region_candidates(int terrain);
+        std::vector<ARegion *> get_starting_region_candidates(int terrain, bool require_resources);
 
         int x;
         int y;

@@ -55,6 +55,7 @@ void Market::post_turn(int population, int wages)
         amount = maxamt;
     else {
         amount = minamt + ((maxamt - minamt) * (population - minpop)) / (maxpop - minpop);
+        if (amount <= minamt) amount = minamt + 1; // ensure at least 1 item once threshold is crossed
     }
 }
 

@@ -1179,7 +1179,7 @@ void Game::PostProcessTurn()
     if (Globals->LAIR_MONSTERS_EXIST) GrowVMons();
 
     AutoNameBuildings();
-    ResetCityMarketsExceptTrade(); // TEMPORARY — remove after one server turn
+    // ResetCityMarketsExceptTrade(); // one-time market migration, done
     DoTowerObservation();
 }
 
@@ -1218,12 +1218,13 @@ void Game::AutoNameBuildings()
 /**
  * @brief ONE-TIME MIGRATION: regenerates city market items with updated base prices.
  *
- * Removes all market entries that are not IT_TRADE, IT_MAN, or IT_LEADER,
- * then calls SetupCityMarket() to recreate them using current ItemDefs base prices.
- * Trade goods (IT_TRADE) and men/leaders markets are preserved unchanged.
+ * Updates prices of non-trade markets in-place (preserves minpop/maxpop thresholds).
+ * Then reassigns trade goods (IT_TRADE) globally using round-robin to guarantee
+ * full coverage of all 18 active trade items across all towns.
  *
- * Required after weapon/armor baseprice rebalance: existing markets store baseprice
+ * Required after weapon/armor baseprice rebalance: existing markets store price
  * in the save file and are not affected by ItemDefs changes in code.
+ * Preserves market thresholds set at world generation — avoids breaking amounts.
  *
  * @note TEMPORARY — remove this call from PostProcessTurn() after one server turn.
  */
@@ -1232,31 +1233,120 @@ void Game::ResetCityMarketsExceptTrade()
     for (const auto r : regions) {
         if (!r->town) continue;
 
-        // Remove weapon/armor/tool markets only — preserve food, trade goods, men
+        // Update prices in-place for non-trade markets (weapons, tools, food).
+        // Do NOT delete/recreate — that would reset minpop/maxpop thresholds and
+        // make items invisible until town grows again.
+        for (auto& m : r->markets) {
+            int itype = ItemDefs[m->item].type;
+            if (itype & (IT_TRADE | IT_MAN | IT_LEADER | IT_FOOD)) continue;
+            if (Globals->RANDOM_ECONOMY)
+                m->price = (ItemDefs[m->item].baseprice * (100 + rng::get_random(50))) / 100;
+            else
+                m->price = ItemDefs[m->item].baseprice;
+        }
+    }
+
+    // Delete old IT_TRADE markets and reassign globally with round-robin.
+    // Trade market thresholds are based on town dev (not population), so
+    // recreating them is safe and gives correct coverage guarantees.
+    for (const auto r : regions) {
+        if (!r->town) continue;
         auto& mv = r->markets;
         for (auto it = mv.begin(); it != mv.end(); ) {
-            int itype = ItemDefs[(*it)->item].type;
-            if (!(itype & IT_TRADE) && !(itype & IT_MAN) && !(itype & IT_LEADER)
-                && !(itype & IT_FOOD)) {
+            if (ItemDefs[(*it)->item].type & IT_TRADE) {
                 delete *it;
                 it = mv.erase(it);
             } else {
                 ++it;
             }
         }
+    }
+    AssignTradeMarketsRoundRobin();
 
-        // Regenerate weapons, armor, tools, advanced items with new prices.
-        // SetupCityMarket() unconditionally adds food too, so strip those out afterward.
-        size_t before = r->markets.size();
-        r->SetupCityMarket();
-        for (auto it = r->markets.begin() + before; it != r->markets.end(); ) {
-            if (ItemDefs[(*it)->item].type & IT_FOOD) {
-                delete *it;
-                it = r->markets.erase(it);
-            } else {
-                ++it;
+    // Recalculate trade good amounts after assignment
+    for (const auto r : regions) {
+        if (!r->town) continue;
+        for (auto& m : r->markets) {
+            if (ItemDefs[m->item].type & IT_TRADE) {
+                int pop = r->town ? r->town->pop : r->population;
+                m->post_turn(pop, r->Wages());
             }
         }
+    }
+}
+
+/**
+ * @brief Assigns trade goods to all towns using global round-robin.
+ *
+ * Guarantees every active IT_TRADE item appears in both M_BUY and M_SELL
+ * at least once across all towns. M_BUY and M_SELL of the same item land
+ * in different towns (offset P/2). No self-arbitrage (same item in both
+ * M_BUY and M_SELL of one town).
+ *
+ * Used by ResetCityMarketsExceptTrade() instead of per-city random assignment.
+ * Mirrors the Pass 3 algorithm in ARegionList::economy() (aregion.cpp).
+ */
+void Game::AssignTradeMarketsRoundRobin()
+{
+    // Build pool of all active IT_TRADE items
+    std::vector<int> trade_pool;
+    for (int i = 0; i < NITEMS; i++) {
+        if (ItemDefs[i].flags & ItemType::DISABLED) continue;
+        if (ItemDefs[i].flags & ItemType::NOMARKET) continue;
+        if (!(ItemDefs[i].type & IT_TRADE)) continue;
+        trade_pool.push_back(i);
+    }
+
+    // Collect all towns
+    std::vector<ARegion *> towns;
+    for (const auto r : regions) {
+        if (r->town) towns.push_back(r);
+    }
+
+    int P = (int)trade_pool.size();
+    if (P < 6 || towns.empty()) return;
+
+    const int TRADE_COUNT = 3;
+
+    // Two independent shuffles for M_BUY and M_SELL queues
+    std::vector<int> buy_order = trade_pool;
+    std::vector<int> sell_order = trade_pool;
+    for (int i = P - 1; i > 0; i--) { int j = rng::get_random(i+1); std::swap(buy_order[i],  buy_order[j]); }
+    for (int i = P - 1; i > 0; i--) { int j = rng::get_random(i+1); std::swap(sell_order[i], sell_order[j]); }
+
+    // Shuffle towns for geographic spread
+    for (int i = (int)towns.size() - 1; i > 0; i--) {
+        int j = rng::get_random(i + 1);
+        std::swap(towns[i], towns[j]);
+    }
+
+    int buy_idx  = 0;
+    int sell_idx = P / 2;  // offset: M_SELL of item X lands in different town than M_BUY
+
+    for (ARegion *t : towns) {
+        // Pick TRADE_COUNT M_BUY items round-robin
+        std::vector<int> city_buy;
+        std::unordered_set<int> used;
+        for (int k = 0; k < TRADE_COUNT; k++) {
+            city_buy.push_back(buy_order[buy_idx % P]);
+            used.insert(buy_order[buy_idx % P]);
+            buy_idx++;
+        }
+
+        // Pick TRADE_COUNT M_SELL items, skipping overlap with M_BUY
+        std::vector<int> city_sell;
+        int guard = P * 2;
+        for (int k = 0; k < TRADE_COUNT && guard > 0; guard--) {
+            int item = sell_order[sell_idx % P];
+            sell_idx++;
+            if (!used.count(item)) {
+                city_sell.push_back(item);
+                used.insert(item);
+                k++;
+            }
+        }
+
+        t->SetupTradeMarkets(city_buy, city_sell);
     }
 }
 

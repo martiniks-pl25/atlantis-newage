@@ -1050,6 +1050,14 @@ std::string item_description(int item, int full)
             temp += " This armor imposes a " + std::to_string(armor.attackBonus) +
                     " penalty to combat attack skill due to reduced mobility.";
         }
+        // Combat defense skill modifier
+        if (armor.defenseBonus > 0) {
+            temp += " This armor grants a +" + std::to_string(armor.defenseBonus) +
+                    " bonus to combat defense skill due to increased mobility.";
+        } else if (armor.defenseBonus < 0) {
+            temp += " This armor imposes a " + std::to_string(std::abs(armor.defenseBonus)) +
+                    " penalty to combat defense skill due to reduced mobility.";
+        }
         if (full) {
             if (armor.flags & ArmorType::USEINASSASSINATE) {
                 temp += " This armor may be worn during assassination attempts.";
