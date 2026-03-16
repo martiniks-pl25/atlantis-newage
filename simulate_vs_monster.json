@@ -1,0 +1,57 @@
+{
+  "battles": 100,
+  "seed": 42,
+  "region_type": "jungle",
+
+  "attacker": {
+    "units": [
+      {
+        "name": "Expedition Commander",
+        "items": [
+          { "abbr": "LEAD", "count": 1 },
+          { "abbr": "SWOR", "count": 1 },
+          { "abbr": "PARM", "count": 1 }
+        ],
+        "skills": [
+          { "abbr": "COMB", "level": 3 },
+          { "abbr": "TACT", "level": 2 }
+        ]
+      },
+      {
+        "name": "Jungle Raiders",
+        "items": [
+          { "abbr": "PLAI", "count": 20 },
+          { "abbr": "SWOR", "count": 20 },
+          { "abbr": "CARM", "count": 20 }
+        ],
+        "skills": [
+          { "abbr": "COMB", "level": 2 }
+        ]
+      },
+      {
+        "name": "War Mage",
+        "combat_spell": "FIRE",
+        "behind": true,
+        "items": [
+          { "abbr": "LEAD", "count": 1 }
+        ],
+        "skills": [
+          { "abbr": "FIRE", "level": 3 },
+          { "abbr": "FORC", "level": 3 },
+          { "abbr": "MANI", "level": 2 }
+        ]
+      }
+    ]
+  },
+
+  "defender": {
+    "units": [
+      {
+        "name": "Kong",
+        "items": [
+          { "abbr": "KONG", "count": 1 }
+        ]
+      }
+    ]
+  }
+}

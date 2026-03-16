@@ -1,0 +1,107 @@
+{
+  "battles": 10,
+  "seed": 42,
+  "region_type": "plain",
+
+  "attacker": {
+    "units": [
+      {
+        "name": "Attack Commander",
+        "items": [
+          { "abbr": "LEAD", "count": 1 },
+          { "abbr": "SWOR", "count": 1 },
+          { "abbr": "CARM", "count": 1 }
+        ],
+        "skills": [
+          { "abbr": "COMB", "level": 3 },
+          { "abbr": "TACT", "level": 2 }
+        ]
+      },
+      {
+        "name": "Swordsmen",
+        "items": [
+          { "abbr": "PLAI", "count": 30 },
+          { "abbr": "SWOR", "count": 30 },
+          { "abbr": "CARM", "count": 30 }
+        ],
+        "skills": [
+          { "abbr": "COMB", "level": 2 }
+        ]
+      },
+      {
+        "name": "Fire Mage",
+        "mage": true,
+        "combat_spell": "FIRE",
+        "behind": true,
+        "items": [
+          { "abbr": "LEAD", "count": 1 }
+        ],
+        "skills": [
+          { "abbr": "FIRE", "level": 2 },
+          { "abbr": "FORC", "level": 3 },
+          { "abbr": "MANI", "level": 2 }
+        ]
+      }
+    ]
+  },
+
+  "defender": {
+    "buildings": [
+      {
+        "type": "Fort",
+        "units": [
+          {
+            "name": "Fort Commander",
+            "items": [
+              { "abbr": "LEAD", "count": 1 },
+              { "abbr": "SWOR", "count": 1 },
+              { "abbr": "PARM", "count": 1 }
+            ],
+            "skills": [
+              { "abbr": "COMB", "level": 2 },
+              { "abbr": "TACT", "level": 1 }
+            ]
+          },
+          {
+            "name": "Fort Guards",
+            "items": [
+              { "abbr": "PLAI", "count": 50 },
+              { "abbr": "SWOR", "count": 50 },
+              { "abbr": "PARM", "count": 50 }
+            ],
+            "skills": [
+              { "abbr": "COMB", "level": 1 }
+            ]
+          },
+          {
+            "name": "Shield Mage",
+            "mage": true,
+            "combat_spell": "ESHI",
+            "behind": true,
+            "items": [
+              { "abbr": "LEAD", "count": 1 }
+            ],
+            "skills": [
+              { "abbr": "ESHI", "level": 3 },
+              { "abbr": "FORC", "level": 3 },
+              { "abbr": "MANI", "level": 2 }
+            ]
+          }
+        ]
+      }
+    ],
+    "units": [
+      {
+        "name": "Outside Patrol",
+        "items": [
+          { "abbr": "PLAI", "count": 10 },
+          { "abbr": "SWOR", "count": 10 },
+          { "abbr": "CARM", "count": 10 }
+        ],
+        "skills": [
+          { "abbr": "COMB", "level": 1 }
+        ]
+      }
+    ]
+  }
+}

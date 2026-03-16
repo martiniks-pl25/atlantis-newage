@@ -1,0 +1,34 @@
+{
+  "battles": 50,
+  "region_type": "plain",
+  "attacker": {
+    "units": [
+      {
+        "name": "Warriors",
+        "items": [
+          { "abbr": "PLAI", "count": 10 },
+          { "abbr": "SWOR", "count": 10 },
+          { "abbr": "CARM", "count": 10 }
+        ],
+        "skills": [
+          { "abbr": "COMB", "level": 2 }
+        ]
+      }
+    ]
+  },
+  "defender": {
+    "units": [
+      {
+        "name": "Guards",
+        "items": [
+          { "abbr": "PLAI", "count": 10 },
+          { "abbr": "SWOR", "count": 10 },
+          { "abbr": "CARM", "count": 10 }
+        ],
+        "skills": [
+          { "abbr": "COMB", "level": 2 }
+        ]
+      }
+    ]
+  }
+}
