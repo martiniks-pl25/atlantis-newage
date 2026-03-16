@@ -57,6 +57,7 @@ public:
     int OpenGame();
     void DummyGame();
     void InitMinimal(); // Minimal initialization for battle tests
+    int SimulateBattle(const std::string& inputFile);
 
     void DefaultWorkOrder();
 

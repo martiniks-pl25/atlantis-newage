@@ -489,15 +489,31 @@ void Game::Run1BuildOrder(ARegion *r, Object *obj, Unit *u)
     }
 
     int it = ObjectDefs[type].item;
+    BuildOrder *border = dynamic_cast<BuildOrder *>(u->monthorders);
+    int preferred = (border ? border->preferred_material : -1);
+
+    // Resolve preferred material for I_WOOD_OR_STONE buildings
+    if (it == I_WOOD_OR_STONE && preferred != -1) {
+        if (preferred != I_WOOD && preferred != I_STONE) preferred = -1; // safety
+    }
+
     int itn;
     if (it == I_WOOD_OR_STONE) {
-        itn = u->GetSharedNum(I_WOOD) + u->GetSharedNum(I_STONE);
+        if (preferred != -1) {
+            itn = u->GetSharedNum(preferred);
+        } else {
+            itn = u->GetSharedNum(I_WOOD) + u->GetSharedNum(I_STONE);
+        }
     } else {
         itn = u->GetSharedNum(it);
     }
 
     if (itn == 0) {
-        u->error("BUILD: Don't have the required materials to build " + ObjectDefs[type].name + ".");
+        if (it == I_WOOD_OR_STONE && preferred != -1) {
+            u->error("BUILD: Don't have " + item_string(preferred, 1) + " to build " + ObjectDefs[type].name + ".");
+        } else {
+            u->error("BUILD: Don't have the required materials to build " + ObjectDefs[type].name + ".");
+        }
         delete u->monthorders;
         u->monthorders = nullptr;
         return;
@@ -539,12 +555,17 @@ void Game::Run1BuildOrder(ARegion *r, Object *obj, Unit *u)
     if (obj != buildobj) u->MoveUnit(buildobj);
 
     if (it == I_WOOD_OR_STONE) {
-        if (num > u->GetSharedNum(I_STONE)) {
-            num -= u->GetSharedNum(I_STONE);
-            u->ConsumeShared(I_STONE, u->GetSharedNum(I_STONE));
-            u->ConsumeShared(I_WOOD, num);
+        if (preferred != -1) {
+            u->ConsumeShared(preferred, num);
         } else {
-            u->ConsumeShared(I_STONE, num);
+            // Default: consume stone first, then wood
+            if (num > u->GetSharedNum(I_STONE)) {
+                num -= u->GetSharedNum(I_STONE);
+                u->ConsumeShared(I_STONE, u->GetSharedNum(I_STONE));
+                u->ConsumeShared(I_WOOD, num);
+            } else {
+                u->ConsumeShared(I_STONE, num);
+            }
         }
     } else {
         u->ConsumeShared(it, num);

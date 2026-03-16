@@ -118,6 +118,14 @@ int main(int argc, char *argv[])
                 logger::write("Couldn't check the orders!");
                 break;
             }
+        } else if (args[1] == "simulate") {
+            if (argc != 3) {
+                logger::write("Usage: " + args[0] + " simulate <input.json>");
+                break;
+            }
+            game.InitMinimal();
+            retval = game.SimulateBattle(args[2]);
+            break;
         } else if (args[1] == "mapunits") {
             if (!game.OpenGame()) {
                 logger::write("Couldn't open the game file!");

@@ -168,6 +168,7 @@ BuildOrder::BuildOrder()
     until_complete = false;
     target = nullptr;
     needtocomplete = 0;
+    preferred_material = -1;
 }
 
 BuildOrder::~BuildOrder()

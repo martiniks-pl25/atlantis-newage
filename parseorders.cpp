@@ -1519,9 +1519,30 @@ void Game::ProcessBuildOrder(Unit *unit, parser::string_parser& parser, orders_c
     // the underlying functions shoulld handle any errors.
     if (!order) return;
 
-    // If we processed everything else, now check for the complete keyword
+    // If we processed everything else, now check for optional material and complete keyword
     if (token != "complete") {
         token = parser.get_token();
+    }
+
+    // Check for optional material preference (WOOD or STONE) for I_WOOD_OR_STONE buildings
+    if (token && token != "complete") {
+        if (token == "wood") {
+            order->preferred_material = I_WOOD;
+            token = parser.get_token();
+        } else if (token == "stone") {
+            order->preferred_material = I_STONE;
+            token = parser.get_token();
+        }
+    }
+
+    // Warn if material preference was given for a building that doesn't support it
+    if (order->preferred_material != -1 && order->new_building != -1) {
+        if (ObjectDefs[order->new_building].item != I_WOOD_OR_STONE) {
+            parse_error(checker, unit, 0,
+                "BUILD: " + ObjectDefs[order->new_building].name +
+                " does not use wood or stone — material preference ignored.");
+            order->preferred_material = -1;
+        }
     }
 
     if (token && token != "complete") {

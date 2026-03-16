@@ -1258,7 +1258,7 @@ std::string getVolcanoName(std::string s) {
                " Crown of Cinders",
                " Hellfire Peak",
                " Magma Sanctum",
-               " Khazdûr Peak",
+               " Khazdur Peak",
                " Bronzefire Mountain",
                " Forgeheart",
                " Anvilspire",

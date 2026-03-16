@@ -213,6 +213,7 @@ class BuildOrder : public Order {
     int new_building;
     int needtocomplete;
     bool until_complete;
+    int preferred_material; // -1 = any, I_WOOD or I_STONE for I_WOOD_OR_STONE buildings
 };
 
 class SailOrder : public Order {

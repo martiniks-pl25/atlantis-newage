@@ -1569,7 +1569,8 @@ Unit *Game::GetWMonTar(ARegion *r, int tarnum, Unit *mon) {
  * @param r Region where potential attack occurs
  * @param u Monster unit checking for attack
  *
- * @note Attack chance also depends on number of targets (fewer targets = safer)
+ * @note Attack chance on surface depends on number of targets (fewer targets = safer).
+ *       In danger zones, target count is ignored — roll is always out of 100.
  * @see MONSTER_HOSTILE_GRACE_PERIOD, MONSTER_HOSTILE_INCREASE_RATE
  * @see CountWMonTars(), GetWMonTar(), AttemptAttack()
  */
@@ -1614,7 +1615,10 @@ void Game::CheckWMonAttack(ARegion *r, Unit *u) {
         // free == 0 (Elder): 100% - no modification needed
     }
 
-    if (rng::get_random(rand) >= effectiveHostile) return;
+    // In danger zones, ignore target count — monsters always attack at full roll range.
+    // This ensures small scouting parties in dungeons/volcanoes are not artificially safe.
+    int effectiveRand = dangerZone ? 100 : rand;
+    if (rng::get_random(effectiveRand) >= effectiveHostile) return;
 
     Unit *t = GetWMonTar(r, rng::get_random(tars), u);
     if (t) AttemptAttack(r, u, t, 1);

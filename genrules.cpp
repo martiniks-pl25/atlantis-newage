@@ -3863,9 +3863,13 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
     f << anchor("build") << '\n';
     f << enclose("h4", true) << "BUILD\n" << enclose("h4", false);
     f << enclose("h4", true) << "BUILD [object type]\n" << enclose("h4", false);
+    f << enclose("h4", true) << "BUILD [object type] WOOD\n" << enclose("h4", false);
+    f << enclose("h4", true) << "BUILD [object type] STONE\n" << enclose("h4", false);
     f << enclose("h4", true) << "BUILD HELP [unit]\n" << enclose("h4", false);
     f << enclose("h4", true) << "BUILD COMPLETE\n" << enclose("h4", false);
     f << enclose("h4", true) << "BUILD [object type] COMPLETE\n" << enclose("h4", false);
+    f << enclose("h4", true) << "BUILD [object type] WOOD COMPLETE\n" << enclose("h4", false);
+    f << enclose("h4", true) << "BUILD [object type] STONE COMPLETE\n" << enclose("h4", false);
     f << enclose("h4", true) << "BUILD HELP [unit] COMPLETE\n" << enclose("h4", false);
     f << enclose("p", true) << "BUILD given with no parameters causes the unit to perform work on "
       << (may_sail ? "an unfinished ship it possesses, or on ": "") << "the object that it is currently inside.  "
@@ -3873,6 +3877,11 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
       << "on a new object of the type given. The final form instructs the unit to assist the target unit in its "
       << "current building task, even if that task was begun this same turn. This help will be rejected if the "
       << "unit you are trying to help does not consider you to be friendly.\n"
+      << enclose("p", false);
+    f << enclose("p", true) << "Some buildings (such as farms, mines and sawmills) can be built from either wood "
+      << "or stone. By default the unit will use whatever is available, consuming stone before wood. You can "
+      << "specify WOOD or STONE after the object type to restrict which material is used. If the preferred "
+      << "material is not available, the order will fail with an error.\n"
       << enclose("p", false);
     f << enclose("p", true) << "The variants with COMPLETE instruct the unit to continue with the same build order "
       << "and repeat it the next month if the built object is not yet complete.  In the case of BUILD [object "
@@ -3888,6 +3897,12 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
       << example_end();
     f << example_start("To start a new castle and continue building until it is complete.")
       << "BUILD Castle COMPLETE\n"
+      << example_end();
+    f << example_start("To build a farm using only wood.")
+      << "BUILD Farm WOOD\n"
+      << example_end();
+    f << example_start("To build a sawmill using only stone, repeating until complete.")
+      << "BUILD Sawmill STONE COMPLETE\n"
       << example_end();
 
     f << enclose(class_tag("div", "rule"), true) << '\n' << enclose("div", false);
