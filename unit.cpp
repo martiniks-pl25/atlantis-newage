@@ -949,7 +949,6 @@ void Unit::DefaultOrders(Object *obj)
             directions.push_back(-1);
             directions.push_back(-1);
             directions.push_back(-1);
-            directions.push_back(-1);
 
             for (i = 0; i < NDIRS; i++) {
                 n = r->neighbors[i];

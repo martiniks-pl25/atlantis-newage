@@ -1463,7 +1463,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainRace(R_PLAIN, 3, I_MAN);
     ModifyTerrainCoastRace(R_PLAIN, 0, I_HIGHELF);
     ModifyTerrainCoastRace(R_PLAIN, 1, I_MAN);
-    ModifyTerrainCoastRace(R_PLAIN, 2, I_HOBBIT);
+    ModifyTerrainCoastRace(R_PLAIN, 2, I_HIGHELF);
     ModifyTerrainEconomy(R_PLAIN, 600, 12, 30, 1);
 
     ClearTerrainRaces(R_FOREST);
@@ -1472,7 +1472,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainRace(R_FOREST, 2, I_MAN);
     ModifyTerrainRace(R_FOREST, 3, I_WOODELF);
     ModifyTerrainCoastRace(R_FOREST, 0, I_WOODELF);
-    ModifyTerrainCoastRace(R_FOREST, 1, I_HOBBIT);
+    ModifyTerrainCoastRace(R_FOREST, 1, I_ORC);
     ModifyTerrainCoastRace(R_FOREST, 2, I_HIGHELF);
     ModifyTerrainEconomy(R_FOREST, 450, 12, 18, 2);
 
@@ -1492,7 +1492,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainRace(R_HILL, 3, I_HOBBIT);
     ModifyTerrainCoastRace(R_HILL, 0, I_ORC);
     ModifyTerrainCoastRace(R_HILL, 1, I_MAN);
-    ModifyTerrainCoastRace(R_HILL, 2, I_HOBBIT);
+    ModifyTerrainCoastRace(R_HILL, 2, I_HILLDWARF);
     ModifyTerrainEconomy(R_HILL, 450, 12, 18, 2);
 
     ClearTerrainRaces(R_SWAMP);
@@ -1501,7 +1501,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainRace(R_SWAMP, 2, I_GNOME);
     ModifyTerrainRace(R_SWAMP, 3, I_ORC);
     ModifyTerrainCoastRace(R_SWAMP, 0, I_LIZARDMAN);
-    ModifyTerrainCoastRace(R_SWAMP, 1, I_GOBLINMAN);
+    ModifyTerrainCoastRace(R_SWAMP, 1, I_MAN);
     ModifyTerrainCoastRace(R_SWAMP, 2, I_ORC);
     ModifyTerrainEconomy(R_SWAMP, 400, 11, 10, 2);
 
@@ -1519,7 +1519,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainRace(R_DESERT, 0, I_CENTAURMAN);
     ModifyTerrainRace(R_DESERT, 1, I_GOBLINMAN);
     ModifyTerrainRace(R_DESERT, 2, I_MAN);
-    ModifyTerrainCoastRace(R_DESERT, 0, I_CENTAURMAN);
+    ModifyTerrainCoastRace(R_DESERT, 0, I_ORC);
     ModifyTerrainCoastRace(R_DESERT, 1, I_GOBLINMAN);
     ModifyTerrainCoastRace(R_DESERT, 2, I_MAN);
     ModifyTerrainEconomy(R_DESERT, 350, 11, 10, 1);
@@ -1555,7 +1555,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainRace(R_UFOREST, 2, I_GOBLINMAN);
     ModifyTerrainCoastRace(R_UFOREST, 0, I_DROWMAN);
     ModifyTerrainCoastRace(R_UFOREST, 1, I_GNOME);
-    ModifyTerrainCoastRace(R_UFOREST, 2, I_GOBLINMAN);
+    ModifyTerrainCoastRace(R_UFOREST, 2, I_DROWMAN);
     ModifyTerrainEconomy(R_UFOREST, 300, 11, 10, 2);
 
     ClearTerrainRaces(R_TUNNELS);
@@ -1569,7 +1569,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainRace(R_CHASM, 2, I_GOBLINMAN);
     ModifyTerrainCoastRace(R_CHASM, 0, I_UNDERDWARF);
     ModifyTerrainCoastRace(R_CHASM, 1, I_DROWMAN);
-    ModifyTerrainCoastRace(R_CHASM, 2, I_GOBLINMAN);
+    ModifyTerrainCoastRace(R_CHASM, 2, I_ORC);
     ModifyTerrainEconomy(R_CHASM, 250, 11, 10, 2);
 
     ClearTerrainRaces(R_GROTTO);

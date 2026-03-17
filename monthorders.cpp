@@ -1829,7 +1829,7 @@ Location *Game::DoAMoveOrder(Unit *unit, ARegion *region, Object *obj)
         startmove = 1;
     }
     if ((TerrainDefs[region->type].similar_type == R_OCEAN) &&
-        (!unit->CanSwim() || unit->GetFlag(FLAG_NOCROSS_WATER))) {
+        (!unit->CanSwim() || (unit->type != U_WMON && unit->GetFlag(FLAG_NOCROSS_WATER)))) {
         unit->error("MOVE: Can't move while in the ocean.");
         goto done_moving;
     }
@@ -1870,7 +1870,7 @@ Location *Game::DoAMoveOrder(Unit *unit, ARegion *region, Object *obj)
     }
 
     if ((TerrainDefs[newreg->type].similar_type == R_OCEAN) &&
-        (!unit->CanSwim() || unit->GetFlag(FLAG_NOCROSS_WATER))) {
+        (!unit->CanSwim() || (unit->type != U_WMON && unit->GetFlag(FLAG_NOCROSS_WATER)))) {
         unit->event("Discovers that " + newreg->short_print() + " is " + TerrainDefs[newreg->type].name + ".", "movement");
         goto done_moving;
     }
@@ -1887,6 +1887,18 @@ Location *Game::DoAMoveOrder(Unit *unit, ARegion *region, Object *obj)
     if (unit->type == U_WMON && newreg->town && newreg->IsGuarded()) {
         unit->event("Monsters don't move into guarded towns.", "movement");
         goto done_moving;
+    }
+
+    // Pirates landing from ocean to land: non-advancing move is blocked by guards (peaceful landing requires no guards)
+    if (unit->type == U_WMON &&
+        TerrainDefs[region->type].similar_type == R_OCEAN &&
+        TerrainDefs[newreg->type].similar_type != R_OCEAN &&
+        !o->advancing) {
+        Unit *forbidUnit = newreg->Forbidden(unit);
+        if (forbidUnit && !startmove) {
+            unit->event("Attempts to land ashore but is repelled by guards.", "movement");
+            goto done_moving;
+        }
     }
 
     if (unit->guard == GUARD_ADVANCE) {
