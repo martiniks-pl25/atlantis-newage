@@ -36,3 +36,10 @@ map_viewer/.parcel-cache
 map_viewer/dist
 !*.[ch]
 !*.[ch]pp
+
+# Local documentation and scripts (not versioned)
+docs/
+scripts/
+CLAUDE.md
+GEMINI.md
+QUICK_REFERENCE.md

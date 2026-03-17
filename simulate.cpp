@@ -251,6 +251,21 @@ static int count_initial_combatants(const SideTemplate& tmpl) {
     return total;
 }
 
+// Count surviving combatants in a Unit after battle.
+// Must use the same IT_MAN | IT_MONSTER mask as count_initial_combatants.
+// GetMen() only counts IT_MAN, so monster-only units (e.g. KONG) would
+// incorrectly return 0 survivors even when they are still alive.
+// Uses explicit AList traversal instead of the forlist() macro to avoid
+// scope issues in static functions outside of game-engine class methods.
+static int count_surviving_combatants(Unit* u) {
+    int total = 0;
+    for (auto i : u->items) {
+        if (ItemDefs[i->type].type & (IT_MAN | IT_MONSTER))
+            total += i->num;
+    }
+    return total;
+}
+
 // ---------------------------------------------------------------------------
 // Create a Unit from a template
 // ---------------------------------------------------------------------------
@@ -405,10 +420,13 @@ int Game::SimulateBattle(const std::string& inputFile) {
 
         if (capture_report) res.report = b.text;
 
+        // Use count_surviving_combatants (IT_MAN | IT_MONSTER) instead of
+        // GetMen() (IT_MAN only) — otherwise monster-only units show 0 survivors
+        // even when they are alive, corrupting all loss statistics.
         res.att_surv = 0;
-        for (auto* u : att_units) res.att_surv += u->GetMen();
+        for (auto* u : att_units) res.att_surv += count_surviving_combatants(u);
         res.def_surv = 0;
-        for (auto* u : def_units) res.def_surv += u->GetMen();
+        for (auto* u : def_units) res.def_surv += count_surviving_combatants(u);
 
         for (auto* loc : att_locs)  delete loc;
         for (auto* loc : def_locs)  delete loc;
@@ -424,12 +442,14 @@ int Game::SimulateBattle(const std::string& inputFile) {
     int att_wins = 0, def_wins = 0, draws = 0, impossible = 0;
 
     // Survivor vectors — collected every battle, sorted and analyzed after the loop.
-    // Memory: max 6 × 10000 × 4 bytes = 240 KB (negligible).
+    // Memory: max 8 × 10000 × 4 bytes = 320 KB (negligible).
     std::vector<int> att_all,  def_all;           // all battles
     std::vector<int> att_when_att_wins;            // att survivors in att-win battles
     std::vector<int> def_when_att_wins;            // def survivors in att-win battles (≈0)
     std::vector<int> def_when_def_wins;            // def survivors in def-win battles
     std::vector<int> att_when_def_wins;            // att survivors in def-win battles (≈0)
+    std::vector<int> att_when_draw;               // att survivors in draw battles
+    std::vector<int> def_when_draw;               // def survivors in draw battles
 
     att_all.reserve(n_battles);
     def_all.reserve(n_battles);
@@ -459,6 +479,8 @@ int Game::SimulateBattle(const std::string& inputFile) {
                 break;
             case BATTLE_DRAW:
                 draws++;
+                att_when_draw.push_back(r.att_surv);
+                def_when_draw.push_back(r.def_surv);
                 if (draw_report.empty() && !r.report.empty()) draw_report = r.report;
                 break;
             default:
@@ -516,6 +538,19 @@ int Game::SimulateBattle(const std::string& inputFile) {
     // Payload: N integers per vector (e.g. 1000 battles = ~4 KB per vector).
     out["attacker_survivors_list"] = att_all;
     out["defender_survivors_list"] = def_all;
+
+    // Per-outcome survivor lists — split by who won.
+    // Frontend uses these to build SEPARATE loss histograms:
+    //   "losses when winning" vs "losses when losing"
+    // This answers: "out of 100 soldiers, how often did I lose 0-10% when I won?"
+    out["attacker_survivors_on_win"]  = att_when_att_wins;  // att survivors in att-win battles
+    out["attacker_survivors_on_loss"] = att_when_def_wins;  // att survivors in att-loss battles
+    out["defender_survivors_on_win"]  = def_when_def_wins;  // def survivors in def-win battles
+    out["defender_survivors_on_loss"] = def_when_att_wins;  // def survivors in def-loss battles
+    if (!att_when_draw.empty()) {
+        out["attacker_survivors_on_draw"] = att_when_draw;  // att survivors in draw battles
+        out["defender_survivors_on_draw"] = def_when_draw;  // def survivors in draw battles
+    }
 
     // Sample battle reports (one per outcome type)
     json reports = json::object();

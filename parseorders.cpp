@@ -1383,9 +1383,12 @@ void Game::ProcessEnterOrder(Unit *u, parser::string_parser& parser, orders_chec
 
 BuildOrder* Game::ProcessBuildHelp(Unit *unit, parser::string_parser& parser, orders_check *checker)
 {
-    if (checker) return new BuildOrder;
-
     UnitId *target = parse_unit(parser);
+    if (checker) {
+        delete target;
+        return new BuildOrder;
+    }
+
     if (!target || target->unitnum == -1) {
         if(target) delete target;
         unit->error("BUILD: Non-existent unit to help.");
