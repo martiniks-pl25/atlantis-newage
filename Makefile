@@ -1,4 +1,4 @@
-GAME ?= standard
+GAME ?= neworigins
 
 CPLUS = g++
 CC = gcc
@@ -22,22 +22,7 @@ OBJECTS =  $(patsubst %.o,obj/%.o,$(ENGINE_OBJECTS)) $(patsubst %.o,$(GAME)/obj/
 $(GAME)-m: objdir $(OBJECTS)
 	$(CPLUS) $(CFLAGS) -o $(GAME)/$(GAME) $(OBJECTS)
 
-all: basic standard fracas kingdoms havilah neworigins unittest
-
-basic: FORCE
-	$(MAKE) GAME=basic
-
-standard: FORCE
-	$(MAKE) GAME=standard
-
-kingdoms: FORCE
-	$(MAKE) GAME=kingdoms
-
-fracas: FORCE
-	$(MAKE) GAME=fracas
-
-havilah: FORCE
-	$(MAKE) GAME=havilah
+all: neworigins unittest
 
 neworigins: FORCE
 	$(MAKE) GAME=neworigins
@@ -45,23 +30,7 @@ neworigins: FORCE
 $(GAME)/$(GAME): FORCE
 	$(MAKE) GAME=$(GAME)
 
-all-clean: basic-clean standard-clean fracas-clean kingdoms-clean \
-	havilah-clean neworigins-clean unittest-clean
-
-basic-clean:
-	$(MAKE) GAME=basic clean
-
-standard-clean:
-	$(MAKE) GAME=standard clean
-
-fracas-clean:
-	$(MAKE) GAME=fracas clean
-
-kingdoms-clean:
-	$(MAKE) GAME=kingdoms clean
-
-havilah-clean:
-	$(MAKE) GAME=havilah clean
+all-clean: neworigins-clean unittest-clean
 
 neworigins-clean:
 	$(MAKE) GAME=neworigins clean
@@ -75,23 +44,7 @@ clean:
 	rm -f $(GAME)/html/$(GAME).html
 	rm -f $(GAME)/$(GAME)
 
-all-rules: basic-rules standard-rules fracas-rules kingdoms-rules \
-	havilah-rules neworigins-rules
-
-basic-rules:
-	$(MAKE) GAME=basic rules
-
-standard-rules:
-	$(MAKE) GAME=standard rules
-
-fracas-rules:
-	$(MAKE) GAME=fracas rules
-
-kingdoms-rules:
-	$(MAKE) GAME=kingdoms rules
-
-havilah-rules:
-	$(MAKE) GAME=havilah rules
+all-rules: neworigins-rules
 
 neworigins-rules:
 	$(MAKE) GAME=neworigins rules
@@ -199,4 +152,3 @@ check-json:
 	else \
 		echo "JSON library is up-to-date at version $$CURRENT_VERSION."; \
 	fi
-

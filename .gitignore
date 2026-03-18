@@ -37,6 +37,9 @@ map_viewer/dist
 !*.[ch]
 !*.[ch]pp
 
+CMakeLists.txt
+cmake-build-debug/
+
 # Local documentation and scripts (not versioned)
 docs/
 scripts/
