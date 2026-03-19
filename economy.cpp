@@ -433,22 +433,36 @@ void ARegion::AdjustPop(int adjustment)
         return;
     }
 
-    // Calculate available space in town and region
-    int tspace = town->hab - town->pop;      // Town capacity remaining
-    int rspace = habitat - population;        // Region capacity remaining
+    int tspace = town->hab - town->pop;
+    int rspace = habitat - population;
 
-    // No space anywhere: no growth possible
-    if (tspace == 0 && rspace == 0) {
-        return;
+    if (adjustment > 0) {
+        // Growth: distribute proportionally to available capacity.
+        // Clamp to non-negative so overcrowded side does not absorb growth.
+        int eff_t = std::max(0, tspace);
+        int eff_r = std::max(0, rspace);
+        int total = eff_t + eff_r;
+        if (total == 0) return;  // both full
+        town->pop += adjustment * eff_t / total;
+        if (town->pop < 0) town->pop = 0;
+        population += adjustment * eff_r / total;
+        if (population < 0) population = 0;
+    } else if (adjustment < 0) {
+        // Shrinkage: absorbed by whichever side is relatively more occupied.
+        // Compare population/habitat vs town->pop/town->hab via cross-multiply.
+        // This ensures: overcrowded region always absorbs its own excess;
+        // a town that is less full than the region is protected.
+        bool regionMoreFull = (habitat > 0 && town->hab > 0)
+            ? ((long long)population * town->hab >= (long long)town->pop * habitat)
+            : true;
+        if (regionMoreFull) {
+            population += adjustment;
+            if (population < 0) population = 0;
+        } else {
+            town->pop += adjustment;
+            if (town->pop < 0) town->pop = 0;
+        }
     }
-
-    // Proportional allocation: growth distributed by available space
-    // Formula ensures growth goes where there's room
-    town->pop += adjustment * tspace / (tspace + rspace);
-    if (town->pop < 0) town->pop = 0;  // Prevent negative population
-
-    population += adjustment * rspace / (tspace + rspace);
-    if (population < 0) population = 0;  // Prevent negative population
 }
 
 void ARegion::SetupCityMarket()
@@ -1518,6 +1532,28 @@ void ARegion::Grow()
     // ===== PHASE 2: TOWN POPULATION GROWTH (from trading) =====
 
     if (town) {
+        // Always recalculate hab/dev from current buildings + development.
+        // town->hab is set at world-gen via SetTownType() and never updated
+        // otherwise, causing AdjustPop to route all growth to the region.
+        town->hab = TownHabitat();
+        town->dev = TownDevelopment();
+
+        // Local overflow migration: when the region is overcrowded but the
+        // town has capacity, move 1/10 of the excess into the town each turn.
+        // This rebalances the abnormal state caused by a stale town->hab and
+        // ensures the town reaches its growth threshold within 1-2 turns.
+        {
+            int tspace = town->hab - town->pop;
+            int rspace = habitat - population;
+            if (rspace < 0 && tspace > 0) {
+                int migrate = std::min(-rspace, tspace) / 10;
+                if (migrate > 0) {
+                    town->pop += migrate;
+                    population -= migrate;
+                }
+            }
+        }
+
         // Get target population from market activity (see TownGrowth())
         int maxpop = TownGrowth();
 

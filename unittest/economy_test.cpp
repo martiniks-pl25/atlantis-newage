@@ -570,3 +570,159 @@ ut::suite<"Economy - Grow"> grow_suite = []
         r->town = saved_town;
     };
 };
+
+// ============================================================
+// AdjustPop — overcrowded region
+// ============================================================
+
+ut::suite<"Economy - AdjustPop overcrowded region"> adjustpop_overcrowded_suite = []
+{
+    using namespace ut;
+
+    // Helper: create a fresh TownInfo on a plain region
+    auto make_town = [](ARegion *r, int pop, int hab) {
+        delete r->town;
+        r->town = new TownInfo();
+        r->town->pop = pop;
+        r->town->hab = hab;
+        r->town->dev = 48;
+    };
+
+    "AdjustPop: negative adjustment comes from overcrowded region, not town"_test = [make_town]
+    {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        ARegion *r = get_plain_region(helper);
+
+        r->population = 3629;
+        r->habitat    = 2471;  // rspace = -1158  (overcrowded)
+        make_town(r, 2452, 4987);  // tspace = 2535
+
+        int town_before   = r->town->pop;
+        int region_before = r->population;
+
+        r->AdjustPop(-136);
+
+        expect(r->town->pop >= town_before)
+            << "town must not shrink when region is overcrowded";
+        expect(r->population < region_before)
+            << "overcrowded region must absorb the shrinkage";
+        expect(r->population >= 0_i) << "region population must stay non-negative";
+    };
+
+    "AdjustPop: positive adjustment goes to town when region is overcrowded"_test = [make_town]
+    {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        ARegion *r = get_plain_region(helper);
+
+        r->population = 3629;
+        r->habitat    = 2471;  // rspace = -1158
+        make_town(r, 2452, 4987);
+
+        int town_before = r->town->pop;
+
+        r->AdjustPop(100);
+
+        expect(r->town->pop > town_before)
+            << "positive adjustment must flow to town when region is overcrowded";
+    };
+};
+
+// ============================================================
+// Frozen town recovery (bug: town->hab stale)
+// ============================================================
+
+ut::suite<"Economy - Frozen town recovery"> frozen_town_suite = []
+{
+    using namespace ut;
+
+    // Replicates Coldare state: town->hab frozen at town->pop,
+    // region severely overpopulated due to bug.
+    auto setup_frozen = [](ARegion *r) {
+        r->population     = 3629;
+        r->habitat        = 2471;
+        r->basepopulation = 833;
+        r->development    = 113;
+        r->immigrants     = 0;
+        r->emigrants      = 0;
+        r->improvement    = 0;
+
+        delete r->town;
+        r->town          = new TownInfo();
+        r->town->pop     = 2452;
+        r->town->hab     = 2452;  // frozen: the bug
+        r->town->dev     = 48;
+        r->town->activity = 0;
+    };
+
+    "Frozen town: single-turn growth never spikes"_test = [setup_frozen]
+    {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        ARegion *r = get_plain_region(helper);
+        setup_frozen(r);
+
+        int prev = r->town->pop;
+        for (int i = 0; i < 20; i++) {
+            helper.run_grow(r);
+            int delta = r->town->pop - prev;
+            expect(std::abs(delta) <= 300_i)
+                << "turn " << i << ": spike detected delta=" << delta;
+            expect(r->town->pop >= 0_i) << "turn " << i << ": negative town pop";
+            prev = r->town->pop;
+        }
+    };
+
+    "Frozen town: exceeds minpop=2463 after exactly 1 Grow()"_test = [setup_frozen]
+    {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        ARegion *r = get_plain_region(helper);
+        setup_frozen(r);
+
+        helper.run_grow(r);
+
+        // Migration of 1/10 excess: min(1158, tspace)/10 >= 115
+        // town goes from 2452 → 2567+, crossing the 2463 minpop threshold
+        expect(r->town->pop > 2463_i)
+            << "trade goods still locked: town->pop=" << r->town->pop
+            << " (need > 2463)";
+    };
+
+    "Frozen town: grows monotonically for first 10 turns"_test = [setup_frozen]
+    {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        ARegion *r = get_plain_region(helper);
+        setup_frozen(r);
+
+        helper.run_grow(r);  // turn 1: initial unlock
+        int prev = r->town->pop;
+
+        for (int i = 1; i < 10; i++) {
+            helper.run_grow(r);
+            expect(r->town->pop >= prev)
+                << "town shrank on turn " << i
+                << " (pop=" << r->town->pop << " prev=" << prev << ")";
+            prev = r->town->pop;
+        }
+    };
+
+    "Frozen town: region shrinks toward habitat while town grows"_test = [setup_frozen]
+    {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        ARegion *r = get_plain_region(helper);
+        setup_frozen(r);
+
+        int region_before = r->population;
+
+        for (int i = 0; i < 10; i++) helper.run_grow(r);
+
+        expect(r->population < region_before)
+            << "overpopulated region must shrink as town absorbs migration";
+        expect(r->town->pop > 2452_i)
+            << "town must have grown beyond initial frozen value";
+    };
+};
