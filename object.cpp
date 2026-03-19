@@ -162,7 +162,7 @@ int Object::IsBuilding()
     return 0;
 }
 
-int Object::CanModify() // TODO: make bool
+bool Object::CanModify()
 {
     return (ObjectDefs[type].flags & ObjectType::CANMODIFY);
 }

@@ -101,10 +101,9 @@ AString::AString(const AString &s)
 
 AString & AString::operator=(const AString &s)
 {
-	len = s.len;
-	if (str) delete[] str;
-	str = new char[len + 1];
-	strcpy(str,s.str);
+	AString tmp(s);
+	std::swap(str, tmp.str);
+	std::swap(len, tmp.len);
 	return *this;
 }
 

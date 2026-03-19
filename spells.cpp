@@ -1354,6 +1354,7 @@ int Game::RunPhanUndead(ARegion *r,Unit *u)
 int Game::RunPhanBeasts(ARegion *r,Unit *u)
 {
     CastIntOrder *order = dynamic_cast<CastIntOrder *>(u->castorders);
+    if (!order) return 0;
     int level = u->GetSkill(S_CREATE_PHANTASMAL_BEASTS);
     int create,max;
 
@@ -1533,6 +1534,7 @@ int Game::RunTeleport(ARegion *r,Object *o,Unit *u)
     int val;
 
     CastRegionOrder *order = (CastRegionOrder *)u->teleportorders;
+    if (!order) return 0;
 
     tar = regions.GetRegion(order->xloc, order->yloc, order->zloc);
     val = GetRegionInRange(r, tar, u, S_TELEPORTATION);
@@ -1830,6 +1832,7 @@ int Game::RunTransmutation(ARegion *r, Unit *u)
     int level, num, source;
 
     order = dynamic_cast<CastTransmuteOrder *>(u->castorders);
+    if (!order) return 0;
     level = u->GetSkill(S_TRANSMUTATION);
     if (!level) {
         u->error("CAST: Unit doesn't have that skill.");

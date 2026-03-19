@@ -1671,6 +1671,87 @@ void Game::MidProcessUnitExtra(ARegion *r, Unit *u)
 void Game::PostProcessUnitExtra(ARegion *r, Unit *u)
 {
     if (!Globals->CHECK_MONSTER_CONTROL_MID_TURN) MonsterCheck(r, u);
+    PirateRaidBuildings(r, u);
+}
+
+/**
+ * @brief Pirates raid empty production buildings, roads, and inns in non-ocean regions.
+ *
+ * Each pirate in the unit acts independently: picks a random valid target and deals
+ * 1 damage point (same as a 1-man unit with BUIL=0 in the DESTROY order).
+ *
+ * Target eligibility (re-evaluated per pirate):
+ *   - Empty (no units inside)
+ *   - Not NEVERDECAY
+ *   - Type: production building (productionAided != -1), road (IsRoad()), or inn (O_INN)
+ *   - structurePoints > 25% of cost  (don't finish off heavily damaged buildings)
+ *   - o->destroyed < 25% of cost     (per-turn damage cap: max 25% of cost per turn)
+ *
+ * structurePoints = cost - incomplete
+ * Damage: o->incomplete += 1, o->destroyed += 1 (destroyed resets each turn on load)
+ *
+ * @param r  The region where the unit is located.
+ * @param u  The unit to check.
+ */
+void Game::PirateRaidBuildings(ARegion *r, Unit *u)
+{
+    // Only pirate wandering monsters
+    if (u->type != U_WMON) return;
+    int pirateCount = u->items.GetNum(I_PIRATES);
+    if (pirateCount <= 0) return;
+
+    // Only on non-ocean, non-lake terrain
+    if (r->type == R_OCEAN || r->type == R_LAKE) return;
+
+    // Only raid if pirates were already here at the start of the turn.
+    // u->moved is not serialized — it starts at 0 each turn and is incremented on movement.
+    if (u->moved > 0) return;
+
+    bool anyDamageDealt = false;
+
+    for (int i = 0; i < pirateCount; i++) {
+        // Collect valid targets for this pirate
+        std::vector<Object *> candidates;
+        for (const auto o : r->objects) {
+            if (o->type == O_DUMMY) continue;
+            if (ObjectDefs[o->type].flags & ObjectType::NEVERDECAY) continue;
+            if (!o->units.empty()) continue;
+
+            const ObjectType& ot = ObjectDefs[o->type];
+            if (ot.productionAided == -1 && !o->IsRoad() && o->type != O_INN) continue;
+
+            int cost = ot.cost;
+            int threshold = cost / 4;  // 25% of cost
+            int structurePoints = cost - o->incomplete;
+
+            // Skip if too damaged (don't finish off)
+            if (structurePoints <= threshold) continue;
+            // Skip if per-turn damage cap reached
+            if (o->destroyed >= threshold) continue;
+
+            candidates.push_back(o);
+        }
+
+        if (candidates.empty()) break;
+
+        // 50% chance this pirate attempts to raid
+        if (rng::get_random(2) == 0) continue;
+
+        // Each pirate picks a random target and deals 1 damage point
+        Object *target = candidates[rng::get_random(candidates.size())];
+        target->incomplete += 1;
+        target->destroyed  += 1;
+        anyDamageDealt = true;
+    }
+
+    if (!anyDamageDealt) return;
+
+    // Notify all factions present in the region
+    std::string msg = "Pirates have raided and damaged buildings in " + r->short_print() + ".";
+    std::set<Faction *> presentFactions = r->PresentFactions();
+    for (const auto f : presentFactions) {
+        f->event(msg, "decay", r);
+    }
 }
 
 void Game::MonsterCheck(ARegion *r, Unit *u)

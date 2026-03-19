@@ -44,16 +44,16 @@ ut::suite<"Build Order"> build_order_suite = [] {
 
         // Test a simple build order
         stringstream ss;
-        ss << "#atlantis 3 \"mypassword\"\n";
-        ss << "unit 2\n";
+        ss << "#atlantis " << faction->num << " \"mypassword\"\n";
+        ss << "unit " << leader->num << "\n";
         ss << "build tower\n"; // this should start a new tower and not carry over to the next month orders
-        ss << "unit 3\n";
-        ss << "build help 2\n"; // build help with 1 unit and not carry over.
-        ss << "unit 4\n";
+        ss << "unit " << unit->num << "\n";
+        ss << "build help " << leader->num << "\n"; // build help with 1 unit and not carry over.
+        ss << "unit " << unit2->num << "\n";
         ss << "build tower complete\n"; // build a different tower until completion and carry over to next month.
-        ss << "unit 5\n";
-        ss << "build help 4 complete\n"; // this should carry over.
-        ss << "unit 6\n";
+        ss << "unit " << unit3->num << "\n";
+        ss << "build help " << unit2->num << " complete\n"; // this should carry over.
+        ss << "unit " << unit4->num << "\n";
         ss << "build tower complete\n"; // this should continue to build the tower they are in and carry over.
 
         helper.parse_orders(faction->num, ss, nullptr);
@@ -66,7 +66,7 @@ ut::suite<"Build Order"> build_order_suite = [] {
         expect(unit->oldorders.empty() == "true"_b);
         expect(leader->object->incomplete == 8_i);
         expect(unit2->oldorders.front() == "BUILD Tower COMPLETE");
-        expect(unit3->oldorders.front() == "BUILD HELP 4 COMPLETE");
+        expect(unit3->oldorders.front() == "BUILD HELP " + to_string(unit2->num) + " COMPLETE");
         expect(unit2->object->incomplete == 8_i);
         expect(unit4->oldorders.front() == "BUILD Tower COMPLETE");
         expect(unit4->object->incomplete == 9_i);
@@ -75,6 +75,6 @@ ut::suite<"Build Order"> build_order_suite = [] {
 
         // Check the messages too
         expect(faction->errors.size() == 0_ul); // No errors should be reported
-        expect(faction->events.size() == 5_ul); // 5 messages for the builds
+        expect(faction->events.size() == 7_ul); // 7 messages: 5 build work events + 2 "Construction started" events for new towers
     };
 };

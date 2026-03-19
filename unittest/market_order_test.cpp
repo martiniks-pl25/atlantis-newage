@@ -3,6 +3,7 @@
 #include "game.h"
 #include "gamedata.h"
 #include "testhelper.hpp"
+#include "market.h"
 
 // Because boost::ut has it's own concept of events, as does Game, we cannot just use do
 // using namespace boost::ut; here. Instead, we alias it, and then use the alias inside the
@@ -29,6 +30,10 @@ ut::suite<"Market Orders"> market_order_suite = []
     unit2->items.SetNum(I_LEADERS, 1);
     unit2->items.SetNum(I_SILVER, 8000);
 
+    // Add a known non-MAN M_BUY market so the test is not RNG-dependent.
+    region->markets.insert(region->markets.begin(),
+        new Market(Market::MarketType::M_BUY, I_GRAIN, 20, 80, 0, 10000, 8, 100));
+
     int item_id;
     int max_amount = 0;
     int price = 0;
@@ -48,15 +53,16 @@ ut::suite<"Market Orders"> market_order_suite = []
     }
 
     expect(max_amount > 0); // silly, just make sure we have a market item that we found.
+    if (max_amount == 0) return;  // guard against uninitialized item_id crash
 
     std::stringstream ss;
-    ss << "#atlantis 3\n";
-    ss << "unit 2\n";
+    ss << "#atlantis " << faction->num << "\n";
+    ss << "unit " << unit->num << "\n";
     for (int i = 0; i < max_amount; i++) {
       ss << "buy 1 " << ItemDefs[item_id].abr << std::endl;
       ss << "@buy 1 " << ItemDefs[item_id].abr << std::endl;
     }
-    ss << "unit 3\n";
+    ss << "unit " << unit2->num << "\n";
     ss << "buy " << std::to_string(max_amount) << ' ' << ItemDefs[item_id].abr << std::endl;
     ss << "@buy " << std::to_string(max_amount) << ' ' << ItemDefs[item_id].abr << std::endl;
 
@@ -69,6 +75,7 @@ ut::suite<"Market Orders"> market_order_suite = []
 
     expect(faction->errors.size() == 0_ul);
     expect(faction->events.size() == 4_ul);
+    if (faction->events.size() < 4) return;  // guard against out-of-bounds crash
     std::string amt_string = item_string(item_id, max_amount / 4);
     expect(faction->events[0].message == "Buys " + amt_string + " at $" + std::to_string(price) + " each.");
     expect(faction->events[0].unit == unit);
@@ -119,20 +126,21 @@ ut::suite<"Market Orders"> market_order_suite = []
       break;
     }
 
+    expect(max_amount > 0); // silly, just make sure we have a market item that we found.
+    if (max_amount == 0) return;  // guard against uninitialized item_id crash
+
     // Make sure they have enough to sell the items.
     unit->items.SetNum(item_id, max_amount * 4);
     unit2->items.SetNum(item_id, max_amount * 4);
 
-    expect(max_amount > 0); // silly, just make sure we have a market item that we found.
-
     std::stringstream ss;
-    ss << "#atlantis 3\n";
-    ss << "unit 2\n";
+    ss << "#atlantis " << faction->num << "\n";
+    ss << "unit " << unit->num << "\n";
     for (int i = 0; i < max_amount; i++) {
       ss << "sell 1 " << ItemDefs[item_id].abr << std::endl;
       ss << "@sell 1 " << ItemDefs[item_id].abr << std::endl;
     }
-    ss << "unit 3\n";
+    ss << "unit " << unit2->num << "\n";
     ss << "sell " << std::to_string(max_amount) << ' ' << ItemDefs[item_id].abr << std::endl;
     ss << "@sell " << std::to_string(max_amount) << ' ' << ItemDefs[item_id].abr << std::endl;
 
@@ -147,6 +155,7 @@ ut::suite<"Market Orders"> market_order_suite = []
 
     expect(faction->errors.size() == 0_ul);
     expect(faction->events.size() == 4_ul);
+    if (faction->events.size() < 4) return;  // guard against out-of-bounds crash
     std::string amt_string = item_string(item_id, max_amount / 4);
     expect(faction->events[0].message == "Sells " + amt_string + " at $" + std::to_string(price) + " each.");
     expect(faction->events[0].unit == unit);

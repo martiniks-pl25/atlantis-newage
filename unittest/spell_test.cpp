@@ -36,8 +36,8 @@ ut::suite<"Spells"> spell_suite = []
     helper.set_skill_level(leader, S_CREATE_PHANTASMAL_BEASTS, 3);
 
     std::stringstream ss;
-    ss << "#atlantis 3\n";
-    ss << "unit 2\n";
+    ss << "#atlantis " << faction->num << "\n";
+    ss << "unit " << leader->num << "\n";
     ss << "cast create_phantasmal_beasts DRAGON 4\n";
     helper.parse_orders(faction->num, ss);
     helper.activate_spell(S_CREATE_PHANTASMAL_BEASTS, {
@@ -59,7 +59,7 @@ ut::suite<"Spells"> spell_suite = []
     expect(count == 1_ul);
     json error = json_report["errors"][0];
     expect(error["message"] == "CAST: Can't create that many Phantasmal Beasts.");
-    expect(error["unit"]["number"] == 2_i);
+    expect(error["unit"]["number"] == leader->num);
   };
 
   "Unit with PHBE 4 can summon 4 dragons"_test = []
@@ -77,8 +77,8 @@ ut::suite<"Spells"> spell_suite = []
     helper.set_skill_level(leader, S_CREATE_PHANTASMAL_BEASTS, 4);
 
     std::stringstream ss;
-    ss << "#atlantis 3\n";
-    ss << "unit 2\n";
+    ss << "#atlantis " << faction->num << "\n";
+    ss << "unit " << leader->num << "\n";
     ss << "cast create_phantasmal_beasts DRAGON 4\n";
     helper.parse_orders(faction->num, ss);
     helper.activate_spell(S_CREATE_PHANTASMAL_BEASTS, {
@@ -117,8 +117,8 @@ ut::suite<"Spells"> spell_suite = []
     region->type = R_LAKE; // Use something that is similar_type to ocean
 
     std::stringstream ss;
-    ss << "#atlantis 3\n";
-    ss << "unit 2\n";
+    ss << "#atlantis " << faction->num << "\n";
+    ss << "unit " << leader->num << "\n";
     ss << "cast teleportation REGION 1 1\n";
     helper.parse_orders(faction->num, ss);
     helper.activate_spell(S_TELEPORTATION, {
@@ -140,7 +140,7 @@ ut::suite<"Spells"> spell_suite = []
     expect(count == 1_ul);
     json error = json_report["errors"][0];
     expect(error["message"] == "CAST: lake (1,1) in Testing Wilds is ocean.");
-    expect(error["unit"]["number"] == 2_i);
+    expect(error["unit"]["number"] == leader->num);
   };
 
   "Unit which can swim can teleport to ocean"_test = []
@@ -162,8 +162,8 @@ ut::suite<"Spells"> spell_suite = []
     region->type = R_LAKE; // Use something that is similar_type to ocean
 
     std::stringstream ss;
-    ss << "#atlantis 3\n";
-    ss << "unit 2\n";
+    ss << "#atlantis " << faction->num << "\n";
+    ss << "unit " << leader->num << "\n";
     ss << "cast teleportation REGION 1 1\n";
     helper.parse_orders(faction->num, ss);
     helper.activate_spell(S_TELEPORTATION, {
@@ -191,7 +191,7 @@ ut::suite<"Spells"> spell_suite = []
     expect(events.size() == 1_ul); // Expect a single event for the teleportation
     json event = events[0];
     expect(event["message"] == "Teleports to lake (1,1) in Testing Wilds."); // Check the message for correctness
-    expect(event["unit"]["number"] == 2_i); // Check the unit number in the even
+    expect(event["unit"]["number"] == leader->num); // Check the unit number in the event
     expect(event["category"] == "spell"); // Check the category of the event
   };
 

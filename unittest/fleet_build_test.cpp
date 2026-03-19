@@ -42,10 +42,10 @@ ut::suite<"Fleet Builds"> fleet_build_suite = [] {
 
         // Now set up some build orders
         stringstream ss;
-        ss << "#atlantis 3 \"mypassword\"\n";
-        ss << "unit 2\n";
+        ss << "#atlantis " << faction->num << " \"mypassword\"\n";
+        ss << "unit " << leader->num << "\n";
         ss << "build raft\n"; // this should create a new fleet with a raft and move the unit into it.
-        ss << "unit 3\n";
+        ss << "unit " << unit->num << "\n";
         ss << "build balloon\n"; // this should create a new fleet with a balloon and move the unit into it.
         helper.parse_orders(faction->num, ss, nullptr);
 
@@ -92,10 +92,10 @@ ut::suite<"Fleet Builds"> fleet_build_suite = [] {
 
         // Now set up some build orders
         stringstream ss;
-        ss << "#atlantis 3 \"mypassword\"\n";
-        ss << "unit 2\n";
+        ss << "#atlantis " << faction->num << " \"mypassword\"\n";
+        ss << "unit " << leader->num << "\n";
         ss << "build raft\n"; // this should create a new fleet with a raft and move the unit into it.
-        ss << "unit 3\n";
+        ss << "unit " << unit->num << "\n";
         ss << "build balloon\n"; // this should create join the existing fleet with a balloon.
         helper.parse_orders(faction->num, ss, nullptr);
 
@@ -144,10 +144,10 @@ ut::suite<"Fleet Builds"> fleet_build_suite = [] {
 
         // Now set up some build orders
         stringstream ss;
-        ss << "#atlantis 3 \"mypassword\"\n";
-        ss << "unit 2\n";
+        ss << "#atlantis " << faction->num << " \"mypassword\"\n";
+        ss << "unit " << leader->num << "\n";
         ss << "build raft\n"; // this should join the raft to the flying fleet and make it non-flying
-        ss << "unit 3\n";
+        ss << "unit " << unit->num << "\n";
         ss << "build balloon\n"; // this should join a balloon to the non-flying fleet.
         helper.parse_orders(faction->num, ss, nullptr);
 

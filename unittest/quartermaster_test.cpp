@@ -38,14 +38,14 @@ ut::suite<"Quartermaster"> quartermaster_suite = []
     // We have two quartermasters, each with a caravanserai, and two units, so we will use transport to move 50
     // stone from unit1 to unit2.
     std::stringstream ss;
-    ss << "#atlantis 3\n";
-    ss << "unit 2\n";
-    ss << "transport 3 70 stone\n";  // unit 1 -> QM 1
-    ss << "unit 3\n";
-    ss << "transport 4 50 stone\n"; // QM 1 -> QM 2
-    ss << "transport 4 20 stone\n"; // QM 1 -> QM 2 (should make 70 stone total, not 20 as in reported bug)
-    ss << "unit 4\n";
-    ss << "transport 5 50 stone\n"; // QM 2 -> unit 2
+    ss << "#atlantis " << faction->num << "\n";
+    ss << "unit " << unit1->num << "\n";
+    ss << "transport " << qm1->num << " 70 stone\n";  // unit 1 -> QM 1
+    ss << "unit " << qm1->num << "\n";
+    ss << "transport " << qm2->num << " 50 stone\n"; // QM 1 -> QM 2
+    ss << "transport " << qm2->num << " 20 stone\n"; // QM 1 -> QM 2 (should make 70 stone total, not 20 as in reported bug)
+    ss << "unit " << qm2->num << "\n";
+    ss << "transport " << unit2->num << " 50 stone\n"; // QM 2 -> unit 2
     helper.parse_orders(faction->num, ss);
     helper.check_transport_orders();
 
@@ -104,15 +104,15 @@ ut::suite<"Quartermaster"> quartermaster_suite = []
     // We have three quartermasters, each with a caravanserai, and two units, and we will try to chain transport
     // through multiple quartermasters.  This should fail, as quartermasters cannot chain.
     std::stringstream ss;
-    ss << "#atlantis 3\n";
-    ss << "unit 2\n";
-    ss << "transport 3 50 stone\n";  // unit 1 -> QM 1
-    ss << "unit 3\n";
-    ss << "transport 4 50 stone\n"; // QM 1 -> QM 2
-    ss << "unit 4\n";
-    ss << "transport 5 50 stone\n"; // QM 2 -> QM 3 -- should fail
-    ss << "unit 5\n";
-    ss << "transport 6 50 stone\n"; // QM 3 -> unit 2 -- should fail
+    ss << "#atlantis " << faction->num << "\n";
+    ss << "unit " << unit1->num << "\n";
+    ss << "transport " << qm1->num << " 50 stone\n";  // unit 1 -> QM 1
+    ss << "unit " << qm1->num << "\n";
+    ss << "transport " << qm2->num << " 50 stone\n"; // QM 1 -> QM 2
+    ss << "unit " << qm2->num << "\n";
+    ss << "transport " << qm3->num << " 50 stone\n"; // QM 2 -> QM 3 -- should fail
+    ss << "unit " << qm3->num << "\n";
+    ss << "transport " << unit2->num << " 50 stone\n"; // QM 3 -> unit 2 -- should fail
 
     helper.parse_orders(faction->num, ss);
     helper.check_transport_orders();

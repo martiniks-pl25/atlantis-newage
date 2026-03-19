@@ -150,6 +150,7 @@ class ARegion
     friend class Game;
     friend class ARegionArray;
     friend class ARegionList;
+    friend class UnitTestHelper;
 
     public:
         ARegion();

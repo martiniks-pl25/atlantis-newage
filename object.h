@@ -106,7 +106,7 @@ class Object
 
         int IsFleet();
         int IsBuilding();
-        int CanModify();
+        bool CanModify();
         int CanEnter(ARegion *, Unit *);
         Unit *ForbiddenBy(ARegion *, Unit *);
         Unit *GetOwner();

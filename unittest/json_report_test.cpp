@@ -175,31 +175,31 @@ ut::suite<"JSON Report"> json_report_suite = []
     expect(settlement_size == expected_settlement_size);
 
     auto wages = json_report["wages"];
-    auto expected_wages = json{ {"amount", 15.5}, {"max", 1795} };
+    auto expected_wages = json{ {"amount", 15.4}, {"max", 1531} };
     expect(wages == expected_wages);
     auto entertainment = json_report["entertainment"];
-    expect(entertainment == 121_i);
+    expect(entertainment == 76_i);
 
     // verify the products and the markets
     auto products = json_report["products"].size();
-    expect(products == 1_ul);
-    auto expected_product = json{ {"tag", "HORS"}, {"name", "horse"}, {"plural", "horses"}, {"amount", 38 } };
+    expect(products == 2_ul);
+    auto expected_product = json{ {"tag", "HORS"}, {"name", "horse"}, {"plural", "horses"}, {"amount", 15 } };
     auto first_product = json_report["products"][0];
     expect(first_product == expected_product);
 
     auto for_sale = json_report["markets"]["for_sale"].size();
-    expect(for_sale == 4_ul);
+    expect(for_sale == 2_ul);
 
     auto expected_sale = json{
-      {"tag", "PEAR"}, {"name", "pearls"}, {"plural", "pearls"}, {"amount", 8 }, { "price", 109 }
+      {"tag", "NOMA"}, {"name", "nomad"}, {"plural", "nomads"}, {"amount", 5447 }, { "price", 68 }
     };
     auto first_sale = json_report["markets"]["for_sale"][0];
     expect(first_sale == expected_sale);
 
     auto wanted = json_report["markets"]["wanted"].size();
-    expect(wanted == 9_ul);
+    expect(wanted == 7_ul);
     auto expected_wanted = json{
-      {"tag", "GRAI"}, {"name", "grain"}, {"plural", "grain"}, {"amount", 72 }, { "price", 20 }
+      {"tag", "GRAI"}, {"name", "grain"}, {"plural", "grain"}, {"amount", 84 }, { "price", 29 }
     };
     auto first_wanted = json_report["markets"]["wanted"][0];
     expect(first_wanted == expected_wanted);
@@ -275,8 +275,8 @@ ut::suite<"JSON Report"> json_report_suite = []
     Unit *leader = helper.get_first_unit(faction);
     leader->set_name("My Leader");
     stringstream ss;
-    ss << "#atlantis 3\n";
-    ss << "unit 2\n";
+    ss << "#atlantis " << faction->num << "\n";
+    ss << "unit " << leader->num << "\n";
     ss << "@work\n";
     ss << "turn\n";
     ss << "  form 1\n";
@@ -294,7 +294,7 @@ ut::suite<"JSON Report"> json_report_suite = []
     expect(name == expected_name);
 
     auto id = json_unit_report["number"];
-    expect(id == 2_i);
+    expect(id == leader->num);
 
     string faction_name = json_unit_report["faction"]["name"];
     string expected_faction_name = "Test Faction";

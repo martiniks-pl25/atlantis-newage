@@ -84,6 +84,10 @@ public:
     void run_sacrifice();
     // Run annihilation orders
     void run_annihilation();
+    // Run pirate raid on buildings for a specific unit
+    void run_pirate_raid(ARegion *r, Unit *u);
+    // Create a wandering monster pirate unit in the given region
+    Unit *create_pirate_unit(ARegion *region, int count);
     // Enable ruleset specific data for testing
     void set_ruleset_specific_data(const json &data);
     // Run productions
@@ -96,6 +100,8 @@ public:
     void run_sell_orders();
     // Set a skill level for a unit, including all prerequisites
     void set_skill_level(Unit *unit, int skill, int level);
+    // Run Grow() on a specific region (private method, exposed for testing)
+    void run_grow(ARegion *region) { region->Grow(); }
 
     // dummy
     int get_seed() { return rng::get_random(10000); };

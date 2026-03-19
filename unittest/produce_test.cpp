@@ -36,10 +36,10 @@ ut::suite<"Produce"> produce_suite = []
     unit2->items.SetNum(I_GRAIN, 10);
 
     std::stringstream ss;
-    ss << "#atlantis 3\n";
-    ss << "unit 2\n";
+    ss << "#atlantis " << faction->num << "\n";
+    ss << "unit " << unit->num << "\n";
     ss << "produce 3 meal\n";
-    ss << "unit 3\n";
+    ss << "unit " << unit2->num << "\n";
     ss << "share 1\n";
     helper.parse_orders(faction->num, ss);
     helper.run_productions();
@@ -72,10 +72,10 @@ ut::suite<"Produce"> produce_suite = []
     unit2->items.SetNum(I_GRAIN, 10);
 
     std::stringstream ss;
-    ss << "#atlantis 3\n";
-    ss << "unit 2\n";
+    ss << "#atlantis " << faction->num << "\n";
+    ss << "unit " << unit->num << "\n";
     ss << "produce 6 meal\n";
-    ss << "unit 3\n";
+    ss << "unit " << unit2->num << "\n";
     ss << "share 1\n";
     helper.parse_orders(faction->num, ss);
     helper.run_productions();

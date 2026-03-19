@@ -35,8 +35,8 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
     helper.create_building(region, nullptr, O_ENTITY_CAGE);
 
     stringstream ss;
-    ss << "#atlantis 3\n";
-    ss << "unit 3\n";
+    ss << "#atlantis " << faction->num << "\n";
+    ss << "unit " << sac1->num << "\n";
     ss << "sacrifice 10 lead\n";
     helper.parse_orders(faction->num, ss);
     helper.run_sacrifice();
@@ -52,10 +52,10 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
     expect(count == 2_ul);
     json event = json_report["events"][0];
     expect(event["message"] == "Sacrifices 10 leaders [LEAD].");
-    expect(event["unit"]["number"] == 3_i);
+    expect(event["unit"]["number"] == sac1->num);
     event = json_report["events"][1];
     expect(event["message"] == "Gains imprisoned entity [IENT] from sacrifice.");
-    expect(event["unit"]["number"] == 2_i);
+    expect(event["unit"]["number"] == leader->num);
 
     // verify that there is only object in the region now.
     auto objects = json_report["regions"][0]["structures"];
@@ -83,8 +83,8 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
     helper.create_building(region, nullptr, O_ENTITY_CAGE);
 
     stringstream ss;
-    ss << "#atlantis 3\n";
-    ss << "unit 3\n";
+    ss << "#atlantis " << faction->num << "\n";
+    ss << "unit " << sac1->num << "\n";
     ss << "sacrifice 5 lead\n";
     helper.parse_orders(faction->num, ss);
     helper.run_sacrifice();
@@ -100,7 +100,7 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
     expect(count == 1_ul);
     json event = json_report["events"][0];
     expect(event["message"] == "Sacrifices 5 leaders [LEAD].");
-    expect(event["unit"]["number"] == 3_i);
+    expect(event["unit"]["number"] == sac1->num);
 
     // verify that there is only object in the region now.
     auto objects = json_report["regions"][0]["structures"];
@@ -127,8 +127,8 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
 
     // Try to move the unit into the region with the ritual altar.
     stringstream ss;
-    ss << "#atlantis 3\n";
-    ss << "unit 2\n";
+    ss << "#atlantis " << faction->num << "\n";
+    ss << "unit " << leader->num << "\n";
     ss << "move SE\n";
     helper.parse_orders(faction->num, ss);
     helper.move_units();
@@ -147,7 +147,7 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
     expect(count == 1_ul);
     json error = json_report["errors"][0];
     expect(error["message"] == "MOVE: A mystical barrier prevents movement in that direction.");
-    expect(error["unit"]["number"] == 2_i);
+    expect(error["unit"]["number"] == leader->num);
   };
 
   "Unit without entity cannot teleport into hex containing ritual"_test = []
@@ -171,8 +171,8 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
 
     // Try to teleport the unit into the region with the ritual altar.
     stringstream ss;
-    ss << "#atlantis 3\n";
-    ss << "unit 2\n";
+    ss << "#atlantis " << faction->num << "\n";
+    ss << "unit " << leader->num << "\n";
     ss << "cast Teleportation REGION 1 1\n";
     helper.parse_orders(faction->num, ss);
     helper.activate_spell(S_TELEPORTATION, {
@@ -193,7 +193,7 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
     expect(count == 1_ul);
     json error = json_report["errors"][0];
     expect(error["message"] == "CAST: A mystical barrier prevents teleporting to that location.");
-    expect(error["unit"]["number"] == 2_i);
+    expect(error["unit"]["number"] == leader->num);
   };
 
   "Unit with entity can enter hex containing ritual"_test = []
@@ -216,8 +216,8 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
 
     // Try to move the unit into the region with the ritual altar.
     stringstream ss;
-    ss << "#atlantis 3\n";
-    ss << "unit 2\n";
+    ss << "#atlantis " << faction->num << "\n";
+    ss << "unit " << leader->num << "\n";
     ss << "move SE\n";
     helper.parse_orders(faction->num, ss);
     helper.move_units();
@@ -238,7 +238,7 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
     expect(events.size() == 1_ul);
     json event = events[0];
     expect(event["message"] == "Walks from plain (0,0) in Testing Wilds to mountain (1,1) in Testing Wilds.");
-    expect(event["unit"]["number"] == 2_i);
+    expect(event["unit"]["number"] == leader->num);
   };
 
 "Unit with entity gets 'standard' entity maintainence with no movement"_test = []
@@ -276,7 +276,7 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
     expect(events.size() == 1_ul);
     json event = events[0];
     expect(event["message"] == "Claims 1020 silver for maintenance."); // 20 for leader, 1000 for entity
-    expect(event["unit"]["number"] == 2_i);
+    expect(event["unit"]["number"] == leader->num);
   };
 
   "Unit with entity gets 'less' entity maintainence with moving toward altar"_test = []
@@ -299,8 +299,8 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
 
     // Try to move the unit into the region with the ritual altar.
     stringstream ss;
-    ss << "#atlantis 3\n";
-    ss << "unit 2\n";
+    ss << "#atlantis " << faction->num << "\n";
+    ss << "unit " << leader->num << "\n";
     ss << "move SE\n";
     helper.parse_orders(faction->num, ss);
     helper.move_units();
@@ -322,11 +322,11 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
     expect(events.size() == 2_ul);
     json event = events[0];
     expect(event["message"] == "Walks from plain (0,0) in Testing Wilds to mountain (1,1) in Testing Wilds.");
-    expect(event["unit"]["number"] == 2_i);
+    expect(event["unit"]["number"] == leader->num);
 
     event = events[1];
     expect(event["message"] == "Claims 520 silver for maintenance."); // 20 for leader, 500 for entity
-    expect(event["unit"]["number"] == 2_i);
+    expect(event["unit"]["number"] == leader->num);
   };
 
   "Unit with entity gets 'more' entity maintainence with moving away from altar"_test = []
@@ -349,8 +349,8 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
 
     // Try to move the unit into the region with the ritual altar.
     stringstream ss;
-    ss << "#atlantis 3\n";
-    ss << "unit 2\n";
+    ss << "#atlantis " << faction->num << "\n";
+    ss << "unit " << leader->num << "\n";
     ss << "move SE\n";
     helper.parse_orders(faction->num, ss);
     helper.move_units();
@@ -372,11 +372,11 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
     expect(events.size() == 2_ul);
     json event = events[0];
     expect(event["message"] == "Walks from plain (0,0) in Testing Wilds to mountain (1,1) in Testing Wilds.");
-    expect(event["unit"]["number"] == 2_i);
+    expect(event["unit"]["number"] == leader->num);
 
     event = events[1];
     expect(event["message"] == "Claims 5020 silver for maintenance."); // 20 for leader, 5000 for entity
-    expect(event["unit"]["number"] == 2_i);
+    expect(event["unit"]["number"] == leader->num);
   };
 
   "Annhilation requires access to the annihilation skill"_test = []
@@ -396,8 +396,8 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
 
     // Try to use annihilate
     stringstream ss;
-    ss << "#atlantis 3\n";
-    ss << "unit 2\n";
+    ss << "#atlantis " << faction->num << "\n";
+    ss << "unit " << leader->num << "\n";
     ss << "annihilate region 1 1 0\n";
     helper.parse_orders(faction->num, ss);
     helper.run_annihilation();
@@ -416,7 +416,7 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
     expect(errors.size() == 1_ul);
     json error = errors[0];
     expect(error["message"] == "ANNIHILATE: Unit does not have access to the annihilate skill.");
-    expect(error["unit"]["number"] == 2_i);
+    expect(error["unit"]["number"] == leader->num);
   };
 
   "Annihilation cannot destroy an already annihilated hex"_test = []
@@ -438,8 +438,8 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
 
     // Try to use annihilate
     stringstream ss;
-    ss << "#atlantis 3\n";
-    ss << "unit 2\n";
+    ss << "#atlantis " << faction->num << "\n";
+    ss << "unit " << leader->num << "\n";
     ss << "annihilate region 0 0 0\n";
     helper.parse_orders(faction->num, ss);
     helper.run_annihilation();
@@ -458,7 +458,7 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
     expect(errors.size() == 1_ul);
     json error = errors[0];
     expect(error["message"] == "ANNIHILATE: Target region is already annihilated.");
-    expect(error["unit"]["number"] == 2_i);
+    expect(error["unit"]["number"] == leader->num);
   };
 
   "Annihilation will destroy everythign in a hex but leave shafts and anomalies"_test = []
@@ -487,8 +487,8 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
 
     // Try to use annihilate
     stringstream ss;
-    ss << "#atlantis 3\n";
-    ss << "unit 2\n";
+    ss << "#atlantis " << faction->num << "\n";
+    ss << "unit " << leader->num << "\n";
     ss << "move se 1\n";
     ss << "annihilate region 0 0 0\n";
     helper.parse_orders(faction->num, ss);
@@ -510,10 +510,10 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
     expect(events.size() == 5_ul);
     json event = events[0];
     expect(event["message"] == "Walks from plain (0,0) in Testing Wilds to barren (1,1) in Testing Wilds.");
-    expect(event["unit"]["number"] == 2_i);
+    expect(event["unit"]["number"] == leader->num);
     event = events[1];
     expect(event["message"] == "Enters Building [1].");
-    expect(event["unit"]["number"] == 2_i);
+    expect(event["unit"]["number"] == leader->num);
     event = events[2];
     expect(event["message"] == "forest (0,2) in Testing Wilds has been utterly annihilated.");
     expect(event["category"] == "annihilate");
@@ -523,7 +523,7 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
     event = events[4];
     expect(event["message"] == "Is annihilated.");
     expect(event["category"] == "annihilate");
-    expect(event["unit"]["number"] == 3_i);
+    expect(event["unit"]["number"] == second->num);
 
     // load the gm faction report
     json gm_report;
@@ -578,8 +578,8 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
 
     // Try to use annihilate
     stringstream ss;
-    ss << "#atlantis 3\n";
-    ss << "unit 2\n";
+    ss << "#atlantis " << faction->num << "\n";
+    ss << "unit " << leader->num << "\n";
     ss << "move se 1\n";
     ss << "annihilate region 0 0 0\n";
     ss << "annihilate region 1 3 0\n";
@@ -602,10 +602,10 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
     expect(events.size() == 6_ul);
     json event = events[0];
     expect(event["message"] == "Walks from plain (0,0) in Testing Wilds to barren (1,1) in Testing Wilds.");
-    expect(event["unit"]["number"] == 2_i);
+    expect(event["unit"]["number"] == leader->num);
     event = events[1];
     expect(event["message"] == "Enters Building [1].");
-    expect(event["unit"]["number"] == 2_i);
+    expect(event["unit"]["number"] == leader->num);
     event = events[2];
     expect(event["message"] == "forest (0,2) in Testing Wilds has been utterly annihilated.");
     expect(event["category"] == "annihilate");
@@ -615,7 +615,7 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
     event = events[4];
     expect(event["message"] == "Is annihilated.");
     expect(event["category"] == "annihilate");
-    expect(event["unit"]["number"] == 3_i);
+    expect(event["unit"]["number"] == second->num);
     event = events[5];
     expect(event["message"] == "desert (1,3) in Testing Wilds has been utterly annihilated.");
     expect(event["category"] == "annihilate");
@@ -673,8 +673,8 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
 
     // Try to use annihilate
     stringstream ss;
-    ss << "#atlantis 3\n";
-    ss << "unit 2\n";
+    ss << "#atlantis " << faction->num << "\n";
+    ss << "unit " << leader->num << "\n";
     ss << "move se 1\n";
     helper.parse_orders(faction->num, ss);
     helper.move_units();
@@ -695,10 +695,10 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
     expect(events.size() == 6_ul);
     json event = events[0];
     expect(event["message"] == "Walks from plain (0,0) in Testing Wilds to barren (1,1) in Testing Wilds.");
-    expect(event["unit"]["number"] == 2_i);
+    expect(event["unit"]["number"] == leader->num);
     event = events[1];
     expect(event["message"] == "Enters Building [1].");
-    expect(event["unit"]["number"] == 2_i);
+    expect(event["unit"]["number"] == leader->num);
     event = events[2];
     expect(event["message"] == "forest (0,2) in Testing Wilds has been utterly annihilated.");
     expect(event["category"] == "annihilate");
@@ -708,7 +708,7 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
     event = events[4];
     expect(event["message"] == "Is annihilated.");
     expect(event["category"] == "annihilate");
-    expect(event["unit"]["number"] == 3_i);
+    expect(event["unit"]["number"] == second->num);
     event = events[5];
     expect(event["message"] == "desert (1,3) in Testing Wilds has been utterly annihilated.");
     expect(event["category"] == "annihilate");
@@ -767,8 +767,8 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
 
     // Try to use annihilate
     stringstream ss;
-    ss << "#atlantis 3\n";
-    ss << "unit 2\n";
+    ss << "#atlantis " << faction->num << "\n";
+    ss << "unit " << leader->num << "\n";
     ss << "move se 1\n";
     ss << "annihilate region 0 0 0\n";
     helper.parse_orders(faction->num, ss);
@@ -790,10 +790,10 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
     expect(events.size() == 6_ul);
     json event = events[0];
     expect(event["message"] == "Walks from plain (0,0) in Testing Wilds to barren (1,1) in Testing Wilds.");
-    expect(event["unit"]["number"] == 2_i);
+    expect(event["unit"]["number"] == leader->num);
     event = events[1];
     expect(event["message"] == "Enters Building [1].");
-    expect(event["unit"]["number"] == 2_i);
+    expect(event["unit"]["number"] == leader->num);
     event = events[2];
     expect(event["message"] == "forest (0,2) in Testing Wilds has been utterly annihilated.");
     expect(event["category"] == "annihilate");
@@ -803,7 +803,7 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
     event = events[4];
     expect(event["message"] == "Is annihilated.");
     expect(event["category"] == "annihilate");
-    expect(event["unit"]["number"] == 3_i);
+    expect(event["unit"]["number"] == second->num);
     event = events[5];
     expect(event["message"] == "desert (1,3) in Testing Wilds has been utterly annihilated.");
     expect(event["category"] == "annihilate");
@@ -862,8 +862,8 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
 
     // Try to use annihilate
     stringstream ss;
-    ss << "#atlantis 3\n";
-    ss << "unit 2\n";
+    ss << "#atlantis " << faction->num << "\n";
+    ss << "unit " << leader->num << "\n";
     ss << "move se 1\n";
     ss << "annihilate region 0 0 0\n";
     ss << "annihilate region 0 0 0\n";
@@ -886,17 +886,17 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
     expect(errors.size() == 1_ul);
     json error = errors[0];
     expect(error["message"] == "ANNIHILATE: Target region is already annihilated.");
-    expect(error["unit"]["number"] == 2_i);
+    expect(error["unit"]["number"] == leader->num);
 
     // Validate we get the messages we expect for the faction
     json events = json_report["events"];
     expect(events.size() == 6_ul);
     json event = events[0];
     expect(event["message"] == "Walks from plain (0,0) in Testing Wilds to barren (1,1) in Testing Wilds.");
-    expect(event["unit"]["number"] == 2_i);
+    expect(event["unit"]["number"] == leader->num);
     event = events[1];
     expect(event["message"] == "Enters Building [1].");
-    expect(event["unit"]["number"] == 2_i);
+    expect(event["unit"]["number"] == leader->num);
     event = events[2];
     expect(event["message"] == "forest (0,2) in Testing Wilds has been utterly annihilated.");
     expect(event["category"] == "annihilate");
@@ -906,7 +906,7 @@ ut::suite<"NO7 Victory Conditions"> no7victory_suite = []
     event = events[4];
     expect(event["message"] == "Is annihilated.");
     expect(event["category"] == "annihilate");
-    expect(event["unit"]["number"] == 3_i);
+    expect(event["unit"]["number"] == second->num);
     event = events[5];
     expect(event["message"] == "desert (1,3) in Testing Wilds has been utterly annihilated.");
     expect(event["category"] == "annihilate");

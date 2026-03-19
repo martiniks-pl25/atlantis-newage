@@ -513,6 +513,9 @@ private:
     // Handle escaped monster check
     void MonsterCheck(ARegion *r, Unit *u);
 
+    // Pirates raid empty production buildings and roads in non-ocean regions
+    void PirateRaidBuildings(ARegion *r, Unit *u);
+
     //
     // CheckVictory is used to see if the game is over.
     //

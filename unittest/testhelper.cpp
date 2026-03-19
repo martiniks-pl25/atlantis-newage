@@ -125,6 +125,19 @@ void UnitTestHelper::run_sacrifice() {
     game.RunSacrificeOrders();
 }
 
+void UnitTestHelper::run_pirate_raid(ARegion *r, Unit *u) {
+    game.PirateRaidBuildings(r, u);
+}
+
+Unit *UnitTestHelper::create_pirate_unit(ARegion *region, int count) {
+    Faction *monfac = GetFaction(game.factions, game.monfaction);
+    Unit *u = game.GetNewUnit(monfac);
+    u->type = U_WMON;
+    u->items.SetNum(I_PIRATES, count);
+    u->MoveUnit(region->GetDummy());
+    return u;
+}
+
 void UnitTestHelper::run_annihilation() {
     game.RunAnnihilateOrders();
 }

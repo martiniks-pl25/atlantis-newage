@@ -127,14 +127,14 @@ ut::suite<"Safe List"> safe_list_suite = []
     helper.create_fleet(region, fifth, I_CLOUDSHIP, 1);
 
     stringstream ss;
-    ss << "#atlantis 3\n";
-    ss << "unit 3\n";
+    ss << "#atlantis " << faction->num << "\n";
+    ss << "unit " << second->num << "\n";
     ss << "SAIL S\n";
-    ss << "unit 4\n";
+    ss << "unit " << third->num << "\n";
     ss << "SAIL S\n";
-    ss << "unit 5\n";
+    ss << "unit " << fourth->num << "\n";
     ss << "SAIL S\n"; // This unit cannot sail so should get an error.
-    ss << "unit 6\n";
+    ss << "unit " << fifth->num << "\n";
     ss << "SAIL S\n";
     helper.parse_orders(faction->num, ss);
     helper.move_units();
@@ -151,7 +151,7 @@ ut::suite<"Safe List"> safe_list_suite = []
     expect(errors.size() == 1_ul);
     json error = errors[0];
     expect(error["message"] == "SAIL: Not enough sailors.");
-    expect(error["unit"]["number"] == 5_i);
+    expect(error["unit"]["number"] == fourth->num);
 
     json events = json_report["events"];
     expect(events.size() == 3_ul);
@@ -192,17 +192,17 @@ ut::suite<"Safe List"> safe_list_suite = []
     helper.create_building(region, nullptr, O_FORT);
 
     stringstream ss;
-    ss << "#atlantis 3\n";
-    ss << "unit 3\n";
+    ss << "#atlantis " << faction->num << "\n";
+    ss << "unit " << second->num << "\n";
     ss << "ENTER 2\n";
     ss << "DESTROY\n";
-    ss << "unit 4\n";
+    ss << "unit " << third->num << "\n";
     ss << "ENTER 3\n";
     ss << "DESTROY\n";
-    ss << "unit 5\n";
+    ss << "unit " << fourth->num << "\n";
     ss << "ENTER 4\n";
     ss << "DESTROY\n"; // This unit cannot sail so should get an error.
-    ss << "unit 6\n";
+    ss << "unit " << fifth->num << "\n";
     ss << "ENTER 5\n";
     ss << "DESTROY\n";
     helper.parse_orders(faction->num, ss);
@@ -225,15 +225,15 @@ ut::suite<"Safe List"> safe_list_suite = []
     // Validate we get the messages we expect for the faction
     json event = events[0];
     expect(event["message"] == "Destroys Building [2].");
-    expect(event["unit"]["number"] == 3_i);
+    expect(event["unit"]["number"] == second->num);
     event = events[1];
     expect(event["message"] == "Destroys Building [3].");
-    expect(event["unit"]["number"] == 4_i);
+    expect(event["unit"]["number"] == third->num);
     event = events[2];
     expect(event["message"] == "Destroys 20 structure points from the Building [4].");
-    expect(event["unit"]["number"] == 5_i);
+    expect(event["unit"]["number"] == fourth->num);
     event = events[3];
     expect(event["message"] == "Destroys Building [5].");
-    expect(event["unit"]["number"] == 6_i);
+    expect(event["unit"]["number"] == fifth->num);
   };
 };
