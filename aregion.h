@@ -207,6 +207,7 @@ class ARegion
 
         void DefaultOrders();
         int TownGrowth();
+        int food_effective_amount(const Market* m) const;
         void PostTurn();
         void UpdateProducts();
         void SetWeather(int newWeather);

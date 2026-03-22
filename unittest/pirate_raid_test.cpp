@@ -133,9 +133,9 @@ ut::suite<"PirateRaid"> pirate_raid_suite = [] {
     };
 
     // ---------------------------------------------------------------
-    // Per-turn cap: building takes at most cost/4 damage per turn
+    // Per-turn cap (functional): cap = maxMaintenance+1, disables in one raid
     // ---------------------------------------------------------------
-    "Pirate raid respects 25% per-turn damage cap"_test = [] {
+    "Pirate raid disables functional building in one raid"_test = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
@@ -147,16 +147,43 @@ ut::suite<"PirateRaid"> pirate_raid_suite = [] {
         Unit *pirates = helper.create_pirate_unit(r, 1000);
 
         Object *farm = make_empty_building(r, O_FARM);
-        int cost = ObjectDefs[O_FARM].cost;   // = 10
-        int cap  = cost / 4;                  // = 2
-        int initial = farm->incomplete;       // = -maxMaintenance = -5
+        int cap     = ObjectDefs[O_FARM].maxMaintenance + 1;  // = 5+1 = 6
+        int initial = farm->incomplete;                        // = -maxMaintenance = -5
 
         helper.run_pirate_raid(r, pirates);
 
         expect(farm->destroyed <= cap)
-            << "o->destroyed must not exceed cost/4 = " << cap;
+            << "o->destroyed must not exceed maxMaintenance+1 = " << cap;
         expect(farm->incomplete <= initial + cap)
             << "incomplete must not increase by more than " << cap;
+        expect(farm->incomplete >= 1)
+            << "functional farm must be disabled (incomplete >= 1) after raid";
+    };
+
+    // ---------------------------------------------------------------
+    // Per-turn cap (broken): cap = 4, slow additional damage
+    // ---------------------------------------------------------------
+    "Pirate raid on broken building is capped at 4 damage per turn"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        ARegion *r = helper.get_region(0, 0, 0);
+        r->type = R_PLAIN;
+
+        // 1000 pirates guarantees cap is always hit
+        Unit *pirates = helper.create_pirate_unit(r, 1000);
+
+        Object *farm = make_empty_building(r, O_FARM);
+        farm->incomplete = 1;  // already broken at start of turn
+        int initial = farm->incomplete;
+
+        helper.run_pirate_raid(r, pirates);
+
+        expect(farm->destroyed <= 4)
+            << "o->destroyed must not exceed 4 for a broken building";
+        expect(farm->incomplete <= initial + 4)
+            << "incomplete must not increase by more than 4 for a broken building";
     };
 
     // ---------------------------------------------------------------

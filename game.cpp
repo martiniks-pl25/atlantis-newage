@@ -1707,7 +1707,12 @@ void Game::PirateRaidBuildings(ARegion *r, Unit *u)
     // u->moved is not serialized — it starts at 0 each turn and is incremented on movement.
     if (u->moved > 0) return;
 
-    bool anyDamageDealt = false;
+    // Snapshot initial incomplete for each object to determine per-turn cap
+    std::map<Object *, int> initialIncomplete;
+    for (const auto o : r->objects)
+        initialIncomplete[o] = o->incomplete;
+
+    std::set<Object *> damagedObjects;
 
     for (int i = 0; i < pirateCount; i++) {
         // Collect valid targets for this pirate
@@ -1721,13 +1726,17 @@ void Game::PirateRaidBuildings(ARegion *r, Unit *u)
             if (ot.productionAided == -1 && !o->IsRoad() && o->type != O_INN) continue;
 
             int cost = ot.cost;
-            int threshold = cost / 4;  // 25% of cost
+            int destroyThreshold = cost / 4;  // don't finish off badly damaged buildings
             int structurePoints = cost - o->incomplete;
 
             // Skip if too damaged (don't finish off)
-            if (structurePoints <= threshold) continue;
-            // Skip if per-turn damage cap reached
-            if (o->destroyed >= threshold) continue;
+            if (structurePoints <= destroyThreshold) continue;
+
+            // Per-turn damage cap depends on initial state:
+            //   functional (initial < 1): maxMaintenance+1 — enough to disable in one raid
+            //   broken     (initial >= 1): 4 — slow additional damage
+            int capThreshold = (initialIncomplete[o] < 1) ? ot.maxMaintenance + 1 : 4;
+            if (o->destroyed >= capThreshold) continue;
 
             candidates.push_back(o);
         }
@@ -1737,17 +1746,24 @@ void Game::PirateRaidBuildings(ARegion *r, Unit *u)
         // 50% chance this pirate attempts to raid
         if (rng::get_random(2) == 0) continue;
 
-        // Each pirate picks a random target and deals 1 damage point
+        // Each pirate picks a random target and deals 2 damage points
         Object *target = candidates[rng::get_random(candidates.size())];
-        target->incomplete += 1;
-        target->destroyed  += 1;
-        anyDamageDealt = true;
+        target->incomplete += 2;
+        target->destroyed  += 2;
+        damagedObjects.insert(target);
     }
 
-    if (!anyDamageDealt) return;
+    if (damagedObjects.empty()) return;
+
+    // Build list of damaged building names
+    std::string nameList;
+    for (const auto o : damagedObjects) {
+        if (!nameList.empty()) nameList += ", ";
+        nameList += o->name;
+    }
 
     // Notify all factions present in the region
-    std::string msg = "Pirates have raided and damaged buildings in " + r->short_print() + ".";
+    std::string msg = "Pirates have raided and damaged " + nameList + " in " + r->short_print() + ".";
     std::set<Faction *> presentFactions = r->PresentFactions();
     for (const auto f : presentFactions) {
         f->event(msg, "decay", r);

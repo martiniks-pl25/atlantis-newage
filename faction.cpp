@@ -282,6 +282,56 @@ static inline GmData collect_gm_data() {
     return data;
 }
 
+// Builds a JSON array of items that can be produced using a given skill at a given level.
+// Includes normal production (pSkill/pLevel) and magical production (mSkill/mLevel).
+// Each entry: { "item": "PARM", "output": 1, "man_months": 2, "materials": [{"item":"IRON","amount":2}] }
+// Magical entries also have "magic": true.
+static json build_skill_produces(const std::string& abbr, int level) {
+    json produces = json::array();
+    for (int i = 0; i < NITEMS; i++) {
+        const auto& def = ItemDefs[i];
+        if (def.flags & ItemType::DISABLED) continue;
+
+        // Normal production
+        if (def.pSkill && std::string(def.pSkill) == abbr && def.pLevel == level) {
+            json materials = json::array();
+            for (int m = 0; m < 4; m++) {
+                if (def.pInput[m].item == -1) break;
+                materials.push_back({
+                    { "item", ItemDefs[def.pInput[m].item].abr },
+                    { "amount", def.pInput[m].amt }
+                });
+            }
+            produces.push_back({
+                { "item", def.abr },
+                { "output", def.pOut },
+                { "man_months", def.pMonths },
+                { "materials", materials }
+            });
+        }
+
+        // Magical production
+        if (def.mSkill && std::string(def.mSkill) == abbr && def.mLevel == level) {
+            json materials = json::array();
+            for (int m = 0; m < 4; m++) {
+                if (def.mInput[m].item == -1) break;
+                materials.push_back({
+                    { "item", ItemDefs[def.mInput[m].item].abr },
+                    { "amount", def.mInput[m].amt }
+                });
+            }
+            produces.push_back({
+                { "item", def.abr },
+                { "output", def.mOut },
+                { "man_months", 1 },
+                { "materials", materials },
+                { "magic", true }
+            });
+        }
+    }
+    return produces;
+}
+
 // Categorizes a structure type using ObjectDefs data.
 // Used in both GM and player JSON report generation.
 // Categories: fleet, ship, road, lair, military, production, other.
@@ -313,11 +363,14 @@ void Faction::build_gm_json_report(json& j, Game *game) {
         if (sflags & SkillType::CAST)       skill_flags.push_back("cast");
         if (sflags & SkillType::FOUNDATION) skill_flags.push_back("foundation");
         if (sflags & SkillType::APPRENTICE) skill_flags.push_back("apprentice");
-        skills.push_back({
+        json produces = build_skill_produces(abbr, skillshow.level);
+        json skill_entry = {
             { "name", skill_name }, { "tag", abbr }, { "level", skillshow.level },
             { "flags", skill_flags },
             { "description", description }
-        });
+        };
+        if (!produces.empty()) skill_entry["produces"] = produces;
+        skills.push_back(skill_entry);
     }
     j["skill_reports"] = skills;
 
@@ -527,9 +580,20 @@ void Faction::build_json_report(json& j, Game *game, size_t **citems) {
         std::string abbr = SkillDefs[skillshow.skill].abbr;
         std::string description = skillshow.Report(this);
         if (description.empty()) continue;
-        skills.push_back({
-            { "name", skill_name }, { "tag", abbr }, { "level", skillshow.level }, { "description", description }
-        });
+        json skill_flags = json::array();
+        int sflags = SkillDefs[skillshow.skill].flags;
+        if (sflags & SkillType::MAGIC)      skill_flags.push_back("magic");
+        if (sflags & SkillType::COMBAT)     skill_flags.push_back("combat");
+        if (sflags & SkillType::CAST)       skill_flags.push_back("cast");
+        if (sflags & SkillType::FOUNDATION) skill_flags.push_back("foundation");
+        if (sflags & SkillType::APPRENTICE) skill_flags.push_back("apprentice");
+        json produces = build_skill_produces(abbr, skillshow.level);
+        json skill_entry = {
+            { "name", skill_name }, { "tag", abbr }, { "level", skillshow.level },
+            { "flags", skill_flags }, { "description", description }
+        };
+        if (!produces.empty()) skill_entry["produces"] = produces;
+        skills.push_back(skill_entry);
     }
     j["skill_reports"] = skills;
 
@@ -539,7 +603,28 @@ void Faction::build_json_report(json& j, Game *game, size_t **citems) {
         std::string tag = itemshow.display_tag();
         std::string description = item_description(itemshow.item, itemshow.full);
         if (description.empty()) continue;
-        items.push_back({ { "name", item_name }, {"tag", tag }, { "description", description } });
+        json item_types = json::array();
+        int itype = ItemDefs[itemshow.item].type;
+        if (itype & IT_NORMAL)   item_types.push_back("normal");
+        if (itype & IT_ADVANCED) item_types.push_back("advanced");
+        if (itype & IT_TRADE)    item_types.push_back("trade");
+        if (itype & IT_MAN)      item_types.push_back("man");
+        if (itype & IT_MONSTER)  item_types.push_back("monster");
+        if (itype & IT_MAGIC)    item_types.push_back("magic");
+        if (itype & IT_WEAPON)   item_types.push_back("weapon");
+        if (itype & IT_ARMOR)    item_types.push_back("armor");
+        if (itype & IT_MOUNT)    item_types.push_back("mount");
+        if (itype & IT_BATTLE)   item_types.push_back("battle");
+        if (itype & IT_TOOL)     item_types.push_back("tool");
+        if (itype & IT_FOOD)     item_types.push_back("food");
+        if (itype & IT_ILLUSION) item_types.push_back("illusion");
+        if (itype & IT_UNDEAD)   item_types.push_back("undead");
+        if (itype & IT_DEMON)    item_types.push_back("demon");
+        if (itype & IT_LEADER)   item_types.push_back("leader");
+        if (itype & IT_MONEY)    item_types.push_back("money");
+        if (itype & IT_ANIMAL)   item_types.push_back("animal");
+        if (itype & IT_SHIP)     item_types.push_back("ship");
+        items.push_back({ { "name", item_name }, { "tag", tag }, { "types", item_types }, { "description", description } });
     }
     j["item_reports"] = items;
 

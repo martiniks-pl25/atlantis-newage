@@ -1791,10 +1791,10 @@ void Game::ModifyTablesPerRuleset(void)
     modify_monster_threat("EAGL",  1,   20);  // Eagle
 
     // Sea creatures
-    modify_monster_threat("PIRA",  20,  50);  // Pirates
+    modify_monster_threat("PIRA",  20,  30);  // Pirates
     modify_monster_threat("KRAK",  1,   50);  // Kraken
-    modify_monster_threat("MERF",  100, 20);  // Merfolk
-    modify_monster_threat("ELEM",  7,   30);  // Living Water
+    modify_monster_threat("MERF",  100, 25);  // Merfolk
+    modify_monster_threat("ELEM",  7,   35);  // Living Water
 
     // Special monsters (enabled via EnableItem)
     modify_monster_threat("HYDR",  1,   50);  // Hydra

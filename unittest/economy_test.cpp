@@ -1,6 +1,8 @@
 #include "external/boost/ut.hpp"
 
 #include "game.h"
+#include "gamedata.h"
+#include "market.h"
 #include "testhelper.hpp"
 
 namespace ut = boost::ut;
@@ -465,6 +467,114 @@ ut::suite<"Economy - TownGrowth"> towngrowth_suite = []
         r->improvement = 0;
 
         expect(r->TownGrowth() >= 0_i) << "TownGrowth must never return negative";
+    };
+};
+
+// ============================================================
+// food_effective_amount — three-tier food market scaling
+// ============================================================
+// Unittest CITY_POP=20000 → p_vt=5000, p_tc=16000, p_max=20000
+// Market: minamt=50, maxamt=100
+
+ut::suite<"Economy - food_effective_amount"> food_effective_amount_suite = []
+{
+    using namespace ut;
+
+    // Helper: create a plain Market with given minamt/maxamt
+    auto make_food_market = [](int minamt, int maxamt) -> Market* {
+        return new Market(Market::MarketType::M_SELL, I_GRAIN, 30, minamt,
+                          0, 20000, minamt, maxamt);
+    };
+
+    "no town → returns stored maxamt"_test = [&make_food_market]
+    {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        ARegion *r = helper.get_region(0, 2, 0);  // plain region, no town
+        Market *m = make_food_market(50, 100);
+        expect(r->food_effective_amount(m) == 100_i)
+            << "no town: should return raw maxamt";
+        delete m;
+    };
+
+    "village tier: scales from minamt to maxamt as pop goes 0→p_vt"_test = [&make_food_market]
+    {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        ARegion *r = helper.get_region(0, 0, 0);
+        delete r->town;
+        r->town = new TownInfo();
+        Market *m = make_food_market(50, 100);
+
+        r->town->pop = 0;
+        expect(r->food_effective_amount(m) == 50_i) << "pop=0 → minamt";
+
+        // pop=2500 (halfway to p_vt=5000): 50 + 50*2500/5000 = 75
+        r->town->pop = 2500;
+        expect(r->food_effective_amount(m) == 75_i) << "pop=2500 → midpoint of village tier";
+
+        r->town->pop = 5000;
+        expect(r->food_effective_amount(m) == 100_i) << "pop=5000 (p_vt) → maxamt";
+
+        delete m;
+    };
+
+    "town tier: scales from maxamt to maxamt*2 as pop goes p_vt→p_tc"_test = [&make_food_market]
+    {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        ARegion *r = helper.get_region(0, 0, 0);
+        delete r->town;
+        r->town = new TownInfo();
+        Market *m = make_food_market(50, 100);
+
+        // pop=5000 exactly at p_vt: 100
+        r->town->pop = 5000;
+        expect(r->food_effective_amount(m) == 100_i) << "pop=p_vt → base (maxamt)";
+
+        // pop=10500 (midway p_vt=5000..p_tc=16000): 100 + 100*(10500-5000)/11000 = 100+50 = 150
+        r->town->pop = 10500;
+        expect(r->food_effective_amount(m) == 150_i) << "pop=10500 → midpoint of town tier";
+
+        r->town->pop = 16000;
+        expect(r->food_effective_amount(m) == 200_i) << "pop=16000 (p_tc) → maxamt*2";
+
+        delete m;
+    };
+
+    "city tier: scales from maxamt*2 to maxamt*3 as pop goes p_tc→p_max"_test = [&make_food_market]
+    {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        ARegion *r = helper.get_region(0, 0, 0);
+        delete r->town;
+        r->town = new TownInfo();
+        Market *m = make_food_market(50, 100);
+
+        r->town->pop = 16000;
+        expect(r->food_effective_amount(m) == 200_i) << "pop=p_tc → maxamt*2";
+
+        // pop=18000 (midway p_tc=16000..p_max=20000): 200 + 100*(18000-16000)/4000 = 200+50 = 250
+        r->town->pop = 18000;
+        expect(r->food_effective_amount(m) == 250_i) << "pop=18000 → midpoint of city tier";
+
+        r->town->pop = 20000;
+        expect(r->food_effective_amount(m) == 300_i) << "pop=p_max → maxamt*3";
+
+        delete m;
+    };
+
+    "above p_max: capped at maxamt*3"_test = [&make_food_market]
+    {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        ARegion *r = helper.get_region(0, 0, 0);
+        delete r->town;
+        r->town = new TownInfo();
+        r->town->pop = 99999;
+        Market *m = make_food_market(50, 100);
+        expect(r->food_effective_amount(m) == 300_i) << "pop >> p_max → still maxamt*3";
+        delete m;
     };
 };
 

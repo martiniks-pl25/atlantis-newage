@@ -534,7 +534,10 @@ void ARegion::SetupCityMarket()
         if (ItemDefs[ i ].type & IT_NORMAL) {
 
             if (i==I_GRAIN || i==I_LIVESTOCK || i==I_FISH) {
-                // Add foodstuffs directly to market
+                // Add foodstuffs directly to market.
+                // minpop=0 / maxpop=CITY_POP spans the full town->pop range.
+                // food_effective_amount() overrides amount in PostTurn using
+                // three-tier scaling; stored maxamt is the village-tier base.
                 int amt = Globals->CITY_MARKET_NORMAL_AMT;
                 int price;
 
@@ -545,10 +548,8 @@ void ARegion::SetupCityMarket()
                     price = ItemDefs[ i ].baseprice;
                 }
 
-                cap = (citymax * 3/4) - 5000;
-                if (cap < 0) cap = citymax/2;
                 Market * m = new Market(
-                    Market::MarketType::M_SELL, i, price, amt, population,  population + cap, amt, amt * 2
+                    Market::MarketType::M_SELL, i, price, amt, 0, citymax, amt, amt * 2
                 );
                 markets.push_back(m);
             } else if (i == I_FOOD) {
@@ -1007,9 +1008,12 @@ void ARegion::UpdateEditRegion()
     // redo markets and entertainment/tax income for extra people.
     SetIncome();
     for (auto& m : markets) {
-        // Trade goods thresholds are prestige-based (town->pop), other markets use total Population()
-        int pop = (town && (ItemDefs[m->item].type & IT_TRADE)) ? town->pop : Population();
+        // Trade goods and food use town->pop; other markets use total Population()
+        int pop = (town && (ItemDefs[m->item].type & (IT_TRADE | IT_FOOD))) ? town->pop : Population();
         m->post_turn(pop, Wages());
+        // Food markets scale supply through village/town/city tiers based on town->popну
+        if (town && (ItemDefs[m->item].type & IT_FOOD) && m->type == Market::MarketType::M_SELL)
+            m->amount = food_effective_amount(m);
     }
 
     // Recreate recruitment markets to reset market state (prices, activity)
@@ -1298,6 +1302,39 @@ int ARegion::TownDevelopment()
 }
 
 /**
+ * @brief Computes the effective food market supply for the current turn.
+ *
+ * Scales food market supply (GRAIN, LIVESTOCK, FISH) through three tiers
+ * as town->pop grows. Uses town->pop as the growth metric (same as IT_TRADE).
+ * The stored m->maxamt serves as the village-tier maximum (base).
+ *
+ * Tiers (based on CITY_POP = 10000):
+ *   Village (0 → 2500):   minamt → maxamt        (base supply)
+ *   Town    (2500 → 8000): maxamt → maxamt×2      (growing city)
+ *   City    (8000 → 10000): maxamt×2 → maxamt×3   (major city)
+ *
+ * @param m  IT_FOOD M_SELL market. m->maxamt is the stored creation base.
+ * @return   Effective amount available this turn.
+ *
+ * @see TownGrowth() — uses this for the tot denominator
+ * @see PostTurn(), UpdateEditRegion() — apply this to m->amount each turn
+ */
+int ARegion::food_effective_amount(const Market* m) const {
+    if (!town) return m->maxamt;
+    const int p     = town->pop;
+    const int p_vt  = Globals->CITY_POP / 4;       // 2500: village→town
+    const int p_tc  = Globals->CITY_POP * 4 / 5;   // 8000: town→city
+    const int p_max = Globals->CITY_POP;             // 10000: maximum
+    const int base  = m->maxamt;
+
+    if (p <= 0)    return m->minamt;
+    if (p < p_vt)  return m->minamt + (base - m->minamt) * p / p_vt;
+    if (p < p_tc)  return base + base * (p - p_vt) / (p_tc - p_vt);
+    if (p < p_max) return base * 2 + base * (p - p_tc) / (p_max - p_tc);
+    return base * 3;
+}
+
+/**
  * @brief Calculate target town population based on market trading activity
  *
  * Market terminology:
@@ -1307,7 +1344,7 @@ int ARegion::TownDevelopment()
  * Formula: tarpop = town->pop + (CITY_POP × amt / tot)
  * Where:
  *   amt = weighted sum of market activity
- *   tot = weighted sum of maxamt for mandatory items only
+ *   tot = weighted sum of effective food capacity + trade capacity
  *
  * Market activity weights:
  *   M_BUY + IT_TRADE: 4×
@@ -1316,7 +1353,7 @@ int ARegion::TownDevelopment()
  *
  * Tot (mandatory) calculation:
  *   M_BUY + IT_TRADE: 4× maxamt
- *   M_SELL + IT_FOOD (m->item != I_FISH): 2× maxamt
+ *   M_SELL + IT_FOOD (m->item != I_FISH): 2× food_effective_amount()
  *
  * Constraints:
  *   if (amt > tot) amt = tot
@@ -1359,8 +1396,10 @@ int ARegion::TownGrowth()
 
                     // Add to tot ONLY for mandatory food (NOT FISH!)
                     // GRAIN and LIVESTOCK are mandatory, FISH is not
+                    // Use food_effective_amount() so tot scales with town tier,
+                    // keeping the supply/demand ratio consistent at all town sizes.
                     if ((ItemDefs[m->item].type & IT_FOOD) && (m->item != I_FISH)) {
-                        tot += 2 * m->maxamt;        // 2× weight in denominator
+                        tot += 2 * food_effective_amount(m);
                     }
 
                     // Trade goods also generate development
@@ -1829,9 +1868,12 @@ void ARegion::PostTurn()
 
     /* update markets */
     for (auto& m : markets) {
-        // Trade goods thresholds are prestige-based (town->pop), other markets use total Population()
-        int pop = (town && (ItemDefs[m->item].type & IT_TRADE)) ? town->pop : Population();
+        // Trade goods and food use town->pop; other markets use total Population()
+        int pop = (town && (ItemDefs[m->item].type & (IT_TRADE | IT_FOOD))) ? town->pop : Population();
         m->post_turn(pop, Wages());
+        // Food markets scale supply through village/town/city tiers based on town->pop
+        if (town && (ItemDefs[m->item].type & IT_FOOD) && m->type == Market::MarketType::M_SELL)
+            m->amount = food_effective_amount(m);
     }
 
     // Wilderness leader availability: in regions without a settlement, leaders are
