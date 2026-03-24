@@ -493,15 +493,16 @@ void GuardAttitudeFact::GetEvents(std::list<Event> &events) {
 
 static std::string categoryToString(EventCategory cat) {
     switch (cat) {
-        case EVENT_BATTLE:           return "battle";
-        case EVENT_CITY_CAPTURE:     return "city_capture";
-        case EVENT_MONSTER_HUNT:     return "monster_hunt";
+        case EVENT_BATTLE:             return "battle";
+        case EVENT_CITY_CAPTURE:       return "city_capture";
+        case EVENT_MONSTER_HUNT:       return "monster_hunt";
         case EVENT_MONSTER_AGGRESSION: return "monster_aggression";
-        case EVENT_ASSASSINATION:    return "assassination";
-        case EVENT_ANNIHILATION:     return "annihilation";
-        case EVENT_ANOMALY:          return "anomaly";
-        case EVENT_GUARD_REPUTATION: return "guard_reputation";
-        default:                     return "unknown";
+        case EVENT_ASSASSINATION:      return "assassination";
+        case EVENT_ANNIHILATION:       return "annihilation";
+        case EVENT_ANOMALY:            return "anomaly";
+        case EVENT_GUARD_REPUTATION:   return "guard_reputation";
+        case EVENT_SETTLEMENT_STATS:   return "settlement_stats";
+        default:                       return "unknown";
     }
 }
 
@@ -548,4 +549,55 @@ std::string Events::WriteJSON(std::string worldName, std::string month, int year
     j["wanted"] = wantedArray;
 
     return j.dump(2);
+}
+
+// --- SettlementStatsFact ---
+
+SettlementStatsFact::SettlementStatsFact() {}
+SettlementStatsFact::~SettlementStatsFact() {}
+
+void SettlementStatsFact::GetEvents(std::list<Event> &events) {
+    std::string text = "World Census: The realm harbors ";
+    text += std::to_string(total_settlements);
+    text += " settlement";
+    if (total_settlements != 1) text += "s";
+    text += " (";
+    text += std::to_string(surface_settlements);
+    text += " on the surface).";
+
+    if (!top_owners.empty()) {
+        text += " Leading controllers:";
+        int rank = 1;
+        for (const auto& o : top_owners) {
+            text += " ";
+            text += std::to_string(rank++);
+            text += ". ";
+            text += o.faction_name;
+            text += " (";
+            text += std::to_string(o.total);
+            text += ":";
+            if (o.cities > 0) {
+                text += " ";
+                text += std::to_string(o.cities);
+                text += (o.cities == 1 ? " city" : " cities");
+            }
+            if (o.towns > 0) {
+                text += " ";
+                text += std::to_string(o.towns);
+                text += (o.towns == 1 ? " town" : " towns");
+            }
+            if (o.villages > 0) {
+                text += " ";
+                text += std::to_string(o.villages);
+                text += (o.villages == 1 ? " village" : " villages");
+            }
+            text += ").";
+        }
+    }
+
+    events.push_back({
+        .category = EVENT_SETTLEMENT_STATS,
+        .score = 2000,
+        .text = text
+    });
 }

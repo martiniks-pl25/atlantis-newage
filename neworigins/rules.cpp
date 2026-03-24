@@ -124,7 +124,7 @@ static GameDefs g = {
 	1,	// CITY_MONSTERS_EXIST
 	1,	// WANDERING_MONSTERS_EXIST
 	1,	// LAIR_MONSTERS_EXIST
-	0,	// WEATHER_EXISTS
+	2,	// WEATHER_EXISTS (2 = display only, always "clear", no gameplay effects)
 	0,	// OPEN_ENDED
 	1,	// NEXUS_EXISTS
 	0,	// CONQUEST_GAME

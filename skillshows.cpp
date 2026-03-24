@@ -83,45 +83,61 @@ const std::string ShowSkill::Report(Faction *f) const
                 "may also be found elsewhere.";
             break;
         case S_QUARTERMASTER:
-            if (level > 1) break;
-            if (!(Globals->TRANSPORT & GameDefs::ALLOW_TRANSPORT))
-                break;
-            str += "This skill deals with transporting and "
-                "distributing goods between non-local units "
-                "and transport structures.";
-            if (Globals->SHIPPING_COST > 0) {
-                str += " The cost of shipping one weight unit from one "
-                    "transport structure to another transport structure is ";
-                if (Globals->TRANSPORT & GameDefs::QM_AFFECT_COST) str += "4-((level+1)/2) * ";
-                str += std::to_string(Globals->SHIPPING_COST) + " silver.";
-                if (Globals->FRACTIONAL_WEIGHT) {
-                    str += " Items with a normal weight of 0 are "
-                        "treated as if ";
-                    str += std::to_string(Globals->FRACTIONAL_WEIGHT);
-                    str += " of the item in question weigh one weight unit.";
+            if (level == 1) {
+                if (!(Globals->TRANSPORT & GameDefs::ALLOW_TRANSPORT))
+                    break;
+                str += "This skill deals with transporting and "
+                    "distributing goods between non-local units "
+                    "and transport structures.";
+                if (Globals->SHIPPING_COST > 0) {
+                    str += " The cost of shipping one weight unit from one "
+                        "transport structure to another transport structure is ";
+                    if (Globals->TRANSPORT & GameDefs::QM_AFFECT_COST) str += "4-((level+1)/2) * ";
+                    str += std::to_string(Globals->SHIPPING_COST) + " silver.";
+                    if (Globals->FRACTIONAL_WEIGHT) {
+                        str += " Items with a normal weight of 0 are "
+                            "treated as if ";
+                        str += std::to_string(Globals->FRACTIONAL_WEIGHT);
+                        str += " of the item in question weigh one weight unit.";
+                    }
                 }
-            }
 
-            if (Globals->NONLOCAL_TRANSPORT > 0) {
-                str += " Items may be shipped between two transport "
-                    "structures which are up to ";
-                str += std::to_string(Globals->NONLOCAL_TRANSPORT);
-                if (Globals->TRANSPORT & GameDefs::QM_AFFECT_DIST)
-                    str += " plus (level+1)/3 ";
-                str += (Globals->NONLOCAL_TRANSPORT != 1) ? "hexes" : "hex";
-                str += " distant from each other.";
-            } else if (Globals->NONLOCAL_TRANSPORT == 0) {
-                str += " Items may be instantaneously "
-                    "shipped between any two transport "
-                    "structures.";
-            }
-            if (Globals->LOCAL_TRANSPORT > 0) {
-                str += " Items may be distributed from a transport "
-                    "structure to any unit or transported to a transport "
-                    "structure by any unit located within ";
-                str += std::to_string(Globals->LOCAL_TRANSPORT);
-                str += (Globals->LOCAL_TRANSPORT != 1) ? " hexes" : " hex";
-                str += " of the transport structure.";
+                if (Globals->NONLOCAL_TRANSPORT > 0) {
+                    str += " Items may be shipped between two transport "
+                        "structures which are up to ";
+                    str += std::to_string(Globals->NONLOCAL_TRANSPORT);
+                    if (Globals->TRANSPORT & GameDefs::QM_AFFECT_DIST)
+                        str += " plus (level+1)/3 ";
+                    str += (Globals->NONLOCAL_TRANSPORT != 1) ? "hexes" : "hex";
+                    str += " distant from each other.";
+                } else if (Globals->NONLOCAL_TRANSPORT == 0) {
+                    str += " Items may be instantaneously "
+                        "shipped between any two transport "
+                        "structures.";
+                }
+                if (Globals->LOCAL_TRANSPORT > 0) {
+                    str += " Items may be distributed from a transport "
+                        "structure to any unit or transported to a transport "
+                        "structure by any unit located within ";
+                    str += std::to_string(Globals->LOCAL_TRANSPORT);
+                    str += (Globals->LOCAL_TRANSPORT != 1) ? " hexes" : " hex";
+                    str += " of the transport structure.";
+                }
+            } else if (level == 2) {
+                str += "A quartermaster of this level can assess local market demands. "
+                    "When present in a town or city, 1 trade good that the settlement "
+                    "is seeking to acquire becomes visible in the market report, "
+                    "even if your faction does not possess that item in this settlement.";
+            } else if (level == 3) {
+                str += "A quartermaster of this level has a deeper understanding of trade "
+                    "networks. When present in a town or city, up to 2 trade goods that "
+                    "the settlement is seeking to acquire become visible in the market "
+                    "report, even if your faction does not possess those items in this settlement.";
+            } else if (level == 4) {
+                str += "A quartermaster of this level is an expert in reading market "
+                    "demands. When present in a town or city, up to 3 trade goods that "
+                    "the settlement is seeking to acquire become visible in the market "
+                    "report, even if your faction does not possess those items in this settlement.";
             }
             break;
         case S_QUARRYING:

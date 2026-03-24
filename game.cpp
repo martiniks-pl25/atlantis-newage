@@ -1091,6 +1091,87 @@ std::string Game::GenerateWantedSection() {
 void Game::WriteWorldEvents() {
     constexpr bool write_legacy_text = true;  // set to false to disable times.N text files
 
+    // --- Compute settlement ownership for newspaper ---
+    int total_settlements = 0;
+    int surface_settlements = 0;
+    int contested_settlements = 0;
+    int total_villages = 0, total_towns = 0, total_cities = 0;
+    int surface_villages = 0, surface_towns = 0, surface_cities = 0;
+    std::map<int, SettlementOwner> ownership;
+
+    for (const auto reg : regions) {
+        if (!reg->town) continue;
+        total_settlements++;
+        bool on_surface = reg->level && reg->level->levelType == ARegionArray::LEVEL_SURFACE;
+        if (on_surface) surface_settlements++;
+
+        int tt = reg->town->TownType();
+        if (tt == TOWN_VILLAGE) { total_villages++; if (on_surface) surface_villages++; }
+        else if (tt == TOWN_TOWN) { total_towns++;  if (on_surface) surface_towns++;  }
+        else                      { total_cities++;  if (on_surface) surface_cities++;  }
+
+        // Collect all factions with GUARD_GUARD in this region
+        std::set<Faction *> guarders;
+        for (const auto obj : reg->objects) {
+            for (const auto u : obj->units) {
+                if (u->guard == GUARD_GUARD)
+                    guarders.insert(u->faction);
+            }
+        }
+        if (guarders.empty()) continue;
+
+        Faction *owner = nullptr;
+        // Guard faction takes precedence if present
+        bool has_guard_faction = false;
+        for (auto f : guarders) {
+            if (f->num == guardfaction) { has_guard_faction = true; break; }
+        }
+        if (has_guard_faction) {
+            owner = GetFaction(factions, guardfaction);
+        } else {
+            // Exactly one non-NPC player faction → that faction owns it
+            std::vector<Faction *> players;
+            for (auto f : guarders) {
+                if (!f->is_npc) players.push_back(f);
+            }
+            if (players.size() == 1) owner = players[0];
+            else if (players.size() > 1) contested_settlements++;
+        }
+        if (!owner) continue;
+
+        auto& entry = ownership[owner->num];
+        entry.faction_num = owner->num;
+        // Store name without the "(N)" suffix
+        entry.faction_name = owner->name | filter::strip_number;
+        if (tt == TOWN_VILLAGE) entry.villages++;
+        else if (tt == TOWN_TOWN) entry.towns++;
+        else entry.cities++;
+        entry.total++;
+    }
+
+    // Sort by total desc
+    std::vector<SettlementOwner> all_owners;
+    for (auto& kv : ownership) all_owners.push_back(kv.second);
+    std::sort(all_owners.begin(), all_owners.end(),
+        [](const SettlementOwner& a, const SettlementOwner& b) {
+            if (a.total   != b.total)   return a.total   > b.total;
+            if (a.cities  != b.cities)  return a.cities  > b.cities;
+            if (a.towns   != b.towns)   return a.towns   > b.towns;
+            return a.villages > b.villages;
+        });
+
+    // Top 5 for text newspaper
+    std::vector<SettlementOwner> top_owners = all_owners;
+    if ((int)top_owners.size() > 5) top_owners.resize(5);
+
+    auto *sf = new SettlementStatsFact();
+    sf->total_settlements   = total_settlements;
+    sf->surface_settlements = surface_settlements;
+    sf->contested_settlements = contested_settlements;
+    sf->top_owners          = top_owners;
+    this->events->AddFact(sf);
+    // --- End settlement ownership ---
+
     auto wanted = CollectWanted();
 
     std::string json_str = this->events->WriteJSON(
@@ -1195,6 +1276,39 @@ void Game::WriteWorldEvents() {
         }
         j["quests"] = questArray;
 
+        // Add settlement stats as structured data
+        auto make_owner_json = [](const SettlementOwner& o) {
+            return json{
+                { "faction_num",  o.faction_num  },
+                { "faction_name", o.faction_name },
+                { "villages",     o.villages     },
+                { "towns",        o.towns        },
+                { "cities",       o.cities       },
+                { "total",        o.total        }
+            };
+        };
+        int controlled = 0;
+        for (const auto& o : all_owners) controlled += o.total;
+
+        json settlement_stats;
+        settlement_stats["total"]        = total_settlements;
+        settlement_stats["surface"]      = surface_settlements;
+        settlement_stats["contested"]    = contested_settlements;
+        settlement_stats["uncontrolled"] = total_settlements - controlled - contested_settlements;
+        settlement_stats["total_by_type"]   = { {"villages", total_villages},
+                                                 {"towns",    total_towns},
+                                                 {"cities",   total_cities} };
+        settlement_stats["surface_by_type"] = { {"villages", surface_villages},
+                                                 {"towns",    surface_towns},
+                                                 {"cities",   surface_cities} };
+        json top_array = json::array();
+        for (const auto& o : top_owners) top_array.push_back(make_owner_json(o));
+        settlement_stats["top_owners"] = top_array;
+        json all_array = json::array();
+        for (const auto& o : all_owners) all_array.push_back(make_owner_json(o));
+        settlement_stats["all_owners"] = all_array;
+        j["settlement_stats"] = settlement_stats;
+
         std::ofstream jf(base + ".json", std::ios::out | std::ios::trunc);
         if (jf.is_open()) {
             jf << j.dump(2) << '\n';
@@ -1213,7 +1327,7 @@ void Game::PreProcessTurn()
     for(const auto f : factions) f->DefaultOrders();
 
     for(const auto reg : regions) {
-        if (Globals->WEATHER_EXISTS)
+        if (Globals->WEATHER_EXISTS == 1)
             reg->SetWeather(regions.GetWeather(reg, month));
         if (Globals->GATES_NOT_PERENNIAL)
             reg->SetGateStatus(month);

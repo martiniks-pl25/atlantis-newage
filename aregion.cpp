@@ -1122,9 +1122,12 @@ void ARegion::build_json_report(json& j, Faction *fac, int month, ARegionList& r
     }
 
     if (Globals->WEATHER_EXISTS) {
-        std::string weather_name = clearskies ? "unnaturally clear" : SeasonNames[weather];
+        std::string weather_name = (Globals->WEATHER_EXISTS >= 2) ? "clear"
+                                 : (clearskies ? "unnaturally clear" : SeasonNames[weather]);
+        std::string next_weather = (Globals->WEATHER_EXISTS >= 2) ? "clear"
+                                 : SeasonNames[regions.GetWeather(this, (month + 1) % 12)];
         j["weather"] = {
-            { "current", weather_name }, { "next", SeasonNames[regions.GetWeather(this, (month + 1) % 12)] }
+            { "current", weather_name }, { "next", next_weather }
         };
     }
 

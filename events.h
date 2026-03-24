@@ -25,6 +25,7 @@ enum EventCategory {
     EVENT_ANNIHILATION,
     EVENT_ANOMALY,
     EVENT_GUARD_REPUTATION,
+    EVENT_SETTLEMENT_STATS,
 };
 
 struct Event {
@@ -185,4 +186,27 @@ class GuardAttitudeFact : public FactBase {
         int faction_num;
         AttitudeType new_attitude;  // UNFRIENDLY or HOSTILE
 };
+
+struct SettlementOwner {
+    int faction_num;
+    std::string faction_name;  // already stripped of number
+    int villages = 0;
+    int towns = 0;
+    int cities = 0;
+    int total = 0;
+};
+
+class SettlementStatsFact : public FactBase {
+    public:
+        SettlementStatsFact();
+        ~SettlementStatsFact();
+
+        void GetEvents(std::list<Event> &events) override;
+
+        int total_settlements = 0;
+        int surface_settlements = 0;
+        int contested_settlements = 0;
+        std::vector<SettlementOwner> top_owners;  // up to top 5, sorted by total desc
+};
+
 #endif // EVENTS_H
