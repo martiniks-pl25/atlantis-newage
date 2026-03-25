@@ -2,6 +2,8 @@
 #include "gamedata.h"
 #include "namegen.h"
 #include "quests.h"
+#include "string_filters.hpp"
+#include <unordered_set>
 
 using namespace std;
 
@@ -1179,6 +1181,7 @@ void Game::PostProcessTurn()
     if (Globals->LAIR_MONSTERS_EXIST) GrowVMons();
 
     AutoNameBuildings();
+    AutoNameSoloUnits();
     // ResetCityMarketsExceptTrade(); // one-time market migration, done
     DoTowerObservation();
 }
@@ -1211,6 +1214,67 @@ void Game::AutoNameBuildings()
             if (owner && !owner->faction->is_npc)
                 owner->event("Your " + ot.name + " has been automatically named '" +
                              newName + "'.", "building");
+        }
+    }
+}
+
+/**
+ * @brief Auto-names single-person player units whose name is the default "Unit (N)".
+ *
+ * Trigger: name base == "Unit" (never renamed by player), not NPC faction,
+ * exactly 1 person (GetMen() + GetLeaders() == 1).
+ *
+ * Uses within-turn dedup only via a local set — cross-faction duplicate names are
+ * harmless since units are identified by number ("Krusk (1234)" vs "Krusk (5678)").
+ * Large combinatorial spaces (12k–6M per race) make within-turn collision probability
+ * < 2% per Birthday Problem analysis. Max 3 retry attempts on collision; benign
+ * fallback is keeping "Unit (N)" unchanged.
+ *
+ * See docs/UNIT_NAMING_SYSTEM.md for Birthday Problem analysis and lore sources.
+ *
+ * @note Called from PostProcessTurn() after AutoNameBuildings().
+ */
+void Game::AutoNameSoloUnits()
+{
+    std::unordered_set<std::string> thisPass;
+
+    for (const auto r : regions) {
+        for (const auto o : r->objects) {
+            for (const auto u : o->units) {
+                // Must be default "Unit (N)" name — strip number to get base
+                if ((u->name | filter::strip_number) != "Unit") continue;
+                // Player units only
+                if (u->faction->is_npc) continue;
+                // Exactly one person: GetMen() counts both IT_MAN and IT_LEADER items
+                // (I_LEADERS has IT_MAN|IT_LEADER so GetLeaders() would double-count)
+                if (u->GetMen() != 1) continue;
+
+                // Find the race item
+                int raceItem = -1;
+                for (const auto item : u->items) {
+                    if ((ItemDefs[item->type].type & (IT_MAN | IT_LEADER)) && item->num > 0) {
+                        raceItem = item->type;
+                        break;
+                    }
+                }
+                if (raceItem < 0) continue;
+
+                // Generate a name unique within this turn's auto-naming pass
+                std::string newName;
+                for (int attempt = 0; attempt < 3; attempt++) {
+                    std::string candidate = getPersonName(raceItem);
+                    if (candidate.empty()) break;
+                    if (!thisPass.count(candidate)) {
+                        thisPass.insert(candidate);
+                        newName = candidate;
+                        break;
+                    }
+                }
+                if (newName.empty()) continue;
+
+                u->event("This unit has been automatically named '" + newName + "'.", "naming");
+                u->set_name(newName);
+            }
         }
     }
 }

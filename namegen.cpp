@@ -405,6 +405,351 @@ std::vector<std::string> aHumanCrypt = { "crypt", "tomb", "grave", "barrow", "ca
 std::vector<std::string> aHumanShaft = { "shaft", "mine", "delve", "tunnel", "passage", "dungeon" };
 
 //---------------------------------------------------------------------------
+// Personal name tables (for AutoNameSoloUnits — see docs/UNIT_NAMING_SYSTEM.md)
+// Sources: D&D 5e PHB, Tolkien LotR/Silmarillion/Appendix F, Norse Prose Edda,
+//          R.A. Salvatore Dark Elf Trilogy, FR Menzoberranzan (TSR 1992),
+//          Warcraft III, Pathfinder Inner Sea Races, D&D Theros/Ravnica
+//---------------------------------------------------------------------------
+
+// Human (I_MAN): compound English surnames (adj+noun). First name from aPrefMale+aSufMale.
+// Source: Tolkien Appendix F Anglo-Saxon structure; D&D 5e PHB Human Names
+// Space: aPrefMale(102)×aSufMale(100) × humanSurAdj(25)×humanSurNoun(25) = 6,375,000
+std::vector<std::string> aHumanSurAdj = {
+    "Black", "Bright", "Brown", "Dark", "Deep", "Fair", "Fast", "Fire",
+    "Gold", "Grey", "Hard", "High", "Iron", "Long", "Mud", "Old", "Red",
+    "Sharp", "Silver", "Stone", "Strong", "True", "White", "Wild", "Wood"
+};
+std::vector<std::string> aHumanSurNoun = {
+    "axe", "blade", "bow", "brook", "dale", "fell", "ford",
+    "forge", "grove", "hammer", "hand", "hill", "lock", "moor",
+    "oak", "peak", "ridge", "shield", "smith", "stone",
+    "sword", "thorn", "tower", "wood", "yard"
+};
+
+// Orc (I_ORC): hard-consonant epithet (70% chance). First name from aPrefOrchish+aSufOrchish.
+// Source: Warcraft III (Thrall, Grom, Durotan); D&D 5e PHB Orc Names; Tolkien Orcish
+// Space: aPrefOrchish(40)×aSufOrchish(12)=480 × (0.3 + 15×15×0.7) = ~75,744
+std::vector<std::string> aOrcEpiAdj = {
+    "Bone", "Blood", "Iron", "Black", "Stone", "War", "Skull", "Death",
+    "Dark", "Grim", "Hate", "Red", "Fang", "Scar", "Steel"
+};
+std::vector<std::string> aOrcEpiNoun = {
+    "Crusher", "Breaker", "Smasher", "Splitter", "Carver", "Render",
+    "Ripper", "Basher", "Gnasher", "Gouger", "Stomper", "Hewer",
+    "Ravager", "Cleaver", "Maimer"
+};
+
+// Hill Dwarf (I_HILLDWARF): pref-suf always has clan. aPrefDwarven+aSufDwarven existing.
+// Source: Tolkien The Hobbit (Thorin Oakenshield, Dwalin, Balin); D&D 5e PHB Dwarf Names
+// Space: aPrefDwarven(34)×aSufDwarven(43)=1,462 × clanAdj(20)×clanNoun(20)=400 → 584,800
+std::vector<std::string> aClanAdj = {
+    "Iron", "Stone", "Deep", "Bronze", "Golden", "Silver", "Dark",
+    "Black", "Old", "High", "Fire", "Bold", "Cold", "Hard", "Strong",
+    "Bright", "Ash", "Storm", "Copper", "Red"
+};
+std::vector<std::string> aClanNoun = {
+    "Hold", "Forge", "Peak", "Hammer", "Axe", "Shield", "Anvil",
+    "Deep", "Vault", "Gate", "Hall", "Mine", "Crag", "Throne", "Ridge",
+    "Keep", "Wall", "Hearth", "Keg", "Helm"
+};
+
+// High Elf (I_HIGHELF): melodic pref+suf always has house. aPrefElven2+aSufElven2 existing.
+// Source: Tolkien The Silmarillion (Quenya phonology); D&D 5e PHB High Elf
+// Space: aPrefElven2(39)×aSufElven2(52)=2,028 × elfClanAdj(25)×elfClanNoun(25)=625 → 1,267,500
+std::vector<std::string> aElfClanAdj = {
+    "Silver", "Golden", "Starlit", "Moon", "Sun", "Ancient", "Radiant",
+    "Timeless", "Crystal", "Emerald", "Sapphire", "Azure", "Ivory",
+    "Serene", "Twilight", "Dawn", "Eternal", "Gossamer", "Pristine", "Opaline",
+    "Shadowed", "Misted", "Gleaming", "Hallowed", "Undying"
+};
+std::vector<std::string> aElfClanNoun = {
+    "Dawn", "Moon", "Star", "Tree", "Path", "Song", "Leaf", "Brook",
+    "Glade", "Vale", "Wind", "Rain", "Bloom", "Flame", "Arrow",
+    "Tower", "Gate", "Crown", "Throne", "Ring",
+    "Shore", "Tide", "Mist", "Dream", "Light"
+};
+
+// Wood Elf (I_WOODELF): nature epithet always present. aPrefElven1+aSufElven1 existing.
+// Source: Tolkien LotR Mirkwood (Legolas, Thranduil) Sindarin; D&D 5e PHB Wood Elf
+// Space: aPrefElven1(30)×aSufElven1(29)=870 × epithetAdj(25)×epithetNoun(25)=625 → 543,750
+std::vector<std::string> aEpithetAdj = {
+    "Swift", "Silent", "Wild", "Ancient", "Bright", "Dark", "Gentle",
+    "Green", "Hidden", "Keen", "Lone", "Quick", "Tall", "Wandering",
+    "Wise", "Fleet", "Deft", "Wary", "Lithe", "Deep",
+    "Far", "High", "Lost", "Mist", "Still"
+};
+std::vector<std::string> aEpithetNoun = {
+    "Arrow", "Bow", "Branch", "Deer", "Fern", "Flame", "Fox", "Hart",
+    "Hawk", "Leaf", "Moon", "Oak", "Path", "Rain", "River",
+    "Root", "Shadow", "Star", "Stone", "Stream",
+    "Thorn", "Tree", "Wind", "Wood", "Wolf"
+};
+
+// Hobbit (I_HOBBIT): Shire first name + compound plant/place surname.
+// Source: Tolkien LotR + The Hobbit Appendix C Shire family trees
+// Space: hobbitsFirst(50) × hobbitsAdj(25) × hobbitsNoun(20) = 25,000
+std::vector<std::string> aHobbitsFirst = {
+    "Bilbo", "Frodo", "Samwise", "Peregrin", "Meriadoc", "Lotho",
+    "Hamfast", "Lobelia", "Drogo", "Primula", "Bungo", "Belladonna",
+    "Rufus", "Pansy", "Berilo", "Camellia", "Falco", "Hanna", "Isumbras",
+    "Mirabella", "Nob", "Olo", "Polo", "Rosa", "Tobold", "Uffo", "Viola",
+    "Wilcome", "Angelica", "Berylla", "Celandine", "Daisy", "Estella",
+    "Fatty", "Griffo", "Hob", "Odo", "Pimpernel", "Rosamunde", "Seredic",
+    "Bingo", "Milo", "Largo", "Balbo", "Posco", "Sigismond", "Teobald",
+    "Merry", "Pippin", "Rosie"
+};
+std::vector<std::string> aHobbitsAdj = {
+    "Briar", "Bracken", "Elder", "Golden", "Green", "Hollow",
+    "Meadow", "Moss", "Oak", "Sandy", "Thistle", "Thorn",
+    "Tumble", "Under", "White", "Wood", "Yarrow", "Buck",
+    "Copper", "Curly", "Dusty", "Fern", "Amber", "Clover", "Heather"
+};
+std::vector<std::string> aHobbitsNoun = {
+    "bank", "borough", "bottom", "brook", "bush", "fields",
+    "ford", "gap", "grove", "hill", "hollow", "lock",
+    "meadow", "moor", "nook", "side", "toe", "wick", "wood", "yard"
+};
+
+// Leader (I_LEADERS): Latin formal title + male name + 60% "of the [order]".
+// Source: Latin/Roman naming tradition; D&D 5e Human Noble variant; Classical sources
+// Space: leaderTitle(13) × aPrefMale(102)×aSufMale(100) × (0.4 + 25×0.6) = ~20.9M
+std::vector<std::string> aLeaderTitle = {
+    "Magister", "Dominus", "Prefect", "Legate", "Consul",
+    "Praetor", "Proconsul", "Tribune", "Centurion", "Pontifex",
+    "Rector", "Arbiter", "Curator"
+};
+std::vector<std::string> aLeaderOrder = {
+    "Silver Hand", "Iron Tower", "Golden Dawn", "White Flame",
+    "Crimson Blade", "Blue Shield", "Black Star", "Green Veil",
+    "Stone Circle", "Eternal Flame", "Sacred Seal", "Ivory Spire",
+    "Amber Crown", "Crystal Archive", "Jade Throne", "Opal Ring",
+    "Obsidian Court", "Sapphire Order", "Ruby Chalice", "Emerald Path",
+    "Gilded Scepter", "Azure Banner", "Onyx Compact", "Pearl Covenant", "Sunlit Accord"
+};
+
+// Drow (I_DROWMAN): pref+suf always appended with FR canon house name.
+// Source: R.A. Salvatore Dark Elf Trilogy; FR Menzoberranzan (TSR 1992)
+// Space: aPrefDrow(30)×aSufDrow(30)=900 × drowHouses(25) = 22,500
+std::vector<std::string> aDrowHouses = {
+    "Baenre", "Barrison Del'Armgo", "Fey-Branche", "Oblodra",
+    "Horlbar", "Xorlarrin", "Hunzrin", "Mizzrym", "Faen Tlabbar",
+    "Vandree", "Tuin'Tarl", "Agrach Dyrr", "Kenafin", "Druu'giir",
+    "Zauvirr", "Duskryn", "Srune'lett", "Hlaund", "Symryvvin",
+    "Everhate", "Tlar'vel", "Rhynnoth", "Ulvithis", "Vrinn", "Kilsek"
+};
+
+// Gnome (I_GNOME): compound nickname + clan name.
+// Source: D&D 5e PHB Gnome Names (true name private, nickname + clan)
+// Space: gnomePart1(40) × gnomePart2(40) × gnomeClan(40) = 64,000
+std::vector<std::string> aGnomePart1 = {
+    "Alst", "Bib", "Blip", "Boff", "Bobbery", "Clink", "Dap", "Fink",
+    "Flick", "Fob", "Gadge", "Gibb", "Glib", "Kix", "Nim",
+    "Nip", "Nod", "Nog", "Orb", "Pip", "Plink", "Pock", "Quib",
+    "Reck", "Riff", "Rizz", "Scribb", "Seebo", "Sniff", "Spiff",
+    "Squib", "Tick", "Tink", "Tip", "Titch", "Tiz", "Twib", "Wobb",
+    "Whizz", "Zip"
+};
+std::vector<std::string> aGnomePart2 = {
+    "ace", "ald", "berry", "blast", "bounce", "brow", "clank",
+    "cog", "crank", "dazzle", "ears", "fast", "finger", "fizz",
+    "flash", "foot", "fumble", "gadget", "gear", "gem",
+    "giggles", "glint", "hat", "hop", "jangle", "jig",
+    "jump", "kit", "loop", "mop", "noodle", "pod",
+    "scratch", "skip", "snatch", "spark", "spring", "squeak", "twist", "whirl"
+};
+std::vector<std::string> aGnomeClan = {
+    "Timbers", "Nackle", "Daergel", "Folkor", "Garrick", "Scheppen",
+    "Turen", "Murnig", "Ningel", "Waywocket", "Sparkwidget", "Thistletop",
+    "Copperkettle", "Fizzwhistle", "Wobblewick", "Rumblebottom", "Tumblegear",
+    "Glimmerwick", "Ticktock", "Whistlegap", "Thornberry", "Quickfingers",
+    "Brightgem", "Clatterbox", "Jinglebell", "Tinkertop", "Whirligig",
+    "Snapperjack", "Mirthbell", "Pebbletoss", "Swiftpocket", "Crankshaft",
+    "Bubblecork", "Bumblebrock", "Silverstring", "Pallabar", "Nipsqueak",
+    "Sparkplug", "Tumblecork", "Zook"
+};
+
+// Ice Dwarf (I_ICEDWARF): Norse-style pref+suf always has arctic hold name.
+// Source: Norse Prose Edda (Snorri Sturluson) dwarf names; Pathfinder frost dwarves
+// Space: iceDwarfPref(24) × iceDwarfSuf(20) × holdAdj(20) × holdNoun(20) = 192,000
+std::vector<std::string> aIceDwarfPref = {
+    "Nyi", "Nithi", "Nordri", "Sudri", "Austri", "Vestri", "Althjof",
+    "Dvalin", "Nar", "Nain", "Niping", "Dain", "Bifur", "Bafur",
+    "Bombor", "Nori", "Ori", "Onar", "Oin", "Modvit",
+    "Aud", "Imir", "Dur", "Frosti"
+};
+std::vector<std::string> aIceDwarfSuf = {
+    "inn", "ald", "ur", "ar", "rim", "nar", "den",
+    "tir", "var", "gir", "kin", "lid", "mir", "nyr",
+    "orm", "rod", "sel", "vin", "dag", "rald"
+};
+std::vector<std::string> aHoldAdj = {
+    "Frost", "Ice", "Cold", "Frozen", "Snow", "Winter", "Glacier",
+    "Blizzard", "Arctic", "Polar", "Crystal", "Bitter", "Black",
+    "Iron", "Stone", "Dark", "Deep", "Silent", "Sharp", "Storm"
+};
+std::vector<std::string> aHoldNoun = {
+    "Hold", "Keep", "Vault", "Peak", "Ridge", "Crag", "Spire",
+    "Bastion", "Forge", "Deep", "Hall", "Gate", "Helm", "Throne",
+    "Fortress", "Rampart", "Citadel", "Pinnacle", "Tor", "Cairn"
+};
+
+// Under Dwarf (I_UNDERDWARF): deep/dark pref+suf always has underground clan.
+// Source: D&D Underdark sourcebook; Tolkien Moria dwarves; distinct from Hill/Ice Dwarf
+// Space: underPref(20) × underSuf(20) × darkClanAdj(15) × darkClanNoun(15) = 90,000
+std::vector<std::string> aUnderDwarfPref = {
+    "Azag", "Barag", "Darg", "Durakh", "Garak", "Grag", "Grul",
+    "Kazag", "Kharg", "Krag", "Muzag", "Narak", "Rag", "Skar",
+    "Ugrak", "Umbrak", "Urduk", "Uzgar", "Varg", "Zorak"
+};
+std::vector<std::string> aUnderDwarfSuf = {
+    "akh", "arak", "bur", "dak", "dur", "gak", "goth",
+    "gruk", "kak", "kur", "mak", "nak", "nok", "rag",
+    "rok", "ruk", "sak", "thak", "tur", "uk"
+};
+std::vector<std::string> aDarkClanAdj = {
+    "Shadow", "Dark", "Black", "Deep", "Stone",
+    "Iron", "Ancient", "Silent", "Grim", "Dread",
+    "Sunken", "Forsaken", "Blind", "Bitter", "Coal"
+};
+std::vector<std::string> aDarkClanNoun = {
+    "Vault", "Deep", "Crypt", "Forge", "Mine",
+    "Pit", "Shaft", "Delve", "Burrow", "Cavern",
+    "Hall", "Keep", "Throne", "Gate", "Hearth"
+};
+
+// Goblinman (I_GOBLINMAN): ugly short name + (60%: compound surname, 40%: "the tag").
+// Source: Pathfinder Inner Sea Races (compound epithets); D&D 5e MM; Warcraft goblins
+// Space: goblinPref(30)×goblinSuf(25)=750 × (0.6×750 + 0.4×22) = ~344,100
+std::vector<std::string> aGoblinPref = {
+    "Brix", "Bug", "Clag", "Crud", "Dob", "Dreg", "Driz", "Dug",
+    "Fang", "Fizz", "Gag", "Gib", "Glix", "Glub", "Gnash", "Gob",
+    "Gog", "Grax", "Grix", "Grub", "Gug", "Gunk", "Krix", "Lug",
+    "Mog", "Mug", "Nab", "Nik", "Pug", "Rix"
+};
+std::vector<std::string> aGoblinSuf = {
+    "bit", "bix", "brak", "crash", "dirt", "dreg", "fang", "gash",
+    "gib", "gnash", "grab", "grub", "guck", "gut", "jabber",
+    "krak", "lurk", "mire", "muck", "nab",
+    "nix", "poke", "pus", "retch", "rot"
+};
+std::vector<std::string> aGoblinEpiAdj = {
+    "Bone", "Skull", "Blood", "Snot", "Mud", "Fang", "Gut", "Spit",
+    "Rot", "Slime", "Wart", "Scab", "Ear", "Nose", "Brain",
+    "Gob", "Lick", "Bite", "Stab", "Gnaw",
+    "Kick", "Stomp", "Smash", "Bash", "Rip",
+    "Claw", "Dung", "Toe", "Eye", "Fist"
+};
+std::vector<std::string> aGoblinEpiNoun = {
+    "kicker", "crusher", "stomper", "muncher", "licker",
+    "sniffer", "biter", "stabber", "gnawer", "cruncher",
+    "smasher", "basher", "ripper", "snapper", "chewer",
+    "clawer", "sucker", "picker", "gouger", "dragger",
+    "hacker", "slasher", "chomper", "poker", "puller"
+};
+std::vector<std::string> aGoblinTag = {
+    "Sneaky", "Stabby", "Grabby", "Smelly", "Grubby",
+    "Scratchy", "Twitchy", "Jumpy", "Nasty", "Rotten",
+    "Slimy", "Scabby", "Itchy", "Ugly", "Greedy",
+    "Mangy", "Crusty", "Snotty", "Warty", "Scruffy",
+    "Flea-bitten", "Cowardly"
+};
+
+// Lizardman (I_LIZARDMAN): sibilant hissing sounds + 50% tribal suffix.
+// Source: D&D 5e MM (lizardfolk); D&D 3.5e Savage Species; Pathfinder lizardfolk
+// NOT using Aztec arrays — those generate place names, not personal names
+// Space: lizardPref(40) × lizardSuf(40) × (0.5 + 0.5×25) = 32,000 → P(n=15) ≈ 0.35%
+std::vector<std::string> aLizardPref = {
+    "Hiss", "Kass", "Kraak", "Krass", "Rass", "Rish", "Sask",
+    "Siss", "Skrath", "Slash", "Sliss", "Slith", "Srak", "Ssar",
+    "Ssath", "Sshiss", "Ssik", "Ssilt", "Tark", "Task",
+    "Thrak", "Thresh", "Thriss", "Tikk", "Trask",
+    "Tsak", "Tsar", "Tsith", "Vass", "Vrak",
+    "Wash", "Wriss", "Xarr", "Xass", "Xish",
+    "Yiss", "Zark", "Zass", "Zish", "Zulk"
+};
+std::vector<std::string> aLizardSuf = {
+    "akh", "arash", "aris", "arth", "ash", "athiss", "ek", "ess",
+    "eth", "ik", "ish", "iss", "ith", "kaas", "kash", "keth",
+    "liss", "lath", "ok", "rak", "ras", "rash", "reth", "rik",
+    "riss", "rith", "roth", "sek", "sith", "slith",
+    "tharr", "thiss", "thresh", "tik", "uk",
+    "ulk", "urr", "uss", "xarr", "zulk"
+};
+std::vector<std::string> aLizardTribe = {
+    "Bloodscale", "Coldwater", "Darkmarsh", "Deadpool",
+    "Fenmire", "Greathunter", "Longfang", "Mudhunter",
+    "Nightstalker", "Oldwater", "Quicktongue", "Redclaw",
+    "Saltmarsh", "Shadowscale", "Skyraider", "Stoneback",
+    "Sunbasker", "Swamplurk", "Thornfang", "Warclaw",
+    "Wetforest", "Whisperblade", "Wildrunner", "Yellowstrip", "Zilok"
+};
+
+// Centaur (I_CENTAURMAN): single Greek heroic first name + "of the [herd adj noun]".
+// Source: Greek mythology (Chiron, Nessus, Eurytion); D&D Theros/Ravnica centaurs
+// NOT Arabic (raceToEthnicity maps centaur → NOMAD, which is wrong for personal names)
+// Space: centaurFirst(30) × herdAdj(20) × herdNoun(20) = 12,000
+std::vector<std::string> aCentaurFirst = {
+    "Achios", "Aetos", "Agathon", "Alexion", "Aristos",
+    "Cheiron", "Dexios", "Elatos", "Eurytion", "Hippion",
+    "Ixion", "Kallisto", "Kanthos", "Kratos", "Kydon",
+    "Lykos", "Melanthon", "Nesos", "Nikion", "Orion",
+    "Paion", "Pelion", "Phokos", "Rhekos", "Skiros",
+    "Stratos", "Theron", "Xanthos", "Zephyros", "Astrion"
+};
+std::vector<std::string> aHerdAdj = {
+    "Bold", "Far", "Fast", "Fleet", "Free", "Great", "High",
+    "Iron", "Lone", "Lost", "Old", "Open", "Quick",
+    "Proud", "Raging", "Rolling", "Roaming", "Swift", "Wild", "Wise"
+};
+std::vector<std::string> aHerdNoun = {
+    "Field", "Gallop", "Gale", "Glade", "Grass", "Herd",
+    "Hill", "Horizon", "Meadow", "Path", "Plain", "Prairie",
+    "Ridge", "Run", "Steppe", "Storm", "Stream", "Thunder", "Trail", "Wind"
+};
+
+// Fairy (I_FAIRY): fey/pixie D&D-style — syllabic name + seasonal Court
+// Source: D&D 5e Feywild lore, Pathfinder First World
+// Space: aFairyPref(25) × aFairySuf(20) × aFairyCourt(20) = 10,000
+std::vector<std::string> aFairyPref = {
+    "Bell", "Crys", "Dew", "Dawn", "Flit", "Glim", "Gossam",
+    "Lace", "Lumi", "Mist", "Moon", "Nim", "Petal", "Pix",
+    "Sil", "Silk", "Star", "Sun", "Tink", "Twirl",
+    "Vel", "Wisp", "Wish", "Zeph", "Lyra"
+};
+std::vector<std::string> aFairySuf = {
+    "ael", "ara", "bella", "bryn", "drop",
+    "ella", "iel", "ine", "ira", "iss",
+    "mere", "ring", "wyn", "ze", "la",
+    "lith", "shine", "bell", "vale", "flame"
+};
+std::vector<std::string> aFairyCourt = {
+    "Amber", "Azure", "Blossom", "Crystal", "Dawn",
+    "Dusk", "Evening", "Frost", "Gloaming", "Golden",
+    "Jade", "Mist", "Moon", "Petal", "Rose",
+    "Silver", "Starlight", "Thorn", "Twilight", "Verdant"
+};
+
+// Tiefling (I_TIEFLING): 60% infernal syllabic name, 40% virtue name
+// Source: D&D 5e PHB Tiefling Names, Forgotten Realms infernal lore
+// Space: aTiefPref(25) × aTiefSuf(18) + aTiefVirtue(20) ≈ 470 unique names
+std::vector<std::string> aTiefPref = {
+    "Ak", "Am", "Bar", "Bry", "Cri", "Da", "De", "Ek",
+    "Ia", "Ib", "Ka", "Kal", "Le", "Mal", "Me",
+    "Mor", "Ne", "Or", "Pe", "Pha", "Ri", "Sk", "Th", "Zar", "Zra"
+};
+std::vector<std::string> aTiefSuf = {
+    "anos", "akos", "aron", "eis", "ella", "emon",
+    "ia", "ios", "ira", "issa", "on", "os",
+    "oth", "ra", "ris", "ren", "ros", "eth"
+};
+std::vector<std::string> aTiefVirtue = {
+    "Anguish", "Carrion", "Chant", "Creed", "Despair",
+    "Doom", "Exile", "Fear", "Gloom", "Grief",
+    "Hope", "Ideal", "Malice", "Nowhere", "Penance",
+    "Reverie", "Sorrow", "Torment", "Unrest", "Wrath"
+};
+
+//---------------------------------------------------------------------------
 
 std::string getPrefix(std::vector<std::string>& prefixTable) {
     return rng::one_of(prefixTable);
@@ -661,6 +1006,165 @@ Ethnicity raceToEthnicity(int race) {
         case I_HOBBIT:
         default:
             return Ethnicity::MAN;
+    }
+}
+
+/**
+ * @brief Generates a culturally appropriate personal name for a solo player unit.
+ *
+ * Each race uses its own naming convention derived from authoritative sources.
+ * Does NOT route through raceToEthnicity() — that function merges Hill/Ice/Under Dwarf
+ * into Ethnicity::DWARF and Centaur into Ethnicity::NOMAD (Arabic), both wrong for names.
+ *
+ * Uniqueness: caller maintains a per-pass set; this function just generates. Large
+ * combinatorial spaces (12k–6M) keep Birthday Problem collision probability < 2%.
+ * See docs/UNIT_NAMING_SYSTEM.md for full Birthday Problem analysis and research sources.
+ *
+ * @param raceItem  IT_MAN or IT_LEADER item type (e.g. I_HILLDWARF, I_ORC, I_LEADERS)
+ * @return Generated name string; unknown/disabled races fall back to getAbstractName()
+ */
+std::string getPersonName(int raceItem) {
+    switch(raceItem) {
+
+        case I_MAN: {
+            // Anglo-Saxon first name + compound English surname
+            // "Aldric Ironwood", "Godwin Stonepeak"
+            std::string first = (getPrefix(aPrefMale) + getSuffix(aSufMale)) | filter::capitalize;
+            std::string sur = (rng::one_of(aHumanSurAdj) + rng::one_of(aHumanSurNoun)) | filter::capitalize;
+            return first + " " + sur;
+        }
+
+        case I_ORC: {
+            // Hard-consonant core + 70% "the Adj Noun" epithet
+            // "Krusk", "Azogdor the Bone Crusher"
+            std::string name = (getPrefix(aPrefOrchish) + getSuffix(aSufOrchish)) | filter::capitalize;
+            if (rng::get_random(10) < 7) {
+                std::string epithet = (rng::one_of(aOrcEpiAdj) + " " + rng::one_of(aOrcEpiNoun)) | filter::title_case;
+                name += " the " + epithet;
+            }
+            return name;
+        }
+
+        case I_HILLDWARF: {
+            // Tolkien/Norse pref-suf + "of IronpeakClan" suffix
+            // "Thorin-gol of Ironpeak Clan", "Khuz-zad of Stoneforge Clan"
+            std::string name = (getPrefix(aPrefDwarven) + "-" + getSuffix(aSufDwarven)) | filter::capitalize;
+            std::string clan = (rng::one_of(aClanAdj) + rng::one_of(aClanNoun)) | filter::capitalize;
+            return name + " of " + clan + " Clan";
+        }
+
+        case I_HIGHELF: {
+            // Quenya melodic pref+suf + "of SilverdawnHouse" suffix
+            // "Nimanis of Silverdawn House", "Galadir of Moonleaf House"
+            std::string name = (getPrefix(aPrefElven2) + getSuffix(aSufElven2)) | filter::capitalize;
+            std::string house = (rng::one_of(aElfClanAdj) + rng::one_of(aElfClanNoun)) | filter::capitalize;
+            return name + " of " + house + " House";
+        }
+
+        case I_WOODELF: {
+            // Sindarin shorter pref+suf + "of the Swift Wind" nature epithet
+            // "Cylae of the Swift Wind", "Ryalin of the Silent Oak"
+            std::string name = (getPrefix(aPrefElven1) + getSuffix(aSufElven1)) | filter::capitalize;
+            std::string epithet = (rng::one_of(aEpithetAdj) + " " + rng::one_of(aEpithetNoun)) | filter::title_case;
+            return name + " of the " + epithet;
+        }
+
+        case I_HOBBIT: {
+            // Shire first name + compound plant/place surname (adj+noun)
+            // "Peregrin Greenhill", "Lobelia Thornbrook"
+            std::string first = rng::one_of(aHobbitsFirst);
+            std::string sur = (rng::one_of(aHobbitsAdj) + rng::one_of(aHobbitsNoun)) | filter::capitalize;
+            return first + " " + sur;
+        }
+
+        case I_LEADERS: {
+            // Latin formal title + Anglo personal name
+            // "Magister Aldric", "Prefect Waltheron"
+            std::string title = rng::one_of(aLeaderTitle);
+            std::string name = (getPrefix(aPrefMale) + getSuffix(aSufMale)) | filter::capitalize;
+            return title + " " + name;
+        }
+
+        case I_DROWMAN: {
+            // FR canon pref+suf + "of Baenre House" Menzoberranzan suffix
+            // "Zar'ress of Baenre House", "Auvryrae of Xorlarrin House"
+            std::string name = (getPrefix(aPrefDrow) + getSuffix(aSufDrow)) | filter::capitalize;
+            return name + " of " + rng::one_of(aDrowHouses) + " House";
+        }
+
+        case I_GNOME: {
+            // D&D-style compound nickname + family clan
+            // "Nipsberry Timbers", "Wobblefizz Garrick"
+            std::string nick = (rng::one_of(aGnomePart1) + rng::one_of(aGnomePart2)) | filter::capitalize;
+            return nick + " " + rng::one_of(aGnomeClan);
+        }
+
+        case I_ICEDWARF: {
+            // Norse pref+suf + "of Frostpeak Hold" suffix
+            // "Dvalinur of Frostpeak Hold", "Orivar of Icehall Hold"
+            std::string name = (rng::one_of(aIceDwarfPref) + rng::one_of(aIceDwarfSuf)) | filter::capitalize;
+            std::string hold = (rng::one_of(aHoldAdj) + rng::one_of(aHoldNoun)) | filter::capitalize;
+            return name + " of " + hold + " Hold";
+        }
+
+        case I_UNDERDWARF: {
+            // Deep/dark pref+suf + "of Shadowvault Clan" suffix
+            // "Kazagrak of Shadowvault Clan", "Narak of Deepforge Clan"
+            std::string name = (rng::one_of(aUnderDwarfPref) + rng::one_of(aUnderDwarfSuf)) | filter::capitalize;
+            std::string clan = (rng::one_of(aDarkClanAdj) + rng::one_of(aDarkClanNoun)) | filter::capitalize;
+            return name + " of " + clan + " Clan";
+        }
+
+        case I_GOBLINMAN: {
+            // Short nasty name + (60% compound surname, 40% "the tag")
+            // "GraxBonekicker", "Mugrot the Sneaky"
+            std::string name = (rng::one_of(aGoblinPref) + rng::one_of(aGoblinSuf)) | filter::capitalize;
+            if (rng::get_random(10) < 6) {
+                std::string sur = (rng::one_of(aGoblinEpiAdj) + rng::one_of(aGoblinEpiNoun)) | filter::capitalize;
+                return name + " " + sur;
+            } else {
+                return name + " the " + rng::one_of(aGoblinTag);
+            }
+        }
+
+        case I_LIZARDMAN: {
+            // Sibilant hissing name + 50% "of the Bloodscale Tribe" suffix
+            // "Ssarash", "Vraketh of the Bloodscale Tribe"
+            std::string name = (rng::one_of(aLizardPref) + rng::one_of(aLizardSuf)) | filter::capitalize;
+            if (rng::get_random(2) == 0) {
+                return name + " of the " + rng::one_of(aLizardTribe) + " Tribe";
+            }
+            return name;
+        }
+
+        case I_CENTAURMAN: {
+            // Greek heroic first name + "of the Swift Herd" suffix
+            // "Theron of the Swift Herd", "Dexios of the Rolling Plain"
+            std::string first = rng::one_of(aCentaurFirst);
+            std::string herd = (rng::one_of(aHerdAdj) + " " + rng::one_of(aHerdNoun)) | filter::title_case;
+            return first + " of the " + herd;
+        }
+
+        case I_FAIRY: {
+            // Fey syllabic name + "of X Court" affiliation
+            // "Dewdrop of Silver Court", "Nimira of Twilight Court"
+            std::string name = (rng::one_of(aFairyPref) + rng::one_of(aFairySuf)) | filter::capitalize;
+            return name + " of " + rng::one_of(aFairyCourt) + " Court";
+        }
+
+        case I_TIEFLING: {
+            // 60% infernal syllabic name, 40% dark virtue name
+            // "Kairon", "Akmenos", "Despair", "Torment"
+            if (rng::get_random(10) < 6) {
+                return (rng::one_of(aTiefPref) + rng::one_of(aTiefSuf)) | filter::capitalize;
+            } else {
+                return rng::one_of(aTiefVirtue);
+            }
+        }
+
+        default:
+            // Unknown/disabled race — use abstract name so unit gets renamed regardless
+            return getAbstractName();
     }
 }
 

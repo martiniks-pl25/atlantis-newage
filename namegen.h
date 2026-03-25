@@ -51,3 +51,8 @@ std::string getCaravanseraiName(int race);
 std::string getLairName(int lairType, int monsterType, int race);
 
 Ethnicity raceToEthnicity(int race);
+
+// Personal name for a single-person player unit, keyed by race item ID.
+// Unknown/disabled races fall back to getAbstractName() so unit is always renamed.
+// See docs/UNIT_NAMING_SYSTEM.md for Birthday Problem analysis and lore sources.
+std::string getPersonName(int raceItem);

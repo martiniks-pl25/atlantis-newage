@@ -496,6 +496,7 @@ private:
     void PostProcessUnitExtra(ARegion *, Unit *);
     void PostProcessTurn();
     void AutoNameBuildings();
+    void AutoNameSoloUnits();
     void ResetCityMarketsExceptTrade(); // TEMPORARY — remove after one server turn
     void AssignTradeMarketsRoundRobin();
     void DoTowerObservation();
