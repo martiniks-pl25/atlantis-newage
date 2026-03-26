@@ -955,7 +955,7 @@ std::vector<ItemType> ItemDefs =
      ItemType::CANTGIVE | ItemType::NOTRANSPORT,
      NULL,0,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
      NULL,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
-     100, IT_MONSTER, 50,1,
+     100, IT_MONSTER | IT_ANIMAL, 50,1,
      120,120,120,0,4,
      -1,0,
      -1,0, 0,

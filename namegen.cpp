@@ -436,7 +436,7 @@ std::vector<std::string> aOrcEpiAdj = {
 std::vector<std::string> aOrcEpiNoun = {
     "Crusher", "Breaker", "Smasher", "Splitter", "Carver", "Render",
     "Ripper", "Basher", "Gnasher", "Gouger", "Stomper", "Hewer",
-    "Ravager", "Cleaver", "Maimer"
+    "Brawler", "Cleaver", "Warchief"
 };
 
 // Hill Dwarf (I_HILLDWARF): pref-suf always has clan. aPrefDwarven+aSufDwarven existing.
@@ -617,9 +617,10 @@ std::vector<std::string> aDarkClanNoun = {
     "Hall", "Keep", "Throne", "Gate", "Hearth"
 };
 
-// Goblinman (I_GOBLINMAN): ugly short name + (60%: compound surname, 40%: "the tag").
-// Source: Pathfinder Inner Sea Races (compound epithets); D&D 5e MM; Warcraft goblins
-// Space: goblinPref(30)×goblinSuf(25)=750 × (0.6×750 + 0.4×22) = ~344,100
+// Goblinman (I_GOBLINMAN): short punchy name + (60%: "the tag", 40%: compound surname).
+// Style: mischievous trickster — thief, dreamer, show-off, chaos agent. Not bloodthirsty.
+// Source: D&D 5e MM; Pathfinder Inner Sea Races; Warcraft goblins
+// Space: goblinPref(30)×goblinSuf(35)=1050 × (0.6×55 + 0.4×30×45) = ~600,600
 std::vector<std::string> aGoblinPref = {
     "Brix", "Bug", "Clag", "Crud", "Dob", "Dreg", "Driz", "Dug",
     "Fang", "Fizz", "Gag", "Gib", "Glix", "Glub", "Gnash", "Gob",
@@ -627,31 +628,55 @@ std::vector<std::string> aGoblinPref = {
     "Mog", "Mug", "Nab", "Nik", "Pug", "Rix"
 };
 std::vector<std::string> aGoblinSuf = {
-    "bit", "bix", "brak", "crash", "dirt", "dreg", "fang", "gash",
-    "gib", "gnash", "grab", "grub", "guck", "gut", "jabber",
-    "krak", "lurk", "mire", "muck", "nab",
-    "nix", "poke", "pus", "retch", "rot"
+    // original kept (removed: gash, gut, pus, retch, rot)
+    "bit", "bix", "brak", "crash", "dirt", "dreg", "fang",
+    "gib", "gnash", "grab", "grub", "guck", "jabber",
+    "krak", "lurk", "mire", "muck", "nab", "nix", "poke",
+    // new: quick/trickster sounds
+    "flick", "nick", "slick", "pox", "twitch", "squeak", "drib", "blip",
+    "grip", "flip", "quick", "itch", "reek", "snit", "burp"
 };
 std::vector<std::string> aGoblinEpiAdj = {
-    "Bone", "Skull", "Blood", "Snot", "Mud", "Fang", "Gut", "Spit",
-    "Rot", "Slime", "Wart", "Scab", "Ear", "Nose", "Brain",
-    "Gob", "Lick", "Bite", "Stab", "Gnaw",
-    "Kick", "Stomp", "Smash", "Bash", "Rip",
-    "Claw", "Dung", "Toe", "Eye", "Fist"
+    // body parts (kept) — work great as funny compound: Earsniffer, Nosegazer
+    "Bone", "Skull", "Ear", "Nose", "Brain", "Fist",
+    // trickster/thief
+    "Quick", "Long", "Short", "Sharp", "Gold", "Loud", "Sly", "Crooked",
+    "Sticky", "Empty", "Shifty", "Nimble", "Old", "Bold", "Tiny", "Bright",
+    "Silver", "Flat", "Wide", "Rusty", "Loose", "Big", "Vain", "Dream"
 };
 std::vector<std::string> aGoblinEpiNoun = {
-    "kicker", "crusher", "stomper", "muncher", "licker",
-    "sniffer", "biter", "stabber", "gnawer", "cruncher",
-    "smasher", "basher", "ripper", "snapper", "chewer",
-    "clawer", "sucker", "picker", "gouger", "dragger",
-    "hacker", "slasher", "chomper", "poker", "puller"
+    // kept combat-ish (removed: muncher, licker, sucker, gouger)
+    "kicker", "crusher", "stomper", "sniffer", "biter", "gnawer",
+    "cruncher", "smasher", "basher", "ripper", "snapper", "chewer",
+    "clawer", "dragger", "hacker", "slasher", "chomper",
+    "poker", "puller", "picker", "grabber",
+    // trickster/thief
+    "snatcher", "hoarder", "stealer", "finger", "purse", "tooth",
+    "pocket", "tongue", "deal", "coin", "runner", "dodger", "trader", "liar",
+    // personality quirks — combine with adj: "Boldboaster", "Dreamgazer", "Loudcackler"
+    "dreamer", "smiler", "boaster", "gazer", "peeker", "schemer",
+    "talker", "prancer", "napper", "worrier", "thinker", "gawker",
+    "squawker", "faker", "counter", "giggler", "mumbler", "whistler",
+    "wobbler", "bouncer", "spinner", "cackler", "winker",
+    // compound quirky nouns — "Longflowersniffer", "Brightshinyhunter"
+    "stargazer", "flowersniffer", "shinyhunter", "shadowchaser",
+    "mirrorgazer", "coinhoarder", "sockstealer", "cheesehunter"
 };
 std::vector<std::string> aGoblinTag = {
-    "Sneaky", "Stabby", "Grabby", "Smelly", "Grubby",
-    "Scratchy", "Twitchy", "Jumpy", "Nasty", "Rotten",
-    "Slimy", "Scabby", "Itchy", "Ugly", "Greedy",
-    "Mangy", "Crusty", "Snotty", "Warty", "Scruffy",
-    "Flea-bitten", "Cowardly"
+    // original kept
+    "Sneaky", "Stabby", "Grabby", "Jumpy", "Greedy", "Scruffy", "Cowardly",
+    // trickster/thief
+    "Sly", "Crooked", "Bold", "Unlucky", "Confused", "Obvious", "Invisible",
+    "Clumsy", "Crafty", "Lucky", "Persistent", "Broke", "Shifty", "Reckless",
+    "Noisy", "Loud",
+    // personality
+    "Dreamy", "Smiley", "Boastful", "Vain", "Nosy", "Peeky", "Chatty",
+    "Forgetful", "Wandering", "Fancy", "Dramatic", "Suspicious", "Romantic",
+    "Philosophical", "Artistic", "Giggly", "Gloomy", "Fidgety", "Mumbling",
+    "Wobbly", "Scheming",
+    // strange habits
+    "Sneezy", "Sleepy", "Hiccupy", "Bouncy", "Twirly", "Blinky", "Stompy",
+    "Whistling", "Starry", "Flowery", "Shiny", "Daydreaming", "Overconfident"
 };
 
 // Lizardman (I_LIZARDMAN): sibilant hissing sounds + 50% tribal suffix.
@@ -1054,10 +1079,10 @@ std::string getPersonName(int raceItem) {
         }
 
         case I_HIGHELF: {
-            // Quenya melodic pref+suf + "of SilverdawnHouse" suffix
-            // "Nimanis of Silverdawn House", "Galadir of Moonleaf House"
+            // Quenya melodic pref+suf + "of Silver Dawn House" suffix
+            // "Nimanis of Silver Dawn House", "Galadir of Moon Leaf House"
             std::string name = (getPrefix(aPrefElven2) + getSuffix(aSufElven2)) | filter::capitalize;
-            std::string house = (rng::one_of(aElfClanAdj) + rng::one_of(aElfClanNoun)) | filter::capitalize;
+            std::string house = (rng::one_of(aElfClanAdj) + " " + rng::one_of(aElfClanNoun)) | filter::title_case;
             return name + " of " + house + " House";
         }
 
@@ -1116,14 +1141,14 @@ std::string getPersonName(int raceItem) {
         }
 
         case I_GOBLINMAN: {
-            // Short nasty name + (60% compound surname, 40% "the tag")
-            // "GraxBonekicker", "Mugrot the Sneaky"
+            // Short punchy name + (60% "the tag", 40% compound surname)
+            // "Nixflick the Dreamy", "Gobpox the Unlucky", "Graxgrib Longfinger"
             std::string name = (rng::one_of(aGoblinPref) + rng::one_of(aGoblinSuf)) | filter::capitalize;
             if (rng::get_random(10) < 6) {
+                return name + " the " + rng::one_of(aGoblinTag);
+            } else {
                 std::string sur = (rng::one_of(aGoblinEpiAdj) + rng::one_of(aGoblinEpiNoun)) | filter::capitalize;
                 return name + " " + sur;
-            } else {
-                return name + " the " + rng::one_of(aGoblinTag);
             }
         }
 
@@ -1146,9 +1171,9 @@ std::string getPersonName(int raceItem) {
         }
 
         case I_FAIRY: {
-            // Fey syllabic name + "of X Court" affiliation
-            // "Dewdrop of Silver Court", "Nimira of Twilight Court"
-            std::string name = (rng::one_of(aFairyPref) + rng::one_of(aFairySuf)) | filter::capitalize;
+            // Fey two-word name + "of X Court" affiliation
+            // "Dew Drop of Silver Court", "Moon Bell of Twilight Court"
+            std::string name = (rng::one_of(aFairyPref) + " " + rng::one_of(aFairySuf)) | filter::title_case;
             return name + " of " + rng::one_of(aFairyCourt) + " Court";
         }
 

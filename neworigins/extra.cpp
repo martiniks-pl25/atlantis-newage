@@ -1442,10 +1442,9 @@ void Game::ModifyTablesPerRuleset(void)
 
     EnableItem(I_TIEFLING);
     ModifyItemBasePrice(I_TIEFLING, 200);
-    modify_race_skill_levels("TIEF", 3, 2);
+    modify_race_skill_levels("TIEF", 5, 2);
     modify_race_skills("TIEF", 0, "STEA");
     modify_race_skills("TIEF", 1, "COMB");
-    modify_race_skills("TIEF", 2, "ENTE");
     ModifyItemCapacities(I_TIEFLING,12,0,0,0);
     ModifyItemWeight(I_TIEFLING, 10);
 
@@ -1822,7 +1821,7 @@ void Game::ModifyTablesPerRuleset(void)
     modify_monster_spoils("ANAC",  120,  IT_NORMAL);           // Anacondas           (default: 120, -1)
     modify_monster_spoils("SCOR",  160,  IT_NORMAL);           // Giant Scorpions     (default: 160, -1)
     modify_monster_spoils("POLA",  450,  IT_NORMAL);           // Polar Bears         (default: 450, -1)
-    modify_monster_spoils("GRAT",  30,   IT_NORMAL);           // Pack of Rats        (default: 30,  -1)
+    modify_monster_spoils("GRAT",  70,   IT_NORMAL);           // Pack of Rats        (default: 30,  -1)
     modify_monster_spoils("GSPI",  300,  IT_NORMAL);           // Giant Spiders       (default: 300, -1)
     modify_monster_spoils("GLIZ",  400,  IT_NORMAL);           // Giant Lizards       (default: 400, -1)
     modify_monster_spoils("TREN",  500,  IT_ADVANCED);  // Living Trees        (default: 600, IT_ADVANCED)
@@ -1836,22 +1835,22 @@ void Game::ModifyTablesPerRuleset(void)
 
     // Humanoid wandering monsters — drop basic goods/items
     modify_monster_spoils("CENT",  250,  IT_NORMAL);    // Tribe of Centaurs   (default: 250,  IT_NORMAL)
-    modify_monster_spoils("KOBO",  60,   IT_NORMAL);    // Kobold Pack         (default: 60,   IT_NORMAL)
+    modify_monster_spoils("KOBO",  70,   IT_NORMAL);    // Kobold Pack         (default: 60,   IT_NORMAL)
     modify_monster_spoils("OGRE",  800,  IT_NORMAL);    // Family of Ogres     (default: 800,  IT_NORMAL)
     modify_monster_spoils("IFRI",  1500, IT_ADVANCED);  // Fire Ifrits         (default: 1500, IT_ADVANCED)
     modify_monster_spoils("LMAN",  120,  IT_NORMAL);    // Lizard Men          (default: 120,  IT_NORMAL)
     modify_monster_spoils("WMAN",  120,  IT_NORMAL);    // Clan of Wild Men    (default: 120,  IT_NORMAL)
-    modify_monster_spoils("SAND",  60,   IT_NORMAL);    // Sandlings           (default: 60,   IT_NORMAL)
+    modify_monster_spoils("SAND",  70,   IT_NORMAL);    // Sandlings           (default: 60,   IT_NORMAL)
     modify_monster_spoils("YETI",  250,  IT_NORMAL);    // Yeti                (default: 250,  IT_NORMAL)
-    modify_monster_spoils("GOBL",  50,   IT_NORMAL);    // Goblin Horde        (default: 50,   IT_NORMAL)
+    modify_monster_spoils("GOBL",  70,   IT_NORMAL);    // Goblin Horde        (default: 50,   IT_NORMAL)
     modify_monster_spoils("TROL",  400,  IT_ADVANCED);  // Troll Pack          (default: 500,  IT_ADVANCED)
     modify_monster_spoils("ETTI",  1000, IT_ADVANCED);  // Ettins              (default: 1200, IT_ADVANCED)
 
     // Summoned / undead monsters
-    modify_monster_spoils("SKEL",  60,   IT_NORMAL);    // Skeleton            (default: 60,   IT_NORMAL)
+    modify_monster_spoils("SKEL",  70,   IT_NORMAL);    // Skeleton            (default: 60,   IT_NORMAL)
     modify_monster_spoils("UNDE",  300,  IT_ADVANCED);  // Undead              (default: 400,  IT_ADVANCED)
     modify_monster_spoils("LICH",  4000, IT_MAGIC);     // Lich                (default: 5000, IT_MAGIC)
-    modify_monster_spoils("IMP",   60,   IT_NORMAL);    // Imp                 (default: 60,   IT_NORMAL)
+    modify_monster_spoils("IMP",   70,   IT_NORMAL);    // Imp                 (default: 60,   IT_NORMAL)
     modify_monster_spoils("DEMO",  800,  IT_ADVANCED);  // Demon               (default: 800,  IT_ADVANCED)
     modify_monster_spoils("BALR",  20000,IT_MAGIC);     // Balrog              (default: 25000, IT_MAGIC)
     modify_monster_spoils("EAGL",  20,   -1);           // Eagle               (default: 20,  -1)
