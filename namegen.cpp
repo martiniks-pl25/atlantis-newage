@@ -448,9 +448,9 @@ std::vector<std::string> aClanAdj = {
     "Bright", "Ash", "Storm", "Copper", "Red"
 };
 std::vector<std::string> aClanNoun = {
-    "Hold", "Forge", "Peak", "Hammer", "Axe", "Shield", "Anvil",
-    "Deep", "Vault", "Gate", "Hall", "Mine", "Crag", "Throne", "Ridge",
-    "Keep", "Wall", "Hearth", "Keg", "Helm"
+    "hold", "forge", "peak", "hammer", "axe", "shield", "anvil",
+    "deep", "vault", "gate", "hall", "mine", "crag", "throne", "ridge",
+    "keep", "wall", "hearth", "keg", "helm"
 };
 
 // High Elf (I_HIGHELF): melodic pref+suf always has house. aPrefElven2+aSufElven2 existing.
@@ -588,9 +588,9 @@ std::vector<std::string> aHoldAdj = {
     "Iron", "Stone", "Dark", "Deep", "Silent", "Sharp", "Storm"
 };
 std::vector<std::string> aHoldNoun = {
-    "Hold", "Keep", "Vault", "Peak", "Ridge", "Crag", "Spire",
-    "Bastion", "Forge", "Deep", "Hall", "Gate", "Helm", "Throne",
-    "Fortress", "Rampart", "Citadel", "Pinnacle", "Tor", "Cairn"
+    "peak", "ridge", "crag", "spire", "bastion", "forge", "deep",
+    "hall", "gate", "helm", "throne", "pinnacle", "tor", "cairn",
+    "vault", "rampart", "shelf", "bluff"
 };
 
 // Under Dwarf (I_UNDERDWARF): deep/dark pref+suf always has underground clan.
@@ -612,9 +612,9 @@ std::vector<std::string> aDarkClanAdj = {
     "Sunken", "Forsaken", "Blind", "Bitter", "Coal"
 };
 std::vector<std::string> aDarkClanNoun = {
-    "Vault", "Deep", "Crypt", "Forge", "Mine",
-    "Pit", "Shaft", "Delve", "Burrow", "Cavern",
-    "Hall", "Keep", "Throne", "Gate", "Hearth"
+    "vault", "deep", "crypt", "forge", "mine",
+    "pit", "shaft", "delve", "burrow", "cavern",
+    "hall", "keep", "throne", "gate", "hearth"
 };
 
 // Goblinman (I_GOBLINMAN): short punchy name + (60%: "the tag", 40%: compound surname).
