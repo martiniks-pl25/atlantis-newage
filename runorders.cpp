@@ -18,6 +18,15 @@ void Game::RunOrders()
     RunEnterOrders(0);
     logger::write("Running PROMOTE/EVICT Orders...");
     RunPromoteOrders();
+    logger::write("Running Pirate Raids...");
+    for (const auto r : regions) {
+        for (const auto o : r->objects) {
+            for (const auto u : o->units) {
+                if (u->type == U_WMON && u->IsAlive())
+                    PirateRaidBuildings(r, u);
+            }
+        }
+    }
     logger::write("Running Combat...");
     DoAttackOrders();
     DoAutoAttacks();
@@ -67,6 +76,10 @@ void Game::RunOrders()
         break;
     }
 
+    logger::write("Running Pirate Land Recruitment...");
+    PirateRecruitLandCrew();
+    logger::write("Running Pirate Empty Ship Seizure...");
+    PirateSeizeEmptyShips();
     logger::write("Running Consolidated Movement Orders...");
     RunMovementOrders();
 
@@ -1639,6 +1652,14 @@ Unit *Game::GetWMonTar(ARegion *r, int tarnum, Unit *mon) {
  * @see CountWMonTars(), GetWMonTar(), AttemptAttack()
  */
 void Game::CheckWMonAttack(ARegion *r, Unit *u) {
+    // Pirates don't auto-attack players in towns — they are docked, not raiding.
+    // PirateRaidBuildings() (called from PostProcessUnitExtra) is unaffected.
+    if (r->town) {
+        if (u->items.GetNum(I_PIRATES) > 0 ||
+            u->items.GetNum(I_PIRATE_CAPTAIN) > 0 ||
+            u->items.GetNum(I_PIRATE_BOSUN) > 0) return;
+    }
+
     int tars = CountWMonTars(r, u);
     if (!tars) return;
 
@@ -1677,6 +1698,16 @@ void Game::CheckWMonAttack(ARegion *r, Unit *u) {
             effectiveHostile = (effectiveHostile * 75) / 100;  // Ancient: 75%
         }
         // free == 0 (Elder): 100% - no modification needed
+    }
+
+    // Pirates are twice as aggressive in ocean (home territory)
+    if (effectiveHostile > 0) {
+        bool is_pirate = (u->items.GetNum(I_PIRATES) > 0 ||
+                          u->items.GetNum(I_PIRATE_CAPTAIN) > 0 ||
+                          u->items.GetNum(I_PIRATE_BOSUN) > 0);
+        if (is_pirate && TerrainDefs[r->type].similar_type == R_OCEAN) {
+            effectiveHostile = std::min(effectiveHostile * 2, 100);
+        }
     }
 
     // In danger zones, ignore target count — monsters always attack at full roll range.

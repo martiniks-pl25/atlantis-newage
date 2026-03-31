@@ -165,6 +165,8 @@ private:
     void CreateMayor(ARegion *pReg);
     int MakeWMon(ARegion *pReg);
     void MakeLMon(Object *pObj);
+    int MakePirateFleet(ARegion *pReg);
+    void MakePirateLair(Object *pObj);
 
     void WriteSurfaceMap(std::ostream& f, ARegionArray *pArr, int type);
     void WriteUnderworldMap(std::ostream& f, ARegionArray *pArr, int type);
@@ -516,6 +518,10 @@ private:
 
     // Pirates raid empty production buildings and roads in non-ocean regions
     void PirateRaidBuildings(ARegion *r, Unit *u);
+    // Pirates recruit new crew when docked on land (before movement phase)
+    void PirateRecruitLandCrew();
+    // Pirates seize empty ships docked in the same non-ocean region
+    void PirateSeizeEmptyShips();
 
     //
     // CheckVictory is used to see if the game is over.

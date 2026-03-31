@@ -841,8 +841,10 @@ void Game::GetSides(
 
 #define ADD_ATTACK 1
 #define ADD_DEFENSE 2
-                /* First, can the unit be involved in the battle at all? */
-                if ((i==-1 || u->GetFlag(FLAG_HOLDING) == 0) && u->IsAlive()) {
+                /* First, can the unit be involved in the battle at all?
+                 * Units in the same fleet/object as the target always qualify,
+                 * even if FLAG_HOLDING is set — they fight as part of the fleet. */
+                if ((i==-1 || u->GetFlag(FLAG_HOLDING) == 0 || o == tar->object) && u->IsAlive()) {
                     if(afacs.find(u->faction) != afacs.end()) {
                         /*
                          * The unit is on the attacking side, check if the
@@ -893,7 +895,11 @@ void Game::GetSides(
                                          * want to be in the battle if he can
                                          * avoid it
                                          */
-                                        if (u == tar || (u->faction == tar->faction && i==-1 && CanAttack(r, afacs,u))) {
+                                        // Same fleet as target: no CanAttack check needed —
+                                        // attacker is already engaging the fleet directly.
+                                        if (u == tar ||
+                                            (u->faction == tar->faction && i == -1 && CanAttack(r, afacs,u)) ||
+                                            (u->faction == tar->faction && o == tar->object)) {
                                             add = ADD_DEFENSE;
                                         }
                                     } else {

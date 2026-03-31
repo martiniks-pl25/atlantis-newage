@@ -455,6 +455,7 @@ std::string show_special(const std::string& special, int level, int expandLevel,
         if (expandLevel) {
             if (spd.effectflags & SpecialType::FX_USE_LEV)
                 val *= level;
+            val += spd.damage[i].minnum - 2;
         }
         temp += std::to_string(val);
         if (!expandLevel) {

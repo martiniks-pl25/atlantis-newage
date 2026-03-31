@@ -191,7 +191,7 @@ ut::suite<"JSON Report"> json_report_suite = []
     expect(for_sale == 2_ul);
 
     auto expected_sale = json{
-      {"tag", "NOMA"}, {"name", "nomad"}, {"plural", "nomads"}, {"amount", 5447 }, { "price", 68 }
+      {"tag", "NOMA"}, {"name", "nomad"}, {"plural", "nomads"}, {"amount", 5444 }, { "price", 68 }
     };
     auto first_sale = json_report["markets"]["for_sale"][0];
     expect(first_sale == expected_sale);

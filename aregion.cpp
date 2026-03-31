@@ -97,6 +97,7 @@ ARegion::ARegion()
     emigrants = 0;
     improvement = 0;
     clearskies = 0;
+    weather = W_NORMAL;
     earthlore = 0;
     phantasmal_entertainment = 0;
     for (int i=0; i<NDIRS; i++)
@@ -1476,14 +1477,14 @@ int ARegion::IsDeepOcean()
 int ARegion::MoveCost(int movetype, ARegion *fromRegion, int dir, std::string *road)
 {
     int cost = 1;
-    if (Globals->WEATHER_EXISTS) {
+    if (Globals->WEATHER_EXISTS == 1) {
         cost = 2;
         if (weather == W_NORMAL || clearskies) {
             cost = 1;
         }
-    }
-    if (weather == W_BLIZZARD && !clearskies) {
-        return 4;
+        if (weather == W_BLIZZARD && !clearskies) {
+            return 4;
+        }
     }
     if (movetype == M_SWIM) {
         cost = (TerrainDefs[type].movepoints * cost);

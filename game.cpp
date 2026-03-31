@@ -1324,6 +1324,7 @@ void Game::PreProcessTurn()
         year++;
     }
     SetupUnitNums();
+
     for(const auto f : factions) f->DefaultOrders();
 
     for(const auto reg : regions) {
@@ -1785,7 +1786,6 @@ void Game::MidProcessUnitExtra(ARegion *r, Unit *u)
 void Game::PostProcessUnitExtra(ARegion *r, Unit *u)
 {
     if (!Globals->CHECK_MONSTER_CONTROL_MID_TURN) MonsterCheck(r, u);
-    PirateRaidBuildings(r, u);
 }
 
 /**
@@ -1816,10 +1816,6 @@ void Game::PirateRaidBuildings(ARegion *r, Unit *u)
 
     // Only on non-ocean, non-lake terrain
     if (r->type == R_OCEAN || r->type == R_LAKE) return;
-
-    // Only raid if pirates were already here at the start of the turn.
-    // u->moved is not serialized — it starts at 0 each turn and is incremented on movement.
-    if (u->moved > 0) return;
 
     // Snapshot initial incomplete for each object to determine per-turn cap
     std::map<Object *, int> initialIncomplete;
@@ -1877,10 +1873,10 @@ void Game::PirateRaidBuildings(ARegion *r, Unit *u)
     }
 
     // Notify all factions present in the region
-    std::string msg = "Pirates have raided and damaged " + nameList + " in " + r->short_print() + ".";
+    std::string msg = "Pirates from " + u->object->name + " raided and damaged " + nameList + " in " + r->short_print() + ".";
     std::set<Faction *> presentFactions = r->PresentFactions();
     for (const auto f : presentFactions) {
-        f->event(msg, "decay", r);
+        f->event(msg, "decay", r, u);
     }
 }
 

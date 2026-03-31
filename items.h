@@ -90,6 +90,8 @@ class ItemType
             MAINTENANCE = 0x200, // this item has a maintenance cost (it uses the items base cost)
             SEEK_ALTAR = 0x400, // this item wants to move towards the nearest O_RITUAL_ALTAR (NO7 specific)
             NO_SHAFT = 0x800, // the unit carrying this item transit a shaft
+            BEHIND_CAPABLE = 0x1000, // monster that respects FLAG_BEHIND (placed in back row)
+            COASTAL_ONLY = 0x2000,   // sea creature: can only enter ocean, lakes, and land regions adjacent to ocean/lake
         };
         int flags;
 

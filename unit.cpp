@@ -3,6 +3,7 @@
 #include "gamedata.h"
 #include "rng.hpp"
 #include <stack>
+#include <iostream>
 #include "string_filters.hpp"
 #include "external/nlohmann/json.hpp"
 using json = nlohmann::json;
@@ -148,6 +149,22 @@ std::string Unit::GetMonsterDisplayName()
 
     // === Special categories (check by item type, not name) ===
 
+    // Pirate bosses: rank prefix changes with age (free 3→0)
+    if (items.GetNum(I_PIRATE_CAPTAIN) > 0) {
+        if (free >= 3)      prefix = "Corsair ";
+        else if (free == 2) prefix = "Captain ";
+        else if (free == 1) prefix = "Commodore ";
+        else                prefix = "Admiral ";
+        return std::string(prefix) + base_name;
+    }
+    if (items.GetNum(I_PIRATE_BOSUN) > 0) {
+        if (free >= 3)      prefix = "Bosun's Mate ";
+        else if (free == 2) prefix = "Bosun ";
+        else if (free == 1) prefix = "Master Bosun ";
+        else                prefix = "First Mate ";
+        return std::string(prefix) + base_name;
+    }
+
     // Humanoid warriors
     bool has_warriors = (items.GetNum(I_WARRIORS) > 0 || items.GetNum(I_PIRATES) > 0 || items.GetNum(I_MAGICIANS) > 0);
     if (has_warriors) {
@@ -228,6 +245,25 @@ void Unit::UpdateMonsterDescription()
     else                loot_info = "Full treasure trove.";
 
     // Category-specific descriptions (check by item type, not name)
+
+    // Pirate bosses: thematic rank descriptions
+    if (items.GetNum(I_PIRATE_CAPTAIN) > 0) {
+        if (free >= 3)      desc = "A newly appointed corsair seeking fortune on the seas.";
+        else if (free == 2) desc = "A seasoned captain with plunder and a fearsome reputation.";
+        else if (free == 1) desc = "A commodore commanding a feared fleet of raiders.";
+        else                desc = "An admiral of the pirate fleet, a legend of the open seas.";
+        describe = desc + " " + loot_info;
+        return;
+    }
+    if (items.GetNum(I_PIRATE_BOSUN) > 0) {
+        if (free >= 3)      desc = "A fresh bosun's mate, learning the ropes of piracy.";
+        else if (free == 2) desc = "An experienced bosun who keeps the crew in line and battle-ready.";
+        else if (free == 1) desc = "A master bosun, feared by enemies and crew alike.";
+        else                desc = "A first mate of legendary cunning and ruthlessness.";
+        describe = desc + " " + loot_info;
+        return;
+    }
+
     bool is_warrior = (items.GetNum(I_WARRIORS) > 0 || items.GetNum(I_PIRATES) > 0 || items.GetNum(I_MAGICIANS) > 0);
     bool is_undead = (items.GetNum(I_SKELETON) > 0 || items.GetNum(I_UNDEAD) > 0 || items.GetNum(I_LICH) > 0);
     bool is_dragon = (items.GetNum(I_DRAGON) > 0 || items.GetNum(I_WYVERN) > 0);
@@ -909,18 +945,92 @@ void Unit::DefaultOrders(Object *obj)
 
     ClearOrders();
     if (type == U_WMON) {
+        // NPC pirate fleets: owner gets a SailOrder, non-owners get nothing (carried by fleet)
+        if (obj->IsFleet() && faction->is_npc) {
+            if (obj->GetOwner() == this) {
+                // Roll number of steps: 50% = 1, 40% = 2, 10% = 3
+                int roll = rng::get_random(100);
+                int num_steps = (roll < 50) ? 1 : (roll < 90) ? 2 : 3;
+
+                ARegion *cur = obj->region;
+                auto *so = new SailOrder;
+
+                for (int step = 0; step < num_steps; step++) {
+                    // R_LAKE has similar_type == R_OCEAN, so cur_is_ocean covers both
+                    bool cur_is_ocean = (TerrainDefs[cur->type].similar_type == R_OCEAN);
+
+                    // Build list of valid directions
+                    // MOVE_PAUSE added once for unpredictability
+                    std::vector<int> valid;
+                    valid.push_back(MOVE_PAUSE);
+
+                    for (int d = 0; d < NDIRS; d++) {
+                        ARegion *nb = cur->neighbors[d];
+                        if (!nb) continue;
+                        // Destination must be reachable by ships
+                        if (!nb->IsCoastalOrLakeside()) continue;
+                        // Avoid towns/cities with player guards: pirates would be destroyed.
+                        // Villages are always ok; towns/cities with only NPC guards (faction 1) are ok.
+                        if (nb->town && nb->town->TownType() > TOWN_VILLAGE) {
+                            bool has_player_guard = false;
+                            for (const auto *o2 : nb->objects) {
+                                for (const auto *u2 : o2->units) {
+                                    if (u2->guard == GUARD_GUARD && u2->faction->num != 1) {
+                                        has_player_guard = true;
+                                        break;
+                                    }
+                                }
+                                if (has_player_guard) break;
+                            }
+                            if (has_player_guard) continue;
+                        }
+                        // R_LAKE has similar_type == R_OCEAN, so this covers lakes too
+                        bool nb_is_water = (TerrainDefs[nb->type].similar_type == R_OCEAN);
+                        // Do1SailOrder rule: land->land moves are forbidden
+                        if (!cur_is_ocean && !nb_is_water) continue;
+                        // Ocean neighbors are preferred (2x weight), others 1x
+                        valid.push_back(d);
+                        if (TerrainDefs[nb->type].similar_type == R_OCEAN) valid.push_back(d);
+                    }
+
+                    // Only MOVE_PAUSE remains — nowhere to sail
+                    if (valid.size() == 1) break;
+
+                    int dir = valid[rng::get_random(valid.size())];
+                    auto *md = new MoveDir;
+                    md->dir = dir;
+                    so->dirs.push_back(md);
+
+                    if (dir != MOVE_PAUSE) {
+                        cur = cur->neighbors[dir];
+                        // Landed on a land region (coastal/lakeside) — stop here, don't leave same turn
+                        bool landed_water = (TerrainDefs[cur->type].similar_type == R_OCEAN ||
+                                             TerrainDefs[cur->type].similar_type == R_LAKE);
+                        if (!landed_water) break;
+                    }
+                }
+
+                monthorders = so;
+            }
+            // Non-owners carry no orders — they move with the fleet object
+            return;
+        }
+
         if (ObjectDefs[obj->type].monster == -1) {
             // determine terrain perferences
             std::set<int> forbidden;
             std::set<int> perferred;
 
             int aggression = 0;
+            bool isCoastalOnly = false;
             for(auto it : items) {
                 ItemType &itemType = ItemDefs[it->type];
 
                 if (!(itemType.type & IT_MONSTER)) {
                     continue;
                 }
+
+                if (itemType.flags & ItemType::COASTAL_ONLY) isCoastalOnly = true;
 
                 auto monster = find_monster(itemType.abr, (itemType.type & IT_ILLUSION))->get();
                 aggression = std::max(aggression, monster.getAggression());
@@ -939,71 +1049,203 @@ void Unit::DefaultOrders(Object *obj)
             weight = items.Weight();
             r = obj->region;
 
+            // True if terrain similar_type is sea (ocean or lake)
+            auto isSeaType = [](int simType) {
+                return simType == R_OCEAN || simType == R_LAKE;
+            };
+
+            // True if region is sea itself or directly adjacent to sea
+            auto isCoastalOrSea = [&isSeaType](ARegion *reg) -> bool {
+                if (isSeaType(TerrainDefs[reg->type].similar_type)) return true;
+                for (int j = 0; j < NDIRS; j++) {
+                    if (reg->neighbors[j] && isSeaType(TerrainDefs[reg->neighbors[j]->type].similar_type))
+                        return true;
+                }
+                return false;
+            };
+
+            // True if unit can physically enter the target region
+            auto canEnter = [&](ARegion *target) -> bool {
+                const int st = TerrainDefs[target->type].similar_type;
+                if (st == R_OCEAN && !CanReallySwim() && !(CanFly(weight) && Globals->FLIGHT_OVER_WATER == GameDefs::WFLIGHT_UNLIMITED))
+                    return false;
+                if (st != R_OCEAN && !CanWalk(weight) && !CanRide(weight) && !CanFly(weight))
+                    return false;
+                if (!forbidden.empty() && forbidden.find(st) != forbidden.end())
+                    return false;
+                return true;
+            };
+
             // this vector will contain all directions where monster can move
-            // normal move chance will contain two enteries
-            // reduced move chacne will containe one entry
+            // normal move chance will contain two entries
+            // reduced move chance will contain one entry
             std::vector<int> directions;
 
-            // then chance of a wandering monster not moving will be 2 / (available dirs + 2)
-            // it is why we add 4 entries (see comment above) to the directions list
-            directions.push_back(-1);
-            directions.push_back(-1);
-            directions.push_back(-1);
-
-            for (i = 0; i < NDIRS; i++) {
-                n = r->neighbors[i];
-                if (!n) {
-                    continue;
-                }
-
-                const int terrainSimilarType = TerrainDefs[n->type].similar_type;
-
-                if (terrainSimilarType == R_OCEAN && !CanReallySwim() && !(CanFly(weight) && Globals->FLIGHT_OVER_WATER == GameDefs::WFLIGHT_UNLIMITED)) {
-                    continue;
-                }
-
-                if (terrainSimilarType != R_OCEAN && !CanWalk(weight) && !CanRide(weight) && !CanFly(weight)) {
-                    continue;
-                }
-
-                if (!forbidden.empty() && forbidden.find(terrainSimilarType) != forbidden.end()) {
-                    // the direction is in a bad terrain, monster will not move there
-                    continue;
-                }
-
-                if (perferred.empty() || perferred.find(terrainSimilarType) != perferred.end()) {
-                    // if there are no preferred terrains at all
-                    //   or target terrain is in preferred terrains list
-                    // add 2 move direction entries into the list for normal hit chance
-                    directions.push_back(i);
-                    directions.push_back(i);
-                }
-                else {
-                    // this is direction to the neutral terrain, we must check can monster move there
-                    // monster will be able to move there only if target region is connected with a good terrain
-
-                    bool connectedToGoodTerrain = false;
-                    for (int j = 0; j < NDIRS; j++) {
-                        auto region = n->neighbors[j];
-                        if (!region) {
-                            continue;
-                        }
-
-                        if (perferred.find(TerrainDefs[region->type].similar_type) != perferred.end()) {
-                            connectedToGoodTerrain = true;
-                            break;
-                        }
-                    }
-
-                    if (connectedToGoodTerrain) {
-                        // 2x lower chance to enter neutral region
+            // COASTAL_ONLY ESCAPE MODE: creature is inland and needs to find its way back to sea.
+            // No "stay" entries — creature must move every turn until it reaches coast.
+            // Priority 1 (radius 1): neighbors that are sea or coastal
+            // Priority 2 (radius 2): neighbors that have a sea/coastal neighbor
+            // Priority 3 (fallback): any reachable neighbor (creature is truly deep inland)
+            bool isLost = isCoastalOnly && !isCoastalOrSea(r);
+            if (isLost) {
+                // Priority 1: direct coastal/sea neighbors (2x weight)
+                for (i = 0; i < NDIRS; i++) {
+                    n = r->neighbors[i];
+                    if (!n || !canEnter(n)) continue;
+                    if (isCoastalOrSea(n)) {
+                        directions.push_back(i);
                         directions.push_back(i);
                     }
+                }
+
+                // Priority 2: neighbors that lead toward coast within 2 cells
+                if (directions.empty()) {
+                    for (i = 0; i < NDIRS; i++) {
+                        n = r->neighbors[i];
+                        if (!n || !canEnter(n) || isCoastalOrSea(n)) continue;
+                        for (int j = 0; j < NDIRS; j++) {
+                            ARegion *m = n->neighbors[j];
+                            if (m && isCoastalOrSea(m)) {
+                                directions.push_back(i);
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // Priority 3: any reachable neighbor (no coast within 2 cells)
+                if (directions.empty()) {
+                    for (i = 0; i < NDIRS; i++) {
+                        n = r->neighbors[i];
+                        if (!n || !canEnter(n)) continue;
+                        directions.push_back(i);
+                    }
+                }
+
+                if (!directions.empty()) {
+                    std::cerr << "[COASTAL_RESCUE] " << name << " (unit " << num
+                              << ") at (" << r->xloc << "," << r->yloc
+                              << ") is inland, moving toward coast\n";
+                }
+            } else {
+                // NORMAL MODE
+                // chance of a wandering monster not moving: 3 stay entries vs available directions
+                directions.push_back(-1);
+                directions.push_back(-1);
+                directions.push_back(-1);
+
+                for (i = 0; i < NDIRS; i++) {
+                    n = r->neighbors[i];
+                    if (!n) {
+                        continue;
+                    }
+
+                    const int terrainSimilarType = TerrainDefs[n->type].similar_type;
+
+                    if (terrainSimilarType == R_OCEAN && !CanReallySwim() && !(CanFly(weight) && Globals->FLIGHT_OVER_WATER == GameDefs::WFLIGHT_UNLIMITED)) {
+                        continue;
+                    }
+
+                    if (terrainSimilarType != R_OCEAN && !CanWalk(weight) && !CanRide(weight) && !CanFly(weight)) {
+                        continue;
+                    }
+
+                    if (!forbidden.empty() && forbidden.find(terrainSimilarType) != forbidden.end()) {
+                        // the direction is in a bad terrain, monster will not move there
+                        continue;
+                    }
+
+                    // COASTAL_ONLY filter: non-sea target must be adjacent to sea
+                    if (isCoastalOnly && !isCoastalOrSea(n)) {
+                        continue;
+                    }
+
+                    if (perferred.empty() || perferred.find(terrainSimilarType) != perferred.end()) {
+                        // if there are no preferred terrains at all
+                        //   or target terrain is in preferred terrains list
+                        // add 2 move direction entries into the list for normal hit chance
+                        directions.push_back(i);
+                        directions.push_back(i);
+                    }
+                    else {
+                        // this is direction to the neutral terrain, we must check can monster move there
+                        // monster will be able to move there only if target region is connected with a good terrain
+
+                        bool connectedToGoodTerrain = false;
+                        for (int j = 0; j < NDIRS; j++) {
+                            auto region = n->neighbors[j];
+                            if (!region) {
+                                continue;
+                            }
+
+                            if (perferred.find(TerrainDefs[region->type].similar_type) != perferred.end()) {
+                                connectedToGoodTerrain = true;
+                                break;
+                            }
+                        }
+
+                        if (connectedToGoodTerrain) {
+                            // 2x lower chance to enter neutral region
+                            directions.push_back(i);
+                        }
+                    }
+                }
+            }
+
+            // Kraken: attracted to nearby pirate fleets.
+            // For each valid water neighbor containing an NPC pirate fleet:
+            //   - regular fleet (pirates only):  +1 direction weight, -1 stay
+            //   - elite fleet (has captain):      +2 direction weight, -2 stay
+            // stay starts at 3 (the three -1 entries added above) and is reduced
+            // down to 0, making the kraken always move when pirates are nearby.
+            if (items.GetNum(I_KRAKEN) > 0) {
+                int stay_reduction = 0;
+                for (int d = 0; d < NDIRS; d++) {
+                    ARegion *nb = r->neighbors[d];
+                    if (!nb) continue;
+                    // Only boost directions to water — kraken cannot enter land
+                    bool nb_is_water = (TerrainDefs[nb->type].similar_type == R_OCEAN ||
+                                        TerrainDefs[nb->type].similar_type == R_LAKE);
+                    if (!nb_is_water) continue;
+
+                    for (const auto pobj : nb->objects) {
+                        if (!pobj->IsFleet()) continue;
+                        Unit *owner = pobj->GetOwner();
+                        if (!owner || !owner->faction->is_npc) continue;
+
+                        // Check if the fleet has a pirate captain aboard
+                        bool has_captain = false;
+                        for (const auto u : pobj->units) {
+                            if (u->items.GetNum(I_PIRATE_CAPTAIN) > 0) {
+                                has_captain = true;
+                                break;
+                            }
+                        }
+
+                        if (has_captain) {
+                            // Elite fleet: strongly attracts the kraken
+                            directions.push_back(d);
+                            directions.push_back(d);
+                            stay_reduction += 2;
+                        } else {
+                            // Regular fleet: moderately attracts the kraken
+                            directions.push_back(d);
+                            stay_reduction += 1;
+                        }
+                    }
+                }
+
+                // Remove stay (-1) entries proportional to pirate presence (min 0)
+                stay_reduction = std::min(stay_reduction, 3);
+                for (int k = 0; k < stay_reduction; k++) {
+                    if (auto it = std::ranges::find(directions, -1); it != directions.end())
+                        directions.erase(it);
                 }
             }
 
             // pick a direction where to move
             // it will be uniform selection of all possible directions, better than previos alogrithm
+            if (directions.empty()) return;
             int dirIndex = rng::get_random(directions.size());
             int dir = directions[dirIndex];
 

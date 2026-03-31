@@ -1,5 +1,6 @@
 #include "game.h"
 #include "gamedata.h"
+#include "namegen.h"
 #include "rng.hpp"
 #include <numeric>
 #include <limits>
@@ -155,6 +156,10 @@ int Game::MakeWMon(ARegion *pReg)
     if ((montype == -1) || (ItemDefs[montype].flags & ItemType::DISABLED))
         return 0;
 
+    // Pirates on ocean: spawn as a fleet with optional captain+bosun
+    if (montype == I_PIRATES)
+        return MakePirateFleet(pReg);
+
     auto monster = find_monster(ItemDefs[montype].abr, (ItemDefs[montype].type & IT_ILLUSION))->get();
     Faction *monfac = GetFaction(factions, monfaction);
     Unit *u = GetNewUnit(monfac, 0);
@@ -180,6 +185,9 @@ void Game::MakeLMon(Object *pObj)
 
     if ((montype == -1) || (ItemDefs[montype].flags & ItemType::DISABLED))
         return;
+
+    // Pirates in a lair: spawn pirate unit(s) without a fleet
+    if (montype == I_PIRATES) { MakePirateLair(pObj); return; }
 
     auto monster = find_monster(ItemDefs[montype].abr, (ItemDefs[montype].type & IT_ILLUSION))->get();
     Faction *monfac = GetFaction(factions, monfaction);
@@ -270,6 +278,117 @@ void Game::MakeLMon(Object *pObj)
     u->MoveUnit(pObj);
     u->free = Globals->MONSTER_SPOILS_RECOVERY;
     u->UpdateMonsterDescription();
+}
+
+/**
+ * @brief Spawns a pirate fleet in an ocean region.
+ *
+ * 80% regular: Galleon + crew of pirates.
+ * 20% elite:   Galley  + crew (×3 pirates) + 1 captain + 1 bosun (both FLAG_BEHIND).
+ *
+ * The fleet object is named via getPirateShipName(); boss units get personal names
+ * via getPirateName(). Rank prefixes are added in GetMonsterDisplayName().
+ *
+ * @param pReg Ocean region where the fleet is created
+ * @return 1 on success
+ */
+int Game::MakePirateFleet(ARegion *pReg)
+{
+    auto pmon = find_monster(ItemDefs[I_PIRATES].abr, false)->get();
+    Faction *monfac = GetFaction(factions, monfaction);
+    bool elite = (rng::get_random(5) == 0);  // 20% chance
+
+    int pira_count = (pmon.number + rng::get_random(pmon.number) + 1) / 2;
+    if (elite) pira_count *= 3;
+
+    // Build the fleet object
+    Object *fleet = new Object(pReg);
+    fleet->type = O_FLEET;
+    fleet->num = shipseq++;
+    fleet->set_name(getPirateShipName());
+    fleet->AddShip(elite ? I_GALLEY : I_COG);
+    pReg->objects.push_back(fleet);
+    fleet->FleetCapacity();
+
+    // Main pirate crew
+    Unit *u = GetNewUnit(monfac, 0);
+    u->MakeWMon("Pirates", I_PIRATES, pira_count);
+    u->free = Globals->MONSTER_SPOILS_RECOVERY;
+    u->MoveUnit(fleet);
+    u->UpdateMonsterDescription();
+
+    if (elite) {
+        // Pirate captain (BEHIND_CAPABLE, sets FLAG_BEHIND)
+        Unit *cap = GetNewUnit(monfac, 0);
+        cap->MakeWMon(getPirateName().c_str(), I_PIRATE_CAPTAIN, 1);
+        cap->SetFlag(FLAG_BEHIND, 1);
+        cap->free = Globals->MONSTER_SPOILS_RECOVERY;
+        cap->MoveUnit(fleet);
+        cap->UpdateMonsterDescription();
+
+        // Pirate bosun (BEHIND_CAPABLE, sets FLAG_BEHIND)
+        Unit *bos = GetNewUnit(monfac, 0);
+        bos->MakeWMon(getPirateName().c_str(), I_PIRATE_BOSUN, 1);
+        bos->SetFlag(FLAG_BEHIND, 1);
+        bos->free = Globals->MONSTER_SPOILS_RECOVERY;
+        bos->MoveUnit(fleet);
+        bos->UpdateMonsterDescription();
+
+        logger::write("MakePirateFleet: ELITE fleet '" + fleet->name + "' at (" +
+            std::to_string(pReg->xloc) + "," + std::to_string(pReg->yloc) + ") — " +
+            std::to_string(pira_count) + " pirates + captain '" + cap->name +
+            "' + bosun '" + bos->name + "'");
+    } else {
+        logger::write("MakePirateFleet: fleet '" + fleet->name + "' at (" +
+            std::to_string(pReg->xloc) + "," + std::to_string(pReg->yloc) + ") — " +
+            std::to_string(pira_count) + " pirates");
+    }
+
+    return 1;
+}
+
+/**
+ * @brief Spawns pirates in a lair object (no fleet).
+ *
+ * 80%: crew of pirates only.
+ * 20%: crew (×1.5 pirates) + 1 bosun (FLAG_BEHIND).
+ *
+ * @param pObj Lair object (e.g. O_ISLE) where pirates are placed
+ */
+void Game::MakePirateLair(Object *pObj)
+{
+    auto pmon = find_monster(ItemDefs[I_PIRATES].abr, false)->get();
+    Faction *monfac = GetFaction(factions, monfaction);
+    // Lakes spawn only plain pirates — no bosun
+    bool has_bosun = (pObj->region->type != R_LAKE) && (rng::get_random(5) == 0);
+
+    int pira_count = (pmon.number + rng::get_random(pmon.number) + 1) / 2;
+    if (has_bosun) pira_count = (pira_count * 3) / 2;
+
+    // Main pirate crew
+    Unit *u = GetNewUnit(monfac, 0);
+    u->MakeWMon("Pirates", I_PIRATES, pira_count);
+    u->free = Globals->MONSTER_SPOILS_RECOVERY;
+    u->MoveUnit(pObj);
+    u->UpdateMonsterDescription();
+
+    if (has_bosun) {
+        // Pirate bosun (BEHIND_CAPABLE, sets FLAG_BEHIND)
+        Unit *bos = GetNewUnit(monfac, 0);
+        bos->MakeWMon(getPirateName().c_str(), I_PIRATE_BOSUN, 1);
+        bos->SetFlag(FLAG_BEHIND, 1);
+        bos->free = Globals->MONSTER_SPOILS_RECOVERY;
+        bos->MoveUnit(pObj);
+        bos->UpdateMonsterDescription();
+
+        logger::write("MakePirateLair: lair '" + pObj->name + "' at (" +
+            std::to_string(pObj->region->xloc) + "," + std::to_string(pObj->region->yloc) + ") — " +
+            std::to_string(pira_count) + " pirates + bosun '" + bos->name + "'");
+    } else {
+        logger::write("MakePirateLair: lair '" + pObj->name + "' at (" +
+            std::to_string(pObj->region->xloc) + "," + std::to_string(pObj->region->yloc) + ") — " +
+            std::to_string(pira_count) + " pirates");
+    }
 }
 
 // Helper struct for weapon selection
@@ -411,4 +530,142 @@ Unit *Game::MakeManUnit(Faction *fac, int mantype, int num, int level, int weapo
     }
 
     return u;
+}
+
+
+void Game::PirateRecruitLandCrew()
+{
+    for (const auto r : regions) {
+        for (const auto obj : r->objects) {
+            if (!obj->IsFleet()) continue;
+            if (TerrainDefs[r->type].similar_type == R_OCEAN) continue;
+            if (TerrainDefs[r->type].similar_type == R_LAKE) continue;
+
+            for (const auto u : obj->units) {
+                if (!u->faction->is_npc) continue;
+                int current = u->items.GetNum(I_PIRATES);
+                if (current <= 0) continue;
+
+                int pirate_w = ItemDefs[I_PIRATES].weight;
+                int cap = (pirate_w > 0) ? obj->capacity / pirate_w : 0;
+                if (cap <= 0) continue;
+                if (current >= cap) {
+                    logger::write("PirateRecruitLandCrew: fleet \"" + obj->name + "\""
+                        + " at " + r->short_print()
+                        + " — at cap (" + std::to_string(current) + "/" + std::to_string(cap)
+                        + "), no recruitment");
+                    continue;
+                }
+
+                int pct = 10 + rng::get_random(11);  // 10–20%
+                int gained = std::max(1, current * pct / 100);
+                // Do not exceed cap
+                gained = std::min(gained, cap - current);
+                u->items.SetNum(I_PIRATES, current + gained);
+
+                logger::write("PirateRecruitLandCrew: fleet \"" + obj->name + "\""
+                    + " at " + r->short_print()
+                    + " — recruited " + std::to_string(gained) + " pirates"
+                    + " (" + std::to_string(pct) + "%, was " + std::to_string(current)
+                    + ", now " + std::to_string(current + gained) + ")");
+
+                // Notify factions present in the region
+                std::string msg = "Pirates from " + obj->name + " recruited " + std::to_string(gained)
+                    + " new crew members while docked in " + r->short_print() + ".";
+                std::set<Faction *> presentFactions = r->PresentFactions();
+                for (const auto f : presentFactions) {
+                    f->event(msg, "monster", r, u);
+                }
+            }
+        }
+    }
+}
+
+/**
+ * @brief Pirates seize empty ships docked in the same non-ocean region.
+ *
+ * For each empty fleet (no units) in a land/lake-adjacent region,
+ * finds a pirate fleet with >= 20 crew and splits 10–15% (min 1) of
+ * pirates into the captured vessel. If the seized ship bears a generic
+ * name (matching an IT_SHIP item name, "Ship", or "Fleet"), it is
+ * renamed via getPirateShipName().
+ *
+ * Called once per turn after PirateRecruitLandCrew(), before movement.
+ */
+void Game::PirateSeizeEmptyShips()
+{
+    const int MIN_PIRATES = 20;
+
+    for (const auto r : regions) {
+        if (TerrainDefs[r->type].similar_type == R_OCEAN) continue;
+        if (TerrainDefs[r->type].similar_type == R_LAKE) continue;
+
+        // Collect empty fleets in this region
+        std::vector<Object *> empty_fleets;
+        for (const auto obj : r->objects) {
+            if (!obj->IsFleet()) continue;
+            if (!obj->units.empty()) continue;
+            empty_fleets.push_back(obj);
+        }
+        if (empty_fleets.empty()) continue;
+
+        // For each empty fleet, find one pirate fleet with enough crew
+        for (const auto target : empty_fleets) {
+            for (const auto pobj : r->objects) {
+                if (!pobj->IsFleet()) continue;
+
+                Unit *pirate_unit = nullptr;
+                for (const auto u : pobj->units) {
+                    if (!u->faction->is_npc) continue;
+                    int n = u->items.GetNum(I_PIRATES);
+                    if (n >= MIN_PIRATES) { pirate_unit = u; break; }
+                }
+                if (!pirate_unit) continue;
+
+                int current = pirate_unit->items.GetNum(I_PIRATES);
+                int pct = 10 + rng::get_random(6);  // 10–15%
+                // At least 2 taken from original fleet
+                int split = std::max(2, current * pct / 100);
+                // Recruits bring the boarding crew up to 4 minimum
+                int bonus = std::max(0, 4 - split);
+                int total = split + bonus;
+
+                pirate_unit->items.SetNum(I_PIRATES, current - split);
+
+                // Spawn new crew as owner of the seized fleet
+                Faction *monfac = GetFaction(factions, monfaction);
+                Unit *crew = GetNewUnit(monfac, 0);
+                crew->MakeWMon("Pirates", I_PIRATES, total);
+                crew->free = Globals->MONSTER_SPOILS_RECOVERY;
+                crew->MoveUnit(target);
+                crew->UpdateMonsterDescription();
+
+                // Rename if generic ship/fleet name (default names players rarely keep)
+                static const std::initializer_list<std::string_view> kGenericPrefixes = {
+                    "Ship", "Fleet", "Raft", "Longship", "Cog",
+                    "Galleon", "Galley", "Clipper", "Skyship", "Balloon"
+                };
+                bool generic = false;
+                for (auto p : kGenericPrefixes) {
+                    if (target->name.starts_with(p)) { generic = true; break; }
+                }
+
+                std::string old_name = target->name;
+                if (generic) target->set_name(getPirateShipName());
+
+                logger::write("PirateSeizeEmptyShips: \"" + pobj->name + "\""
+                    + " at " + r->short_print()
+                    + " seized \"" + old_name + "\""
+                    + (generic ? " → \"" + target->name + "\"" : "")
+                    + " — boarding crew " + std::to_string(total)
+                    + " (" + std::to_string(split) + " split"
+                    + (bonus > 0 ? "+" + std::to_string(bonus) + " recruits" : "")
+                    + ", " + std::to_string(pct) + "%"
+                    + ", was " + std::to_string(current)
+                    + ", remaining " + std::to_string(current - split) + ")");
+
+                break;  // one pirate fleet per empty ship
+            }
+        }
+    }
 }

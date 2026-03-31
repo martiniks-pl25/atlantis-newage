@@ -738,7 +738,7 @@ Army::Army(Unit *ldr, std::list<Location *>& locs, int regtype, int ass)
                 if (IsSoldier(it->type)) {
                     for (int i = 0; i < it->num; i++) {
                         ItemType &item = ItemDefs[ it->type ];
-                        if (((item.type & IT_MAN) || (item.flags & ItemType::MANPRODUCE)) && u->GetFlag(FLAG_BEHIND)) {
+                        if (((item.type & IT_MAN) || (item.flags & ItemType::MANPRODUCE) || (item.flags & ItemType::BEHIND_CAPABLE)) && u->GetFlag(FLAG_BEHIND)) {
                             --y;
                             soldiers[y] = new Soldier(u, obj, regtype, it->type);
                             hitstotal += soldiers[y]->hits;
@@ -934,6 +934,8 @@ void Army::Lose(Battle *b, ItemList& spoils)
     // Track chosen item types per monster unit to limit spoils variety.
     // Each unit builds its own pool; soldiers from the same unit share it.
     std::map<Unit*, std::set<int>> unit_chosen_types;
+    int pirate_tmap_chance = 0;
+    bool had_pirates = false;
     for (int i=0; i<count; i++) {
         Soldier *s = soldiers[i];
         if (i < notbehind) {
@@ -941,9 +943,25 @@ void Army::Lose(Battle *b, ItemList& spoils)
         } else {
             if ((s->unit->type==U_WMON) && (ItemDefs[s->race].type&IT_MONSTER))
                 GetMonSpoils(spoils, s->race, s->unit->free, unit_chosen_types[s->unit]);
+            // Pirate special loot must be collected before Dead() zeroes item counts
+            if (s->race == I_PIRATE_CAPTAIN) {
+                spoils.SetNum(I_COMPASS, spoils.GetNum(I_COMPASS) + 1);
+                pirate_tmap_chance += 20;
+            } else if (s->race == I_PIRATE_BOSUN) {
+                if (rng::get_random(100) < 50)
+                    spoils.SetNum(I_BOSUN_WHISTLE, spoils.GetNum(I_BOSUN_WHISTLE) + 1);
+                pirate_tmap_chance += 20;
+            } else if (s->race == I_PIRATES) {
+                had_pirates = true;
+            }
             s->Dead();
         }
         delete s;
+    }
+    if (had_pirates) pirate_tmap_chance += 10;
+    if (pirate_tmap_chance > 0 && rng::get_random(100) < pirate_tmap_chance) {
+        spoils.SetNum(I_TREASURE_MAP, spoils.GetNum(I_TREASURE_MAP) + 1);
+        b->AddLine("Searching the pirate vessel, the victors discover a weathered treasure map hidden below deck.");
     }
 }
 

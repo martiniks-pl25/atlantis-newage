@@ -159,7 +159,19 @@ Location *Game::Do1SailOrder(ARegion *reg, Object *fleet, Unit *cap)
     ARegion *newreg;
     Location *loc;
 
-    fleet->movepoints += fleet->GetFleetSpeed(0);
+    // NPC fleets bypass sailor skill check and use raw ship speed
+    bool is_npc = cap->faction->is_npc;
+    if (is_npc) {
+        // Use the slowest ship's raw speed, ignoring crew skill
+        int npc_speed = Globals->MAX_SPEED;
+        for (int item = 0; item < NITEMS; item++) {
+            if (fleet->GetNumShips(item) > 0 && ItemDefs[item].speed < npc_speed)
+                npc_speed = ItemDefs[item].speed;
+        }
+        fleet->movepoints += npc_speed;
+    } else {
+        fleet->movepoints += fleet->GetFleetSpeed(0);
+    }
     stop = 0;
     wgt = 0;
     slr = 0;
@@ -181,10 +193,12 @@ Location *Game::Do1SailOrder(ARegion *reg, Object *fleet, Unit *cap)
         stop = 1;
     } else if (!o->dirs.size()) {
         stop = 1;
-    } else if (wgt > fleet->FleetCapacity()) {
+    } else if (!is_npc && wgt > fleet->FleetCapacity()) {
+        // NPC fleets skip overload check
         cap->error("SAIL: Fleet is overloaded.");
         stop = 1;
-    } else if (slr < fleet->GetFleetSize()) {
+    } else if (!is_npc && slr < fleet->GetFleetSize()) {
+        // NPC fleets skip sailor count check
         cap->error("SAIL: Not enough sailors.");
         stop = 1;
     } else {
@@ -1557,6 +1571,13 @@ void Game::DoMoveEnter(Unit *unit, ARegion *region)
                 forbid = to->ForbiddenBy(region, unit);
             }
             if (done) continue;
+
+            // Verify the target object still exists — NPC fleets are destroyed
+            // immediately when all pirates die, so 'to' may be a dangling pointer
+            if (std::find(region->objects.begin(), region->objects.end(), to) == region->objects.end()) {
+                unit->event("The pirate vessel has sunk.", "movement");
+                continue;
+            }
 
             unit->MoveUnit(to);
             unit->event("Enters " + to->name + ".", "movement");

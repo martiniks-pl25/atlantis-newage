@@ -347,6 +347,11 @@ class ARegion
         void AddMenMarket();
         void SetupTradeMarkets(const std::vector<int>& buy_items, const std::vector<int>& sell_items);
         void SetupRandomTradeMarkets();
+        // Town creation (public to allow ruleset setup and unit tests)
+        void add_town();
+        void add_town(int size);
+        void add_town(const std::string& name);
+        void add_town(int size, const std::string& name);
     private:
         /* Private Setup Functions */
         void SetupPop();
@@ -354,10 +359,6 @@ class ARegion
         void SetIncome();
         void Grow();
         void SetupCityMarket();
-        void add_town();
-        void add_town(int size);
-        void add_town(const std::string& name);
-        void add_town(int size, const std::string& name);
         void MakeLair(int);
         void LairCheck();
         std::vector<int> GetPossibleLairs();

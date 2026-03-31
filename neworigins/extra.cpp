@@ -1601,7 +1601,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainWMons(R_TUNDRA,8,I_PBEAR,I_IWURM,I_YETI);
 
     ModifyTerrainWMons(R_VOLCANO,12,I_IMP,I_IFRIT,I_DEMON);
-    ModifyTerrainWMons(R_LAKE,4,I_PIRATES,I_ELEMENTAL,I_MERFOLK);
+    ModifyTerrainWMons(R_LAKE,4,I_MERFOLK,I_ELEMENTAL,I_MERFOLK);
 
     ModifyTerrainWMons(R_CAVERN,12,I_RAT,I_DRAGON,I_GOBLIN);
     ModifyTerrainWMons(R_UFOREST,12,I_SPIDER,I_DRAGON,I_TROLL);
@@ -1790,7 +1790,7 @@ void Game::ModifyTablesPerRuleset(void)
     modify_monster_threat("EAGL",  1,   20);  // Eagle
 
     // Sea creatures
-    modify_monster_threat("PIRA",  20,  30);  // Pirates
+    modify_monster_threat("PIRA",  20,  25);  // Pirates
     modify_monster_threat("KRAK",  1,   50);  // Kraken
     modify_monster_threat("MERF",  100, 25);  // Merfolk
     modify_monster_threat("ELEM",  7,   35);  // Living Water
@@ -1824,12 +1824,12 @@ void Game::ModifyTablesPerRuleset(void)
     modify_monster_spoils("GRAT",  70,   IT_NORMAL);           // Pack of Rats        (default: 30,  -1)
     modify_monster_spoils("GSPI",  300,  IT_NORMAL);           // Giant Spiders       (default: 300, -1)
     modify_monster_spoils("GLIZ",  400,  IT_NORMAL);           // Giant Lizards       (default: 400, -1)
-    modify_monster_spoils("TREN",  500,  IT_ADVANCED);  // Living Trees        (default: 600, IT_ADVANCED)
+    modify_monster_spoils("TREN",  800,  IT_ADVANCED);  // Living Trees        (default: 600, IT_ADVANCED)
     modify_monster_spoils("ROC",   1200, IT_ADVANCED);  // Giant Birds         (default: 1500, IT_ADVANCED)
-    modify_monster_spoils("BOGT",  1500, IT_ADVANCED);  // Swamp Creatures     (default: 2000, IT_ADVANCED)
+    modify_monster_spoils("BOGT",  1200, IT_ADVANCED);  // Swamp Creatures     (default: 2000, IT_ADVANCED)
     modify_monster_spoils("KONG",  2000, IT_ADVANCED);  // Great Apes          (default: 2500, IT_ADVANCED)
     modify_monster_spoils("SPHI",  4000, IT_ADVANCED);  // Sphinx              (default: 5000, IT_ADVANCED)
-    modify_monster_spoils("ICEW",  500,  IT_ADVANCED);  // Ice Wurms           (default: 500,  IT_ADVANCED)
+    modify_monster_spoils("ICEW",  800,  IT_ADVANCED);  // Ice Wurms           (default: 500,  IT_ADVANCED)
     modify_monster_spoils("DRAG",  8000, IT_MAGIC);     // Dragon              (default: 8000, IT_MAGIC)
     modify_monster_spoils("WYVR",  3000, IT_ADVANCED);  // Wyvern              (default: 3000, IT_ADVANCED)
 

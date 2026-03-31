@@ -43,28 +43,6 @@ ut::suite<"PirateRaid"> pirate_raid_suite = [] {
     };
 
     // ---------------------------------------------------------------
-    // moved > 0: pirates that moved this turn do NOT raid
-    // ---------------------------------------------------------------
-    "Pirates do not raid if they moved this turn"_test = [] {
-        UnitTestHelper helper;
-        helper.initialize_game();
-        helper.setup_turn();
-
-        ARegion *r = helper.get_region(0, 0, 0);
-        r->type = R_PLAIN;
-
-        Unit *pirates = helper.create_pirate_unit(r, 100);
-        pirates->moved = 5;  // simulate that they moved this turn
-
-        Object *farm = make_empty_building(r, O_FARM);
-        int initial = farm->incomplete;
-
-        helper.run_pirate_raid(r, pirates);
-
-        expect(farm->incomplete == initial) << "farm must not be damaged when pirates moved this turn";
-    };
-
-    // ---------------------------------------------------------------
     // Ocean region: no raid
     // ---------------------------------------------------------------
     "Pirates do not raid in ocean regions"_test = [] {

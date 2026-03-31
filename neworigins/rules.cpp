@@ -33,11 +33,11 @@
 // the html file containing the rules to correctly reflect the changes!
 //
 
-static int am[] = { 1, 2, 3, 4, 5, 6 };
+static int am[] = { 4, 4, 4, 5, 5, 5 };
 int *allowedMages = am;
 int allowedMagesSize = sizeof(am) / sizeof(am[0]);
 
-static int aa[] = { 1, 3, 5, 7, 10, 15 };
+static int aa[] = { 8, 8, 8, 10, 10, 10 };
 int *allowedApprentices = aa;
 int allowedApprenticesSize = sizeof(aa) / sizeof(aa[0]);
 
@@ -49,7 +49,7 @@ static int at[] = { 0, 15, 30, 50, 75, 100 };
 int *allowedTrades = at;
 int allowedTradesSize = sizeof(at) / sizeof(at[0]);
 
-static int aq[] = { 0, 2, 5, 9, 14, 25 };
+static int aq[] = { 8, 8, 8, 16, 16, 16 };
 int *allowedQuartermasters = aq;
 int allowedQuartermastersSize = sizeof(aq) / sizeof(aq[0]);
 
@@ -59,7 +59,7 @@ int *allowedTacticians = ag;
 int allowedTacticiansSize = sizeof(ag) / sizeof(ag[0]);
 
 // allowed Martial activity
-static int ma[] = { 0, 10, 25, 40, 60, 90 };
+static int ma[] = { 28, 28, 28, 56, 56, 56 };
 int *allowedMartial = ma;
 int allowedMartialSize = sizeof(ma) / sizeof(ma[0]);
 

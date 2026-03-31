@@ -2127,3 +2127,66 @@ std::string getRiverName(const int size, const int min, const int max) {
 
     return s;
 }
+
+// ---------------------------------------------------------------------------
+// Pirate names
+// ---------------------------------------------------------------------------
+
+static const std::vector<std::string> aPirateFirst = {
+    // Norse
+    "Bjorn", "Erik", "Ivar", "Ragnvald", "Ulf", "Harald", "Leif", "Sigurd", "Gunnar", "Thorvald",
+    // English
+    "Blackwood", "Crane", "Drake", "Fenn", "Hawke", "Mercer", "Quinn", "Stone", "Thorne", "Vane",
+    // Caribbean/Mediterranean
+    "Rodrigo", "Cortez", "Salazar", "Remy", "Delacroix",
+    // Classical/poetic
+    "Orion", "Cassian", "Morrow", "Aldric", "Sable"
+};
+static const std::vector<std::string> aPirateEpithet = {
+    // Classic pirate
+    "Ironjaw", "Blacktide", "Saltbeard", "Bloodwave", "Ironhook", "Silvertooth",
+    "Redcoat", "Stormcrow", "Serpent", "Scarhand", "the Fearless", "the Merciless",
+    "the Bold", "the Cunning", "the Swift",
+    // Romantic/poetic
+    "the Wanderer", "the Forsaken", "the Lost", "of the Deep", "Dawnbreaker",
+    "Starsailor", "the Dreamer", "Wavesong", "the Forgotten", "Tidecaller"
+};
+
+/**
+ * @brief Generates a pirate personal name: "<FirstName> <Epithet>"
+ * @return e.g. "Bjorn Ironjaw", "Drake the Bold"
+ */
+std::string getPirateName() {
+    return rng::one_of(aPirateFirst) + " " + rng::one_of(aPirateEpithet);
+}
+
+static const std::vector<std::string> aPirateShipAdj = {
+    // Classic dark/menacing
+    "Black", "Iron", "Red", "Dark", "Blood", "Shadow", "Storm", "Crimson", "Dead", "Ghost",
+    "Broken", "Rusted", "Grim", "Bitter", "Salt",
+    // Serious/foreboding
+    "Cursed", "Dread", "Silver", "Pale", "Savage", "Hollow", "Foul", "Ancient", "Cold", "Wicked",
+    // Humorous
+    "Soggy", "Leaky", "Grumpy", "Wobbly", "Tipsy", "Greasy", "Bloated", "Cranky", "Scruffy",
+    // Romantic/poetic
+    "Wandering", "Forsaken", "Restless", "Starlit"
+};
+static const std::vector<std::string> aPirateShipNoun = {
+    // Classic nautical/pirate
+    "Tide", "Skull", "Wave", "Serpent", "Kraken", "Claw", "Anchor",
+    "Reef", "Wind", "Horizon", "Cutlass", "Gallows", "Plank", "Marrow", "Compass",
+    // Serious/foreboding
+    "Blade", "Curse", "Bones", "Fog", "Abyss", "Doom", "Raven", "Brine", "Wake", "Dagger",
+    // Humorous
+    "Grog", "Barnacle", "Splinter", "Bilge", "Pickle", "Swab", "Parrot", "Biscuit", "Scoundrel",
+    // Romantic/poetic
+    "Dawn", "Sorrow", "Requiem", "Voyage"
+};
+
+/**
+ * @brief Generates a pirate ship/fleet name: "<Adj> <Noun>"
+ * @return e.g. "Black Tide", "Iron Skull"
+ */
+std::string getPirateShipName() {
+    return (rng::one_of(aPirateShipAdj) + " " + rng::one_of(aPirateShipNoun)) | filter::title_case;
+}

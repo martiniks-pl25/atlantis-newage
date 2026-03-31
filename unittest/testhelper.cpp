@@ -129,6 +129,60 @@ void UnitTestHelper::run_pirate_raid(ARegion *r, Unit *u) {
     game.PirateRaidBuildings(r, u);
 }
 
+void UnitTestHelper::run_pirate_recruit_land_crew() {
+    game.PirateRecruitLandCrew();
+}
+
+void UnitTestHelper::run_pirate_seize_empty_ships() {
+    game.PirateSeizeEmptyShips();
+}
+
+Object *UnitTestHelper::create_empty_fleet(ARegion *region, int ship_type, const std::string& fleet_name) {
+    Object *fleet = new Object(region);
+    fleet->type = O_FLEET;
+    fleet->num = game.shipseq++;
+    fleet->set_name(fleet_name);
+    fleet->AddShip(ship_type);
+    region->objects.push_back(fleet);
+    return fleet;
+}
+
+int UnitTestHelper::run_battle(ARegion *r, Unit *attacker, Unit *target) {
+    return game.RunBattle(r, attacker, target);
+}
+
+Unit *UnitTestHelper::create_npc_pirate_fleet(ARegion *region, int pirate_count) {
+    Faction *monfac = GetFaction(game.factions, game.monfaction);
+
+    Object *fleet = new Object(region);
+    fleet->type = O_FLEET;
+    fleet->num = game.shipseq++;
+    fleet->set_name("Pirate Cog");
+    fleet->AddShip(I_COG);
+    region->objects.push_back(fleet);
+
+    Unit *pirates = game.GetNewUnit(monfac);
+    pirates->type = U_WMON;
+    pirates->guard = GUARD_AVOID;
+    pirates->SetFlag(FLAG_HOLDING, 1);
+    pirates->items.SetNum(I_PIRATES, pirate_count);
+    pirates->MoveUnit(fleet);
+    return pirates;
+}
+
+Unit *UnitTestHelper::create_npc_pirate_captain(ARegion *region, Object *fleet) {
+    Faction *monfac = GetFaction(game.factions, game.monfaction);
+
+    Unit *captain = game.GetNewUnit(monfac);
+    captain->type = U_WMON;
+    captain->guard = GUARD_AVOID;
+    captain->SetFlag(FLAG_HOLDING, 1);
+    captain->SetFlag(FLAG_BEHIND, 1);
+    captain->items.SetNum(I_PIRATE_CAPTAIN, 1);
+    captain->MoveUnit(fleet);
+    return captain;
+}
+
 Unit *UnitTestHelper::create_pirate_unit(ARegion *region, int count) {
     Faction *monfac = GetFaction(game.factions, game.monfaction);
     Unit *u = game.GetNewUnit(monfac);

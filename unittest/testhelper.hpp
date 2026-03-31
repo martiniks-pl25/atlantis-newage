@@ -86,6 +86,18 @@ public:
     void run_annihilation();
     // Run pirate raid on buildings for a specific unit
     void run_pirate_raid(ARegion *r, Unit *u);
+    // Run pirate land crew recruitment for all fleets
+    void run_pirate_recruit_land_crew();
+    // Run pirate empty ship seizure for all regions
+    void run_pirate_seize_empty_ships();
+    // Create an empty fleet (no units) in region with the given ship type and name
+    Object *create_empty_fleet(ARegion *region, int ship_type, const std::string& fleet_name = "Ship");
+    // Run a battle between attacker and target; returns BATTLE_WON/BATTLE_LOST/BATTLE_IMPOSSIBLE
+    int run_battle(ARegion *r, Unit *attacker, Unit *target);
+    // Create an NPC pirate fleet (O_FLEET + galleon + pirate unit) in region; returns the pirate unit
+    Unit *create_npc_pirate_fleet(ARegion *region, int pirate_count = 1);
+    // Create an NPC pirate captain unit inside an existing fleet object
+    Unit *create_npc_pirate_captain(ARegion *region, Object *fleet);
     // Create a wandering monster pirate unit in the given region
     Unit *create_pirate_unit(ARegion *region, int count);
     // Enable ruleset specific data for testing
@@ -102,6 +114,8 @@ public:
     void set_skill_level(Unit *unit, int skill, int level);
     // Run Grow() on a specific region (private method, exposed for testing)
     void run_grow(ARegion *region) { region->Grow(); }
+    // Run AutoNameSoloUnits() (private method, exposed for testing)
+    void run_auto_name_solo_units() { game.AutoNameSoloUnits(); }
 
     // dummy
     int get_seed() { return rng::get_random(10000); };
