@@ -971,19 +971,21 @@ void Unit::DefaultOrders(Object *obj)
                         if (!nb->IsCoastalOrLakeside()) continue;
                         // Avoid towns/cities with player guards: pirates would be destroyed.
                         // Villages are always ok; towns/cities with only NPC guards (faction 1) are ok.
-                        if (nb->town && nb->town->TownType() > TOWN_VILLAGE) {
-                            bool has_player_guard = false;
-                            for (const auto *o2 : nb->objects) {
-                                for (const auto *u2 : o2->units) {
-                                    if (u2->guard == GUARD_GUARD && u2->faction->num != 1) {
-                                        has_player_guard = true;
-                                        break;
-                                    }
-                                }
-                                if (has_player_guard) break;
-                            }
-                            if (has_player_guard) continue;
+                        auto has_player_guarded_town = [](const ARegion *r) -> bool {
+                            if (!r->town || r->town->TownType() <= TOWN_VILLAGE) return false;
+                            for (const auto *o2 : r->objects)
+                                for (const auto *u2 : o2->units)
+                                    if (u2->guard == GUARD_GUARD && u2->faction->num != 1) return true;
+                            return false;
+                        };
+                        if (has_player_guarded_town(nb)) continue;
+                        // Also avoid regions adjacent to a player-guarded town/city.
+                        bool adj_to_guarded = false;
+                        for (int d2 = 0; d2 < NDIRS; d2++) {
+                            ARegion *nb2 = nb->neighbors[d2];
+                            if (nb2 && has_player_guarded_town(nb2)) { adj_to_guarded = true; break; }
                         }
+                        if (adj_to_guarded) continue;
                         // R_LAKE has similar_type == R_OCEAN, so this covers lakes too
                         bool nb_is_water = (TerrainDefs[nb->type].similar_type == R_OCEAN);
                         // Do1SailOrder rule: land->land moves are forbidden

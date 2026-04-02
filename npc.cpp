@@ -283,7 +283,7 @@ void Game::MakeLMon(Object *pObj)
 /**
  * @brief Spawns a pirate fleet in an ocean region.
  *
- * 80% regular: Galleon + crew of pirates.
+ * 80% regular: Cog + crew of pirates.
  * 20% elite:   Galley  + crew (×3 pirates) + 1 captain + 1 bosun (both FLAG_BEHIND).
  *
  * The fleet object is named via getPirateShipName(); boss units get personal names
