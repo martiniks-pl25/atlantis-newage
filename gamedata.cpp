@@ -2435,17 +2435,18 @@ std::vector<ItemType> ItemDefs =
      0, NULL, 0,
      "", { "", "", "", "" }, 0, 0},
     // I_BOSUN_WHISTLE — bosun's command whistle
-    // Future: IT_BATTLE item giving players the demoralize special
+    // IT_MAGEONLY: grants CPIR (Call Pirates) at level = MANI skill level (1-5)
+    // Apprentice with MANI + BWHI can CAST CPIR to summon pirate fleets within MANI hexes
     {"bosun's whistle","bosun's whistles","BWHI",
      ItemType::NOMARKET,
      NULL,0,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
      NULL,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
-     1, IT_ADVANCED|IT_NEVER_SPOIL, 30,0,
+     1, IT_ADVANCED|IT_NEVER_SPOIL|IT_MAGEONLY, 30,0,
      0,0,0,0,0,
      -1,0,
      -1,0, 0,
      0, NULL, 0,
-     "", { "", "", "", "" }, 0, 0},
+     "CPIR", { "MANI", "", "", "" }, 1, 5},
     // I_TREASURE_MAP — map found on wrecked pirate ships
     // Future: quest trigger item (EXPLORE order)
     {"treasure map","treasure maps","TMAP",
@@ -3775,6 +3776,11 @@ std::vector<SkillType> SkillDefs = {
      SkillType::DISABLED | SkillType::NOSTUDY | SkillType::NOTEACH | SkillType::GRANTED,
      std::nullopt, "rng_annihilate",
      {{NULL, 0}, {NULL, 0}, {NULL, 0}}},
+    // granted by Bosun's Whistle (BWHI); level = MANI level; radius = level hexes
+    {"call pirates","CPIR",0,
+     SkillType::MAGIC | SkillType::CAST | SkillType::DISABLED | SkillType::NOSTUDY | SkillType::NOTEACH,
+     std::nullopt, std::nullopt,
+     {{NULL,0},{NULL,0},{NULL,0}}},
 };
 
 //

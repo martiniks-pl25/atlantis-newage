@@ -1397,6 +1397,10 @@ const std::string ShowSkill::Report(Faction *f) const
             ) {
                 max = 3;
             }
+            if (!(ItemDefs[I_BOSUN_WHISTLE].flags & ItemType::DISABLED) &&
+                !(SkillDefs[S_CALL_PIRATES].flags & SkillType::DISABLED)) {
+                if (max < 5) max = 5;
+            }
             if (level == max) str += "Continued study of this skill gives no further advantages.";
             break;
         case S_WEAPONCRAFT:

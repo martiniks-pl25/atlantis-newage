@@ -3,6 +3,9 @@
 
 #include "string_parser.hpp"
 
+#include <queue>
+#include <unordered_map>
+
 using namespace std;
 
 static int RandomiseSummonAmount(int num)
@@ -82,6 +85,7 @@ void Game::ProcessCastOrder(Unit *u, parser::string_parser& parser, orders_check
         case S_CREATE_CENSER:
         case S_BLASPHEMOUS_RITUAL:
         case S_PHANTASMAL_ENTERTAINMENT:
+        case S_CALL_PIRATES:
             ProcessGenericSpell(u, sk, checker);
             break;
         case S_CLEAR_SKIES:
@@ -687,6 +691,9 @@ void Game::RunACastOrder(ARegion * r,Object *o,Unit * u)
             break;
         case S_EARTH_LORE:
             val = RunEarthLore(r,u);
+            break;
+        case S_CALL_PIRATES:
+            val = RunCallPirates(r,u);
             break;
         case S_WEATHER_LORE:
             val = RunWeatherLore(r, u);
@@ -1998,4 +2005,175 @@ void Game::RunTeleportOrders()
             }
         }
     }
+}
+
+/**
+ * @brief Summons nearby pirate fleets to sail toward the caster.
+ *
+ * Triggered by CAST CPIR. Level = GetSkill(S_CALL_PIRATES) which equals the
+ * caster's MANI level (granted via I_BOSUN_WHISTLE grantSkill mechanism).
+ *
+ * Algorithm:
+ *   1. BFS from caster's region through valid ocean/coastal cells up to `level` hops,
+ *      building a distance map. Same movement constraints as pirate DefaultOrders.
+ *   2. For each NPC pirate fleet found in that map: build a directed SailOrder
+ *      following decreasing BFS-distance (shortest ocean path toward caster).
+ *   3. Replace the fleet owner's monthorders — RunMovementOrders() later in the
+ *      same turn executes the new SailOrder.
+ *
+ * Movement rules applied (same as pirate DefaultOrders):
+ *   - Destination must be IsCoastalOrLakeside()
+ *   - has_player_guarded_town(): TOWN/CITY with player guard — skip (and adjacent land)
+ *   - Coastal-to-coastal hop forbidden (Do1SailOrder rule)
+ *   - Stop at coastal land (ship has landed, no further hops that turn)
+ *
+ * @param r  Region where the caster is located
+ * @param u  Casting unit (U_APPRENTICE or U_MAGE with I_BOSUN_WHISTLE)
+ * @return 1 always (spell always resolves)
+ */
+int Game::RunCallPirates(ARegion *r, Unit *u)
+{
+    int level = u->GetSkill(S_CALL_PIRATES);
+
+    auto has_player_guarded_town = [](const ARegion *rg) -> bool {
+        if (!rg->town || rg->town->TownType() <= TOWN_VILLAGE) return false;
+        for (const auto *o2 : rg->objects)
+            for (const auto *u2 : o2->units)
+                if (u2->guard == GUARD_GUARD && u2->faction->num != 1) return true;
+        return false;
+    };
+
+    auto is_ocean = [](const ARegion *rg) -> bool {
+        return TerrainDefs[rg->type].similar_type == R_OCEAN;
+    };
+
+    // === BFS from caster: build distance map over valid ocean/coastal cells ===
+    unordered_map<ARegion*, int> dist;
+    queue<ARegion*> bfsq;
+    dist[r] = 0;
+    bfsq.push(r);
+
+    while (!bfsq.empty()) {
+        ARegion *cur = bfsq.front(); bfsq.pop();
+        int d = dist[cur];
+        if (d >= level) continue;
+
+        bool cur_is_ocean = is_ocean(cur);
+
+        for (int dir = 0; dir < NDIRS; dir++) {
+            ARegion *nb = cur->neighbors[dir];
+            if (!nb || dist.count(nb)) continue;
+            if (!nb->IsCoastalOrLakeside()) continue;
+            if (has_player_guarded_town(nb)) continue;
+
+            bool nb_is_ocean = is_ocean(nb);
+            if (!nb_is_ocean) {
+                bool adj_guarded = false;
+                for (int d2 = 0; d2 < NDIRS; d2++) {
+                    ARegion *nb2 = nb->neighbors[d2];
+                    if (nb2 && has_player_guarded_town(nb2)) { adj_guarded = true; break; }
+                }
+                if (adj_guarded) continue;
+            }
+
+            if (!cur_is_ocean && !nb_is_ocean) continue; // coastal→coastal forbidden
+
+            dist[nb] = d + 1;
+            bfsq.push(nb);
+        }
+    }
+
+    // === Find NPC pirate fleets in BFS area, redirect toward caster ===
+    int fleets_summoned = 0;
+
+    for (auto &[fleet_region, fleet_dist] : dist) {
+        if (fleet_dist == 0) continue; // skip caster's own region
+
+        for (auto *obj : fleet_region->objects) {
+            if (!obj->IsFleet()) continue;
+            Unit *owner = obj->GetOwner();
+            if (!owner || !owner->faction->is_npc) continue;
+            if (owner->items.GetNum(I_PIRATES) <= 0) continue;
+
+            // Build directed SailOrder: follow BFS gradient toward caster
+            auto *so = new SailOrder;
+            ARegion *cur = fleet_region;
+            bool cur_is_ocean = is_ocean(cur);
+
+            for (int step = 0; step < fleet_dist; step++) {
+                int cur_dist = dist.at(cur);
+                if (cur_dist == 0) break; // reached caster
+
+                int best_dist = cur_dist;
+                int best_dir = -1;
+
+                for (int dir = 0; dir < NDIRS; dir++) {
+                    ARegion *nb = cur->neighbors[dir];
+                    if (!nb || !dist.count(nb)) continue;
+                    int nb_dist = dist.at(nb);
+                    if (nb_dist >= cur_dist) continue; // must make progress
+
+                    if (!nb->IsCoastalOrLakeside()) continue;
+                    if (has_player_guarded_town(nb)) continue;
+
+                    bool nb_is_ocean = is_ocean(nb);
+                    if (!nb_is_ocean) {
+                        bool adj_guarded = false;
+                        for (int d2 = 0; d2 < NDIRS; d2++) {
+                            ARegion *nb2 = nb->neighbors[d2];
+                            if (nb2 && has_player_guarded_town(nb2)) { adj_guarded = true; break; }
+                        }
+                        if (adj_guarded) continue;
+                    }
+
+                    if (!cur_is_ocean && !nb_is_ocean) continue; // coastal→coastal forbidden
+
+                    if (nb_dist < best_dist) {
+                        best_dist = nb_dist;
+                        best_dir = dir;
+                    }
+                }
+
+                if (best_dir == -1) break; // no valid move toward caster
+
+                auto *md = new MoveDir;
+                md->dir = best_dir;
+                so->dirs.push_back(md);
+
+                cur = cur->neighbors[best_dir];
+                cur_is_ocean = is_ocean(cur);
+                if (!cur_is_ocean) break; // landed on coastal — stop
+            }
+
+            if (so->dirs.empty()) {
+                delete so;
+                continue;
+            }
+
+            // "Closest wins": only redirect if no other whistle has claimed this fleet
+            // at an equal or shorter distance this turn.
+            auto claim_it = whistle_claims.find(owner);
+            if (claim_it != whistle_claims.end() && claim_it->second <= fleet_dist) {
+                delete so;
+                continue; // another caster is closer (or equal-distance, first-wins)
+            }
+            whistle_claims[owner] = fleet_dist;
+
+            if (owner->monthorders) delete owner->monthorders;
+            owner->monthorders = so;
+            fleets_summoned++;
+        }
+    }
+
+    if (fleets_summoned > 0) {
+        u->event("Calls pirates within " + to_string(level) + " hex" +
+                 (level > 1 ? "es" : "") + ", summoning " +
+                 to_string(fleets_summoned) + " fleet" +
+                 (fleets_summoned > 1 ? "s" : "") + ".", "spell");
+    } else {
+        u->event("Calls pirates within " + to_string(level) + " hex" +
+                 (level > 1 ? "es" : "") + ", but no pirate fleets respond.", "spell");
+    }
+
+    return 1;
 }

@@ -1181,6 +1181,7 @@ void Game::ModifyTablesPerRuleset(void)
     EnableSkill(S_CREATE_CENSER);
     EnableSkill(S_CREATE_FLAMING_SWORD);
     EnableSkill(S_TRANSMUTATION);
+    EnableSkill(S_CALL_PIRATES);
     DisableSkill(S_CAMELTRAINING);
     DisableSkill(S_RANCHING);
 

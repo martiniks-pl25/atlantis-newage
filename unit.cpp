@@ -979,15 +979,18 @@ void Unit::DefaultOrders(Object *obj)
                             return false;
                         };
                         if (has_player_guarded_town(nb)) continue;
-                        // Also avoid regions adjacent to a player-guarded town/city.
-                        bool adj_to_guarded = false;
-                        for (int d2 = 0; d2 < NDIRS; d2++) {
-                            ARegion *nb2 = nb->neighbors[d2];
-                            if (nb2 && has_player_guarded_town(nb2)) { adj_to_guarded = true; break; }
-                        }
-                        if (adj_to_guarded) continue;
                         // R_LAKE has similar_type == R_OCEAN, so this covers lakes too
                         bool nb_is_water = (TerrainDefs[nb->type].similar_type == R_OCEAN);
+                        // Avoid land coastal regions adjacent to a player-guarded town/city.
+                        // Ocean/lake regions are not blocked — pirates can sail through open water freely.
+                        if (!nb_is_water) {
+                            bool adj_to_guarded = false;
+                            for (int d2 = 0; d2 < NDIRS; d2++) {
+                                ARegion *nb2 = nb->neighbors[d2];
+                                if (nb2 && has_player_guarded_town(nb2)) { adj_to_guarded = true; break; }
+                            }
+                            if (adj_to_guarded) continue;
+                        }
                         // Do1SailOrder rule: land->land moves are forbidden
                         if (!cur_is_ocean && !nb_is_water) continue;
                         // Ocean neighbors are preferred (2x weight), others 1x

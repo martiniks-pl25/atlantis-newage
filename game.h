@@ -18,6 +18,7 @@ using json = nlohmann::json;
 
 #include <map>
 #include <string>
+#include <unordered_map>
 
 #define CURRENT_ATL_VER MAKE_ATL_VER(5, 2, 5)
 #define JSON_REPORT_VERSION MAKE_ATL_VER(1, 0, 1) // version 1.0.0 didn't report the version number
@@ -317,6 +318,11 @@ private:
     int guardfaction;
     int monfaction;
     int doExtraInit;
+
+    // Per-turn claim map for CAST CPIR: fleet owner → best (smallest) BFS distance claimed.
+    // Populated and cleared inside RunCastOrders(). Ensures "closest apprentice wins"
+    // when multiple BWHI-users cast in the same turn.
+    std::unordered_map<Unit *, int> whistle_claims;
 
     Events *events;
 

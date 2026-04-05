@@ -48,7 +48,9 @@ void Game::RunOrders()
     DoGuard1Orders();
     logger::write("Running Magic Orders...");
     ClearCastEffects();
+    whistle_claims.clear();
     RunCastOrders();
+    whistle_claims.clear();
     logger::write("Running SELL Orders...");
     RunSellOrders();
     logger::write("Running BUY Orders...");

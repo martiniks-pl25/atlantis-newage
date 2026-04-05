@@ -240,6 +240,9 @@ void UnitTestHelper::activate_spell(int spell, SpellTestHelper helper) {
         case S_TRANSMUTATION:
             game.RunTransmutation(helper.region, helper.unit);
             break;
+        case S_CALL_PIRATES:
+            game.RunCallPirates(helper.region, helper.unit);
+            break;
     }
 }
 
