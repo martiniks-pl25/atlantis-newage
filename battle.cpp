@@ -201,8 +201,18 @@ void Battle::DoAttack(int round, Soldier *a, Army *attackers, Army *def,
                     else tot += num;
                 }
             }
-            if (tot != -1)
-                AddLine(a->name + " " + spd.spelldesc + ", " + spd.spelldesc2 + std::to_string(tot) + spd.spelltarget + ".");
+            // Accumulate mount special results for the round; zero hits are
+            // silently dropped. FlushMountSpecials() prints one summary line per
+            // unit after all attacks in the round are done.
+            if (tot > 0) {
+                std::string key = a->name + "|" + std::string(mount.mountSpecial);
+                auto& acc = mountSpecialAccum[key];
+                acc.unitName   = a->name;
+                acc.spelldesc  = spd.spelldesc;
+                acc.spelldesc2 = spd.spelldesc2;
+                acc.spelltarget = spd.spelltarget;
+                acc.total += tot;
+            }
         }
     }
     if (!def->NumAlive()) return;
@@ -297,6 +307,7 @@ void Battle::NormalRound(int round,Army * a,Army * b)
         aatt = a->CanAttack();
         batt = b->CanAttack();
     }
+    FlushMountSpecials();
     AddLine("");
 
     /* Finish round */
@@ -675,6 +686,15 @@ void Battle::build_json_report(json& j, Faction *fac) {
 
 void Battle::AddLine(const std::string& line) {
     text.push_back(line);
+}
+
+void Battle::FlushMountSpecials() {
+    for (auto& [key, acc] : mountSpecialAccum) {
+        if (acc.total > 0)
+            AddLine(acc.unitName + " " + acc.spelldesc + ", "
+                + acc.spelldesc2 + std::to_string(acc.total) + acc.spelltarget + ".");
+    }
+    mountSpecialAccum.clear();
 }
 
 void Game::GetDFacs(ARegion * r, Unit * t, std::set<Faction *>& facs)

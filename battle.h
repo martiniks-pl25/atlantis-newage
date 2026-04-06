@@ -9,6 +9,7 @@ class Battle;
 #include "army.h"
 #include "items.h"
 #include "events.h"
+#include <map>
 #include <vector>
 
 class Location;
@@ -66,6 +67,30 @@ class Battle
         Faction * attacker; /* Only matters in the case of an assassination */
         std::string asstext;
         std::vector<std::string> text;
+
+    private:
+        /**
+         * @brief Accumulator for mount special effect messages within one round.
+         *
+         * Mount specials (e.g. camel "spook" that panics enemy horses) are triggered
+         * once per attacking soldier, so a unit of 100 camels would produce 100 separate
+         * lines per round. To avoid this spam, results are aggregated here during the
+         * attack loop and flushed as a single summary line per unit at end of round.
+         *
+         * Key: "<unit_name>|<special_name>" — groups all soldiers of the same unit
+         * with the same mount special.
+         * Value: accumulated total hits and message template fields.
+         *
+         * Zero-result entries (tot == 0, e.g. all spooks deflected) are silently
+         * discarded in FlushMountSpecials() and never appear in the report.
+         */
+        struct MountSpecialAccum {
+            std::string unitName;
+            std::string spelldesc, spelldesc2, spelltarget;
+            int total = 0;
+        };
+        std::map<std::string, MountSpecialAccum> mountSpecialAccum;
+        void FlushMountSpecials();
 };
 
 #endif // BATTLE_H
