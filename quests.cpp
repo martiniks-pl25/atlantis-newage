@@ -87,6 +87,9 @@ int QuestList::read_quests(std::istream& f)
                 f >> quest->target;
                 f >> quest->regionnum;
                 break;
+            case Quest::HUNT_PIRATE:
+                f >> quest->target;
+                break;
             default:
                 logger::write("Warning: quest " + std::to_string(quest_index) + " has unknown type " +
                               std::to_string(quest->type) + ", skipping");
@@ -150,6 +153,9 @@ void QuestList::write_quests(std::ostream& f)
                 f << q->target << '\n';
                 f << q->regionnum << '\n';
                 break;
+            case Quest::HUNT_PIRATE:
+                f << q->target << '\n';
+                break;
             default:
                 f << q->target << '\n';
                 q->objective.Writeout(f);
@@ -182,7 +188,7 @@ std::string QuestList::distribute_rewards(Unit *u, std::shared_ptr<Quest> q)
 int QuestList::check_kill_target(Unit *u, ItemList& reward, std::string *quest_rewards)
 {
     for(auto q: quests) {
-        if (q->type == Quest::SLAY && q->target == u->num) {
+        if ((q->type == Quest::SLAY || q->type == Quest::HUNT_PIRATE) && q->target == u->num) {
             // This dead thing was the target of a quest!
             for(auto i: q->rewards) {
                 reward.SetNum(i.type, reward.GetNum(i.type) + i.num);

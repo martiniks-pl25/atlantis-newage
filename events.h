@@ -26,6 +26,7 @@ enum EventCategory {
     EVENT_ANOMALY,
     EVENT_GUARD_REPUTATION,
     EVENT_SETTLEMENT_STATS,
+    EVENT_PIRATE_SIGHTING,
 };
 
 struct Event {
@@ -48,7 +49,8 @@ public:
 
     std::string Write(std::string worldName, std::string month, int year);
     std::string WriteJSON(std::string worldName, std::string month, int year,
-                          std::vector<std::pair<int,std::string>> wanted);
+                          std::vector<std::pair<int,std::string>> wanted,
+                          std::vector<std::string> pirate_context = {});
 
     void AddFact(FactBase *fact);
 
@@ -196,10 +198,22 @@ struct SettlementOwner {
     int total = 0;
 };
 
+class PirateSightingFact : public FactBase {
+public:
+    PirateSightingFact() = default;
+    ~PirateSightingFact() override = default;
+    void GetEvents(std::list<Event> &events) override;
+
+    std::string ship_name;
+    std::string captain_name;
+    std::string terrain_name;
+    std::string region_name;
+};
+
 class SettlementStatsFact : public FactBase {
     public:
         SettlementStatsFact();
-        ~SettlementStatsFact();
+        ~SettlementStatsFact() override;
 
         void GetEvents(std::list<Event> &events) override;
 

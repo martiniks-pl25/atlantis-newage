@@ -526,8 +526,19 @@ private:
     void PirateRaidBuildings(ARegion *r, Unit *u);
     // Pirates recruit new crew when docked on land (before movement phase)
     void PirateRecruitLandCrew();
+
+    // Pirate activity context collected during turn processing for AI gazette content.
+    // Elite = named ships with a captain (I_PIRATE_CAPTAIN).
+    // Populated by PirateRaidBuildings() and PirateRecruitLandCrew().
+    // Consumed (and cleared) by WriteNewspaper() → serialized as "pirate_context" in times.json.
+    std::vector<std::string> pirate_context_elite;
+    std::vector<std::string> pirate_context_regular;
     // Pirates seize empty ships docked in the same non-ocean region
     void PirateSeizeEmptyShips();
+    // Try to create a HUNT_PIRATE quest for the given captain (35% spawn-time chance)
+    void TryCreatePirateHuntQuest(Unit *cap);
+    // Each turn: fill open HUNT_PIRATE quest slots from uncovered captains (50% chance/slot)
+    void EnsureElitePirateQuests();
 
     //
     // CheckVictory is used to see if the game is over.

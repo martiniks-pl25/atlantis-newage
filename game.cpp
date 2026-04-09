@@ -7,6 +7,7 @@
 #include <iostream>
 #include <fstream>
 #include <filesystem>
+#include <algorithm>
 #include <string.h>
 #include <ctime>
 
@@ -1172,10 +1173,41 @@ void Game::WriteWorldEvents() {
     this->events->AddFact(sf);
     // --- End settlement ownership ---
 
+    // --- Pirate sightings: report every active elite captain in the gazette ---
+    for (const auto reg : regions) {
+        for (const auto obj : reg->objects) {
+            if (obj->type != O_FLEET) continue;
+            for (const auto u : obj->units) {
+                if (u->faction->num != monfaction) continue;
+                if (u->items.GetNum(I_PIRATE_CAPTAIN) == 0) continue;
+                auto *ps = new PirateSightingFact();
+                ps->ship_name    = obj->name;
+                ps->captain_name = u->name;
+                ps->terrain_name = TerrainDefs[TerrainDefs[reg->type].similar_type].name;
+                ps->region_name  = reg->name;
+                this->events->AddFact(ps);
+            }
+        }
+    }
+    // --- End pirate sightings ---
+
     auto wanted = CollectWanted();
 
+    // Build pirate_context for AI gazette generation:
+    // All elite events (named ships) + random fill from regular up to 15 total.
+    std::vector<std::string> pirate_context = pirate_context_elite;
+    if ((int)pirate_context_regular.size() > 1)
+        std::shuffle(pirate_context_regular.begin(), pirate_context_regular.end(),
+                     std::default_random_engine(rng::get_random(100000)));
+    int fill = std::max(0, 15 - (int)pirate_context.size());
+    int take = std::min(fill, (int)pirate_context_regular.size());
+    pirate_context.insert(pirate_context.end(),
+        pirate_context_regular.begin(), pirate_context_regular.begin() + take);
+    pirate_context_elite.clear();
+    pirate_context_regular.clear();
+
     std::string json_str = this->events->WriteJSON(
-        Globals->RULESET_NAME, MonthNames[this->month], this->year, wanted);
+        Globals->RULESET_NAME, MonthNames[this->month], this->year, wanted, pirate_context);
 
     // Pick a shared base filename for both outputs
     std::string base;
@@ -1202,12 +1234,13 @@ void Game::WriteWorldEvents() {
         for (const auto& q : quests) {
             json item;
             switch (q->type) {
-                case Quest::SLAY:     item["type"] = "slay";     break;
-                case Quest::HARVEST:  item["type"] = "harvest";  break;
-                case Quest::BUILD:    item["type"] = "build";    break;
-                case Quest::VISIT:    item["type"] = "visit";    break;
-                case Quest::DEMOLISH: item["type"] = "demolish"; break;
-                default:              item["type"] = "unknown";  break;
+                case Quest::SLAY:        item["type"] = "slay";        break;
+                case Quest::HARVEST:     item["type"] = "harvest";     break;
+                case Quest::BUILD:       item["type"] = "build";       break;
+                case Quest::VISIT:       item["type"] = "visit";       break;
+                case Quest::DEMOLISH:    item["type"] = "demolish";    break;
+                case Quest::HUNT_PIRATE: item["type"] = "pirate_hunt"; break;
+                default:                 item["type"] = "unknown";     break;
             }
             // Generate roleplay narrative text only — no coordinates or rewards
             // to prevent players from trivially locating quest targets via the JSON.
@@ -1267,6 +1300,20 @@ void Game::WriteWorldEvents() {
                         text += r->name;
                         text += "!";
                     }
+                }
+            } else if (q->type == Quest::HUNT_PIRATE) {
+                Location *l = regions.FindUnit(q->target);
+                if (l) {
+                    text = "Quest: ";
+                    text += l->unit->name;
+                    text += " commands the pirate galley '";
+                    text += l->obj->name;
+                    text += "', last sighted in the ";
+                    text += TerrainDefs[TerrainDefs[l->region->type].similar_type].name;
+                    text += " of ";
+                    text += l->region->name;
+                    text += ".  Bring proof of their destruction and claim the bounty!";
+                    delete l;
                 }
             }
             if (!text.empty()) {
@@ -1878,6 +1925,16 @@ void Game::PirateRaidBuildings(ARegion *r, Unit *u)
     for (const auto f : presentFactions) {
         f->event(msg, "decay", r, u);
     }
+
+    // Collect for AI gazette context (pirate_context in times.json).
+    // Elite fleets have a named captain (I_PIRATE_CAPTAIN); regular fleets do not.
+    bool is_elite = u->items.GetNum(I_PIRATE_CAPTAIN) > 0;
+    std::string ctx = (is_elite ? u->object->name : "A pirate fleet")
+        + " raided buildings in " + r->name + ".";
+    if (is_elite)
+        pirate_context_elite.push_back(ctx);
+    else
+        pirate_context_regular.push_back(ctx);
 }
 
 void Game::MonsterCheck(ARegion *r, Unit *u)

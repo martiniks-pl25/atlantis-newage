@@ -502,12 +502,14 @@ static std::string categoryToString(EventCategory cat) {
         case EVENT_ANOMALY:            return "anomaly";
         case EVENT_GUARD_REPUTATION:   return "guard_reputation";
         case EVENT_SETTLEMENT_STATS:   return "settlement_stats";
+        case EVENT_PIRATE_SIGHTING:    return "pirate_sighting";
         default:                       return "unknown";
     }
 }
 
 std::string Events::WriteJSON(std::string worldName, std::string month, int year,
-                              std::vector<std::pair<int,std::string>> wanted) {
+                              std::vector<std::pair<int,std::string>> wanted,
+                              std::vector<std::string> pirate_context) {
     std::list<Event> events;
     for (auto &fact : this->facts) {
         fact->GetEvents(events);
@@ -547,6 +549,14 @@ std::string Events::WriteJSON(std::string worldName, std::string month, int year
         wantedArray.push_back(item);
     }
     j["wanted"] = wantedArray;
+
+    // Pirate activity context for AI gazette generation.
+    // All elite events (named ships) + random fill from regular, capped at 15.
+    // Empty array when no pirate activity occurred this turn.
+    json pirateArray = json::array();
+    for (const auto &s : pirate_context)
+        pirateArray.push_back(s);
+    j["pirate_context"] = pirateArray;
 
     return j.dump(2);
 }
@@ -598,6 +608,25 @@ void SettlementStatsFact::GetEvents(std::list<Event> &events) {
     events.push_back({
         .category = EVENT_SETTLEMENT_STATS,
         .score = 2000,
+        .text = text
+    });
+}
+
+// --- PirateSightingFact ---
+
+void PirateSightingFact::GetEvents(std::list<Event> &events) {
+    std::string text = "The pirate galley ";
+    text += ship_name;
+    text += " under ";
+    text += captain_name;
+    text += " was last sighted in the ";
+    text += terrain_name;
+    text += " of ";
+    text += region_name;
+    text += ".";
+    events.push_back({
+        .category = EVENT_PIRATE_SIGHTING,
+        .score = 50,
         .text = text
     });
 }

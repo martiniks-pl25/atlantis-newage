@@ -338,6 +338,9 @@ int Game::MakePirateFleet(ARegion *pReg)
             std::to_string(pReg->xloc) + "," + std::to_string(pReg->yloc) + ") — " +
             std::to_string(pira_count) + " pirates + captain '" + cap->name +
             "' + bosun '" + bos->name + "'");
+
+        // 35% chance to create a HUNT_PIRATE quest for this captain at spawn
+        TryCreatePirateHuntQuest(cap);
     } else {
         logger::write("MakePirateFleet: fleet '" + fleet->name + "' at (" +
             std::to_string(pReg->xloc) + "," + std::to_string(pReg->yloc) + ") — " +
@@ -576,6 +579,15 @@ void Game::PirateRecruitLandCrew()
                 for (const auto f : presentFactions) {
                     f->event(msg, "monster", r, u);
                 }
+
+                // Collect for AI gazette context (pirate_context in times.json).
+                bool is_elite = u->items.GetNum(I_PIRATE_CAPTAIN) > 0;
+                std::string ctx = (is_elite ? obj->name : "A pirate fleet")
+                    + " recruited crew in " + r->name + ".";
+                if (is_elite)
+                    pirate_context_elite.push_back(ctx);
+                else
+                    pirate_context_regular.push_back(ctx);
             }
         }
     }

@@ -16,6 +16,12 @@ using namespace std;
 #define QUEST_SPAWN_CHANCE 70
 #define MAX_DESTINATIONS 5
 
+// --- Pirate hunt quest constants ---
+#define MAX_PIRATE_HUNT_QUESTS    5    // max simultaneous HUNT_PIRATE quests
+#define PIRATE_QUEST_SPAWN_CHANCE 35   // % chance to create quest when elite fleet spawns
+#define PIRATE_QUEST_GROW_CHANCE  50   // % chance per turn to assign quest to uncovered captain
+#define PIRATE_HUNT_MAX_REWARD    4500 // silver-equivalent reward (50% above QUEST_MAX_REWARD)
+
 int Game::SetupFaction( Faction *pFac )
 {
     // Check if a faction can be started due to end game conditions
@@ -2007,4 +2013,154 @@ const std::optional<std::string> ARegion::movement_forbidden_by_ruleset(Unit *u,
         }
     }
     return std::nullopt;
+}
+
+// --- Pirate Hunt Quest helpers ---
+
+/**
+ * @brief Generates a random reward item for a pirate hunt quest.
+ *
+ * Selects a random IT_ADVANCED or IT_MAGIC item (not IT_NEVER_SPOIL, not
+ * IT_SHIP, not IT_SPECIAL) with baseprice <= PIRATE_HUNT_MAX_REWARD and
+ * computes a quantity so the total value approximates PIRATE_HUNT_MAX_REWARD.
+ *
+ * @return Item with type/num set, or type==-1 if no eligible items found.
+ */
+static Item generate_pirate_hunt_reward() {
+    Item result;
+    result.type = -1;
+    result.num  = 0;
+
+    int count = 0;
+    for (int i = 0; i < NITEMS; i++) {
+        if (((ItemDefs[i].type & IT_ADVANCED) || (ItemDefs[i].type & IT_MAGIC)) &&
+                ItemDefs[i].baseprice > 0 &&
+                ItemDefs[i].baseprice <= PIRATE_HUNT_MAX_REWARD &&
+                !(ItemDefs[i].type & IT_SPECIAL) &&
+                !(ItemDefs[i].type & IT_SHIP) &&
+                !(ItemDefs[i].type & IT_NEVER_SPOIL) &&
+                !(ItemDefs[i].flags & ItemType::DISABLED)) {
+            count++;
+        }
+    }
+    if (count == 0) return result;
+
+    count = rng::get_random(count) + 1;
+    for (int i = 0; i < NITEMS; i++) {
+        if (((ItemDefs[i].type & IT_ADVANCED) || (ItemDefs[i].type & IT_MAGIC)) &&
+                ItemDefs[i].baseprice > 0 &&
+                ItemDefs[i].baseprice <= PIRATE_HUNT_MAX_REWARD &&
+                !(ItemDefs[i].type & IT_SPECIAL) &&
+                !(ItemDefs[i].type & IT_SHIP) &&
+                !(ItemDefs[i].type & IT_NEVER_SPOIL) &&
+                !(ItemDefs[i].flags & ItemType::DISABLED)) {
+            if (--count == 0) {
+                result.type = i;
+                result.num  = (PIRATE_HUNT_MAX_REWARD +
+                               rng::get_random(PIRATE_HUNT_MAX_REWARD / 2)) /
+                              ItemDefs[i].baseprice;
+                break;
+            }
+        }
+    }
+    return result;
+}
+
+/**
+ * @brief Tries to create a HUNT_PIRATE quest for the given captain unit.
+ *
+ * Called at spawn time (35% chance) from MakePirateFleet(), and on each turn
+ * from EnsureElitePirateQuests() (50% chance for uncovered captains).
+ * Does nothing if MAX_PIRATE_HUNT_QUESTS is already reached or captain
+ * already has a quest.
+ *
+ * @param cap  The I_PIRATE_CAPTAIN unit to target.
+ * @param spawn_time  true → apply PIRATE_QUEST_SPAWN_CHANCE roll.
+ *                    false → caller handles the chance roll.
+ */
+void Game::TryCreatePirateHuntQuest(Unit *cap) {
+    // Respect global limit
+    int active = 0;
+    for (const auto& q : quests) {
+        if (q->type == Quest::HUNT_PIRATE) active++;
+    }
+    if (active >= MAX_PIRATE_HUNT_QUESTS) return;
+
+    // Don't create duplicate quest for the same captain
+    for (const auto& q : quests) {
+        if (q->type == Quest::HUNT_PIRATE && q->target == cap->num) return;
+    }
+
+    // Spawn-time chance roll
+    if (rng::get_random(100) >= PIRATE_QUEST_SPAWN_CHANCE) return;
+
+    Item reward = generate_pirate_hunt_reward();
+    if (reward.type == -1) return;
+
+    auto q = std::make_shared<Quest>();
+    q->type   = Quest::HUNT_PIRATE;
+    q->target = cap->num;
+    q->rewards.push_back(reward);
+    quests.push_back(q);
+
+    printf("Pirate hunt quest created for captain '%s' (unit %d). Reward: %s x%d.\n",
+           cap->name.c_str(), cap->num,
+           ItemDefs[reward.type].name.c_str(), reward.num);
+}
+
+/**
+ * @brief Each turn: fills open HUNT_PIRATE quest slots from uncovered captains.
+ *
+ * Runs after GrowWMons() in PostProcessTurn(). Collects all I_PIRATE_CAPTAIN
+ * units belonging to the monster faction that have no active HUNT_PIRATE quest,
+ * then with PIRATE_QUEST_GROW_CHANCE (50%) assigns a quest to a random one.
+ * At most one new quest is created per call, so the gazette fills gradually.
+ *
+ * @note Does NOT apply PIRATE_QUEST_SPAWN_CHANCE — that roll is for spawn-time.
+ */
+void Game::EnsureElitePirateQuests() {
+    // Count active HUNT_PIRATE quests
+    int active = 0;
+    for (const auto& q : quests) {
+        if (q->type == Quest::HUNT_PIRATE) active++;
+    }
+    if (active >= MAX_PIRATE_HUNT_QUESTS) return;
+
+    // Collect all living captains without a quest
+    std::vector<Unit *> uncovered;
+    for (const auto r : regions) {
+        for (const auto o : r->objects) {
+            for (const auto u : o->units) {
+                if (u->faction->num != monfaction) continue;
+                if (u->items.GetNum(I_PIRATE_CAPTAIN) == 0) continue;
+                bool has_quest = false;
+                for (const auto& q : quests) {
+                    if (q->type == Quest::HUNT_PIRATE && q->target == u->num) {
+                        has_quest = true;
+                        break;
+                    }
+                }
+                if (!has_quest) uncovered.push_back(u);
+            }
+        }
+    }
+    if (uncovered.empty()) return;
+
+    // 50% chance to assign a quest to one random uncovered captain this turn
+    if (rng::get_random(100) >= PIRATE_QUEST_GROW_CHANCE) return;
+
+    Unit *cap = uncovered[rng::get_random(uncovered.size())];
+
+    Item reward = generate_pirate_hunt_reward();
+    if (reward.type == -1) return;
+
+    auto q = std::make_shared<Quest>();
+    q->type   = Quest::HUNT_PIRATE;
+    q->target = cap->num;
+    q->rewards.push_back(reward);
+    quests.push_back(q);
+
+    printf("Pirate hunt quest assigned to existing captain '%s' (unit %d). Reward: %s x%d.\n",
+           cap->name.c_str(), cap->num,
+           ItemDefs[reward.type].name.c_str(), reward.num);
 }

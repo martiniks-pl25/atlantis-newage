@@ -319,7 +319,10 @@ string Game::FactionTypeDescription(Faction &fac) {
         buffer << (count > 0 ? (count == (int)missingTypes.size() - 1 ? ", and " : ", ") : "");
         if (fp == F_WAR) buffer << "could not perform tax in any regions";
         if (fp == F_TRADE) buffer << "could not perform trade in any regions";
-        if (fp == F_MAGIC) buffer << "could not possess any mages";
+        if (fp == F_MAGIC) {
+            if (nm > 0) buffer << "have " << nm << " " << strings::plural(nm, "mage", "mages");
+            else buffer << "could not possess any mages";
+        }
         if (fp == F_MARTIAL) buffer << "could not perform tax or trade in regions";
         count++;
     }

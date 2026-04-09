@@ -21,7 +21,8 @@ class Quest
             BUILD,
             VISIT,
             DELIVER,
-            DEMOLISH
+            DEMOLISH,
+            HUNT_PIRATE  // Hunt an elite pirate fleet captain for a bounty
         };
         int type;
         int target;
