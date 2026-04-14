@@ -177,6 +177,11 @@ class ManType
         int defaultlevel;
         std::optional<std::string> skills[6];
         Ethnicity ethnicity;
+        // Physical size category (same scale as MonType::size):
+        // 1=tiny (goblins, hobbits, gnomes, fairies)
+        // 2=human-scale (default — humans, elves, dwarves, orcs)
+        // 3=large (centaurs, minotaurs, ogres, titans)
+        int size = 2;
 
         bool CanProduce(int);
         bool CanUse(int);
@@ -210,9 +215,9 @@ class MonType
 
         int hitDamage;
 
-        // Physical size category:
-        // 1=small, 2=medium, 3=large, 4=huge
-        // large+ (size >= 3) are immune to entangle (NET/LASSO)
+        // Physical size category (same scale as ManType::size):
+        // 1=tiny, 2=human-scale, 3=large, 4=huge, 5=colossal
+        // large+ (size >= 4) are immune to entangle (NET/LASSO)
         int size;
 
         // Terrain types which monster like to be in.

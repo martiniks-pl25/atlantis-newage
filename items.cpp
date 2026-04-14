@@ -698,16 +698,23 @@ std::string item_description(int item, int full)
         } else {
             temp += "all skills to level " + std::to_string(mt.defaultlevel) + ".";
         }
+        {
+            const char* sizeNames[] = { "", "tiny", "human-scale", "large", "huge", "colossal" };
+            int sz = mt.size;
+            if (sz < 1) sz = 1;
+            if (sz > 5) sz = 5;
+            temp += std::string(" This is a ") + sizeNames[sz] + " race.";
+        }
     }
 
     if ((ItemDefs[item].type & IT_MONSTER) && !(ItemDefs[item].flags & ItemType::MANPRODUCE)) {
         temp += " This is a monster.";
         auto monster = find_monster(ItemDefs[item].abr, (ItemDefs[item].type & IT_ILLUSION))->get();
         {
-            const char* sizeNames[] = { "", "small", "medium", "large", "huge" };
+            const char* sizeNames[] = { "", "tiny", "human-scale", "large", "huge", "colossal" };
             int sz = monster.size;
             if (sz < 1) sz = 1;
-            if (sz > 4) sz = 4;
+            if (sz > 5) sz = 5;
             temp += std::string(" It is a ") + sizeNames[sz] + " monster.";
         }
         temp += " This monster attacks with a combat skill of " + std::to_string(monster.attackLevel);

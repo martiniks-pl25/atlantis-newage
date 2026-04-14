@@ -127,6 +127,7 @@ class Soldier {
         int armor;
         int hits;
         int maxhits;
+        int size;   // physical size (1=tiny..5=colossal), from MonType::size or ManType::size
         int damage;
 
         std::unordered_set<int> battleItems;
@@ -202,6 +203,14 @@ class Army
 
         int hitsalive; // current number of "living hits"
         int hitstotal; // Number of hits at start of battle.
+
+        int frontWeightTotal;  // sum of SIZE_WEIGHTS for front-zone soldiers (targeting weight cache)
+        int allWeightTotal;    // sum of SIZE_WEIGHTS for all alive soldiers (targeting weight cache)
+
+        // Deaths this round: {unitNum, itemType} → count.
+        // Populated in Kill(), cleared in Reset(). Used to format the per-round
+        // "loses X: N race [TAG] (unit Y×N, ...)" line in battle reports.
+        std::map<std::pair<int,int>, int> roundDeaths;
 
         ArmyStats stats;    // battle statistics
 };

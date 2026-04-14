@@ -402,7 +402,97 @@ void Faction::build_gm_json_report(json& j, Game *game) {
         if (itype & IT_MONEY)    item_types.push_back("money");
         if (itype & IT_ANIMAL)   item_types.push_back("animal");
         if (itype & IT_SHIP)     item_types.push_back("ship");
-        items.push_back({ { "name", item_name }, { "tag", tag }, { "types", item_types }, { "description", description } });
+
+        // Build structured stats from engine data tables (eliminates backend regex parsing).
+        json item_stats = json::object();
+
+        if (itype & IT_MONSTER) {
+            auto mon_opt = find_monster(ItemDefs[itemshow.item].abr, (itype & IT_ILLUSION) ? 1 : 0);
+            if (mon_opt) {
+                auto &m = mon_opt->get();
+                json def_arr = json::array();
+                for (int i = 0; i < NUM_ATTACK_TYPES; i++) def_arr.push_back(m.defense[i]);
+                json preferred = json::array();
+                for (auto t : m.preferredTerrain) preferred.push_back(TerrainDefs[t].name);
+                json forbidden = json::array();
+                for (auto t : m.forbiddenTerrain) forbidden.push_back(TerrainDefs[t].name);
+                item_stats = {
+                    {"size",              m.size},
+                    {"attack",            m.attackLevel},
+                    {"defense",           def_arr},  // [melee, energy, spirit, weather, riding, ranged]
+                    {"hp",                m.hits},
+                    {"attacks_per_round", m.numAttacks},
+                    {"damage_per_attack", m.hitDamage},
+                    {"tactics",           m.tactics},
+                    {"stealth",           m.stealth},
+                    {"observation",       m.obs},
+                    {"preferred_terrain", preferred},
+                    {"forbidden_terrain", forbidden},
+                    {"free_roamer",       m.preferredTerrain.empty() && m.forbiddenTerrain.empty()},
+                };
+            }
+        } else if (itype & IT_WEAPON) {
+            auto wp_opt = find_weapon(ItemDefs[itemshow.item].abr);
+            if (wp_opt) {
+                auto &w = wp_opt->get();
+                static const char* WEAP_CLASS_NAMES[NUM_WEAPON_CLASSES] = {
+                    "slashing", "piercing", "crushing", "cleaving",
+                    "armor-piercing", "energy", "spirit", "weather"
+                };
+                item_stats = {
+                    {"is_ranged",     (w.flags & WeaponType::RANGED) != 0},
+                    {"damage_type",   (w.weapClass >= 0 && w.weapClass < NUM_WEAPON_CLASSES)
+                                          ? WEAP_CLASS_NAMES[w.weapClass] : "unknown"},
+                    {"attack_bonus",  w.attackBonus},
+                    {"defense_bonus", w.defenseBonus},
+                    {"num_attacks",   w.numAttacks},
+                    {"mount_bonus",   w.mountBonus},
+                };
+            }
+        } else if (itype & IT_ARMOR) {
+            auto arm_opt = find_armor(ItemDefs[itemshow.item].abr);
+            if (arm_opt) {
+                auto &a = arm_opt->get();
+                json saves = json::array();
+                for (int i = 0; i < NUM_WEAPON_CLASSES; i++)
+                    saves.push_back(a.from > 0 ? (a.saves[i] * 100 / a.from) : 0);
+                // saves order: [slashing%, piercing%, crushing%, cleaving%, armor-piercing%, energy%, spirit%, weather%]
+                item_stats = {
+                    {"saves",          saves},
+                    {"attack_bonus",   a.attackBonus},
+                    {"defense_bonus",  a.defenseBonus},
+                };
+            }
+        } else if (itype & IT_BATTLE) {
+            // Non-weapon battle items (shields, misc combat items)
+            auto bi_opt = find_battle_item(ItemDefs[itemshow.item].abr);
+            if (bi_opt) {
+                auto &b = bi_opt->get();
+                item_stats = {
+                    {"skill_level",    b.skillLevel},
+                    {"attack_penalty", b.attackPenalty},
+                };
+            }
+        }
+
+        // Race stats (IT_MAN can coexist with other flags)
+        if (itype & IT_MAN) {
+            auto race_opt = find_race(ItemDefs[itemshow.item].abr);
+            if (race_opt) {
+                auto &r = race_opt->get();
+                json skills = json::array();
+                for (auto &sk : r.skills)
+                    if (sk.has_value()) skills.push_back(sk.value());
+                item_stats["special_skills"]  = skills;
+                item_stats["special_level"]   = r.speciallevel;
+                item_stats["default_level"]   = r.defaultlevel;
+                item_stats["size"]            = r.size;
+            }
+        }
+
+        json item_entry = { {"name", item_name}, {"tag", tag}, {"types", item_types}, {"description", description} };
+        if (!item_stats.empty()) item_entry["_stats"] = item_stats;
+        items.push_back(item_entry);
     }
     j["item_reports"] = items;
 
@@ -624,7 +714,97 @@ void Faction::build_json_report(json& j, Game *game, size_t **citems) {
         if (itype & IT_MONEY)    item_types.push_back("money");
         if (itype & IT_ANIMAL)   item_types.push_back("animal");
         if (itype & IT_SHIP)     item_types.push_back("ship");
-        items.push_back({ { "name", item_name }, { "tag", tag }, { "types", item_types }, { "description", description } });
+
+        // Build structured stats from engine data tables (eliminates backend regex parsing).
+        json item_stats = json::object();
+
+        if (itype & IT_MONSTER) {
+            auto mon_opt = find_monster(ItemDefs[itemshow.item].abr, (itype & IT_ILLUSION) ? 1 : 0);
+            if (mon_opt) {
+                auto &m = mon_opt->get();
+                json def_arr = json::array();
+                for (int i = 0; i < NUM_ATTACK_TYPES; i++) def_arr.push_back(m.defense[i]);
+                json preferred = json::array();
+                for (auto t : m.preferredTerrain) preferred.push_back(TerrainDefs[t].name);
+                json forbidden = json::array();
+                for (auto t : m.forbiddenTerrain) forbidden.push_back(TerrainDefs[t].name);
+                item_stats = {
+                    {"size",              m.size},
+                    {"attack",            m.attackLevel},
+                    {"defense",           def_arr},  // [melee, energy, spirit, weather, riding, ranged]
+                    {"hp",                m.hits},
+                    {"attacks_per_round", m.numAttacks},
+                    {"damage_per_attack", m.hitDamage},
+                    {"tactics",           m.tactics},
+                    {"stealth",           m.stealth},
+                    {"observation",       m.obs},
+                    {"preferred_terrain", preferred},
+                    {"forbidden_terrain", forbidden},
+                    {"free_roamer",       m.preferredTerrain.empty() && m.forbiddenTerrain.empty()},
+                };
+            }
+        } else if (itype & IT_WEAPON) {
+            auto wp_opt = find_weapon(ItemDefs[itemshow.item].abr);
+            if (wp_opt) {
+                auto &w = wp_opt->get();
+                static const char* WEAP_CLASS_NAMES[NUM_WEAPON_CLASSES] = {
+                    "slashing", "piercing", "crushing", "cleaving",
+                    "armor-piercing", "energy", "spirit", "weather"
+                };
+                item_stats = {
+                    {"is_ranged",     (w.flags & WeaponType::RANGED) != 0},
+                    {"damage_type",   (w.weapClass >= 0 && w.weapClass < NUM_WEAPON_CLASSES)
+                                          ? WEAP_CLASS_NAMES[w.weapClass] : "unknown"},
+                    {"attack_bonus",  w.attackBonus},
+                    {"defense_bonus", w.defenseBonus},
+                    {"num_attacks",   w.numAttacks},
+                    {"mount_bonus",   w.mountBonus},
+                };
+            }
+        } else if (itype & IT_ARMOR) {
+            auto arm_opt = find_armor(ItemDefs[itemshow.item].abr);
+            if (arm_opt) {
+                auto &a = arm_opt->get();
+                json saves = json::array();
+                for (int i = 0; i < NUM_WEAPON_CLASSES; i++)
+                    saves.push_back(a.from > 0 ? (a.saves[i] * 100 / a.from) : 0);
+                // saves order: [slashing%, piercing%, crushing%, cleaving%, armor-piercing%, energy%, spirit%, weather%]
+                item_stats = {
+                    {"saves",          saves},
+                    {"attack_bonus",   a.attackBonus},
+                    {"defense_bonus",  a.defenseBonus},
+                };
+            }
+        } else if (itype & IT_BATTLE) {
+            // Non-weapon battle items (shields, misc combat items)
+            auto bi_opt = find_battle_item(ItemDefs[itemshow.item].abr);
+            if (bi_opt) {
+                auto &b = bi_opt->get();
+                item_stats = {
+                    {"skill_level",    b.skillLevel},
+                    {"attack_penalty", b.attackPenalty},
+                };
+            }
+        }
+
+        // Race stats (IT_MAN can coexist with other flags)
+        if (itype & IT_MAN) {
+            auto race_opt = find_race(ItemDefs[itemshow.item].abr);
+            if (race_opt) {
+                auto &r = race_opt->get();
+                json skills = json::array();
+                for (auto &sk : r.skills)
+                    if (sk.has_value()) skills.push_back(sk.value());
+                item_stats["special_skills"]  = skills;
+                item_stats["special_level"]   = r.speciallevel;
+                item_stats["default_level"]   = r.defaultlevel;
+                item_stats["size"]            = r.size;
+            }
+        }
+
+        json item_entry = { {"name", item_name}, {"tag", tag}, {"types", item_types}, {"description", description} };
+        if (!item_stats.empty()) item_entry["_stats"] = item_stats;
+        items.push_back(item_entry);
     }
     j["item_reports"] = items;
 

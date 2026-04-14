@@ -1818,7 +1818,7 @@ void Game::ModifyTablesPerRuleset(void)
     // spoiltype: -1=no items, IT_NORMAL=basic goods, IT_ADVANCED=advanced items, IT_MAGIC=magic items
     // Comment shows default from gamedata.cpp for easy comparison when tuning.
     // Silver is max pool: actual drop = random(0, silver-1) per dead monster.
-    // Pool system: max 3 distinct item types per unit; 4th+ monsters add qty to existing types.
+    // Pool system: max 4 distinct item types per unit; 5th+ monsters add qty to existing types.
 
     // Natural wandering monsters — mostly animal, no item drops
     modify_monster_spoils("LION",  200,  IT_NORMAL);           // Pride of Lions      (default: 200, -1)
@@ -1878,6 +1878,7 @@ void Game::ModifyTablesPerRuleset(void)
     modify_monster_spoils("WARR",  120,  IT_NORMAL);    // Evil Warriors       (default: 120,  IT_NORMAL)
     modify_monster_spoils("DMAG",  5000, IT_MAGIC);     // Dark Mage           (default: 5000, IT_MAGIC)
     modify_monster_spoils("MAGI",  4000, IT_MAGIC);     // Evil Magicians      (default: 4000, IT_MAGIC)
+    modify_monster_spoils("SORC",  2000, IT_ADVANCED);  // Evil Sorcerers      (default: 1000, IT_ADVANCED)
 
         // --- Base prices: weapons, armor, tools ---
     // Resources: IRON=30  WOOD=30  FUR=30  HERBS=30  MITH=100  IRWD=100  ADMT=300

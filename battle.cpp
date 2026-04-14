@@ -9,6 +9,45 @@
 
 using namespace std;
 
+// Formats the per-round death breakdown for the "loses X" line.
+// Groups deaths by item type, listing contributing units with ×count.
+// Example: ": 5 centaur [CTAU] (unit 5×3, unit 7×2), 4 gnome [GNOM] (unit 6×4)"
+// Returns empty string if no deaths.
+static std::string FormatDeathBreakdown(const std::map<std::pair<int,int>, int>& roundDeaths) {
+    if (roundDeaths.empty()) return "";
+
+    // Group by itemType → { unitNum → count }
+    std::map<int, std::map<int, int>> byRace;
+    for (const auto& [key, cnt] : roundDeaths)
+        byRace[key.second][key.first] += cnt;
+
+    std::string result = ": ";
+    bool firstRace = true;
+    for (const auto& [itemType, unitCounts] : byRace) {
+        if (!firstRace) result += ", ";
+        firstRace = false;
+
+        int total = 0;
+        for (const auto& [u, c] : unitCounts) total += c;
+
+        const std::string& raceName = (total == 1)
+            ? ItemDefs[itemType].name
+            : ItemDefs[itemType].names;
+        result += std::to_string(total) + " " + raceName
+               + " [" + ItemDefs[itemType].abr + "]";
+
+        result += " (";
+        bool firstUnit = true;
+        for (const auto& [unitNum, cnt] : unitCounts) {
+            if (!firstUnit) result += ", ";
+            firstUnit = false;
+            result += "unit " + std::to_string(unitNum) + ": " + std::to_string(cnt);
+        }
+        result += ")";
+    }
+    return result;
+}
+
 enum class StatsCategory {
     ROUND,
     BATTLE
@@ -150,7 +189,8 @@ void Battle::FreeRound(Army * att,Army * def, int ass)
     /* Write losses */
     def->Regenerate(this);
     alv -= def->NumAlive();
-    AddLine(def->leader->name + " loses " + std::to_string(alv) + ".");
+    AddLine(def->leader->name + " loses " + std::to_string(alv)
+        + FormatDeathBreakdown(def->roundDeaths) + ".");
     AddLine("");
 
     if (Globals->BATTLE_LOG_LEVEL == BattleLogLevel::VERBOSE) {
@@ -166,6 +206,7 @@ void Battle::FreeRound(Army * att,Army * def, int ass)
 
     att->Reset();
     att->stats.ClearRound();
+    def->roundDeaths.clear();
     def->stats.ClearRound();
 }
 
@@ -314,9 +355,11 @@ void Battle::NormalRound(int round,Army * a,Army * b)
     a->Regenerate(this);
     b->Regenerate(this);
     aialive -= aalive;
-    AddLine(a->leader->name + " loses " + std::to_string(aialive) + ".");
+    AddLine(a->leader->name + " loses " + std::to_string(aialive)
+        + FormatDeathBreakdown(a->roundDeaths) + ".");
     bialive -= balive;
-    AddLine(b->leader->name + " loses " + std::to_string(bialive) + ".");
+    AddLine(b->leader->name + " loses " + std::to_string(bialive)
+        + FormatDeathBreakdown(b->roundDeaths) + ".");
     AddLine("");
 
     if (Globals->BATTLE_LOG_LEVEL == BattleLogLevel::VERBOSE) {

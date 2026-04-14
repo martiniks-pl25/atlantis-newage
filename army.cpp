@@ -7,6 +7,10 @@
 #include <iterator>
 #include <list>
 
+// Targeting weight by physical size (index = size-1, so size 1..5).
+// Determines how likely a soldier of that size is to be targeted in combat.
+static const int SIZE_WEIGHTS[] = { 1, 2, 5, 25, 50 };
+
 void unit_stat_control::Clear(UnitStat& us) {
     us.attackStats.clear();
 }
@@ -194,6 +198,10 @@ Soldier::Soldier(Unit * u,Object * o,int regtype,int r,int ass)
     hits = unit->GetAttribute("toughness");
     if (hits < 1) hits = 1;
     maxhits = hits;
+    {
+        auto man = find_race(ItemDefs[r].abr);
+        size = (man) ? man->get().size : 2;
+    }
     amuletofi = 0;
     battleItems.clear();
 
@@ -268,6 +276,7 @@ Soldier::Soldier(Unit * u,Object * o,int regtype,int r,int ass)
         hits = mp.hits;
         if (hits < 1) hits = 1;
         maxhits = hits;
+        size = mp.size > 0 ? mp.size : 2;
         attacks = mp.numAttacks;
         hitDamage = mp.hitDamage;
         if (!attacks) attacks = 1;
@@ -763,9 +772,20 @@ finished_army:
 
     hitsalive = hitstotal;
 
+    frontWeightTotal = 0;
+    allWeightTotal = 0;
+    for (int i = 0; i < notbehind; i++) {
+        int sz = std::min(5, soldiers[i]->size);
+        int w = SIZE_WEIGHTS[sz - 1];
+        allWeightTotal += w;
+        if (i < canfront || (i >= canbehind && i < notfront))
+            frontWeightTotal += w;
+    }
+
     if (!NumFront()) {
         canfront = canbehind;
         notfront = notbehind;
+        frontWeightTotal = allWeightTotal;
     }
 }
 
@@ -779,6 +799,7 @@ void Army::Reset() {
     canbehind = notbehind;
     notfront = notbehind;
     tactics_bonus = 0;
+    roundDeaths.clear();
 }
 
 void Army::WriteLosses(Battle * b) {
@@ -1223,6 +1244,7 @@ int Army::GetTargetNum(char const *special, bool canAttackBehind)
     if (tars == 0) {
         canfront = canbehind;
         notfront = notbehind;
+        frontWeightTotal = allWeightTotal;  // all alive are now in front zone
         tars = NumFront();
         if (tars == 0) return -1;
     }
@@ -1258,13 +1280,26 @@ int Army::GetTargetNum(char const *special, bool canAttackBehind)
             }
         }
     } else {
-        int i = rng::get_random(tars);
+        int pool = canAttackBehind ? allWeightTotal : frontWeightTotal;
+        if (pool <= 0) return -1;
+        int roll = rng::get_random(pool);
         if (canAttackBehind) {
-            return i;
-        }
-        else {
-            if (i < canfront) return i;
-            return i + canbehind - canfront;
+            for (int i = 0; i < notbehind; i++) {
+                int w = SIZE_WEIGHTS[std::min(5, soldiers[i]->size) - 1];
+                if (roll < w) return i;
+                roll -= w;
+            }
+        } else {
+            for (int i = 0; i < canfront; i++) {
+                int w = SIZE_WEIGHTS[std::min(5, soldiers[i]->size) - 1];
+                if (roll < w) return i;
+                roll -= w;
+            }
+            for (int i = canbehind; i < notfront; i++) {
+                int w = SIZE_WEIGHTS[std::min(5, soldiers[i]->size) - 1];
+                if (roll < w) return i;
+                roll -= w;
+            }
         }
     }
 
@@ -1557,6 +1592,16 @@ void Army::Kill(int killed, int damage)
     temp->hits = std::max(0, temp->hits - damage);
 
     if (temp->hits > 0) return;
+
+    roundDeaths[{temp->unit->num, temp->race}]++;
+
+    {
+        int sz = std::min(5, temp->size);
+        int w = SIZE_WEIGHTS[sz - 1];
+        allWeightTotal -= w;
+        if (killed < canfront || (killed >= canbehind && killed < notfront))
+            frontWeightTotal -= w;
+    }
 
     temp->unit->losses++;
     if (Globals->ARMY_ROUT == GameDefs::ARMY_ROUT_HITS_FIGURE) {
