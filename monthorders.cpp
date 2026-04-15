@@ -1111,14 +1111,16 @@ void Game::RunProduceOrders(ARegion *r)
             if (u->monthorders) {
                 if (u->monthorders->type == O_PRODUCE) {
                     RunUnitProduce(r, u);
-                } else {
-                    if (u->monthorders->type == O_BUILD) {
-                        if (u->build >= 0) {
-                            Run1BuildOrder(r, obj, u);
-                        } else {
-                            RunBuildShipOrder(r, obj, u);
-                        }
+                } else if (u->monthorders->type == O_BUILD) {
+                    if (u->build >= 0) {
+                        Run1BuildOrder(r, obj, u);
+                    } else {
+                        RunBuildShipOrder(r, obj, u);
                     }
+                } else if (u->monthorders->type == O_CREATE) {
+                    Run1CreateOrder(r, u);
+                    delete u->monthorders;
+                    u->monthorders = nullptr;
                 }
             }
         }
@@ -1332,6 +1334,196 @@ void Game::RunIdleOrders(ARegion *r)
             }
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// CREATE VILLAGE order
+// ---------------------------------------------------------------------------
+
+#include "village_founding.h"
+
+/// Races that cannot found a settlement; defined in neworigins/extra.cpp
+extern const std::vector<int> CANNOT_FOUND_SETTLEMENT;
+extern const std::vector<int> RACE_NEUTRAL_FOUNDERS;
+
+/// Item costs required to found a village (consumed on success).
+/// Terminated by { -1, 0, nullptr }. Add entries here to tune costs.
+const SettlementCost VILLAGE_ITEM_COSTS[] = {
+    { I_WAGON, 100, "CREATE: You need at least 100 wagons to found a village." },
+    // Future additional costs:
+    // { I_STONE, 50, "CREATE: You need at least 50 stone to found a village." },
+    { -1, 0, nullptr }   // terminator
+};
+
+/**
+ * @brief Execute the CREATE VILLAGE <name> month-long order.
+ *
+ * The founding unit must have:
+ *  - ≥ VILLAGE_FOUND_MEN people total (IT_MAN + IT_LEADER)
+ *  - ≥ required amounts of VILLAGE_ITEM_COSTS items
+ *
+ * On success:
+ *  - 1000 men consumed (preferring primary IT_MAN type; overflow from IT_LEADER)
+ *  - Item costs consumed
+ *  - Region race set to primary IT_MAN type (unchanged if only leaders)
+ *  - Village created with full markets (food + trade goods + recruitment)
+ *
+ * @see VILLAGE_FOUND_MEN, VILLAGE_ITEM_COSTS, CANNOT_FOUND_SETTLEMENT
+ */
+void Game::Run1CreateOrder(ARegion *r, Unit *u)
+{
+    CreateOrder *order = dynamic_cast<CreateOrder *>(u->monthorders);
+
+    // --- 1. Only VILLAGE supported for now ---
+    if (order->settlementType != TOWN_VILLAGE) {
+        u->error("CREATE: Only villages can be founded this way.");
+        return;
+    }
+
+    // --- 2. Region must not already have a settlement ---
+    if (r->town) {
+        u->error("CREATE: There is already a settlement in this region.");
+        return;
+    }
+
+    // --- 3. Terrain must allow settlement ---
+    if (TerrainDefs[r->type].similar_type == R_OCEAN) {
+        u->error("CREATE: Cannot found a settlement in ocean or lake terrain.");
+        return;
+    }
+    if (r->type == R_VOLCANO) {
+        u->error("CREATE: Cannot found a settlement on a volcano.");
+        return;
+    }
+    if (TerrainDefs[r->type].flags & TerrainType::BARREN) {
+        u->error("CREATE: Cannot found a settlement in this terrain.");
+        return;
+    }
+
+    // --- 4. No existing settlement within 2 hexes ---
+    for (int d = 0; d < NDIRS; d++) {
+        ARegion *n1 = r->neighbors[d];
+        if (!n1) continue;
+        if (n1->town) {
+            u->error("CREATE: There is a settlement too close to found a new one here.");
+            return;
+        }
+        for (int d2 = 0; d2 < NDIRS; d2++) {
+            ARegion *n2 = n1->neighbors[d2];
+            if (!n2) continue;
+            if (n2->town) {
+                u->error("CREATE: There is a settlement too close to found a new one here.");
+                return;
+            }
+        }
+    }
+
+    // --- 5. Count settlers: all IT_MAN items + I_LEADERS ---
+    int total_people = 0;
+    int primary_man_type = -1;
+    int primary_man_count = 0;
+    int leaders_count = 0;
+
+    for (const auto& it : u->items) {
+        int itype = it->type;
+        if (itype < 0 || itype >= NITEMS) continue;
+        int count = it->num;
+        if (count <= 0) continue;
+        // Check I_LEADERS first — leaders are race-neutral and must not
+        // become the primary_man_type even if IT_MAN flag is set on them.
+        if (itype == I_LEADERS) {
+            leaders_count += count;
+            total_people += count;
+        } else if (ItemDefs[itype].type & IT_MAN) {
+            total_people += count;
+            if (count > primary_man_count) {
+                primary_man_count = count;
+                primary_man_type = itype;
+            }
+        }
+    }
+
+    if (total_people < VILLAGE_FOUND_MEN) {
+        u->error("CREATE: You need at least " + to_string(VILLAGE_FOUND_MEN) +
+                 " people (men or leaders) to found a village.");
+        return;
+    }
+
+    // --- 6. Check forbidden races ---
+    if (primary_man_type != -1) {
+        for (int forbidden : CANNOT_FOUND_SETTLEMENT) {
+            if (primary_man_type == forbidden) {
+                u->error("CREATE: This race cannot found a settlement.");
+                return;
+            }
+        }
+    }
+
+    // --- 7. Check item costs ---
+    for (int i = 0; VILLAGE_ITEM_COSTS[i].item != -1; i++) {
+        int have = u->items.GetNum(VILLAGE_ITEM_COSTS[i].item);
+        if (have < VILLAGE_ITEM_COSTS[i].amount) {
+            u->error(VILLAGE_ITEM_COSTS[i].error_msg);
+            return;
+        }
+    }
+
+    // ===== All checks passed — execute =====
+
+    // Preserve the founding race for consumption (before race-neutral check clears it)
+    int consume_from_type = primary_man_type;
+
+    // --- 8. Check race-neutral founders ---
+    // Some races can found a village but are magically/culturally neutral —
+    // they do not impose their race on the region.
+    if (primary_man_type != -1) {
+        for (int neutral : RACE_NEUTRAL_FOUNDERS) {
+            if (primary_man_type == neutral) {
+                primary_man_type = -1; // suppress race change; still consume normally
+                break;
+            }
+        }
+    }
+
+    // --- 9. Determine region race ---
+    // Race changes only when the primary IT_MAN group strictly outnumbers leaders
+    // AND the race is not in RACE_NEUTRAL_FOUNDERS (primary_man_type cleared above).
+    // Examples: 1200 men + 0 leaders → change; 600 men + 400 leaders → change;
+    //           200 men + 800 leaders → no change; 1000 leaders → no change;
+    //           1000 fairies → no change (race-neutral).
+    if (primary_man_type != -1 && primary_man_count > leaders_count) {
+        r->race = primary_man_type;
+    }
+
+    // --- 10. Consume settlers (1000 from primary IT_MAN type; overflow from leaders) ---
+    int to_consume = VILLAGE_FOUND_MEN;
+    if (consume_from_type != -1 && primary_man_count > 0) {
+        int from_men = min(to_consume, primary_man_count);
+        u->items.SetNum(consume_from_type, primary_man_count - from_men);
+        to_consume -= from_men;
+    }
+    if (to_consume > 0) {
+        // consume remaining from leaders
+        int leaders = u->items.GetNum(I_LEADERS);
+        u->items.SetNum(I_LEADERS, leaders - to_consume);
+    }
+
+    // --- 10. Consume item costs (wagons, etc.) ---
+    for (int i = 0; VILLAGE_ITEM_COSTS[i].item != -1; i++) {
+        int have = u->items.GetNum(VILLAGE_ITEM_COSTS[i].item);
+        u->items.SetNum(VILLAGE_ITEM_COSTS[i].item, have - VILLAGE_ITEM_COSTS[i].amount);
+    }
+
+    // --- 11. Create the village ---
+    r->add_town(TOWN_VILLAGE, order->name);
+
+    // --- 12. Set up markets (trade goods + recruitment) ---
+    r->SetupRandomTradeMarkets();
+    r->AddMenMarket();
+    r->AddLeadersMarket();
+
+    // --- 13. Report ---
+    u->event("founds the village of " + order->name + ".", "create");
 }
 
 void Game::Do1StudyOrder(Unit *u, Object *obj)

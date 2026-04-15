@@ -70,6 +70,7 @@ const std::vector<std::string> OrderStrs = {
     "weapon",
     "withdraw",
     "work",
+    "create",
 };
 
 
@@ -280,3 +281,11 @@ AnnihilateOrder::~AnnihilateOrder() {}
 SacrificeOrder::SacrificeOrder() { type = O_SACRIFICE; }
 
 SacrificeOrder::~SacrificeOrder() {}
+
+CreateOrder::CreateOrder()
+{
+    type = O_CREATE;
+    settlementType = TOWN_VILLAGE;
+}
+
+CreateOrder::~CreateOrder() {}

@@ -8,6 +8,22 @@
 
 using namespace std;
 
+// ---------------------------------------------------------------------------
+// Village founding: forbidden settler races
+// Add item IDs of races that cannot found a settlement via CREATE VILLAGE.
+// Example: { I_FAIRY, I_SOMEMONSTER, -1 }
+// ---------------------------------------------------------------------------
+extern const std::vector<int> CANNOT_FOUND_SETTLEMENT = {
+    // No races fully forbidden by default — add item IDs here as needed
+};
+
+// Races that can found a village but will not change the region's dominant race.
+// Use this for magical or wandering races that adapt to their surroundings.
+extern const std::vector<int> RACE_NEUTRAL_FOUNDERS = {
+    I_FAIRY,
+    I_TIEFLING,
+};
+
 #define MINIMUM_ACTIVE_QUESTS 5
 #define MAXIMUM_ACTIVE_QUESTS 20
 #define QUEST_EXPLORATION_PERCENT 30
@@ -1869,11 +1885,11 @@ void Game::ModifyTablesPerRuleset(void)
     modify_monster_spoils("ELEM",  1200, IT_ADVANCED);  // Living Water        (default: 1300, IT_ADVANCED)
 
     // Special monsters (enabled via EnableItem)
-    modify_monster_spoils("HYDR",  7000,IT_MAGIC);     // Hydra               (default: 10000, IT_MAGIC)
+    modify_monster_spoils("HYDR",  8000,IT_MAGIC);     // Hydra               (default: 10000, IT_MAGIC)
     modify_monster_spoils("IDRA",  8000,IT_MAGIC);     // Ice Dragon          (default: 15000, IT_MAGIC)
     modify_monster_spoils("ILLY",  4000, IT_MAGIC);     // Illyrthid           (default: 4000, IT_MAGIC)
-    modify_monster_spoils("STGI",  10000,IT_MAGIC);     // Storm Giant         (default: 13000, IT_MAGIC)
-    modify_monster_spoils("CLGI",  15000,IT_MAGIC);     // Cloud Giant         (default: 20000, IT_MAGIC)
+    modify_monster_spoils("STGI",  12000,IT_MAGIC);     // Storm Giant         (default: 13000, IT_MAGIC)
+    modify_monster_spoils("CLGI",  16000,IT_MAGIC);     // Cloud Giant         (default: 20000, IT_MAGIC)
     modify_monster_spoils("DEVL",  30000,IT_MAGIC);     // Devil               (default: 40000, IT_MAGIC)
     modify_monster_spoils("WARR",  120,  IT_NORMAL);    // Evil Warriors       (default: 120,  IT_NORMAL)
     modify_monster_spoils("DMAG",  5000, IT_MAGIC);     // Dark Mage           (default: 5000, IT_MAGIC)

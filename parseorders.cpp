@@ -589,6 +589,9 @@ void Game::ProcessOrder(int order, Unit *unit, parser::string_parser& parser, or
         case O_SACRIFICE:
             ProcessSacrificeOrder(unit, parser, checker);
             break;
+        case O_CREATE:
+            ProcessCreateOrder(unit, parser, checker);
+            break;
     }
 }
 
@@ -2908,4 +2911,59 @@ void Game::ProcessAnnihilateOrder(Unit *unit, parser::string_parser& parser, ord
     order->yloc = y;
     order->zloc = z;
     unit->annihilateorders.push_back(order);
+}
+
+/**
+ * @brief Parse CREATE VILLAGE <name> order
+ *
+ * Syntax: CREATE VILLAGE "Settlement Name"
+ *
+ * Allows a unit with sufficient settlers and wagons to found a new village.
+ * The settlement type keyword is stored for future extensibility (TOWN, CITY).
+ */
+void Game::ProcessCreateOrder(Unit *unit, parser::string_parser& parser, orders_check *checker)
+{
+    parser::token type_token = parser.get_token();
+    if (!type_token) {
+        parse_error(checker, unit, 0, "CREATE: Missing settlement type (use CREATE VILLAGE <name>).");
+        return;
+    }
+
+    int settlementType = -1;
+    if (type_token == "village") settlementType = TOWN_VILLAGE;
+    else if (type_token == "town")    settlementType = TOWN_TOWN;
+    else if (type_token == "city")    settlementType = TOWN_CITY;
+    else {
+        parse_error(checker, unit, 0,
+            "CREATE: Unknown settlement type '" + type_token.get_string() +
+            "'. Use CREATE VILLAGE <name>.");
+        return;
+    }
+
+    parser::token name_token = parser.get_token();
+    if (!name_token) {
+        parse_error(checker, unit, 0, "CREATE: No settlement name given.");
+        return;
+    }
+
+    string name = name_token.get_string();
+    if (name.empty()) {
+        parse_error(checker, unit, 0, "CREATE: Settlement name cannot be empty.");
+        return;
+    }
+
+    bool monthtaxing = (Globals->TAX_PILLAGE_MONTH_LONG &&
+                        (unit->taxing == TAX_TAX || unit->taxing == TAX_PILLAGE));
+    if (unit->monthorders || monthtaxing) {
+        if (unit->monthorders) delete unit->monthorders;
+        overwrite_month_warning("CREATE", unit, checker);
+    }
+    if (Globals->TAX_PILLAGE_MONTH_LONG) unit->taxing = TAX_NONE;
+
+    if (checker) return;
+
+    CreateOrder *order = new CreateOrder;
+    order->settlementType = settlementType;
+    order->name = name;
+    unit->monthorders = order;
 }

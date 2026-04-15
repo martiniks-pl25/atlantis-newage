@@ -78,6 +78,7 @@ enum {
     O_WEAPON,
     O_WITHDRAW,
     O_WORK,
+    O_CREATE,
     NORDERS
 };
 
@@ -406,6 +407,15 @@ class SacrificeOrder : public Order {
 
     int item;
     int amount;
+};
+
+class CreateOrder : public Order {
+  public:
+    CreateOrder();
+    ~CreateOrder();
+
+    int settlementType; // TOWN_VILLAGE / TOWN_TOWN / TOWN_CITY
+    std::string name;   // settlement name
 };
 
 #endif // ORDERS_H

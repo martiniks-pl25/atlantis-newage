@@ -361,6 +361,7 @@ private:
     void ProcessSellOrder(Unit *u, parser::string_parser& parser, orders_check *checker, bool repeating);
     void ProcessAttackOrder(Unit *u, parser::string_parser& parser, orders_check *checker);
     void ProcessBuildOrder(Unit *u, parser::string_parser& parser, orders_check *checker);
+    void ProcessCreateOrder(Unit *u, parser::string_parser& parser, orders_check *checker);
     // Helper functions for ProcessBuildOrder
     BuildOrder *ProcessBuildHelp(Unit *u, parser::string_parser& parser, orders_check *checker);
     BuildOrder *ProcessBuildObject(Unit *u, int object_type, orders_check *checker);
@@ -621,6 +622,7 @@ private:
     void RunAProduction(ARegion *, Production *);
     void RunUnitProduce(ARegion *, Unit *);
     void Run1BuildOrder(ARegion *, Object *, Unit *);
+    void Run1CreateOrder(ARegion *, Unit *);
     void RunBuildShipOrder(ARegion *, Object *, Unit *);
     void AddNewBuildings(ARegion *);
     void RunBuildHelpers(ARegion *);

@@ -3,6 +3,10 @@
 #include "indenter.hpp"
 #include "strings_util.hpp"
 
+extern const std::vector<int> CANNOT_FOUND_SETTLEMENT;
+extern const std::vector<int> RACE_NEUTRAL_FOUNDERS;
+#include "village_founding.h"
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -592,6 +596,7 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
     f << enclose("li", true) << url("#buy", "buy") << '\n' << enclose("li", false);
     f << enclose("li", true) << url("#cast", "cast") << '\n' << enclose("li", false);
     f << enclose("li", true) << url("#claim", "claim") << '\n' << enclose("li", false);
+    f << enclose("li", true) << url("#create_village", "create village") << '\n' << enclose("li", false);
     f << enclose("li", true) << url("#combat", "combat") << '\n' << enclose("li", false);
     if (Globals->FOOD_ITEMS_EXIST)
         f << enclose("li", true) << url("#consume", "consume") << '\n' << enclose("li", false);
@@ -3962,6 +3967,54 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
     f << enclose("p", true) << "Example:\n" << enclose("p", false);
     f << example_start("Claim 100 silver.")
       << "CLAIM 100\n"
+      << example_end();
+
+    f << enclose(class_tag("div", "rule"), true) << '\n' << enclose("div", false);
+    f << anchor("create_village") << '\n';
+    f << enclose("h4", true) << "CREATE VILLAGE [name]\n" << enclose("h4", false);
+    f << enclose("p", true)
+      << "Found a new village in the current region. The unit must have at least "
+      << VILLAGE_FOUND_MEN << " people (men or leaders)";
+    for (int i = 0; VILLAGE_ITEM_COSTS[i].item != -1; i++) {
+        f << " and " << VILLAGE_ITEM_COSTS[i].amount << " "
+          << ItemDefs[VILLAGE_ITEM_COSTS[i].item].names;
+    }
+    f << "; all of these are consumed when the village is created. "
+      << "This is a month-long order.\n"
+      << enclose("p", false);
+    f << enclose("p", true)
+      << "Requirements: the region must have no existing settlement, must not be ocean, lake, "
+      << "volcano, or barren terrain, and must be at least 3 hexes away from any other settlement.\n"
+      << enclose("p", false);
+    f << enclose("p", true)
+      << "The founding unit's primary race (the man type with the highest count) becomes the "
+      << "dominant race of the region, affecting recruitment and cultural names — unless leaders "
+      << "outnumber the men, in which case the original region race is preserved.\n"
+      << enclose("p", false);
+    if (!RACE_NEUTRAL_FOUNDERS.empty()) {
+        f << enclose("p", true) << "The following races can found a village but will not change "
+          << "the region's dominant race (they are culturally neutral): ";
+        bool first = true;
+        for (int race : RACE_NEUTRAL_FOUNDERS) {
+            if (!first) f << ", ";
+            f << ItemDefs[race].names;
+            first = false;
+        }
+        f << ".\n" << enclose("p", false);
+    }
+    if (!CANNOT_FOUND_SETTLEMENT.empty()) {
+        f << enclose("p", true) << "The following races cannot found a settlement at all: ";
+        bool first = true;
+        for (int race : CANNOT_FOUND_SETTLEMENT) {
+            if (!first) f << ", ";
+            f << ItemDefs[race].names;
+            first = false;
+        }
+        f << ".\n" << enclose("p", false);
+    }
+    f << enclose("p", true) << "Example:\n" << enclose("p", false);
+    f << example_start("Found a village named \"Iron Shore\" in the current region.")
+      << "CREATE VILLAGE \"Iron Shore\"\n"
       << example_end();
 
     f << enclose(class_tag("div", "rule"), true) << '\n' << enclose("div", false);

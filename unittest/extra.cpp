@@ -46,3 +46,9 @@ const std::optional<std::string> ARegion::movement_forbidden_by_ruleset(Unit *u,
 
 void Game::TryCreatePirateHuntQuest(Unit *) {}
 void Game::EnsureElitePirateQuests() {}
+
+// No races forbidden from founding settlements in unit tests
+extern const std::vector<int> CANNOT_FOUND_SETTLEMENT = {};
+extern const std::vector<int> RACE_NEUTRAL_FOUNDERS = {
+    I_FAIRY, // used by create_order_test to verify race-neutral founding
+};
