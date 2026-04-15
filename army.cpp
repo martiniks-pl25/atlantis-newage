@@ -852,20 +852,57 @@ void Army::GetMonSpoils(ItemList& spoils, int monitem, int free, std::set<int>& 
     int thespoil = mp.spoiltype;
     if (thespoil == -1) return;
 
+    // Determine item budget and whether items are suppressed by monster freshness.
+    // Item progression: Young/Wild → suppressed; Ancient → half budget; Elder → full budget.
+    int budget = mp.silver;
+    bool items_suppressed = false;
+    if ((Globals->MONSTER_NO_SPOILS > 0) && (free > 0)) {
+        if (free >= Globals->MONSTER_SPOILS_RECOVERY ||
+            free == Globals->MONSTER_SPOILS_RECOVERY - 1) {
+            items_suppressed = true;  // Young and Wild: silver only, no items
+        } else if (free == 1) {
+            budget = mp.silver / 2;   // Ancient: items with baseprice ≤ silver/2
+        }
+        // Elder (free == 0): full budget, no suppression
+    }
+    if (items_suppressed) return;
+
+    // Determine IT_NORMAL→IT_TRADE upgrade once; used consistently for both
+    // the min_cost scan and item selection so eligible sets are identical.
+    int type_to_use = thespoil;
+    if (type_to_use == IT_NORMAL && rng::get_random(2) && !Globals->SPOILS_NO_TRADE)
+        type_to_use = IT_TRADE;
+
+    // First pass: find min_cost of cheapest eligible item within budget.
+    // val is rolled in [min_cost, budget*2) so the cheapest item is always
+    // reachable while expensive items require a good roll (val ≥ baseprice).
+    int min_cost = INT_MAX;
+    for (int i = 0; i < NITEMS; i++) {
+        if (
+            (ItemDefs[i].type & type_to_use) && !(ItemDefs[i].type & IT_SPECIAL) &&
+            !(ItemDefs[i].type & IT_SHIP) && !(ItemDefs[i].type & IT_NEVER_SPOIL) &&
+            (ItemDefs[i].baseprice <= budget) && !(ItemDefs[i].flags & ItemType::DISABLED)
+        ) {
+            min_cost = std::min(min_cost, ItemDefs[i].baseprice);
+        }
+    }
+    if (min_cost == INT_MAX) return;  // no eligible items for this monster/tier
+
+    // Roll val in [min_cost, budget*2); effective_cap = min(val, budget) limits
+    // which items can appear this roll — expensive items need a good val roll.
+    int val = min_cost + rng::get_random(budget * 2 - min_cost);
+    int effective_cap = std::min(val, budget);
+
     int chosen_item = -1;
 
     if ((int)chosen_types.size() < MAX_SPOIL_ITEM_TYPES) {
-        // Pool not full: pick a new item type not yet in chosen_types
-        int type_to_use = thespoil;
-        if (type_to_use == IT_NORMAL && rng::get_random(2) && !Globals->SPOILS_NO_TRADE)
-            type_to_use = IT_TRADE;
-
+        // Pool not full: pick a new item type within effective_cap
         int count = 0;
         for (int i = 0; i < NITEMS; i++) {
             if (
                 (ItemDefs[i].type & type_to_use) && !(ItemDefs[i].type & IT_SPECIAL) &&
                 !(ItemDefs[i].type & IT_SHIP) && !(ItemDefs[i].type & IT_NEVER_SPOIL) &&
-                (ItemDefs[i].baseprice <= mp.silver) && !(ItemDefs[i].flags & ItemType::DISABLED) &&
+                (ItemDefs[i].baseprice <= effective_cap) && !(ItemDefs[i].flags & ItemType::DISABLED) &&
                 chosen_types.find(i) == chosen_types.end()
             ) {
                 count++;
@@ -877,7 +914,7 @@ void Army::GetMonSpoils(ItemList& spoils, int monitem, int free, std::set<int>& 
                 if (
                     (ItemDefs[i].type & type_to_use) && !(ItemDefs[i].type & IT_SPECIAL) &&
                     !(ItemDefs[i].type & IT_SHIP) && !(ItemDefs[i].type & IT_NEVER_SPOIL) &&
-                    (ItemDefs[i].baseprice <= mp.silver) && !(ItemDefs[i].flags & ItemType::DISABLED) &&
+                    (ItemDefs[i].baseprice <= effective_cap) && !(ItemDefs[i].flags & ItemType::DISABLED) &&
                     chosen_types.find(i) == chosen_types.end()
                 ) {
                     if (--count == 0) { chosen_item = i; break; }
@@ -888,7 +925,7 @@ void Army::GetMonSpoils(ItemList& spoils, int monitem, int free, std::set<int>& 
     }
 
     if (chosen_item == -1 && !chosen_types.empty()) {
-        // Pool full (or no new items found): pick from already-chosen types
+        // Pool full (or nothing new in effective_cap): pick from already-chosen types
         int idx = rng::get_random(chosen_types.size());
         auto it = chosen_types.begin();
         std::advance(it, idx);
@@ -897,27 +934,11 @@ void Army::GetMonSpoils(ItemList& spoils, int monitem, int free, std::set<int>& 
 
     if (chosen_item == -1) return;
 
-    int val = rng::get_random(mp.silver * 2);
-    if ((Globals->MONSTER_NO_SPOILS > 0) && (free > 0)) {
-        // Item progression: 0% → 0% → 50% → 100%
-        // Young (free >= 3): no items
-        // Wild (free == 2): no items
-        // Ancient (free == 1): 50% of items
-        // Elder (free == 0): 100% of items
-        if (free >= Globals->MONSTER_SPOILS_RECOVERY) {
-            val = 0;  // Young monsters have no items
-        } else if (free == Globals->MONSTER_SPOILS_RECOVERY - 1) {
-            val = 0;  // Wild monsters have no items (free == 2 when RECOVERY == 3)
-        } else if (free == 1) {
-            val = val / 2;  // Ancient monsters have 50% of items
-        }
-        // Otherwise full items (Elder, free == 0)
-    }
-
-    spoils.SetNum(
-        chosen_item,
-        spoils.GetNum(chosen_item) + (val + rng::get_random(ItemDefs[chosen_item].baseprice)) / ItemDefs[chosen_item].baseprice
-    );
+    // Quantity: val already rolled; guarantee ≥1 as safety net for pool-full picks
+    // where chosen item may have been locked at a higher baseprice than current val.
+    int quantity = (val + rng::get_random(ItemDefs[chosen_item].baseprice)) / ItemDefs[chosen_item].baseprice;
+    if (quantity == 0) quantity = 1;
+    spoils.SetNum(chosen_item, spoils.GetNum(chosen_item) + quantity);
 }
 
 void Army::Regenerate(Battle *b)

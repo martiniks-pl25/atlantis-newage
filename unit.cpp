@@ -239,8 +239,8 @@ void Unit::UpdateMonsterDescription()
     std::string base_name = name;
 
     // Loot info (common for all)
-    if (free >= 3)      loot_info = "Poor loot expected.";
-    else if (free == 2) loot_info = "Moderate loot.";
+    if (free >= 3)      loot_info = "No spoils.";
+    else if (free == 2) loot_info = "Silver only.";
     else if (free == 1) loot_info = "Good loot expected.";
     else                loot_info = "Full treasure trove.";
 
