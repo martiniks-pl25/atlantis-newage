@@ -272,6 +272,8 @@ static GameDefs g = {
 	5,	// MONSTER_HOSTILE_RATE
 
 	0,	// GUARDS_USE_LEADERS (0 = racial guards, 1 = leader guards)
+
+	1,	// DUNGEON_LEVEL
 };
 
 GameDefs *Globals = &g;

@@ -325,6 +325,10 @@ int Game::view_map(const std::string& typestr,const std::string& mapfile)
                 f << "Level " << i << ": Underdeep\n";
                 WriteUnderworldMap(f, pArr, type);
                 break;
+            case ARegionArray::LEVEL_DUNGEON:
+                f << "Level " << i << ": Dungeon\n";
+                WriteUnderworldMap(f, pArr, type);
+                break;
         }
     }
     return(1);
@@ -476,10 +480,21 @@ int Game::OpenGame()
     i = regions.ReadRegions(f, factions);
     if (!i) return 0;
 
+    // Migrate: add dungeon level if binary now supports it but save file predates it
+    if (Globals->DUNGEON_LEVEL &&
+        !regions.get_first_region_array_of_type(ARegionArray::LEVEL_DUNGEON)) {
+        logger::write("Migrating: adding dungeon level to existing world...");
+        ARegionArray *surface = regions.get_first_region_array_of_type(ARegionArray::LEVEL_SURFACE);
+        regions.add_dungeon_level_to_existing_world(surface->x, surface->y);
+    }
+
     // read in quests
     logger::write("Reading quests...");
     if (!quests.read_quests(f))
         return 0;
+
+    // read dungeon instances (tolerant: missing section = no active dungeons)
+    read_dungeons(f);
 
     logger::write("Setting up unit numbers...");
     SetupUnitNums();
@@ -524,6 +539,9 @@ int Game::SaveGame()
 
     // Write out quests
     quests.write_quests(f);
+
+    // Write out dungeon instances
+    write_dungeons(f);
 
     return(1);
 }

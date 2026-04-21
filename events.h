@@ -27,6 +27,7 @@ enum EventCategory {
     EVENT_GUARD_REPUTATION,
     EVENT_SETTLEMENT_STATS,
     EVENT_PIRATE_SIGHTING,
+    EVENT_DUNGEON,
 };
 
 struct Event {
@@ -141,6 +142,9 @@ public:
     std::string fortification;
     int fortificationType;
 
+    bool in_dungeon = false;
+    std::string dungeon_type_name;
+
     int outcome;    // BATTLE_LOST, BATTLE_WON, BATTLE_DRAW
 };
 
@@ -221,6 +225,19 @@ class SettlementStatsFact : public FactBase {
         int surface_settlements = 0;
         int contested_settlements = 0;
         std::vector<SettlementOwner> top_owners;  // up to top 5, sorted by total desc
+};
+
+enum class DungeonEventType { SPAWN, BOSS_KILLED, COLLAPSING };
+
+class DungeonFact : public FactBase {
+public:
+    DungeonFact() = default;
+    ~DungeonFact() override = default;
+    void GetEvents(std::list<Event> &events) override;
+
+    DungeonEventType event_type;
+    std::string dungeon_type_name;  // e.g. "Skeleton Ruins"
+    std::string region_name;        // surface region name
 };
 
 #endif // EVENTS_H

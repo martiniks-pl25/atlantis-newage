@@ -12,7 +12,7 @@ ENGINE_OBJECTS = aregion.o army.o astring.o battle.o economy.o \
   npc.o object.o orders.o parseorders.o production.o quests.o runorders.o \
   skills.o skillshows.o specials.o spells.o unit.o \
   events.o events-battle.o events-assassination.o mapgen.o simplex.o namegen.o \
-  indenter.o text_report_generator.o simulate.o
+  indenter.o text_report_generator.o simulate.o dungeon.o
 
 UNITTEST_SRC = unittest/main.cpp unittest/testhelper.cpp $(wildcard unittest/*_test.cpp)
 UNITTEST_OBJECTS = $(patsubst unittest/%.cpp,unittest/obj/%.o,$(UNITTEST_SRC))

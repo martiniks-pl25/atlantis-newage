@@ -2171,10 +2171,13 @@ int Unit::CanSwimTo(ARegion *target)
 
     // Deep ocean check - block natural swimmers only
     if (target->IsDeepOcean()) {
-        int swimCapacity = this->SwimmingCapacity();
         int weight = this->items.Weight();
 
-        // Block if actually swimming (not in ship)
+        // If mounted on a sea creature (e.g. turtle), the mount provides ocean access
+        if (this->RidingCapacity() >= weight)
+            return 1;
+
+        int swimCapacity = this->SwimmingCapacity();
         if (swimCapacity >= weight && swimCapacity > 0)
             return 0;
     }

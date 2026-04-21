@@ -20,8 +20,6 @@ extern const std::vector<int> CANNOT_FOUND_SETTLEMENT = {
 // Races that can found a village but will not change the region's dominant race.
 // Use this for magical or wandering races that adapt to their surroundings.
 extern const std::vector<int> RACE_NEUTRAL_FOUNDERS = {
-    I_FAIRY,
-    I_TIEFLING,
 };
 
 #define MINIMUM_ACTIVE_QUESTS 5
@@ -1278,6 +1276,10 @@ void Game::ModifyTablesPerRuleset(void)
     EnableObject(O_OCAVE);
     EnableObject(O_WHIRL);
 
+    // Dungeon system — one entrance object used on both sides (surface + inside).
+    // See docs/DUNGEON_SYSTEM_DESIGN.md
+    EnableObject(O_DUNGEON_ENTRANCE);
+
     //
     // Monsters
     //
@@ -1993,6 +1995,10 @@ void Game::ModifyTablesPerRuleset(void)
 
     // At the same time give SPEA bonus of 2 on attacka and 2 on defense vs. SWOR
     // modify_weapon_bonus_malus("SPEA", 0, "SWOR", 2, 2);
+
+    // Dungeon entrance/exit portal (same object type for both directions — see dungeon.h)
+    EnableObject(O_DUNGEON_ENTRANCE);
+
     return;
 }
 

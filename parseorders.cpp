@@ -2941,16 +2941,7 @@ void Game::ProcessCreateOrder(Unit *unit, parser::string_parser& parser, orders_
     }
 
     parser::token name_token = parser.get_token();
-    if (!name_token) {
-        parse_error(checker, unit, 0, "CREATE: No settlement name given.");
-        return;
-    }
-
-    string name = name_token.get_string();
-    if (name.empty()) {
-        parse_error(checker, unit, 0, "CREATE: Settlement name cannot be empty.");
-        return;
-    }
+    string name = name_token ? name_token.get_string() : "";
 
     bool monthtaxing = (Globals->TAX_PILLAGE_MONTH_LONG &&
                         (unit->taxing == TAX_TAX || unit->taxing == TAX_PILLAGE));
@@ -2964,6 +2955,6 @@ void Game::ProcessCreateOrder(Unit *unit, parser::string_parser& parser, orders_
 
     CreateOrder *order = new CreateOrder;
     order->settlementType = settlementType;
-    order->name = name;
+    order->name = name;  // empty = auto-generate at execution time
     unit->monthorders = order;
 }

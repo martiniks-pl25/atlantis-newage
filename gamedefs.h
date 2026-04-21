@@ -856,6 +856,10 @@ public:
 	// Independent from LEADERS_EXIST (which controls player recruitment)
 	// Guard mages always use I_LEADERS regardless of this setting
 	int GUARDS_USE_LEADERS;
+
+	// Enable dynamic dungeon system (5th map level with auto-generated dungeons).
+	// 0 = disabled (level not created), 1 = enabled
+	int DUNGEON_LEVEL;
 };
 
 extern GameDefs *Globals;

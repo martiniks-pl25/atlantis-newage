@@ -413,7 +413,8 @@ void Game::CreateWorld()
         }
     }
 
-    regions.create_levels(2 + Globals->UNDERWORLD_LEVELS + Globals->UNDERDEEP_LEVELS + Globals->ABYSS_LEVEL);
+    regions.create_levels(2 + Globals->UNDERWORLD_LEVELS + Globals->UNDERDEEP_LEVELS +
+                          Globals->ABYSS_LEVEL + Globals->DUNGEON_LEVEL);
 
     SetupNames();
 
@@ -551,6 +552,11 @@ void Game::CreateWorld()
 
     if (Globals->ABYSS_LEVEL) {
         regions.create_abyss_level(Globals->UNDERWORLD_LEVELS + Globals->UNDERDEEP_LEVELS + 2, "abyss");
+    }
+
+    if (Globals->DUNGEON_LEVEL) {
+        int dungeon_idx = 2 + Globals->UNDERWORLD_LEVELS + Globals->UNDERDEEP_LEVELS + Globals->ABYSS_LEVEL;
+        regions.create_dungeon_level(dungeon_idx, xx, yy, "dungeon");
     }
 
     CountNames();

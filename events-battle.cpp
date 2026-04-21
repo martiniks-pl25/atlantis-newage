@@ -192,6 +192,25 @@ const Event cityCapture(BattleFact* fact) {
 const Event monsterHunt(BattleFact* fact) {
     std::ostringstream buffer;
 
+    if (fact->in_dungeon) {
+        static const std::vector<std::string> WON = {
+            "Treasure hunters emerge from {D}, having slain the {M} within.",
+            "Adventurers delved into {D} and returned victorious, their quarry defeated.",
+            "Bold explorers cleared a path through {D}, cutting down the {M} that stood in their way.",
+        };
+        static const std::vector<std::string> LOST = {
+            "A party of adventurers was lost in the depths of {D}. None survived to tell the tale.",
+            "The {M} of {D} has claimed more victims. The dungeon keeps its secrets.",
+            "Screams were heard echoing from {D}. The {M} within suffered no challengers.",
+        };
+        const auto &tmpl = rng::one_of(fact->outcome == BATTLE_WON ? WON : LOST);
+        std::string text = tmpl;
+        size_t pos;
+        while ((pos = text.find("{D}")) != std::string::npos) text.replace(pos, 3, fact->dungeon_type_name);
+        while ((pos = text.find("{M}")) != std::string::npos) text.replace(pos, 3, fact->defender.unitName);
+        return { .category = EventCategory::EVENT_MONSTER_HUNT, .score = 1, .text = text };
+    }
+
     auto mark = fact->location.GetSignificantLandmark();
 
     if (fact->outcome == BATTLE_WON) {
@@ -239,6 +258,23 @@ const Event monsterHunt(BattleFact* fact) {
 
 const Event monsterAggresion(BattleFact* fact) {
     std::ostringstream buffer;
+
+    if (fact->in_dungeon) {
+        static const std::vector<std::string> WON = {
+            "Deep within {D}, the {M} repelled yet another assault. The dungeon remains unconquered.",
+            "The {M} of {D} drove back all challengers. Its domain is secure for now.",
+        };
+        static const std::vector<std::string> LOST = {
+            "The {M} within {D} was driven back and slain by a bold raiding party.",
+            "A raiding party cut through {D} and destroyed the {M} lurking within.",
+        };
+        const auto &tmpl = rng::one_of(fact->outcome == BATTLE_WON ? WON : LOST);
+        std::string text = tmpl;
+        size_t pos;
+        while ((pos = text.find("{D}")) != std::string::npos) text.replace(pos, 3, fact->dungeon_type_name);
+        while ((pos = text.find("{M}")) != std::string::npos) text.replace(pos, 3, fact->attacker.unitName);
+        return { .category = EventCategory::EVENT_MONSTER_AGGRESSION, .score = 1, .text = text };
+    }
 
     auto mark = fact->location.GetSignificantLandmark();
 

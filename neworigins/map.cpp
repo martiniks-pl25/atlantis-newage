@@ -1926,6 +1926,34 @@ void ARegionList::create_underdeep_level(int level, int xSize, int ySize, const 
     FinalSetup(pRegionArrays[level]);
 }
 
+// Dungeon level: all regions stay R_BARREN (void) by default.
+// Active dungeons are generated dynamically by Game::try_spawn_dungeon().
+// See docs/DUNGEON_SYSTEM_DESIGN.md
+void ARegionList::create_dungeon_level(int level, int xSize, int ySize, const std::string& name)
+{
+    MakeRegions(level, xSize, ySize);
+
+    pRegionArrays[level]->set_name(name);
+    pRegionArrays[level]->levelType = ARegionArray::LEVEL_DUNGEON;
+
+    for (int x = 0; x < xSize; x++) {
+        for (int y = 0; y < ySize; y++) {
+            ARegion *reg = pRegionArrays[level]->GetRegion(x, y);
+            if (!reg) continue;
+            reg->type = R_BARREN;
+        }
+    }
+
+    FinalSetup(pRegionArrays[level]);
+}
+
+void ARegionList::add_dungeon_level_to_existing_world(int xSize, int ySize)
+{
+    int level = numLevels;
+    expand_levels(numLevels + 1);
+    create_dungeon_level(level, xSize, ySize, "dungeon");
+}
+
 void ARegionList::MakeRegions(int level, int xSize, int ySize)
 {
     logger::write("Making a level...");

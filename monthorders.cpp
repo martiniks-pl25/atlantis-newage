@@ -1514,8 +1514,13 @@ void Game::Run1CreateOrder(ARegion *r, Unit *u)
         u->items.SetNum(VILLAGE_ITEM_COSTS[i].item, have - VILLAGE_ITEM_COSTS[i].amount);
     }
 
-    // --- 11. Create the village ---
-    r->add_town(TOWN_VILLAGE, order->name);
+    // --- 11. Create the village (auto-generate name if not provided) ---
+    std::string village_name = order->name;
+    if (village_name.empty()) {
+        int name_race = (primary_man_type != -1) ? primary_man_type : r->race;
+        village_name = getEthnicName(raceToEthnicity(name_race));
+    }
+    r->add_town(TOWN_VILLAGE, village_name);
 
     // --- 12. Set up markets (trade goods + recruitment) ---
     r->SetupRandomTradeMarkets();
@@ -1523,7 +1528,7 @@ void Game::Run1CreateOrder(ARegion *r, Unit *u)
     r->AddLeadersMarket();
 
     // --- 13. Report ---
-    u->event("founds the village of " + order->name + ".", "create");
+    u->event("founds the village of " + village_name + ".", "create");
 }
 
 void Game::Do1StudyOrder(Unit *u, Object *obj)

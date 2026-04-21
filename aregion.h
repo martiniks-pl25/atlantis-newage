@@ -389,6 +389,7 @@ class ARegionArray
             LEVEL_SURFACE,
             LEVEL_UNDERWORLD,
             LEVEL_UNDERDEEP,
+            LEVEL_DUNGEON,
         };
         int levelType;
 };
@@ -485,6 +486,9 @@ class ARegionList
         void create_underworld_level(int level, int xSize, int ySize, const std::string& name);
         void create_underworld_ring_level(int level, int xSize, int ySize, const std::string& name);
         void create_underdeep_level(int level, int xSize, int ySize, const std::string& name);
+        void create_dungeon_level(int level, int xSize, int ySize, const std::string& name);
+        void expand_levels(int newNumLevels);
+        void add_dungeon_level_to_existing_world(int xSize, int ySize);
 
         void CreateSmartShafts(int levelFrom, int levelTo, int minDistanceSame, int minDistanceStair);
         void CreateLairsAtShafts(int level);

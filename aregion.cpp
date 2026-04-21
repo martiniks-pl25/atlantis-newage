@@ -2440,6 +2440,15 @@ void ARegionList::create_levels(int n)
     pRegionArrays = new ARegionArray *[n];
 }
 
+void ARegionList::expand_levels(int newNumLevels)
+{
+    auto newArr = new ARegionArray *[newNumLevels];
+    for (int i = 0; i < numLevels; i++) newArr[i] = pRegionArrays[i];
+    delete[] pRegionArrays;
+    pRegionArrays = newArr;
+    numLevels = newNumLevels;
+}
+
 ARegionArray::ARegionArray(int xx, int yy)
 {
     x = xx;

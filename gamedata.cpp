@@ -2792,7 +2792,7 @@ std::vector<MonType> MonDefs = {
      20,20,5,
      2,3,2,
      NULL,0,
-     1300,IT_ADVANCED,25,7,"Living Water", "ELEM", 1,/*size*/3, {}, {}},
+     1300,IT_ADVANCED,25,7,"Living Water", "ELEM", 1,/*size*/3, {R_OCEAN}, { R_MOUNTAIN, R_VOLCANO, R_DESERT}},
     {-5,{-5,0,0,0,-5,0},
      0,0,0,
      0,5,0,
@@ -4575,6 +4575,17 @@ std::vector<ObjectType> ObjectDefs = {
      0,0,0,
      -1,-1,
      {0,0,0,0,0,0}},
+    // Dungeon entry point — one type used twice (on surface and inside dungeon),
+    // differentiated by obj->region->level->levelType. See docs/DUNGEON_SYSTEM_DESIGN.md
+    {"Dungeon Entrance",
+     ObjectType::DISABLED | ObjectType::CANENTER | ObjectType::NEVERDECAY | ObjectType::NOANNIHILATE,
+     0,0,0,0,
+     -1,0,NULL,0,
+     -1, -1, 0, -1, 0,
+     { -1, 0, -1, false },
+     0,0,0,
+     -1,-1,
+     {0,0,0,0,0,0}},
 
 };
 
@@ -5183,6 +5194,18 @@ std::vector<TerrainType> TerrainDefs = {
      0,{-1,-1,-1,-1,-1,-1}},
     {"deadwater", "deadwater", "barrenocean", '-', R_OCEAN,
      TerrainType::BARREN | TerrainType::FLYINGMOUNTS | TerrainType::ANNIHILATED,
+     0,0,0,1,
+     {{-1,0,0},{-1,0,0},{-1,0,0},{-1,0,0},
+      {-1,0,0},{-1,0,0},{-1,0,0}},
+     {-1,-1,-1,-1},
+     {-1,-1,-1},
+     0,-1,-1,-1,
+     0,{-1,-1,-1,-1,-1,-1}},
+    // Dungeon — only generated on LEVEL_DUNGEON. No production, 1 MV, no auto-wmon.
+    // Monster population managed entirely by dungeon.cpp (SpawnDungeon / ProcessDungeons).
+    // See docs/DUNGEON_SYSTEM_DESIGN.md
+    {"dungeon", "dungeons", "dungeon", 'd', R_DUNGEON,
+     0,
      0,0,0,1,
      {{-1,0,0},{-1,0,0},{-1,0,0},{-1,0,0},
       {-1,0,0},{-1,0,0},{-1,0,0}},

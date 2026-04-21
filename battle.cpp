@@ -440,6 +440,11 @@ void AddBattleFact(
 
     fact->location = EventLocation::Create(region);
 
+    if (region->level && region->level->levelType == ARegionArray::LEVEL_DUNGEON) {
+        fact->in_dungeon = true;
+        fact->dungeon_type_name = region->name;
+    }
+
     fact->attacker.AssignUnit(attacker);
     fact->attacker.AssignArmy(attackerArmy);
 

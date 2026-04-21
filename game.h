@@ -16,9 +16,12 @@ class Game;
 #include "external/nlohmann/json.hpp"
 using json = nlohmann::json;
 
+#include "dungeon.h"
+
 #include <map>
 #include <string>
 #include <unordered_map>
+#include <iosfwd>
 
 #define CURRENT_ATL_VER MAKE_ATL_VER(5, 2, 5)
 #define JSON_REPORT_VERSION MAKE_ATL_VER(1, 0, 1) // version 1.0.0 didn't report the version number
@@ -319,6 +322,10 @@ private:
     int monfaction;
     int doExtraInit;
 
+    // Active dungeon instances; serialized in DUNGEONS section of game.dat.
+    std::vector<DungeonInstance> activeDungeons;
+    int nextDungeonId = 1;
+
     // Per-turn claim map for CAST CPIR: fleet owner → best (smallest) BFS distance claimed.
     // Populated and cleared inside RunCastOrders(). Ensures "closest apprentice wins"
     // when multiple BWHI-users cast in the same turn.
@@ -509,6 +516,13 @@ private:
     void ResetCityMarketsExceptTrade(); // TEMPORARY — remove after one server turn
     void AssignTradeMarketsRoundRobin();
     void DoTowerObservation();
+    void ProcessDungeons();       // dungeon.cpp — see docs/DUNGEON_SYSTEM_DESIGN.md
+    void try_spawn_dungeon();
+    ARegion* find_entrance_spot();
+    void generate_dungeon_cell(DungeonInstance &d);
+    void populate_dungeon(const DungeonInstance &d);
+    void read_dungeons(std::istream &f);
+    void write_dungeons(std::ostream &f);
 
     // Processing regions grow after production phase
     void ProcessEconomics();

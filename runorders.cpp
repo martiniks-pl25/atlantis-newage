@@ -1200,6 +1200,7 @@ void Game::PostProcessTurn()
     AutoNameBuildings();
     AutoNameSoloUnits();
     // ResetCityMarketsExceptTrade(); // one-time market migration, done
+    ProcessDungeons();
     DoTowerObservation();
 }
 
@@ -1713,6 +1714,10 @@ void Game::CheckWMonAttack(ARegion *r, Unit *u) {
             effectiveHostile = std::min(effectiveHostile * 2, 100);
         }
     }
+
+    // Dungeon monsters are twice as aggressive (confined territory, no grace period already applies)
+    if (effectiveHostile > 0 && r->level->levelType == ARegionArray::LEVEL_DUNGEON)
+        effectiveHostile = std::min(effectiveHostile * dungeon::AGGRESSION_MULT, 100);
 
     // In danger zones, ignore target count — monsters always attack at full roll range.
     // This ensures small scouting parties in dungeons/volcanoes are not artificially safe.

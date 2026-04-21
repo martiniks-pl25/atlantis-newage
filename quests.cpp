@@ -122,6 +122,7 @@ int QuestList::read_quests(std::istream& f)
         quests.push_back(quest);
     }
 
+    int trailing; f >> trailing;  // consume the sentinel 0 written by write_quests
     return 1;
 }
 

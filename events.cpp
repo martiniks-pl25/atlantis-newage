@@ -503,6 +503,7 @@ static std::string categoryToString(EventCategory cat) {
         case EVENT_GUARD_REPUTATION:   return "guard_reputation";
         case EVENT_SETTLEMENT_STATS:   return "settlement_stats";
         case EVENT_PIRATE_SIGHTING:    return "pirate_sighting";
+        case EVENT_DUNGEON:            return "dungeon";
         default:                       return "unknown";
     }
 }
@@ -530,7 +531,8 @@ std::string Events::WriteJSON(std::string worldName, std::string month, int year
     for (auto &cat : categories) {
         auto list = cat.second;
         std::sort(list.begin(), list.end(), compareEvents);
-        if ((int)list.size() > 10) list.resize(10);
+        bool uncapped = (cat.first == EVENT_PIRATE_SIGHTING || cat.first == EVENT_DUNGEON);
+        if (!uncapped && (int)list.size() > 10) list.resize(10);
 
         for (auto &e : list) {
             json item;
@@ -627,6 +629,70 @@ void PirateSightingFact::GetEvents(std::list<Event> &events) {
     events.push_back({
         .category = EVENT_PIRATE_SIGHTING,
         .score = 50,
+        .text = text
+    });
+}
+
+// --- DungeonFact ---
+
+static const std::vector<std::string> dungeon_spawn_templates = {
+    "Dark passages have opened near {REGION}. Strange creatures stir within.",
+    "Travelers near {REGION} speak of {DUNGEON} — dark corridors, foul sounds, and the stench of death.",
+    "A {DUNGEON} has appeared near {REGION}. None who entered have returned to tell the tale.",
+    "Adventurers near {REGION} report the discovery of {DUNGEON}. Proceed with caution.",
+};
+
+static const std::vector<std::string> dungeon_boss_killed_templates = {
+    "The ground shakes near {REGION} — the master of {DUNGEON} has fallen.",
+    "Distant tremors near {REGION}: {DUNGEON} shudders as its guardian breathes its last.",
+    "Something powerful died beneath {REGION}. {DUNGEON} grows unstable.",
+    "{DUNGEON} near {REGION} trembles violently. Its guardian has been slain.",
+};
+
+static const std::vector<std::string> dungeon_collapsing_templates = {
+    "{DUNGEON} near {REGION} has collapsed. Nothing remains.",
+    "Vast rumbling echoes near {REGION} as {DUNGEON} crumbles to dust.",
+    "The earth swallows {DUNGEON} near {REGION}. The entrance is gone.",
+    "With a final roar, {DUNGEON} near {REGION} caves in forever.",
+};
+
+static std::string applyDungeonTemplate(const std::string &tmpl,
+                                        const std::string &dungeon,
+                                        const std::string &region) {
+    std::string text = tmpl;
+    size_t pos;
+    while ((pos = text.find("{DUNGEON}")) != std::string::npos)
+        text.replace(pos, 9, dungeon);
+    while ((pos = text.find("{REGION}")) != std::string::npos)
+        text.replace(pos, 8, region);
+    return text;
+}
+
+void DungeonFact::GetEvents(std::list<Event> &events) {
+    const std::vector<std::string> *templates = nullptr;
+    int score = 0;
+
+    switch (event_type) {
+        case DungeonEventType::SPAWN:
+            templates = &dungeon_spawn_templates;
+            score = 40;
+            break;
+        case DungeonEventType::BOSS_KILLED:
+            templates = &dungeon_boss_killed_templates;
+            score = 70;
+            break;
+        case DungeonEventType::COLLAPSING:
+            templates = &dungeon_collapsing_templates;
+            score = 55;
+            break;
+    }
+
+    if (!templates) return;
+    int idx = rng::get_random(templates->size());
+    std::string text = applyDungeonTemplate((*templates)[idx], dungeon_type_name, region_name);
+    events.push_back({
+        .category = EVENT_DUNGEON,
+        .score = score,
         .text = text
     });
 }

@@ -471,6 +471,7 @@ enum {
     O_ENTITY_CAGE,
     O_DORMANT_MONOLITH,
     O_ACTIVE_MONOLITH,
+    O_DUNGEON_ENTRANCE,
     NOBJECTS
 };
 
@@ -543,6 +544,7 @@ enum {
     R_LAKE,
     R_BARREN,
     R_BARRENOCEAN,
+    R_DUNGEON,
     R_NUM
 };
 
