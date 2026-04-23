@@ -227,7 +227,7 @@ class SettlementStatsFact : public FactBase {
         std::vector<SettlementOwner> top_owners;  // up to top 5, sorted by total desc
 };
 
-enum class DungeonEventType { SPAWN, BOSS_KILLED, COLLAPSING };
+enum class DungeonEventType { SPAWN, BOSS_KILLED, COLLAPSING, DECAYING };
 
 class DungeonFact : public FactBase {
 public:

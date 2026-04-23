@@ -656,6 +656,13 @@ static const std::vector<std::string> dungeon_collapsing_templates = {
     "With a final roar, {DUNGEON} near {REGION} caves in forever.",
 };
 
+static const std::vector<std::string> dungeon_decaying_templates = {
+    "{DUNGEON} near {REGION} has stood unchallenged for too long. The entrance seals itself.",
+    "The passage to {DUNGEON} near {REGION} collapses — its time has passed.",
+    "{DUNGEON} near {REGION} begins to crumble. Those inside must flee before it is too late.",
+    "Age claims {DUNGEON} near {REGION}. The entrance crumbles shut.",
+};
+
 static std::string applyDungeonTemplate(const std::string &tmpl,
                                         const std::string &dungeon,
                                         const std::string &region) {
@@ -684,6 +691,10 @@ void DungeonFact::GetEvents(std::list<Event> &events) {
         case DungeonEventType::COLLAPSING:
             templates = &dungeon_collapsing_templates;
             score = 55;
+            break;
+        case DungeonEventType::DECAYING:
+            templates = &dungeon_decaying_templates;
+            score = 60;
             break;
     }
 

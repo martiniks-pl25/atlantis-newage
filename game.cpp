@@ -341,7 +341,7 @@ int Game::NewGame()
     monfaction = 0;
     unitseq = 1;
     SetupUnitNums();
-    shipseq = 100;
+    shipseq = FLEET_NUM_START;
     year = 1;
     month = -1;
     gameStatus = GAME_STATUS_NEW;
@@ -566,7 +566,7 @@ void Game::InitMinimal()
     // Initialize faction/unit sequences
     factionseq = 1;
     unitseq = 1;
-    shipseq = 100;
+    shipseq = FLEET_NUM_START;
     guardfaction = 0;
     monfaction = 0;
 

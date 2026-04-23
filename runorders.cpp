@@ -1201,6 +1201,7 @@ void Game::PostProcessTurn()
     AutoNameSoloUnits();
     // ResetCityMarketsExceptTrade(); // one-time market migration, done
     ProcessDungeons();
+    migrate_dungeon_entrance_numbers();
     DoTowerObservation();
 }
 
@@ -3172,6 +3173,13 @@ void Game::DoGuard1Orders()
                     TerrainDefs[r->type].similar_type == R_OCEAN) {
                     u->guard = GUARD_NONE;
                     u->error("Can not guard in oceans.");
+                    continue;
+                }
+
+                if ((u->guard == GUARD_SET || u->guard == GUARD_GUARD) &&
+                    r->level->levelType == ARegionArray::LEVEL_DUNGEON) {
+                    u->guard = GUARD_NONE;
+                    u->error("Can not guard inside a dungeon.");
                     continue;
                 }
 

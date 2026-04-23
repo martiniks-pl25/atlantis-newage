@@ -1807,11 +1807,11 @@ void Game::ModifyTablesPerRuleset(void)
 
     // Summoned / undead monsters
     modify_monster_threat("SKEL",  100, 20);  // Skeleton
-    modify_monster_threat("UNDE",  10,  100); // Undead
+    modify_monster_threat("UNDE",  10,  50); // Undead
     modify_monster_threat("LICH",  1,   50);  // Lich
     modify_monster_threat("IMP",   50,  20);  // Imp
     modify_monster_threat("DEMO",  10,  50);  // Demon
-    modify_monster_threat("BALR",  1,   100); // Balrog
+    modify_monster_threat("BALR",  1,   50); // Balrog
     modify_monster_threat("EAGL",  1,   20);  // Eagle
 
     // Sea creatures

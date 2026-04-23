@@ -116,6 +116,15 @@ public:
     void run_grow(ARegion *region) { region->Grow(); }
     // Run AutoNameSoloUnits() (private method, exposed for testing)
     void run_auto_name_solo_units() { game.AutoNameSoloUnits(); }
+    // Run ProcessDungeons() — dungeon lifecycle (boss death, DYING timer, collapse)
+    void run_process_dungeons() { game.ProcessDungeons(); }
+    // Dungeon test helpers
+    void inject_dungeon(const DungeonInstance &d) { game.activeDungeons.push_back(d); }
+    int get_monfaction() { return game.monfaction; }
+    size_t dungeon_count() { return game.activeDungeons.size(); }
+    DungeonInstance get_dungeon(size_t idx) { return game.activeDungeons[idx]; }
+    bool dungeons_empty() { return game.activeDungeons.empty(); }
+    int turn_number() { return game.TurnNumber(); }
 
     // dummy
     int get_seed() { return rng::get_random(10000); };

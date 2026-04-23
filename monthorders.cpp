@@ -678,10 +678,10 @@ void Game::AddNewBuildings(ARegion *r)
                         break;
                     }
 
-                    for (i = 1; i < 100; i++) {
+                    for (i = 1; i < FLEET_NUM_START; i++) {
                         if (!r->GetObject(i)) break;
                     }
-                    if (i < 100) {
+                    if (i < FLEET_NUM_START) {
                         Object *obj = new Object(r);
                         obj->type = o->new_building;
                         obj->incomplete = ObjectDefs[obj->type].cost;

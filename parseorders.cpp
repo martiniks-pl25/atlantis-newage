@@ -2378,6 +2378,10 @@ void Game::ProcessGuardOrder(Unit *u, parser::string_parser& parser, orders_chec
     if (!val.value()) {
         if (u->guard != GUARD_AVOID) u->guard = GUARD_NONE;
     } else {
+        if (u->object->region->level->levelType == ARegionArray::LEVEL_DUNGEON) {
+            u->error("GUARD: Cannot guard inside a dungeon.");
+            return;
+        }
         if (u->guard != GUARD_GUARD) u->guard = GUARD_SET;
     }
 }

@@ -26,6 +26,10 @@ using json = nlohmann::json;
 #define CURRENT_ATL_VER MAKE_ATL_VER(5, 2, 5)
 #define JSON_REPORT_VERSION MAKE_ATL_VER(1, 0, 1) // version 1.0.0 didn't report the version number
 
+// Object number namespaces: buildings use 1..(FLEET_NUM_START-1), fleets use FLEET_NUM_START+.
+// TODO: raise to 200 on next server restart (update shipseq init and BUILD scan limit together).
+constexpr int FLEET_NUM_START = 100;
+
 class orders_check
 {
 public:
@@ -521,6 +525,7 @@ private:
     ARegion* find_entrance_spot();
     void generate_dungeon_cell(DungeonInstance &d);
     void populate_dungeon(const DungeonInstance &d);
+    void migrate_dungeon_entrance_numbers(); // one-time: renumber entrances >= FLEET_NUM_START
     void read_dungeons(std::istream &f);
     void write_dungeons(std::ostream &f);
 

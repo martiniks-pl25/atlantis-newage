@@ -48,6 +48,9 @@ struct DungeonTypeDef {
     // Turns from boss death to collapse (escape window).
     // Short for BFS/small; longer for DFS/large dungeons.
     int dying_turns;
+
+    // Maximum lifetime from spawn (turns). Dungeon starts DYING even if boss is alive.
+    int max_lifetime_turns;
 };
 
 // Type table — defined in dungeon.cpp, indexed by DungeonType enum.
@@ -78,6 +81,7 @@ struct DungeonInstance {
     int entry_region_num    = -1;           // entry room region num (dungeon level)
     int exit_object_num     = -1;           // O_DUNGEON_ENTRANCE in entry room (inner→surface)
     int boss_region_num     = -1;           // initial boss spawn location (boss may roam)
+    int spawn_turn          = -1;           // TurnNumber() when spawned (-1 = legacy/unknown)
 
     std::vector<int> room_nums;             // all R_DUNGEON region nums in this dungeon
 };
@@ -98,4 +102,7 @@ namespace dungeon {
 
     // Monster aggression multiplier inside dungeons
     constexpr int AGGRESSION_MULT    = 2;
+
+    // First turn on which dungeons may spawn (players need time to develop)
+    constexpr int MIN_SPAWN_TURN     = 6;
 }

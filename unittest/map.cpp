@@ -185,3 +185,5 @@ void ARegionList::InitSetupGates(int level) { }
 void ARegionList::FixUnconnectedRegions() { }
 
 void ARegionList::FinalSetupGates() { }
+
+void ARegionList::add_dungeon_level_to_existing_world(int xSize, int ySize) { }

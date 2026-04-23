@@ -26,7 +26,8 @@ const std::vector<DungeonTypeDef> DungeonTypeDefs = {
         I_ETTIN,
         DungeonGenStyle::BFS_NETWORK, 50,
         75, 25,  // turn 1: 75%;  turn 50+: 25%
-        6        // dying_turns: BFS/small — 5 rooms max dist, 3 moves + margin
+        8,       // dying_turns (+2): BFS/small — 5 rooms max dist, 3 moves + margin
+        12       // max_lifetime_turns: collapses after 12 turns even if boss alive
     },
     {   // DUNGEON_SKELETON_RUINS — winding crypt corridors
         "Skeleton Ruins", "Ancient Ruins",
@@ -36,7 +37,8 @@ const std::vector<DungeonTypeDef> DungeonTypeDefs = {
         I_LICH,
         DungeonGenStyle::DFS_CORRIDOR, 20,
         25, 25,  // turn 1: 25%;  turn 50+: 25%
-        10       // dying_turns: DFS/medium — up to 10 rooms deep
+        12,      // dying_turns (+2): DFS/medium — up to 10 rooms deep
+        12       // max_lifetime_turns
     },
     {   // DUNGEON_DEMON_PIT — open pit network
         "Demon Pit", "Burning Gate",
@@ -46,7 +48,8 @@ const std::vector<DungeonTypeDef> DungeonTypeDefs = {
         I_DEVIL,
         DungeonGenStyle::BFS_NETWORK, 50,
         0, 25,   // turn 1: 0%;   turn 50+: 25%
-        8        // dying_turns: BFS/medium — open network, shorter paths
+        10,      // dying_turns (+2): BFS/medium — open network, shorter paths
+        12       // max_lifetime_turns
     },
     {   // DUNGEON_DRAGON_LAIR — meandering lair with side tunnels
         "Dragon Lair", "Dragon's Maw",
@@ -56,7 +59,8 @@ const std::vector<DungeonTypeDef> DungeonTypeDefs = {
         I_DRAGON,
         DungeonGenStyle::DFS_CORRIDOR, 30,
         0, 25,   // turn 1: 0%;   turn 50+: 25%
-        10       // dying_turns: DFS/large — up to 14 rooms deep
+        12,      // dying_turns (+2): DFS/large — up to 14 rooms deep
+        12       // max_lifetime_turns
     },
 };
 
@@ -388,6 +392,7 @@ void Game::try_spawn_dungeon()
     }
     d.state      = DungeonSlotState::ACTIVE;
     d.phase_turn = 0;
+    d.spawn_turn = TurnNumber();
     d.cell_x     = cx;
     d.cell_y     = cy;
     d.surface_region_num = surface_r->num;
@@ -395,11 +400,24 @@ void Game::try_spawn_dungeon()
     generate_dungeon_cell(d);
     if (d.room_nums.empty()) return;  // generation failed (shouldn't happen)
 
+    // TODO: When restarting the server, increase building slot range to 1-199 and
+    //       start shipseq at 200 (game.cpp InitMinimal/NewGame: shipseq=200, and
+    //       change the BUILD order scan limit from 100 to 200 in monthorders.cpp).
+    //       Currently buildings occupy 1-99 and fleets start at 100 (shipseq).
+
     // Place entrance on surface.
+    // Use the same slot-scan as the BUILD order so the entrance gets a number in
+    // the building range (1-99) rather than using buildingseq, which is inflated
+    // by fleet object numbers during Readin.
     {
         const auto &td = DungeonTypeDefs[(int)d.type];
+        int ent_num = 1;
+        for (; ent_num < FLEET_NUM_START; ent_num++)
+            if (!surface_r->GetObject(ent_num)) break;
+        if (ent_num >= FLEET_NUM_START) return;  // no free building slot — skip this spawn
+
         Object *ent = new Object(surface_r);
-        ent->num       = surface_r->buildingseq++;
+        ent->num       = ent_num;
         ent->type      = O_DUNGEON_ENTRANCE;
         ent->set_name(std::string(td.entrance_name) + " of " + surface_r->name);
         ent->incomplete = 0;
@@ -408,18 +426,23 @@ void Game::try_spawn_dungeon()
         d.entrance_object_num = ent->num;
     }
 
-    // Place exit in entry room.
+    // Place exit in entry room (dungeon level has no fleets, but use same pattern).
     {
         ARegion *entry_r = regions.GetRegion(d.entry_region_num);
         if (entry_r) {
-            Object *ex = new Object(entry_r);
-            ex->num       = entry_r->buildingseq++;
-            ex->type      = O_DUNGEON_ENTRANCE;
-            ex->set_name("Exit");
-            ex->incomplete = 0;
-            ex->inner      = surface_r->num;
-            entry_r->objects.push_back(ex);
-            d.exit_object_num = ex->num;
+            int ex_num = 1;
+            for (; ex_num < FLEET_NUM_START; ex_num++)
+                if (!entry_r->GetObject(ex_num)) break;
+            if (ex_num < FLEET_NUM_START) {
+                Object *ex = new Object(entry_r);
+                ex->num       = ex_num;
+                ex->type      = O_DUNGEON_ENTRANCE;
+                ex->set_name("Exit");
+                ex->incomplete = 0;
+                ex->inner      = surface_r->num;
+                entry_r->objects.push_back(ex);
+                d.exit_object_num = ex->num;
+            }
         }
     }
 
@@ -454,18 +477,53 @@ void Game::ProcessDungeons()
         max_active = std::max(1, total_cells);
     }
 
-    // --- Spawn ---
-    // TEMP: initial batch of 20 on first run — remove after testing
-    int spawn_count = activeDungeons.empty() ? 20 : dungeon::SPAWN_ATTEMPTS;
-    for (int i = 0; i < spawn_count; i++) {
-        if ((int)activeDungeons.size() >= max_active) break;
-        if (i < 20 || rng::get_random(100) < dungeon::SPAWN_CHANCE)
-            try_spawn_dungeon();
+    // --- Spawn (not before turn 6 — players need time to develop) ---
+    if (TurnNumber() >= dungeon::MIN_SPAWN_TURN) {
+        for (int i = 0; i < dungeon::SPAWN_ATTEMPTS; i++) {
+            if ((int)activeDungeons.size() >= max_active) break;
+            if (rng::get_random(100) < dungeon::SPAWN_CHANCE)
+                try_spawn_dungeon();
+        }
     }
 
-    // --- Boss death detection: ACTIVE → DYING ---
+    // --- Boss death detection + max lifetime: ACTIVE → DYING ---
     for (auto &d : activeDungeons) {
         if (d.state != DungeonSlotState::ACTIVE) continue;
+
+        // Lazy-init spawn_turn for dungeons loaded from old save files.
+        if (d.spawn_turn == -1) d.spawn_turn = TurnNumber();
+
+        // Max lifetime: start DYING even if boss is still alive.
+        const auto &td_life = DungeonTypeDefs[(int)d.type];
+        if (TurnNumber() - d.spawn_turn >= td_life.max_lifetime_turns) {
+            d.state      = DungeonSlotState::DYING;
+            d.phase_turn = TurnNumber();
+
+            if (d.entrance_object_num >= 0) {
+                ARegion *sr = regions.GetRegion(d.surface_region_num);
+                if (sr) {
+                    for (auto it = sr->objects.begin(); it != sr->objects.end(); ++it) {
+                        if ((*it)->num == d.entrance_object_num) {
+                            delete *it;
+                            sr->objects.erase(it);
+                            break;
+                        }
+                    }
+                }
+                d.entrance_object_num = -1;
+            }
+
+            {
+                ARegion *sr = regions.GetRegion(d.surface_region_num);
+                auto *f = new DungeonFact();
+                f->event_type        = DungeonEventType::DECAYING;
+                f->dungeon_type_name = td_life.name;
+                f->region_name       = sr ? sr->name : "unknown";
+                this->events->AddFact(f);
+            }
+            logger::write("Dungeon #" + std::to_string(d.id) + " lifetime expired — DYING.");
+            continue;
+        }
 
         int kill_item = DungeonTypeDefs[(int)d.type].boss_kill_item;
         bool boss_alive = false;
@@ -588,6 +646,7 @@ void Game::write_dungeons(std::ostream &f)
         f << "type "             << (int)d.type             << "\n";
         f << "state "            << (int)d.state            << "\n";
         f << "phase_turn "       << d.phase_turn            << "\n";
+        f << "spawn_turn "       << d.spawn_turn            << "\n";
         f << "cell "             << d.cell_x << " " << d.cell_y << "\n";
         f << "surface_region "   << d.surface_region_num    << "\n";
         f << "entrance_object "  << d.entrance_object_num   << "\n";
@@ -623,6 +682,7 @@ void Game::read_dungeons(std::istream &f)
             else if (tag == "type")           { int t; f >> t; d.type  = (DungeonType)t; }
             else if (tag == "state")          { int s; f >> s; d.state = (DungeonSlotState)s; }
             else if (tag == "phase_turn")     f >> d.phase_turn;
+            else if (tag == "spawn_turn")     f >> d.spawn_turn;
             else if (tag == "cell")           f >> d.cell_x >> d.cell_y;
             else if (tag == "surface_region") f >> d.surface_region_num;
             else if (tag == "entrance_object")f >> d.entrance_object_num;
@@ -641,4 +701,73 @@ void Game::read_dungeons(std::istream &f)
     }
 
     f >> kw;  // consume "END_DUNGEONS"
+}
+
+// ---------------------------------------------------------------------------
+// Game::migrate_dungeon_entrance_numbers
+// One-time migration: entrance/exit objects created before the FLEET_NUM_START
+// fix may have nums >= FLEET_NUM_START (polluted by shipseq via buildingseq).
+// Called at end of PostProcessTurn so current-turn orders (ENTER old_num) still
+// work; the corrected nums are written to game.dat and appear in the next report.
+// Safe to call every turn — no-op once all nums are already in range.
+// ---------------------------------------------------------------------------
+void Game::migrate_dungeon_entrance_numbers()
+{
+    int migrated = 0;
+
+    for (auto &d : activeDungeons) {
+        // --- surface entrance ---
+        if (d.entrance_object_num >= FLEET_NUM_START) {
+            ARegion *r = regions.GetRegion(d.surface_region_num);
+            if (r) {
+                Object *ent = r->GetObject(d.entrance_object_num);
+                if (ent) {
+                    int new_num = 1;
+                    for (; new_num < FLEET_NUM_START; new_num++)
+                        if (!r->GetObject(new_num)) break;
+                    if (new_num < FLEET_NUM_START) {
+                        std::string base = ent->name;
+                        auto pos = base.rfind(" [");
+                        if (pos != std::string::npos) base = base.substr(0, pos);
+                        logger::write("Dungeon #" + std::to_string(d.id) +
+                                      ": entrance renumbered [" +
+                                      std::to_string(d.entrance_object_num) +
+                                      "] -> [" + std::to_string(new_num) +
+                                      "] in region " + std::to_string(d.surface_region_num));
+                        ent->num = new_num;
+                        ent->set_name(base);
+                        d.entrance_object_num = new_num;
+                        migrated++;
+                    }
+                }
+            }
+        }
+
+        // --- dungeon exit ---
+        if (d.exit_object_num >= FLEET_NUM_START) {
+            ARegion *r = regions.GetRegion(d.entry_region_num);
+            if (r) {
+                Object *ex = r->GetObject(d.exit_object_num);
+                if (ex) {
+                    int new_num = 1;
+                    for (; new_num < FLEET_NUM_START; new_num++)
+                        if (!r->GetObject(new_num)) break;
+                    if (new_num < FLEET_NUM_START) {
+                        logger::write("Dungeon #" + std::to_string(d.id) +
+                                      ": exit renumbered [" +
+                                      std::to_string(d.exit_object_num) +
+                                      "] -> [" + std::to_string(new_num) + "]");
+                        ex->num = new_num;
+                        ex->set_name("Exit");
+                        d.exit_object_num = new_num;
+                        migrated++;
+                    }
+                }
+            }
+        }
+    }
+
+    if (migrated > 0)
+        logger::write("Dungeon entrance migration complete: " +
+                      std::to_string(migrated) + " object(s) renumbered.");
 }
