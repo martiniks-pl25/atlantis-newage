@@ -16,7 +16,8 @@ std::vector<graphs::Location2D> getPoints(
     const int initialMinDist,
     const int newPointCount,
     const std::function<int(graphs::Location2D)> onPoint,
-    const std::function<bool(graphs::Location2D)> onIsIncluded
+    const std::function<bool(graphs::Location2D)> onIsIncluded,
+    const int initialSeeds = 1
 );
 
 enum ZoneType {
@@ -1870,6 +1871,16 @@ void ARegionList::create_underworld_ring_level(int level, int xSize, int ySize, 
 
 }
 
+// TODO: port underworld/underdeep generation to the parametric surface pipeline
+// (generator=2). The current path is the legacy chain:
+//   SetRegTypes -> GrowTerrain -> AssignTypes -> MakeUWMaze -> FinalSetup -> SetupPop
+// SetupPop calls add_town without a terrain filter, so settlements can land in
+// R_LAKE hexes (lakes are injected inside GrowTerrain when Globals->LAKES is set).
+// The parametric surface path in aregion.cpp::economy() correctly excludes
+// R_LAKE / R_OCEAN / R_VOLCANO / BARREN when picking settlement sites — the
+// underworld should be migrated onto the same pipeline.
+// Interim fix (2026-04-24): terrain filter added inside SetupPop (economy.cpp).
+// Treats the symptom, but architecturally leaks placement policy into SetupPop.
 void ARegionList::create_underworld_level(int level, int xSize, int ySize, const std::string& name)
 {
     if (Globals->ICOSAHEDRAL_WORLD) {

@@ -785,13 +785,22 @@ void Game::GetAFacs(
     std::set<Faction *>& afacs, std::list<Location *>& atts
 )
 {
+    // Fleet crew coordination: when the attacker is a WMon on a fleet,
+    // same-faction WMon crewmates on the same fleet join the attack as
+    // one crew, regardless of GUARD_AVOID. They are marked canattack=0
+    // so DoAttackOrders skips their own WMon roll this turn.
+    const bool att_on_fleet = (att->type == U_WMON && att->object && att->object->IsFleet());
+
     for(const auto obj : r->objects) {
         for(const auto u : obj->units) {
             if (u->canattack && u->IsAlive()) {
                 int add = 0;
+                const bool is_crew_mate = (att_on_fleet && u->type == U_WMON &&
+                                           u->faction == att->faction &&
+                                           u->object == att->object);
                 if (
                     (u->faction == att->faction || u->GetAttitude(r,tar) == AttitudeType::HOSTILE) &&
-                    (u->guard != GUARD_AVOID || u == att)
+                    (u->guard != GUARD_AVOID || u == att || is_crew_mate)
                 ) {
                     add = 1;
                 } else if (u->guard == GUARD_ADVANCE && u->GetAttitude(r,tar) != AttitudeType::ALLY) {
@@ -818,6 +827,9 @@ void Game::GetAFacs(
                     l->region = r;
                     atts.push_back(l);
                     afacs.insert(u->faction);
+                    if (is_crew_mate && u != att) {
+                        u->canattack = 0;
+                    }
                 }
             }
         }

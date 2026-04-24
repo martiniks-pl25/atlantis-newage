@@ -284,7 +284,14 @@ void ARegion::SetupPop()
         return;
     }
 
-    if (Globals->TOWNS_EXIST) {
+    // Lakes and BARREN-flagged terrains (oceans, deadwater, barrens, dungeon) must
+    // never host settlements. Surface parametric generator already filters these in
+    // economy() (aregion.cpp), but underworld/underdeep go through FinalSetup → Setup →
+    // SetupPop, so the check must live here too.
+    bool town_eligible_terrain = (type != R_LAKE) &&
+        !(TerrainDefs[type].flags & TerrainType::BARREN);
+
+    if (Globals->TOWNS_EXIST && town_eligible_terrain) {
         int adjacent = 0;
         int prob = Globals->TOWN_PROBABILITY;
         if (prob < 1) prob = 100;
@@ -1116,7 +1123,11 @@ void ARegion::SetupEditRegion()
     development += rng::get_random(25);
     maxdevelopment = development;
 
-    if (Globals->TOWNS_EXIST) {
+    // Same filter as SetupPop — lakes/BARREN terrains are never valid settlement sites.
+    bool town_eligible_terrain = (type != R_LAKE) &&
+        !(TerrainDefs[type].flags & TerrainType::BARREN);
+
+    if (Globals->TOWNS_EXIST && town_eligible_terrain) {
         int adjacent = 0;
         int prob = Globals->TOWN_PROBABILITY;
         if (prob < 1) prob = 100;

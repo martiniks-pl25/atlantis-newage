@@ -3152,10 +3152,18 @@ int cylDistance(graphs::Location2D a, graphs::Location2D b, int w) {
     return std::min(d0, std::min(d1, d2));
 }
 
+// Bridson-style Poisson disk sampling on a 2D grid. Returns accepted points.
+//
+// initialSeeds controls how many independent starting anchors kick off the
+// sampling frontier. Default 1 preserves legacy behavior; larger values spread
+// seeds on a sqrt(N) x sqrt(N) grid (with random jitter inside each cell), so
+// the sampling wave reaches all corners of the map even when minDist is large
+// and a single-seed frontier would exhaust before covering the periphery.
 std::vector<graphs::Location2D> getPoints(const int w, const int h,
     const int initialMinDist, const int newPointCount,
     const std::function<int(graphs::Location2D)> onPoint,
-    const std::function<bool(graphs::Location2D)> onIsIncluded) {
+    const std::function<bool(graphs::Location2D)> onIsIncluded,
+    const int initialSeeds = 1) {
 
     std::vector<graphs::Location2D> output;
     std::vector<graphs::Location2D> processing;
@@ -3163,14 +3171,47 @@ std::vector<graphs::Location2D> getPoints(const int w, const int h,
     int minDist = initialMinDist;
     int cellSize = ceil(minDist / sqrt(2));
 
-    graphs::Location2D loc;
-    do {
-        loc = { .x = rng::get_random(w), .y = rng::get_random(h) };
-    }
-    while (!onIsIncluded(loc));
+    // Seed the frontier. initialSeeds >= 1; for N > 1 we spread seeds on a
+    // gridSide x gridSide grid (gridSide = ceil(sqrt(N))) with random jitter
+    // inside each cell. Seeds themselves are NOT placed as settlements — they
+    // only act as anchors for the sampling expansion (same as legacy behavior
+    // with a single seed).
+    int seeds = std::max(1, initialSeeds);
+    int gridSide = (int) ceil(sqrt((double) seeds));
+    int cell_w = std::max(1, w / gridSide);
+    int cell_h = std::max(1, h / gridSide);
 
-    output.push_back(loc);
-    processing.push_back(loc);
+    int placed = 0;
+    for (int gy = 0; gy < gridSide && placed < seeds; gy++) {
+        for (int gx = 0; gx < gridSide && placed < seeds; gx++) {
+            graphs::Location2D loc;
+            int tries = 0;
+            do {
+                int x = gx * cell_w + rng::get_random(cell_w);
+                int y = gy * cell_h + rng::get_random(cell_h);
+                if (x >= w) x = w - 1;
+                if (y >= h) y = h - 1;
+                loc = { .x = x, .y = y };
+                tries++;
+            } while (!onIsIncluded(loc) && tries < 64);
+            if (tries >= 64) continue;  // gridcell unusable, skip
+
+            output.push_back(loc);
+            processing.push_back(loc);
+            placed++;
+        }
+    }
+
+    // Fallback: if no seed survived (pathological case), fall back to a random
+    // valid point — mirrors legacy single-seed behavior.
+    if (output.empty()) {
+        graphs::Location2D loc;
+        do {
+            loc = { .x = rng::get_random(w), .y = rng::get_random(h) };
+        } while (!onIsIncluded(loc));
+        output.push_back(loc);
+        processing.push_back(loc);
+    }
 
     while (!processing.empty()) {
         int i = rng::get_random(processing.size());
@@ -3587,48 +3628,89 @@ void economy(ARegionArray* arr, const int w, const int h) {
 
     logger::write("Setting settlements");
 
+    // -----------------------------------------------------------------------
+    // Tunable constants for surface settlement generation.
+    // Kept local (not GameDefs) to keep the generation policy next to the code
+    // that applies it — change here when tuning density or city ratio.
+    // -----------------------------------------------------------------------
+
+    // Number of Poisson-disc seed anchors. 1 = legacy single-seed behavior;
+    // higher values seed a sqrt(N) x sqrt(N) grid so the sampling frontier
+    // reaches all map quadrants even when minDist is large. 4 (2x2) is
+    // enough for maps up to ~128x96; bump to 9 for much larger maps.
+    constexpr int  MULTI_SEED_COUNT = 4;
+
+    // Minimum-distance roll for villages in VILLAGES_ONLY mode.
+    // 2d2+2 -> range [4..6], mean 5, bell-shaped (peak at 5).
+    // Picked over a wider range (e.g. 4..8) to minimize the "ripple" caused
+    // by the globally-dynamic minDist in getPoints: a wide range occasionally
+    // spikes to a large value and locks out dense regions behind it.
+    // Floor 4 was the target requested to sparsen settlements vs. the
+    // legacy 2d2 (range 2..4).
+    auto village_min_dist = []() { return rng::make_roll(2, 2) + 2; };
+
+    // Fraction of villages to upgrade to cities after initial placement.
+    // 0.12 sits in the middle of the requested 10-15% band; adjust here
+    // to rebalance the "village-heavy vs city-heavy" feel of a map.
+    constexpr double CITY_FRACTION    = 0.12;
+    // Floor so tiny maps still get a couple of cities.
+    constexpr int    CITY_MIN_COUNT   = 2;
+    // Bounds on the auto-derived minimum city-to-city distance. Lower floor
+    // guards against mass-placement on tiny maps; upper ceiling keeps cities
+    // reachable on huge maps.
+    constexpr int    CITY_DIST_MIN    = 8;
+    constexpr int    CITY_DIST_MAX    = 20;
+
     int size = Globals->VILLAGES_ONLY ? TOWN_VILLAGE : rng::get_random(NTOWNS);
-    int minDist = size + rng::make_roll(2, 2);
+    int minDist = Globals->VILLAGES_ONLY ? village_min_dist() : size + rng::make_roll(2, 2);
+
+    // Track villages created in this pass so we can later pick a spread-out
+    // subset and upgrade them to cities.
+    std::vector<ARegion*> village_list;
 
     std::unordered_set<ARegion*> visited;
-    getPoints(w, h, minDist, 64, [&arr, &visited, &size, &minDist](graphs::Location2D p) {
-        auto reg = arr->GetRegion(p.x, p.y);
-        if (reg == NULL) {
-            // this means we have a point outside the map bounds :(
-            // todo: fix point boundary
-            logger::write("NO REGION FOUND!!!!");
+    getPoints(w, h, minDist, 64,
+        [&arr, &visited, &size, &minDist, &village_list, &village_min_dist](graphs::Location2D p) {
+            auto reg = arr->GetRegion(p.x, p.y);
+            if (reg == NULL) {
+                // this means we have a point outside the map bounds :(
+                // todo: fix point boundary
+                logger::write("NO REGION FOUND!!!!");
+                return minDist;
+            }
+
+            TerrainType* terrain = &(TerrainDefs[reg->type]);
+            if (reg->type == R_OCEAN || reg->type == R_VOLCANO || reg->type == R_LAKE ||
+                terrain->flags & TerrainType::BARREN) {
+                return minDist;
+            }
+
+            Ethnicity etnos = getRegionEtnos(reg);
+
+            std::string name = getEthnicName(etnos);
+
+            reg->ManualSetup({
+                .terrain = terrain,
+                .habitat = terrain->pop + 1,
+                .prodWeight = 1,
+                .addLair = false,
+                .addSettlement = true,
+                .settlementName = name,
+                .settlementSize = size
+            });
+
+            visited.insert(reg);
+            if (size == TOWN_VILLAGE) village_list.push_back(reg);
+            std::string sizeName = size == TOWN_VILLAGE ? "Village" : size == TOWN_TOWN ? "Town" : "City";
+            logger::write(sizeName + " " + name);
+
+            size = Globals->VILLAGES_ONLY ? TOWN_VILLAGE : rng::get_random(NTOWNS);
+            minDist = Globals->VILLAGES_ONLY ? village_min_dist() : size + rng::make_roll(2, 2);
+
             return minDist;
-        }
-
-        TerrainType* terrain = &(TerrainDefs[reg->type]);
-        if (reg->type == R_OCEAN || reg->type == R_VOLCANO || reg->type == R_LAKE ||
-            terrain->flags & TerrainType::BARREN) {
-            return minDist;
-        }
-
-        Ethnicity etnos = getRegionEtnos(reg);
-
-        std::string name = getEthnicName(etnos);
-
-        reg->ManualSetup({
-            .terrain = terrain,
-            .habitat = terrain->pop + 1,
-            .prodWeight = 1,
-            .addLair = false,
-            .addSettlement = true,
-            .settlementName = name,
-            .settlementSize = size
-        });
-
-        visited.insert(reg);
-        std::string sizeName = size == TOWN_VILLAGE ? "Village" : size == TOWN_TOWN ? "Town" : "City";
-        logger::write(sizeName + " " + name);
-
-        size = Globals->VILLAGES_ONLY ? TOWN_VILLAGE : rng::get_random(NTOWNS);
-        minDist = size + rng::make_roll(2, 2);
-
-        return minDist;
-    }, [](graphs::Location2D p) { return true; });
+        },
+        [](graphs::Location2D p) { return true; },
+        MULTI_SEED_COUNT);
 
     logger::write("Setting up other regions");
 
@@ -3656,6 +3738,88 @@ void economy(ARegionArray* arr, const int w, const int h) {
                 .settlementSize = 0
             });
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // City upgrade phase.
+    // Pick ~CITY_FRACTION of the villages and upgrade them to TOWN_CITY using
+    // a Poisson-disc re-sample over village positions: iterate villages in
+    // shuffled order, accept a candidate only if it is at least
+    // `minCityDist` hex-steps away from every already-accepted city.
+    //
+    // minCityDist is derived as sqrt(land_area / K) and clamped to
+    // [CITY_DIST_MIN, CITY_DIST_MAX], giving an even per-area city density
+    // that scales across map sizes without a hardcoded magic number.
+    //
+    // If the initial pass fails to hit K (e.g. villages happened to cluster),
+    // the distance is relaxed and the rejected villages are re-tried. In the
+    // worst case we emit fewer than K cities — a miss is preferable to
+    // breaking the "no two cities adjacent" guarantee.
+    // -----------------------------------------------------------------------
+    if (!village_list.empty()) {
+        int land_hexes = 0;
+        for (auto& [terrain_type, count] : histogram) {
+            if (terrain_type < 0 || terrain_type >= (int)TerrainDefs.size()) continue;
+            int st = TerrainDefs[terrain_type].similar_type;
+            if (st == R_OCEAN) continue;
+            if (terrain_type == R_LAKE || terrain_type == R_VOLCANO) continue;
+            if (TerrainDefs[terrain_type].flags & TerrainType::BARREN) continue;
+            land_hexes += count;
+        }
+        if (land_hexes < 1) land_hexes = 1;
+
+        int target_cities = std::max(
+            CITY_MIN_COUNT,
+            (int) std::round(village_list.size() * CITY_FRACTION));
+        if (target_cities > (int) village_list.size()) target_cities = village_list.size();
+
+        int minCityDist = std::clamp(
+            (int) std::sqrt((double) land_hexes / target_cities),
+            CITY_DIST_MIN, CITY_DIST_MAX);
+
+        // Fisher-Yates shuffle of village indices (std::shuffle would require
+        // wiring rng::get_random into a URBG — simpler to swap in place).
+        std::vector<ARegion*> shuffled = village_list;
+        for (int i = (int) shuffled.size() - 1; i > 0; i--) {
+            int j = rng::get_random(i + 1);
+            std::swap(shuffled[i], shuffled[j]);
+        }
+
+        std::vector<ARegion*> cities;
+        auto try_pick = [&](int dist) {
+            for (auto* v : shuffled) {
+                if (std::find(cities.begin(), cities.end(), v) != cities.end()) continue;
+                bool ok = true;
+                for (auto* c : cities) {
+                    graphs::Location2D a = { v->xloc, v->yloc };
+                    graphs::Location2D b = { c->xloc, c->yloc };
+                    if (cylDistance(a, b, w) < dist) { ok = false; break; }
+                }
+                if (ok) cities.push_back(v);
+                if ((int) cities.size() >= target_cities) break;
+            }
+        };
+
+        try_pick(minCityDist);
+
+        // Relaxation fallback: if we didn't reach target, loosen the distance
+        // requirement (floor at CITY_DIST_MIN) and retry with the remaining
+        // villages. Each relaxation step shrinks the gap by ~25%.
+        int relaxed = minCityDist;
+        while ((int) cities.size() < target_cities && relaxed > CITY_DIST_MIN) {
+            relaxed = std::max(CITY_DIST_MIN, relaxed * 3 / 4);
+            try_pick(relaxed);
+        }
+
+        for (auto* c : cities) {
+            c->SetTownType(TOWN_CITY);
+            logger::write("City upgrade: " + c->town->name + " (was Village)");
+        }
+        logger::write(
+            "Cities placed: " + std::to_string(cities.size()) +
+            "/" + std::to_string(target_cities) +
+            " (minCityDist=" + std::to_string(minCityDist) +
+            ", relaxed=" + std::to_string(relaxed) + ")");
     }
 
     // Pass 3: Round-robin trade good assignment.
