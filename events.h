@@ -28,6 +28,7 @@ enum EventCategory {
     EVENT_SETTLEMENT_STATS,
     EVENT_PIRATE_SIGHTING,
     EVENT_DUNGEON,
+    EVENT_VILLAGE_FOUNDED,
 };
 
 struct Event {
@@ -225,6 +226,18 @@ class SettlementStatsFact : public FactBase {
         int surface_settlements = 0;
         int contested_settlements = 0;
         std::vector<SettlementOwner> top_owners;  // up to top 5, sorted by total desc
+};
+
+class VillageFoundedFact : public FactBase {
+public:
+    VillageFoundedFact() = default;
+    ~VillageFoundedFact() override = default;
+    void GetEvents(std::list<Event> &events) override;
+
+    std::string village_name;
+    std::string faction_name;
+    std::string terrain_name;
+    std::string region_name;
 };
 
 enum class DungeonEventType { SPAWN, BOSS_KILLED, COLLAPSING, DECAYING };

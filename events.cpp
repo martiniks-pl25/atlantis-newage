@@ -633,6 +633,35 @@ void PirateSightingFact::GetEvents(std::list<Event> &events) {
     });
 }
 
+// --- VillageFoundedFact ---
+
+static const std::vector<std::string> village_founded_templates = {
+    "The settlement of {VILLAGE} has been founded in the {TERRAIN} of {REGION} by {FACTION}.",
+    "A new village, {VILLAGE}, rises in the {TERRAIN} of {REGION} under the banner of {FACTION}.",
+    "Pioneers of {FACTION} have established {VILLAGE} amidst the {TERRAIN} of {REGION}.",
+    "Word reaches us that {FACTION} has founded {VILLAGE} in the {TERRAIN} of {REGION}.",
+    "The {TERRAIN} of {REGION} welcomes a new settlement: {VILLAGE}, founded by {FACTION}.",
+};
+
+void VillageFoundedFact::GetEvents(std::list<Event> &events) {
+    int idx = rng::get_random(village_founded_templates.size());
+    std::string text = village_founded_templates[idx];
+    auto replace = [&](const std::string &key, const std::string &val) {
+        size_t pos;
+        while ((pos = text.find(key)) != std::string::npos)
+            text.replace(pos, key.size(), val);
+    };
+    replace("{VILLAGE}", village_name);
+    replace("{FACTION}", faction_name);
+    replace("{TERRAIN}", terrain_name);
+    replace("{REGION}",  region_name);
+    events.push_back({
+        .category = EVENT_VILLAGE_FOUNDED,
+        .score = 60,
+        .text = text
+    });
+}
+
 // --- DungeonFact ---
 
 static const std::vector<std::string> dungeon_spawn_templates = {

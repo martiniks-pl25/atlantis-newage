@@ -299,8 +299,39 @@ ut::suite<"CREATE VILLAGE order"> create_order_suite = [] {
         expect(r->town != nullptr)                      << "village must be created";
         // Men are primary (600 >= 400 leaders), so race changes
         expect(r->race == I_BARBARIAN)                  << "region race must be set to primary man type";
-        // 600 men should all be consumed (600 men + 400 leaders, consume 1000 total: 600 from men, 400 from leaders)
+        // 600 from primary (barbarians), 400 overflow from leaders (IT_MAN|IT_LEADER)
         expect(u->items.GetNum(I_BARBARIAN) == 0)       << "all barbarians must be consumed";
         expect(u->items.GetNum(I_LEADERS) == 0)         << "400 leaders must be consumed to make up 1000";
+    };
+
+    "CREATE VILLAGE: multi-race overflow consumes largest group first"_test = [] {
+        UnitTestHelper h;
+        h.initialize_game();
+        h.setup_turn();
+
+        ARegion *city_r = get_city_region(h);
+        delete city_r->town;
+        city_r->town = nullptr;
+
+        Faction *f = h.create_faction("Founders");
+        ARegion *r = get_plain_region(h);
+        Unit *u = h.create_unit(f, r);
+
+        // Primary: 600 vikings. Overflow needed: 400. Two other races: 300 barbarians + 200 plainsmen.
+        // Expected: consume 600 vikings + 300 barbarians (largest) + 100 plainsmen = 1000.
+        // Remaining: 0 vikings, 0 barbarians, 100 plainsmen.
+        u->items.SetNum(I_VIKING, 600);
+        u->items.SetNum(I_BARBARIAN, 300);
+        u->items.SetNum(I_PLAINSMAN, 200);
+        u->items.SetNum(I_WAGON, 100);
+
+        issue_create(h, f, u, "Nordic Colony");
+
+        expect(r->town != nullptr)                          << "village must be created";
+        expect(r->race == I_VIKING)                         << "region race must be primary (viking)";
+        expect(u->items.GetNum(I_VIKING) == 0)              << "all 600 vikings must be consumed";
+        expect(u->items.GetNum(I_BARBARIAN) == 0)           << "all 300 barbarians consumed as largest overflow";
+        expect(u->items.GetNum(I_PLAINSMAN) == 100)         << "only 100 of 200 plainsmen consumed";
+        expect(f->errors.size() == 0_ul)                    << "no errors expected";
     };
 };

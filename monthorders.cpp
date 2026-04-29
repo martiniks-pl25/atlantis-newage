@@ -1,8 +1,10 @@
 #include <random>
 #include <stdlib.h>
 
+#include "events.h"
 #include "game.h"
 #include "gamedata.h"
+#include "logger.hpp"
 #include "namegen.h"
 #include "quests.h"
 #include "rng.hpp"
@@ -1363,7 +1365,7 @@ const SettlementCost VILLAGE_ITEM_COSTS[] = {
  *  - ≥ required amounts of VILLAGE_ITEM_COSTS items
  *
  * On success:
- *  - 1000 men consumed (preferring primary IT_MAN type; overflow from IT_LEADER)
+ *  - 1000 men consumed (primary IT_MAN type first; overflow from other IT_MAN races, largest first)
  *  - Item costs consumed
  *  - Region race set to primary IT_MAN type (unchanged if only leaders)
  *  - Village created with full markets (food + trade goods + recruitment)
@@ -1495,7 +1497,7 @@ void Game::Run1CreateOrder(ARegion *r, Unit *u)
         r->race = primary_man_type;
     }
 
-    // --- 10. Consume settlers (1000 from primary IT_MAN type; overflow from leaders) ---
+    // --- 10. Consume settlers (1000 from primary IT_MAN type; overflow from other IT_MAN races, largest first) ---
     int to_consume = VILLAGE_FOUND_MEN;
     if (consume_from_type != -1 && primary_man_count > 0) {
         int from_men = min(to_consume, primary_man_count);
@@ -1503,9 +1505,20 @@ void Game::Run1CreateOrder(ARegion *r, Unit *u)
         to_consume -= from_men;
     }
     if (to_consume > 0) {
-        // consume remaining from leaders
-        int leaders = u->items.GetNum(I_LEADERS);
-        u->items.SetNum(I_LEADERS, leaders - to_consume);
+        std::vector<std::pair<int,int>> others;
+        for (const auto& it : u->items) {
+            if (it->type == consume_from_type) continue;
+            if (!(ItemDefs[it->type].type & IT_MAN)) continue;
+            if (it->num > 0) others.push_back({it->type, it->num});
+        }
+        std::sort(others.begin(), others.end(),
+                  [](const auto& a, const auto& b){ return a.second > b.second; });
+        for (auto& [itype, count] : others) {
+            if (to_consume <= 0) break;
+            int take = min(to_consume, count);
+            u->items.SetNum(itype, count - take);
+            to_consume -= take;
+        }
     }
 
     // --- 10. Consume item costs (wagons, etc.) ---
@@ -1522,8 +1535,26 @@ void Game::Run1CreateOrder(ARegion *r, Unit *u)
     }
     r->add_town(TOWN_VILLAGE, village_name);
 
+    logger::write("Village '" + village_name + "' founded by faction " +
+                  to_string(u->faction->num) + " at (" +
+                  to_string(r->xloc) + "," + to_string(r->yloc) + ").");
+
+    if (this->events) {
+        auto *vf = new VillageFoundedFact();
+        vf->village_name  = village_name;
+        vf->faction_name  = u->faction->name;
+        vf->terrain_name  = TerrainDefs[TerrainDefs[r->type].similar_type].name;
+        vf->region_name   = r->name;
+        this->events->AddFact(vf);
+    }
+
     // --- 12. Set up markets (trade goods + recruitment) ---
     r->SetupRandomTradeMarkets();
+    r->markets.erase(
+        remove_if(r->markets.begin(), r->markets.end(),
+                  [](const Market *m) { return ItemDefs[m->item].type & IT_MAN; }),
+        r->markets.end()
+    );
     r->AddMenMarket();
     r->AddLeadersMarket();
 

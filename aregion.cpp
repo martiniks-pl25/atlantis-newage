@@ -1168,6 +1168,7 @@ void ARegion::build_json_report(json& j, Faction *fac, int month, ARegionList& r
     int quam_revealed = 0;
     for (const auto& m : markets) {
         if (!m->amount) continue;
+        if (m->item < 0 || m->item >= NITEMS) continue;
         if (!present && !farsight && !(Globals->TRANSIT_REPORT & GameDefs::REPORT_SHOW_MARKETS)) continue;
 
         ItemType itemdef = ItemDefs[m->item];
