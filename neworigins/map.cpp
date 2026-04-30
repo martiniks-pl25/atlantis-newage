@@ -2,6 +2,7 @@
 #include <string.h>
 #include "game.h"
 #include "gamedata.h"
+#include "../namegen.h"
 #include "rng.hpp"
 
 #include <algorithm>
@@ -19,6 +20,10 @@ std::vector<graphs::Location2D> getPoints(
     const std::function<bool(graphs::Location2D)> onIsIncluded,
     const int initialSeeds = 1
 );
+
+// Forward declarations for underground settlement generation
+void placeLakes(ARegionArray* arr, const int w, const int h, double lakePercent);
+Ethnicity getRegionEtnos(ARegion* reg);
 
 enum ZoneType {
     UNDECIDED,  // zone type not yet determined
@@ -1871,6 +1876,76 @@ void ARegionList::create_underworld_ring_level(int level, int xSize, int ySize, 
 
 }
 
+// Settlement placement for underground levels.
+// Villages only (no towns/cities), Poisson-disc spaced with a larger minDist than
+// the surface to produce sparser, more atmospheric underground settlements.
+// minDist = 2d3+4 → range [6..10], mean 8 (vs surface 2d2+2 → [4..6], mean 5).
+static void economy_underground(ARegionArray* arr, const int w, const int h)
+{
+    logger::write("Setting underground settlements");
+
+    auto village_min_dist = []() { return rng::make_roll(2, 3) + 4; };
+
+    std::unordered_set<ARegion*> visited;
+    int minDist = village_min_dist();
+
+    getPoints(w, h, minDist, 64,
+        [&arr, &visited, &minDist, &village_min_dist](graphs::Location2D p) {
+            ARegion* reg = arr->GetRegion(p.x, p.y);
+            if (!reg) return minDist;
+
+            TerrainType* terrain = &(TerrainDefs[reg->type]);
+            if (reg->type == R_OCEAN || reg->type == R_LAKE ||
+                (terrain->flags & TerrainType::BARREN)) {
+                return minDist;
+            }
+
+            Ethnicity etnos = getRegionEtnos(reg);
+            std::string name = getEthnicName(etnos);
+
+            reg->ManualSetup({
+                .terrain = terrain,
+                .habitat = terrain->pop + 1,
+                .prodWeight = 1,
+                .addLair = false,
+                .addSettlement = true,
+                .settlementName = name,
+                .settlementSize = TOWN_VILLAGE
+            });
+
+            visited.insert(reg);
+            logger::write("Underground village " + name);
+
+            minDist = village_min_dist();
+            return minDist;
+        },
+        [](graphs::Location2D p) { return true; },
+        2);  // 2 seeds — sufficient for the smaller underground maps
+
+    logger::write("Setting up other underground regions");
+
+    for (int x = 0; x < w; x++) {
+        for (int y = 0; y < h; y++) {
+            if ((x + y) % 2) continue;
+            ARegion* reg = arr->GetRegion(x, y);
+            if (!reg || visited.count(reg)) continue;
+
+            TerrainType* terrain = &(TerrainDefs[reg->type]);
+            bool addLair = rng::get_random(100) < terrain->lairChance;
+
+            reg->ManualSetup({
+                .terrain = terrain,
+                .habitat = terrain->pop + 1,
+                .prodWeight = 1,
+                .addLair = addLair,
+                .addSettlement = false,
+                .settlementName = std::string(),
+                .settlementSize = 0
+            });
+        }
+    }
+}
+
 // TODO: port underworld/underdeep generation to the parametric surface pipeline
 // (generator=2). The current path is the legacy chain:
 //   SetRegTypes -> GrowTerrain -> AssignTypes -> MakeUWMaze -> FinalSetup -> SetupPop
@@ -1896,9 +1971,11 @@ void ARegionList::create_underworld_level(int level, int xSize, int ySize, const
 
     SetupAnchors(pRegionArrays[level]);
 
-    GrowTerrain(pRegionArrays[level], 1);
+    GrowTerrain(pRegionArrays[level], 1, false);
 
     AssignTypes(pRegionArrays[level]);
+
+    if (Globals->LAKES) placeLakes(pRegionArrays[level], xSize, ySize, 0.10);
 
     MakeUWMaze(pRegionArrays[level]);
 
@@ -1906,7 +1983,7 @@ void ARegionList::create_underworld_level(int level, int xSize, int ySize, const
 
     if (Globals->GROW_RACES) GrowRaces(pRegionArrays[level]);
 
-    FinalSetup(pRegionArrays[level]);
+    economy_underground(pRegionArrays[level], xSize, ySize);
 }
 
 void ARegionList::create_underdeep_level(int level, int xSize, int ySize, const std::string& name)
@@ -1924,9 +2001,11 @@ void ARegionList::create_underdeep_level(int level, int xSize, int ySize, const 
 
     SetupAnchors(pRegionArrays[level]);
 
-    GrowTerrain(pRegionArrays[level], 1);
+    GrowTerrain(pRegionArrays[level], 1, false);
 
     AssignTypes(pRegionArrays[level]);
+
+    if (Globals->LAKES) placeLakes(pRegionArrays[level], xSize, ySize, 0.10);
 
     MakeUWMaze(pRegionArrays[level]);
 
@@ -1934,7 +2013,7 @@ void ARegionList::create_underdeep_level(int level, int xSize, int ySize, const 
 
     if (Globals->GROW_RACES) GrowRaces(pRegionArrays[level]);
 
-    FinalSetup(pRegionArrays[level]);
+    economy_underground(pRegionArrays[level], xSize, ySize);
 }
 
 // Dungeon level: all regions stay R_BARREN (void) by default.
@@ -2546,7 +2625,7 @@ void ARegionList::SetupAnchors(ARegionArray *ta)
     logger::write("");
 }
 
-void ARegionList::GrowTerrain(ARegionArray *pArr, int growOcean)
+void ARegionList::GrowTerrain(ARegionArray *pArr, int growOcean, bool generateLakes)
 {
     logger::write("Growing Terrain...");
     for (int j=0; j<30; j++) {
@@ -2566,7 +2645,7 @@ void ARegionList::GrowTerrain(ARegionArray *pArr, int growOcean)
                 if (reg->type == R_NUM) {
 
                     // Check for Lakes
-                    if (Globals->LAKES &&
+                    if (generateLakes && Globals->LAKES &&
                         (rng::get_random(100) < (Globals->LAKES/10 + 1))) {
                             reg->type = R_LAKE;
                             break;

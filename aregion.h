@@ -541,7 +541,7 @@ class ARegionList
         void MakeRingLand(ARegionArray *pRegs, int minDistance, int maxDistance);
 
         void SetupAnchors(ARegionArray *pArr);
-        void GrowTerrain(ARegionArray *pArr, int growOcean);
+        void GrowTerrain(ARegionArray *pArr, int growOcean, bool generateLakes = true);
         void RandomTerrain(ARegionArray *pArr);
         void MakeUWMaze(ARegionArray *pArr);
         void PlaceVolcanos(ARegionArray *pArr);

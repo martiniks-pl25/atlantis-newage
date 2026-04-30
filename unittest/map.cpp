@@ -106,7 +106,7 @@ void ARegionList::SetRegTypes(ARegionArray *pRegs, int newType) { }
 
 void ARegionList::SetupAnchors(ARegionArray *ta) { }
 
-void ARegionList::GrowTerrain(ARegionArray *pArr, int growOcean) { }
+void ARegionList::GrowTerrain(ARegionArray *pArr, int growOcean, bool generateLakes) { }
 
 void ARegionList::RandomTerrain(ARegionArray *pArr) { }
 
