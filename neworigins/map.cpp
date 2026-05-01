@@ -2998,10 +2998,11 @@ void ARegionList::MakeShaftLinks(int levelFrom, int levelTo, int odds)
  *
  * @param levelFrom Index of the source level (upper).
  * @param levelTo Index of the target level (lower).
- * @param minDistanceSame Minimum distance between shaft entrances on the upper level.
+ * @param minDistanceSame Initial minimum distance; also used as fixed spacing when seeds==1.
  * @param minDistanceStair Minimum distance from existing shafts (stairwell prevention).
+ * @param seeds Number of Poisson seeds. When >1 uses dynamic spacing 2d2+2 (like village placement).
  */
-void ARegionList::CreateSmartShafts(int levelFrom, int levelTo, int minDistanceSame, int minDistanceStair) {
+void ARegionList::CreateSmartShafts(int levelFrom, int levelTo, int minDistanceSame, int minDistanceStair, int seeds) {
     ARegionArray* pFrom = pRegionArrays[levelFrom];
     ARegionArray* pTo = pRegionArrays[levelTo];
 
@@ -3010,23 +3011,28 @@ void ARegionList::CreateSmartShafts(int levelFrom, int levelTo, int minDistanceS
     logger::write("Generating smart shafts between L" + std::to_string(levelFrom) + " and L" + std::to_string(levelTo));
 
     // Calculate max shafts based on the size of the upper level.
-    // Scales with map area: 1 shaft per 40 regions.
+    // Scales with map area: 1 shaft per 25 regions.
     int totalRegions = (pFrom->x * pFrom->y) / 2;
-    int maxShafts = std::max(2, totalRegions / 40);
+    int maxShafts = std::max(2, totalRegions / 25);
 
-    // 2. SMART FILTERING
     // We tell getPoints to ONLY consider land regions as valid candidates.
-    // This prevents ocean hexes from "wasting" potential shaft locations.
-    // Also exclude towns - shafts should not appear in populated regions.
+    // Exclude ocean, volcano, lake, and towns.
     auto isLand = [pFrom](graphs::Location2D p) {
         ARegion* r = pFrom->GetRegion(p.x, p.y);
-        return (r && r->type != R_OCEAN && r->type != R_VOLCANO && !r->town);
+        return (r && r->type != R_OCEAN && r->type != R_VOLCANO && r->type != R_LAKE && !r->town);
     };
+
+    // With seeds > 1 use dynamic spacing (2d2+2, range [4..6], mean 5) matching
+    // village placement density. Fixed minDistanceSame is used for underground levels.
+    auto distFn = seeds > 1
+        ? std::function<int(graphs::Location2D)>([](graphs::Location2D) { return rng::make_roll(2, 2) + 2; })
+        : std::function<int(graphs::Location2D)>([minDistanceSame](graphs::Location2D) { return minDistanceSame; });
 
     std::vector<graphs::Location2D> candidates = getPoints(
         pFrom->x, pFrom->y, minDistanceSame, 128,
-        [minDistanceSame](graphs::Location2D p) { return minDistanceSame; },
-        isLand // <--- Use land-only filter here
+        distFn,
+        isLand,
+        seeds
     );
 
     rng::shuffle(candidates);

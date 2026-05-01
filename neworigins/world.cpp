@@ -566,8 +566,9 @@ void Game::CreateWorld()
 
     // 1. Connection: Surface (L1) -> Top Underworld (L2)
     if (Globals->UNDERWORLD_LEVELS > 0) {
-        // Entrance on Surface: minDistance 7, Stairwell prevention 0
-        regions.CreateSmartShafts(1, 2, 7, 0);
+        // Entrance on Surface: dynamic spacing 2d2+2 (mean 5), 4 seeds, no stairwell check.
+        // Matches village placement density (~40-55 shafts on 64×48).
+        regions.CreateSmartShafts(1, 2, 5, 0, 4);
         regions.CreateLairsAtShafts(1);  // Create lairs at shaft entrances on Surface
     }
 

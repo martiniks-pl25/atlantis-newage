@@ -490,7 +490,7 @@ class ARegionList
         void expand_levels(int newNumLevels);
         void add_dungeon_level_to_existing_world(int xSize, int ySize);
 
-        void CreateSmartShafts(int levelFrom, int levelTo, int minDistanceSame, int minDistanceStair);
+        void CreateSmartShafts(int levelFrom, int levelTo, int minDistanceSame, int minDistanceStair, int seeds = 1);
         void CreateLairsAtShafts(int level);
 
         void MakeShaftLinks(int levelFrom, int levelTo, int odds);
