@@ -1248,6 +1248,15 @@ void Unit::DefaultOrders(Object *obj)
                 }
             }
 
+            // Cap stay entries so they never exceed movement entries (max 50% stay chance).
+            // Without this, a monster with 1 valid neighbor gets 3 stays vs 1-2 moves (60-75% stay).
+            if (!isLost) {
+                int move_count = (int)std::count_if(directions.begin(), directions.end(),
+                    [](int d) { return d >= 0; });
+                while ((int)std::count(directions.begin(), directions.end(), -1) > move_count)
+                    directions.erase(std::ranges::find(directions, -1));
+            }
+
             // pick a direction where to move
             // it will be uniform selection of all possible directions, better than previos alogrithm
             if (directions.empty()) return;

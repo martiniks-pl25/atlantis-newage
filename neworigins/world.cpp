@@ -575,8 +575,8 @@ void Game::CreateWorld()
     // 2. Connections between multiple Underworld levels (L2 -> L3, etc.)
     if (Globals->UNDERWORLD_LEVELS > 1) {
         for (int i = 2; i < Globals->UNDERWORLD_LEVELS + 1; i++) {
-            // minDistance 6, Stairwell prevention 4
-            regions.CreateSmartShafts(i, i + 1, 6, 4);
+            // Dynamic 2d2+2 spacing, 2 seeds, stairwell prevention 4.
+            regions.CreateSmartShafts(i, i + 1, 5, 4, 2);
             regions.CreateLairsAtShafts(i);  // Create lairs at shaft entrances
         }
     }
@@ -585,8 +585,8 @@ void Game::CreateWorld()
     if (Globals->UNDERWORLD_LEVELS > 0 && Globals->UNDERDEEP_LEVELS > 0) {
         int bottomUW = Globals->UNDERWORLD_LEVELS + 1;
         int topUD = bottomUW + 1;
-        // Connect the last Underworld level to the first Underdeep level
-        regions.CreateSmartShafts(bottomUW, topUD, 4, 2);
+        // Dynamic 2d2+2 spacing, 2 seeds, stairwell prevention 2.
+        regions.CreateSmartShafts(bottomUW, topUD, 4, 2, 2);
         regions.CreateLairsAtShafts(bottomUW);  // Create lairs at transition level
     }
 
@@ -595,8 +595,8 @@ void Game::CreateWorld()
         int firstUD = Globals->UNDERWORLD_LEVELS + 2;
         int lastUD = Globals->UNDERWORLD_LEVELS + Globals->UNDERDEEP_LEVELS + 1;
         for (int i = firstUD; i < lastUD; i++) {
-            // Deeper levels can be slightly more cramped: minDistance 4
-            regions.CreateSmartShafts(i, i + 1, 4, 2);
+            // Dynamic 2d2+2 spacing, 2 seeds, stairwell prevention 2.
+            regions.CreateSmartShafts(i, i + 1, 4, 2, 2);
             regions.CreateLairsAtShafts(i);  // Create lairs at shaft entrances
         }
     }

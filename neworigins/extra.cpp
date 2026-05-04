@@ -1815,7 +1815,9 @@ void Game::ModifyTablesPerRuleset(void)
     modify_monster_threat("EAGL",  1,   20);  // Eagle
 
     // Sea creatures
-    modify_monster_threat("PIRA",  20,  25);  // Pirates
+    modify_monster_threat("PIRA",  20,  25);  // Pirates        (default: num=20, hostile=50%)
+    modify_monster_threat("PCAP",  1,   25);  // Pirate Captain (default: num=1,  hostile=50%)
+    modify_monster_threat("PBOS",  1,   25);  // Pirate Bosun   (default: num=1,  hostile=50%)
     modify_monster_threat("KRAK",  1,   50);  // Kraken
     modify_monster_threat("MERF",  100, 25);  // Merfolk
     modify_monster_threat("ELEM",  7,   35);  // Living Water
