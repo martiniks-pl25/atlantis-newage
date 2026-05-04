@@ -44,7 +44,7 @@ const std::vector<DungeonTypeDef> DungeonTypeDefs = {
         "Demon Pit", "Burning Gate",
         8, 12,
         { {I_IMP,10,50}, {I_DEMON,2,8} }, "Demons",
-        { {I_IMP,50,150}, {I_DEMON,10,25}, {I_DEVIL,1,3} }, "Warden",
+        { {I_IMP,50,150}, {I_DEMON,10,25}, {I_DEVIL,1,1} }, "Warden",
         I_DEVIL,
         DungeonGenStyle::BFS_NETWORK, 50,
         0, 25,   // turn 1: 0%;   turn 50+: 25%
@@ -704,70 +704,45 @@ void Game::read_dungeons(std::istream &f)
 }
 
 // ---------------------------------------------------------------------------
-// Game::migrate_dungeon_entrance_numbers
-// One-time migration: entrance/exit objects created before the FLEET_NUM_START
-// fix may have nums >= FLEET_NUM_START (polluted by shipseq via buildingseq).
-// Called at end of PostProcessTurn so current-turn orders (ENTER old_num) still
-// work; the corrected nums are written to game.dat and appear in the next report.
-// Safe to call every turn — no-op once all nums are already in range.
+// Game::migrate_dungeon_boss_counts
+// One-time migration: cap I_DEVIL to 1, cap I_DRAGON to 2 in existing bosses.
+// Safe to call every turn — no-op once all counts are already in range.
 // ---------------------------------------------------------------------------
-void Game::migrate_dungeon_entrance_numbers()
+void Game::migrate_dungeon_boss_counts()
 {
-    int migrated = 0;
+    int fixed = 0;
 
     for (auto &d : activeDungeons) {
-        // --- surface entrance ---
-        if (d.entrance_object_num >= FLEET_NUM_START) {
-            ARegion *r = regions.GetRegion(d.surface_region_num);
-            if (r) {
-                Object *ent = r->GetObject(d.entrance_object_num);
-                if (ent) {
-                    int new_num = 1;
-                    for (; new_num < FLEET_NUM_START; new_num++)
-                        if (!r->GetObject(new_num)) break;
-                    if (new_num < FLEET_NUM_START) {
-                        std::string base = ent->name;
-                        auto pos = base.rfind(" [");
-                        if (pos != std::string::npos) base = base.substr(0, pos);
-                        logger::write("Dungeon #" + std::to_string(d.id) +
-                                      ": entrance renumbered [" +
-                                      std::to_string(d.entrance_object_num) +
-                                      "] -> [" + std::to_string(new_num) +
-                                      "] in region " + std::to_string(d.surface_region_num));
-                        ent->num = new_num;
-                        ent->set_name(base);
-                        d.entrance_object_num = new_num;
-                        migrated++;
-                    }
-                }
-            }
-        }
+        if (d.state == DungeonSlotState::COLLAPSING) continue;
 
-        // --- dungeon exit ---
-        if (d.exit_object_num >= FLEET_NUM_START) {
-            ARegion *r = regions.GetRegion(d.entry_region_num);
-            if (r) {
-                Object *ex = r->GetObject(d.exit_object_num);
-                if (ex) {
-                    int new_num = 1;
-                    for (; new_num < FLEET_NUM_START; new_num++)
-                        if (!r->GetObject(new_num)) break;
-                    if (new_num < FLEET_NUM_START) {
+        const auto &td = DungeonTypeDefs[(int)d.type];
+        int kill_item = td.boss_kill_item;
+        if (kill_item != I_DEVIL && kill_item != I_DRAGON) continue;
+
+        int target = (kill_item == I_DEVIL) ? 1 : 2;
+
+        for (int rnum : d.room_nums) {
+            ARegion *r = regions.GetRegion(rnum);
+            if (!r) continue;
+            for (auto *obj : r->objects) {
+                for (auto *u : obj->units) {
+                    int cur = u->items.GetNum(kill_item);
+                    if (cur > target) {
+                        u->items.SetNum(kill_item, target);
                         logger::write("Dungeon #" + std::to_string(d.id) +
-                                      ": exit renumbered [" +
-                                      std::to_string(d.exit_object_num) +
-                                      "] -> [" + std::to_string(new_num) + "]");
-                        ex->num = new_num;
-                        ex->set_name("Exit");
-                        d.exit_object_num = new_num;
-                        migrated++;
+                                      ": boss " + ItemDefs[kill_item].names +
+                                      " capped " + std::to_string(cur) +
+                                      " -> " + std::to_string(target));
+                        fixed++;
                     }
                 }
             }
         }
     }
 
-    if (migrated > 0)
-        logger::write("Dungeon entrance migration complete: " +
-                      std::to_string(migrated) + " object(s) renumbered.");
+    if (fixed > 0)
+        logger::write("Dungeon boss count migration: " +
+                      std::to_string(fixed) + " unit(s) fixed.");
+    else
+        logger::write("Dungeon boss count migration: nothing to fix.");
 }

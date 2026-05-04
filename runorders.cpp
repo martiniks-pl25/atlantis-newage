@@ -1201,7 +1201,7 @@ void Game::PostProcessTurn()
     AutoNameSoloUnits();
     // ResetCityMarketsExceptTrade(); // one-time market migration, done
     ProcessDungeons();
-    migrate_dungeon_entrance_numbers();
+    migrate_dungeon_boss_counts();
     DoTowerObservation();
 }
 
