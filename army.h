@@ -32,6 +32,7 @@ struct AttackStat {
     int failed;
     int missed;
     int blocked;
+    int stunned;
     int hit;
 
     int damage;
@@ -52,6 +53,7 @@ namespace unit_stat_control {
     void RecordAttackFailed(UnitStat& us, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect);
     void RecordAttackMissed(UnitStat& us, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect);
     void RecordAttackBlocked(UnitStat& us, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect);
+    void RecordStun(UnitStat& us, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect);
     void RecordHit(UnitStat& us, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect, int damage);
     void RecordKill(UnitStat& us, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect);
 };
@@ -71,6 +73,7 @@ class ArmyStats {
         void RecordAttackFailed(int unitNumber, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect);
         void RecordAttackMissed(int unitNumber, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect);
         void RecordAttackBlocked(int unitNumber, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect);
+        void RecordStun(int unitNumber, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect);
         void RecordHit(int unitNumber, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect, int damage);
         void RecordKill(int unitNumber, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect);
 };

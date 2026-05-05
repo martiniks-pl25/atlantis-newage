@@ -84,6 +84,13 @@ void unit_stat_control::RecordAttackBlocked(UnitStat& us, int weaponIndex, std::
     s->blocked++;
 }
 
+void unit_stat_control::RecordStun(UnitStat& us, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect) {
+    AttackStat* s = unit_stat_control::FindStat(us, weaponIndex, effect);
+    assert(s != NULL);
+
+    s->stunned++;
+}
+
 void unit_stat_control::RecordHit(UnitStat& us, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect, int damage) {
     AttackStat* s = unit_stat_control::FindStat(us, weaponIndex, effect);
     assert(s != NULL);
@@ -139,6 +146,11 @@ void ArmyStats::RecordAttackMissed(int unitNumber, int weaponIndex, std::optiona
 void ArmyStats::RecordAttackBlocked(int unitNumber, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect) {
     unit_stat_control::RecordAttackBlocked(roundStats[unitNumber],  weaponIndex, effect);
     unit_stat_control::RecordAttackBlocked(battleStats[unitNumber], weaponIndex, effect);
+}
+
+void ArmyStats::RecordStun(int unitNumber, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect) {
+    unit_stat_control::RecordStun(roundStats[unitNumber],  weaponIndex, effect);
+    unit_stat_control::RecordStun(battleStats[unitNumber], weaponIndex, effect);
 }
 
 void ArmyStats::RecordHit(int unitNumber, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect, int damage) {
@@ -1569,6 +1581,7 @@ int Army::DoAnAttack(Battle * b, char const *special, int numAttacks, int attack
                     !(ItemDefs[tar->race].type & IT_MONSTER) &&
                     !tar->has_effect("stun")) {
                     tar->set_effect("stun");
+                    attackers->stats.RecordStun(attacker->unit->num, weaponIndex, sp);
                 }
                 continue;
             }

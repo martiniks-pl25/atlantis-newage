@@ -5201,11 +5201,11 @@ std::vector<TerrainType> TerrainDefs = {
      {-1,-1,-1},
      0,-1,-1,-1,
      0,{-1,-1,-1,-1,-1,-1}},
-    // Dungeon — only generated on LEVEL_DUNGEON. No production, 1 MV, no auto-wmon.
+    // Dungeon — only generated on LEVEL_DUNGEON. No production, 1 MP, no auto-wmon.
     // Monster population managed entirely by dungeon.cpp (SpawnDungeon / ProcessDungeons).
     // See docs/DUNGEON_SYSTEM_DESIGN.md
     {"dungeon", "dungeons", "dungeon", 'd', R_DUNGEON,
-     0,
+     TerrainType::RIDINGMOUNTS | TerrainType::FLYINGMOUNTS,
      0,0,0,1,
      {{-1,0,0},{-1,0,0},{-1,0,0},{-1,0,0},
       {-1,0,0},{-1,0,0},{-1,0,0}},

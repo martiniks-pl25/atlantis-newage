@@ -120,6 +120,8 @@ void WriteStats(Battle &battle, Army &army, StatsCategory category) {
             s += ", attacked " + to_string(succeeded) + " of " + to_string(att.attacks) + " " + strings::plural(att.attacks, "time", "times");
             s += ", " + to_string(reachedTarget) + " successful " + strings::plural(reachedTarget, "attack", "attacks");
             s += ", " + to_string(att.blocked) + " blocked by armor";
+            if (att.stunned > 0)
+                s += ", " + to_string(att.stunned) + " " + strings::plural(att.stunned, "enemy", "enemies") + " stunned";
             s += ", " + to_string(att.hit) + " " + strings::plural(att.killed, "hit", "hits");
             s += ", " + to_string(att.damage) + " total damage";
             s += ", and killed " + to_string(att.killed)  + " " + strings::plural(att.killed, "enemy", "enemies") + ".";
