@@ -1264,6 +1264,7 @@ void Game::ModifyTablesPerRuleset(void)
     EnableObject(O_ALCHEMISTLAB);
     EnableObject(O_OASIS);
     EnableObject(O_TRAPPINGHUT);
+    EnableObject(O_TOWN_HALL);
 
     DisableObject(O_GEMAPPRAISER);
     DisableObject(O_PALACE);

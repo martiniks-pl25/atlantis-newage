@@ -337,6 +337,27 @@ std::vector<std::string> aHumanCaravanTrade = { "road", "merchant", "trade", "ca
 std::vector<std::string> aHumanCaravanHall  = { "inn", "post", "house", "hall", "lodge" };
 
 //---------------------------------------------------------------------------
+// TOWN HALL NAMING SYSTEM - Civic / council building words per ethnicity
+//---------------------------------------------------------------------------
+// Civic theme words — Dwarven (council / assembly / law / hold)
+std::vector<std::string> aDwarfHallCivic   = { "thrum", "rakh", "khib", "dur", "barud" };
+// Structure words — Dwarven (hall / chambers / delve)
+std::vector<std::string> aDwarfHallStruct  = { "zal", "kazad", "tum", "bar", "azag" };
+// Civic theme words — Elvish (king / land / old / great / wisdom)
+std::vector<std::string> aElfHallCivic     = { "aran", "tir", "men", "iaur", "istar" };
+// Structure words — Elvish (chambers / fort / dwelling / tower)
+std::vector<std::string> aElfHallStruct    = { "sammath", "ost", "bar", "minas", "lodh" };
+// Civic theme words — Orcish (war / chief / dark / blood)
+std::vector<std::string> aOrcHallCivic     = { "narg", "krug", "ulk", "ghaz", "morg" };
+// Structure words — Orcish (den / post / lair / hold)
+std::vector<std::string> aOrcHallStruct    = { "drazh", "urgol", "zog", "gor", "bang" };
+// Nomad civic terms — historically authentic Arabic/Persian terms for council/court/audience hall
+std::vector<std::string> aNomadHall        = { "Diwan", "Majlis", "Saray", "Qasr", "Bayt" };
+// Human civic and structure words (English)
+std::vector<std::string> aHumanHallCivic   = { "council", "civic", "town", "burgher", "borough" };
+std::vector<std::string> aHumanHallStruct  = { "hall", "house", "manor", "court", "forum" };
+
+//---------------------------------------------------------------------------
 // LAIR NAMING SYSTEM - Monster and Lair Type Words
 //---------------------------------------------------------------------------
 
@@ -982,6 +1003,64 @@ std::string getCaravanseraiName(int race) {
             std::string tradeWord = rng::one_of(aHumanCaravanTrade);
             std::string hallWord  = rng::one_of(aHumanCaravanHall);
             return (prefix + " " + tradeWord + " " + hallWord) | filter::title_case;
+        }
+    }
+}
+
+/**
+ * @brief Generates a culturally-themed name for a Town Hall (civic building).
+ *
+ * Each culture names their civic hall differently. All formats use spaces only
+ * (no hyphens), 2 to 3 words, title-cased.
+ * - Dwarf:        prefix + civic-word + structure-word → "Khuz Thrum Zal"
+ * - Elf:          prefix + civic-word + structure-word → "Nim Aran Sammath"
+ * - Orc:          prefix + civic-word + structure-word → "Ghash Narg Drazh"
+ * - Nomad:        prefix + civic-word                  → "Ali Diwan"
+ * - Human/default: prefix + civic-word + structure-word → "Brent Council Hall"
+ *
+ * @param race  Builder's (or region's) race item ID (0/unknown → human format)
+ * @return      Title-cased name string
+ * @see getCaravanseraiName() for the related caravanserai naming pattern
+ */
+std::string getTownHallName(int race) {
+    Ethnicity ethnicity = raceToEthnicity(race);
+    std::string prefix;
+
+    switch(ethnicity) {
+        case Ethnicity::DWARF: {
+            prefix = getPrefix(aPrefDwarven);
+            std::string civicWord  = rng::one_of(aDwarfHallCivic);
+            std::string structWord = rng::one_of(aDwarfHallStruct);
+            return (prefix + " " + civicWord + " " + structWord) | filter::title_case;
+        }
+        case Ethnicity::ELF:
+        case Ethnicity::HIGHELF: {
+            prefix = getPrefix(aPrefElven2);
+            std::string civicWord  = rng::one_of(aElfHallCivic);
+            std::string structWord = rng::one_of(aElfHallStruct);
+            return (prefix + " " + civicWord + " " + structWord) | filter::title_case;
+        }
+        case Ethnicity::ORC: {
+            prefix = getPrefix(aPrefOrchish);
+            std::string civicWord  = rng::one_of(aOrcHallCivic);
+            std::string structWord = rng::one_of(aOrcHallStruct);
+            return (prefix + " " + civicWord + " " + structWord) | filter::title_case;
+        }
+        case Ethnicity::NOMAD: {
+            prefix = getPrefix(aPrefArabic);
+            std::string civicWord = rng::one_of(aNomadHall);
+            return (prefix + " " + civicWord) | filter::title_case;
+        }
+        case Ethnicity::VIKING:
+        case Ethnicity::BARBARIAN:
+        case Ethnicity::MAN:
+        default: {
+            prefix = (ethnicity == Ethnicity::VIKING)    ? getPrefix(aPrefViking) :
+                     (ethnicity == Ethnicity::BARBARIAN) ? getPrefix(aPrefScotish) :
+                                                           getPrefix(aPrefHumans);
+            std::string civicWord  = rng::one_of(aHumanHallCivic);
+            std::string structWord = rng::one_of(aHumanHallStruct);
+            return (prefix + " " + civicWord + " " + structWord) | filter::title_case;
         }
     }
 }

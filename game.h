@@ -170,7 +170,7 @@ private:
     void CreateGuardMageFSHI(ARegion *pReg);
     void CreateGuardMageFIRE(ARegion *pReg);
     void CreateGuardCommander(ARegion *pReg);
-    void CreateMayor(ARegion *pReg);
+    void CreateMayor(ARegion *pReg, Object *target = nullptr);
     int MakeWMon(ARegion *pReg);
     void MakeLMon(Object *pObj);
     int MakePirateFleet(ARegion *pReg);
@@ -525,7 +525,6 @@ private:
     ARegion* find_entrance_spot();
     void generate_dungeon_cell(DungeonInstance &d);
     void populate_dungeon(const DungeonInstance &d);
-    void migrate_dungeon_boss_counts();      // one-time: cap devil=1, dragon<=2 in existing bosses
     void read_dungeons(std::istream &f);
     void write_dungeons(std::ostream &f);
 

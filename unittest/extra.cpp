@@ -38,6 +38,7 @@ void Game::ModifyTablesPerRuleset(void) {
         EnableSkill(S_QUARTERMASTER);
         EnableObject(O_CARAVANSERAI);
     }
+    EnableObject(O_TOWN_HALL);
 }
 
 const std::optional<std::string> ARegion::movement_forbidden_by_ruleset(Unit *u, ARegion *origin, ARegionList& regs) {

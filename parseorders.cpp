@@ -1449,6 +1449,16 @@ BuildOrder* Game::ProcessBuildStructure(Unit *unit, int object_type, orders_chec
         }
     }
 
+    if (ObjectDefs[object_type].flags & ObjectType::ONE_PER_REGION) {
+        for (const auto o : unit->object->region->objects) {
+            if (o->type == object_type) {
+                unit->error("BUILD: " + ObjectDefs[object_type].name +
+                            " can only exist once in a region.");
+                return nullptr;
+            }
+        }
+    }
+
     BuildOrder* order = new BuildOrder;
     order->new_building = object_type;
     return order;

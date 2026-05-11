@@ -26,17 +26,17 @@ struct AttackStat {
     int attackType;
     int weaponClass;
 
-    int soldiers;
+    int soldiers = 0;
 
-    int attacks;
-    int failed;
-    int missed;
-    int blocked;
-    int stunned;
-    int hit;
+    int attacks = 0;
+    int failed = 0;
+    int missed = 0;
+    int blocked = 0;
+    int stunned = 0;
+    int hit = 0;
 
-    int damage;
-    int killed;
+    int damage = 0;
+    int killed = 0;
 };
 
 

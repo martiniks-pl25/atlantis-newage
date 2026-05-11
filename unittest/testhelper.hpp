@@ -118,6 +118,12 @@ public:
     void run_auto_name_solo_units() { game.AutoNameSoloUnits(); }
     // Run ProcessDungeons() — dungeon lifecycle (boss death, DYING timer, collapse)
     void run_process_dungeons() { game.ProcessDungeons(); }
+    // Run AdjustCityMons() on a region — spawns/equips/cleans up city guards and mayor
+    void run_adjust_city_mons(ARegion *r) { game.AdjustCityMons(r); }
+    // Spawn a mayor in the given region (test bootstrap; no guards needed)
+    void spawn_mayor(ARegion *r, Object *target = nullptr) { game.CreateMayor(r, target); }
+    // Get guardfaction id (faction 1)
+    int get_guardfaction() { return game.guardfaction; }
     // Dungeon test helpers
     void inject_dungeon(const DungeonInstance &d) { game.activeDungeons.push_back(d); }
     int get_monfaction() { return game.monfaction; }

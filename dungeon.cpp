@@ -310,7 +310,7 @@ void Game::populate_dungeon(const DungeonInstance &d)
         } else {
             // Wander unit (corridor or entry room).
             // Entry room: primary mob only, half count — light guard.
-            // Corridor rooms: primary always, secondaries at 50% each.
+            // Corridor rooms: primary + all secondaries always present.
             if (td.wander_mobs.empty()) continue;
             const auto &wm0 = td.wander_mobs[0];
             Unit *mob = GetNewUnit(mfac, 0);
@@ -321,10 +321,8 @@ void Game::populate_dungeon(const DungeonInstance &d)
                 mob->MakeWMon(td.wander_unit_name, wm0.item,
                               wm0.min + rng::get_random(wm0.max - wm0.min + 1));
                 for (size_t i = 1; i < td.wander_mobs.size(); i++) {
-                    if (rng::get_random(2)) {
-                        const auto &wm = td.wander_mobs[i];
-                        mob->items.SetNum(wm.item, wm.min + rng::get_random(wm.max - wm.min + 1));
-                    }
+                    const auto &wm = td.wander_mobs[i];
+                    mob->items.SetNum(wm.item, wm.min + rng::get_random(wm.max - wm.min + 1));
                 }
             }
             mob->guard = GUARD_NONE;
@@ -703,46 +701,3 @@ void Game::read_dungeons(std::istream &f)
     f >> kw;  // consume "END_DUNGEONS"
 }
 
-// ---------------------------------------------------------------------------
-// Game::migrate_dungeon_boss_counts
-// One-time migration: cap I_DEVIL to 1, cap I_DRAGON to 2 in existing bosses.
-// Safe to call every turn — no-op once all counts are already in range.
-// ---------------------------------------------------------------------------
-void Game::migrate_dungeon_boss_counts()
-{
-    int fixed = 0;
-
-    for (auto &d : activeDungeons) {
-        if (d.state == DungeonSlotState::COLLAPSING) continue;
-
-        const auto &td = DungeonTypeDefs[(int)d.type];
-        int kill_item = td.boss_kill_item;
-        if (kill_item != I_DEVIL && kill_item != I_DRAGON) continue;
-
-        int target = (kill_item == I_DEVIL) ? 1 : 2;
-
-        for (int rnum : d.room_nums) {
-            ARegion *r = regions.GetRegion(rnum);
-            if (!r) continue;
-            for (auto *obj : r->objects) {
-                for (auto *u : obj->units) {
-                    int cur = u->items.GetNum(kill_item);
-                    if (cur > target) {
-                        u->items.SetNum(kill_item, target);
-                        logger::write("Dungeon #" + std::to_string(d.id) +
-                                      ": boss " + ItemDefs[kill_item].names +
-                                      " capped " + std::to_string(cur) +
-                                      " -> " + std::to_string(target));
-                        fixed++;
-                    }
-                }
-            }
-        }
-    }
-
-    if (fixed > 0)
-        logger::write("Dungeon boss count migration: " +
-                      std::to_string(fixed) + " unit(s) fixed.");
-    else
-        logger::write("Dungeon boss count migration: nothing to fix.");
-}

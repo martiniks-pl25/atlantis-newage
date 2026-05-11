@@ -47,6 +47,9 @@ std::string getRoadName(int objectType, int race);
 // Caravanserai names — culturally themed trade waystation names
 std::string getCaravanseraiName(int race);
 
+// Town Hall names — culturally themed civic building names (council/court/forum)
+std::string getTownHallName(int race);
+
 // Lair names with monster-specific and ethnicity-specific variants
 std::string getLairName(int lairType, int monsterType, int race);
 

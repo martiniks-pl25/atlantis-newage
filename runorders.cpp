@@ -1201,7 +1201,6 @@ void Game::PostProcessTurn()
     AutoNameSoloUnits();
     // ResetCityMarketsExceptTrade(); // one-time market migration, done
     ProcessDungeons();
-    migrate_dungeon_boss_counts();
     DoTowerObservation();
 }
 
@@ -1221,6 +1220,8 @@ void Game::AutoNameBuildings()
                 newName = getInnName();
             else if (o->type == O_CARAVANSERAI)
                 newName = getCaravanseraiName(r->race);
+            else if (o->type == O_TOWN_HALL)
+                newName = getTownHallName(r->race);
             else if (ot.productionAided != -1)
                 newName = getProductionBuildingName(o->type, ot.productionAided, r->race);
             else

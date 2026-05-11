@@ -8,6 +8,7 @@
 #include <fstream>
 #include <filesystem>
 #include <algorithm>
+#include <set>
 #include <string.h>
 #include <ctime>
 
@@ -2713,7 +2714,7 @@ void Game::AdjustCityMons(ARegion *r)
     bool should_have_fire = (towntype >= TOWN_CITY);
     bool should_have_commander = true;
 
-    // Check what DOES exist and if player is on guard
+    // Check what DOES exist and collect player factions on guard
     bool has_melee = false;
     bool has_ranged = false;
     bool has_eshi = false;
@@ -2721,19 +2722,18 @@ void Game::AdjustCityMons(ARegion *r)
     bool has_fire = false;
     bool has_commander = false;
     bool has_mayor = false;
-    bool player_on_guard = false;
     Unit *mayor_unit = nullptr;
+    std::set<int> guarding_player_facs;       // faction nums of non-guard players on GUARD
 
     for(const auto o : r->objects) {
         for(const auto u : o->units) {
-            // Check if player (not city guards) is on GUARD - blocks regeneration
+            // Collect all non-guardfaction players standing on GUARD in the region
             if (u->guard == GUARD_GUARD && u->faction->num != guardfaction) {
-                player_on_guard = true;
+                guarding_player_facs.insert(u->faction->num);
             }
 
             if (u->type == U_GUARD) {
                 AdjustCityMon(r, u);
-                // Check if this is melee (front line) or ranged (behind)
                 if (u->GetFlag(FLAG_BEHIND))
                     has_ranged = true;
                 else
@@ -2742,7 +2742,6 @@ void Game::AdjustCityMons(ARegion *r)
 
             if (u->type == U_GUARDMAGE) {
                 AdjustCityMon(r, u);
-                // Determine mage type by combat spell
                 if (u->combat == S_ENERGY_SHIELD)
                     has_eshi = true;
                 else if (u->combat == S_FORCE_SHIELD)
@@ -2756,9 +2755,27 @@ void Game::AdjustCityMons(ARegion *r)
                 has_commander = true;
             }
 
-            if (u->type == U_MAYOR) {
+            if (u->type == U_MAYOR && u->GetMen() > 0) {
                 has_mayor = true;
                 mayor_unit = u;
+            }
+        }
+    }
+
+    bool player_on_guard = !guarding_player_facs.empty();
+
+    // Mayor presence rule: only HOSTILE attitude to a guarding player breaks it.
+    // UNFRIENDLY is a softer penalty handled at quest redemption (see plan §3.2/§3.4
+    // and §4.13). Rationale: when a player retakes one of their own cities by killing
+    // the city guard, guardfaction goes UNFRIENDLY; that should NOT cascade into mayors
+    // fleeing all of that player's other cities — only HOSTILE relations do.
+    bool mayor_attitude_ok = true;
+    if (player_on_guard) {
+        Faction *gfac = GetFaction(factions, guardfaction);
+        for (int fnum : guarding_player_facs) {
+            if (gfac->get_attitude(fnum) == AttitudeType::HOSTILE) {
+                mayor_attitude_ok = false;
+                break;
             }
         }
     }
@@ -2774,7 +2791,6 @@ void Game::AdjustCityMons(ARegion *r)
         melee_max = Globals->GUARDS_USE_LEADERS ? base : 2 * base / 3;
     }
     if (has_melee) {
-        // Find the melee unit and get its current men count
         for(const auto o : r->objects) {
             for(const auto u : o->units) {
                 if (u->type == U_GUARD && !u->GetFlag(FLAG_BEHIND)) {
@@ -2785,12 +2801,19 @@ void Game::AdjustCityMons(ARegion *r)
         }
     }
 
-    // Mayor flee check: if front line below 50% of max, mayor flees
-    if (has_mayor && mayor_unit && melee_men < melee_max * 50 / 100) {
-        // Mayor flees — takes cornucopia with him (items disappear with unit)
-        mayor_unit->SetMen(I_LEADERS, 0);
-        has_mayor = false;
-        mayor_unit = nullptr;
+    // --- Mayor disappearance: split by location (plan §3.4) ---
+    // Mayor in dummy: flee at <50% melee_max OR attitude break.
+    // Mayor in Town Hall: ONLY attitude break (hall acts as a civic refuge,
+    // decoupled from guard health to avoid yo-yo with no-melee-gate spawn).
+    if (has_mayor && mayor_unit) {
+        bool mayor_in_hall = (mayor_unit->object && mayor_unit->object->type == O_TOWN_HALL);
+        bool flee_by_guards = !mayor_in_hall && melee_men < melee_max * 50 / 100;
+        bool flee_by_attitude = !mayor_attitude_ok;
+        if (flee_by_guards || flee_by_attitude) {
+            mayor_unit->SetMen(I_LEADERS, 0);   // items disappear with unit
+            has_mayor = false;
+            mayor_unit = nullptr;
+        }
     }
 
     // Mayor adjust (equipment, treasury payment, name upgrade)
@@ -2814,15 +2837,12 @@ void Game::AdjustCityMons(ARegion *r)
         bool should_regenerate = false;
 
         if (has_any_guards) {
-            // Someone survived - regenerate missing guards WITHOUT random check (100% chance)
             should_regenerate = true;
         } else {
-            // Everyone killed - check random chance first (25%)
             should_regenerate = (rng::get_random(100) < Globals->GUARD_REGEN);
         }
 
         if (should_regenerate) {
-            // Create missing guard types (20% of maximum each)
             if (need_melee) CreateGuardMelee(r, 20);
             if (need_ranged) CreateGuardRanged(r, 20);
             if (need_eshi) CreateGuardMageESHI(r);
@@ -2832,9 +2852,34 @@ void Game::AdjustCityMons(ARegion *r)
         }
     }
 
-    // Mayor spawn check: appears only when melee >= 75% of max
-    if (!has_mayor && has_melee && melee_men >= melee_max * 75 / 100) {
-        CreateMayor(r);
+    // --- Find an empty completed Town Hall (plan §3.2/§3.3) ---
+    // "Completed" = incomplete <= 0 (negative values track decay/maintenance reserve).
+    Object *empty_hall = nullptr;
+    for (const auto o : r->objects) {
+        if (o->type == O_TOWN_HALL && o->incomplete <= 0 && o->units.empty()) {
+            empty_hall = o;
+            break;
+        }
+    }
+
+    // --- Mayor spawn (plan §3.2) ---
+    // Need: someone on guard (city guard OR player) AND attitude ≥ NEUTRAL to all guarding players.
+    // Branch: empty completed hall → spawn into hall, no melee% gate.
+    //         No hall → spawn in dummy, requires melee_men ≥ 75% × melee_max.
+    bool someone_on_guard = has_melee || player_on_guard;
+    if (!has_mayor && someone_on_guard && mayor_attitude_ok) {
+        if (empty_hall) {
+            CreateMayor(r, empty_hall);
+        } else if (has_melee && melee_men >= melee_max * 75 / 100) {
+            CreateMayor(r);
+        }
+    }
+
+    // --- Move existing mayor from dummy into a freshly-built Town Hall (plan §3.3) ---
+    if (has_mayor && mayor_unit && mayor_attitude_ok && empty_hall &&
+        mayor_unit->object == r->GetDummy())
+    {
+        mayor_unit->MoveUnit(empty_hall);
     }
 }
 
@@ -2950,7 +2995,7 @@ void Game::AdjustCityMon(ARegion *r, Unit *u)
 
         u->SetFlag(FLAG_BEHIND, 1);
         u->SetFlag(FLAG_HOLDING, 1);
-        u->guard = GUARD_NONE;
+        u->guard = GUARD_AVOID;            // doesn't attack, defends same-faction only
 
         // City treasury: MAYOR_INCOME_PCT% of region taxable income per turn
         int income = r->Population() * (r->Wages() - 10 * Globals->MAINTENANCE_COST) / 50;
@@ -3431,11 +3476,13 @@ void Game::CreateGuardCommander(ARegion *r)
  *
  * @see AdjustCityMon() for equipment/treasury, AdjustCityMons() for flee/spawn logic
  */
-void Game::CreateMayor(ARegion *r)
+void Game::CreateMayor(ARegion *r, Object *target)
 {
-    bool AC = r->IsStartingCity() || r->type == R_NEXUS;
-    int tt = AC ? TOWN_CITY : (r->town ? r->town->TownType() : TOWN_CITY);
-    bool IV = AC && (Globals->SAFE_START_CITIES || r->type == R_NEXUS);
+    // Bare spawn — no equipment, no money. Equipment + GUARD_MONEY arrive
+    // via the next AdjustCityMons pass (anti-farm: see docs/TOWN_HALL_AND_MAYOR_QUESTS_PLAN.md §3.8).
+    int tt = (r->IsStartingCity() || r->type == R_NEXUS)
+             ? TOWN_CITY
+             : (r->town ? r->town->TownType() : TOWN_CITY);
 
     std::string townname = r->town ? r->town->name : "City";
     std::string name;
@@ -3453,17 +3500,13 @@ void Game::CreateMayor(ARegion *r)
     Unit *u = GetNewUnit(fac);
     u->set_name(name);
     u->type = U_MAYOR;
-    u->guard = GUARD_NONE;
+    u->guard = GUARD_AVOID;            // doesn't attack, but defends same-faction (see GetSides)
     u->reveal = REVEAL_FACTION;
     u->SetMen(I_LEADERS, 1);
-    if (IV) u->items.SetNum(I_AMULETOFI, 1);
-    // Initial treasury: base + 1000 per town tier (village=1000, town=2000, city=3000)
-    u->SetMoney(Globals->GUARD_MONEY + MAYOR_TREASURY_PER_LEVEL * (tt + 1));
     u->SetSkill(S_OBSERVATION, tt + 3);
     u->SetFlag(FLAG_BEHIND, 1);
     u->SetFlag(FLAG_HOLDING, 1);
-    u->MoveUnit(r->GetDummy());
-    AdjustCityMon(r, u);  // Equip immediately on spawn
+    u->MoveUnit(target ? target : r->GetDummy());
 }
 
 void Game::Equilibrate()

@@ -716,6 +716,10 @@ std::string object_description(int obj)
         temp += " This structure can only be built in settlements (villages, towns or cities).";
     }
 
+    if (o->flags & ObjectType::ONE_PER_REGION) {
+        temp += " Only one such structure can exist in any region.";
+    }
+
     if (obj == O_TOWER || obj == O_MTOWER) {
         temp += " Units garrisoning this tower observe all adjacent regions at basic observation level,"
                 " regardless of their Observation skill."

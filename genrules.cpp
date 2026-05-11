@@ -2821,6 +2821,20 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
             }
         }
 
+        {
+            std::vector<std::string> one_per_region;
+            for (int i = 0; i < NOBJECTS; i++) {
+                if (ObjectDefs[i].flags & ObjectType::DISABLED) continue;
+                if (!(ObjectDefs[i].flags & ObjectType::ONE_PER_REGION)) continue;
+                one_per_region.push_back(ObjectDefs[i].name);
+            }
+            if (!one_per_region.empty()) {
+                f << enclose("p", true) << "Note: Only one of each of the following structures may exist per region: "
+                  << strings::join(one_per_region, ", ", " and ") << ".\n"
+                  << enclose("p", false);
+            }
+        }
+
         if (Globals->SHIPPING_COST > 0) {
             f << enclose("p", true) << "The cost of transport items from one quartermaster to "
               << "another is based on the weight of the items and costs " << Globals->SHIPPING_COST

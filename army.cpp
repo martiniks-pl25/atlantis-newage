@@ -40,13 +40,6 @@ void unit_stat_control::TrackSoldier(UnitStat& us, int weaponIndex, std::optiona
         stat.attackType = attackType;
         stat.weaponClass = weaponClass;
         stat.soldiers = 1;
-        stat.attacks = 0;
-        stat.failed = 0;
-        stat.missed = 0;
-        stat.blocked = 0;
-        stat.hit = 0;
-        stat.damage = 0;
-        stat.killed = 0;
 
         us.attackStats.push_back(stat);
 
@@ -985,9 +978,10 @@ void Army::Regenerate(Battle *b)
 void Army::Lose(Battle *b, ItemList& spoils)
 {
     WriteLosses(b);
-    // Track chosen item types per monster unit to limit spoils variety.
-    // Each unit builds its own pool; soldiers from the same unit share it.
-    std::map<Unit*, std::set<int>> unit_chosen_types;
+    // Track chosen item types per (unit, race) pair to limit spoils variety.
+    // Mixed units (e.g. kobolds + trolls) get separate pools per monster type
+    // so each type selects from its own spoil category (IT_NORMAL vs IT_ADVANCED).
+    std::map<std::pair<Unit*, int>, std::set<int>> unit_chosen_types;
     int pirate_tmap_chance = 0;
     bool had_pirates = false;
     for (int i=0; i<count; i++) {
@@ -996,7 +990,7 @@ void Army::Lose(Battle *b, ItemList& spoils)
             s->Alive(LOSS);
         } else {
             if ((s->unit->type==U_WMON) && (ItemDefs[s->race].type&IT_MONSTER))
-                GetMonSpoils(spoils, s->race, s->unit->free, unit_chosen_types[s->unit]);
+                GetMonSpoils(spoils, s->race, s->unit->free, unit_chosen_types[{s->unit, s->race}]);
             // Pirate special loot must be collected before Dead() zeroes item counts
             if (s->race == I_PIRATE_CAPTAIN) {
                 spoils.SetNum(I_COMPASS, spoils.GetNum(I_COMPASS) + 1);

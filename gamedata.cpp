@@ -4586,6 +4586,17 @@ std::vector<ObjectType> ObjectDefs = {
      0,0,0,
      -1,-1,
      {0,0,0,0,0,0}},
+    // Town Hall — civic building, only one per settlement; mayor host, quest source
+    {"Town Hall",
+     ObjectType::DISABLED | ObjectType::CANENTER | ObjectType::CANMODIFY |
+     ObjectType::SETTLEMENT_ONLY | ObjectType::ONE_PER_REGION,
+     0,0,0,0,
+     I_WOOD_OR_STONE,30,"BUIL",3,
+     -1, -1, 0, -1, 0,
+     { -1, 0, -1, false },
+     5,1,2,
+     -1,-1,
+     {0,0,0,0,0,0}},
 
 };
 

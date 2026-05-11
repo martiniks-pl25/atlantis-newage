@@ -699,6 +699,8 @@ void Game::AddNewBuildings(ARegion *r)
                                 autoName = getRoadName(obj->type, r->race);
                             else if (obj->type == O_CARAVANSERAI)
                                 autoName = getCaravanseraiName(r->race);
+                            else if (obj->type == O_TOWN_HALL)
+                                autoName = getTownHallName(r->race);
                             else if (ot.productionAided != -1)
                                 autoName = getProductionBuildingName(obj->type, ot.productionAided, r->race);
                             else
