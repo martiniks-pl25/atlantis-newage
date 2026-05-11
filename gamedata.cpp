@@ -2424,11 +2424,13 @@ std::vector<ItemType> ItemDefs =
      "", { "", "", "", "" }, 0, 0},
     // I_COMPASS — captain's navigational compass
     // Future: IT_TOOL with SAILING skill bonus
+    // IT_SPECIAL: excluded from procedural monster spoil pool (army.cpp:887)
+    // IT_ALWAYS_SPOIL: full proportional drop in PvP battle spoils, no RNG halving (battle.cpp:421)
     {"compass","compasses","COMP",
      ItemType::NOMARKET,
      NULL,0,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
      NULL,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
-     1, IT_ADVANCED|IT_NEVER_SPOIL, 50,0,
+     1, IT_SPECIAL|IT_ALWAYS_SPOIL, 50,0,
      0,0,0,0,0,
      -1,0,
      -1,0, 0,
@@ -2437,11 +2439,13 @@ std::vector<ItemType> ItemDefs =
     // I_BOSUN_WHISTLE — bosun's command whistle
     // IT_MAGEONLY: grants CPIR (Call Pirates) at level = MANI skill level (1-5)
     // Apprentice with MANI + BWHI can CAST CPIR to summon pirate fleets within MANI hexes
+    // IT_SPECIAL: excluded from procedural monster spoil pool (army.cpp:887)
+    // IT_ALWAYS_SPOIL: full proportional drop in PvP battle spoils (battle.cpp:421)
     {"bosun's whistle","bosun's whistles","BWHI",
      ItemType::NOMARKET,
      NULL,0,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
      NULL,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
-     1, IT_ADVANCED|IT_NEVER_SPOIL|IT_MAGEONLY, 30,0,
+     1, IT_SPECIAL|IT_ALWAYS_SPOIL|IT_MAGEONLY, 30,0,
      0,0,0,0,0,
      -1,0,
      -1,0, 0,
@@ -2449,11 +2453,31 @@ std::vector<ItemType> ItemDefs =
      "CPIR", { "MANI", "", "", "" }, 1, 5},
     // I_TREASURE_MAP — map found on wrecked pirate ships
     // Future: quest trigger item (EXPLORE order)
+    // IT_SPECIAL: excluded from procedural monster spoil pool (army.cpp:887)
+    // IT_ALWAYS_SPOIL: full proportional drop in PvP battle spoils (battle.cpp:421)
     {"treasure map","treasure maps","TMAP",
      ItemType::NOMARKET,
      NULL,0,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
      NULL,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
-     1, IT_ADVANCED|IT_NEVER_SPOIL, 20,0,
+     1, IT_SPECIAL|IT_ALWAYS_SPOIL, 20,0,
+     0,0,0,0,0,
+     -1,0,
+     -1,0, 0,
+     0, NULL, 0,
+     "", { "", "", "", "" }, 0, 0},
+    // I_BOUNTY — quest reward token (step 3 / quests system)
+    // IT_SPECIAL: excludes from procedural monster spoil pool (army.cpp:887,908,920)
+    // IT_ALWAYS_SPOIL: full proportional drop in PvP battle spoils (battle.cpp:421),
+    //   no 50% RNG halving — "killed the courier = take it all"
+    // NOMARKET: tokens never appear in city markets
+    // weight=1: visible to observing factions (unit.cpp:860 hides weight=0 items
+    //   from non-own units), enabling courier interception mechanic
+    // No CANTGIVE/NOTRANSPORT — token is GIVE-able and TRANSPORT-able (courier-portable)
+    {"bounty token","bounty tokens","BNTY",
+     ItemType::NOMARKET,
+     NULL,0,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
+     NULL,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
+     1, IT_SPECIAL|IT_ALWAYS_SPOIL, 0,0,
      0,0,0,0,0,
      -1,0,
      -1,0, 0,
