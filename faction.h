@@ -7,6 +7,7 @@ class Game;
 struct ShowObject;
 
 #include "logger.hpp"
+#include "helper.h"
 #include "aregion.h"
 #include "unit.h"
 #include "battle.h"
@@ -20,6 +21,8 @@ using json = nlohmann::json;
 
 #include <unordered_map>
 #include <unordered_set>
+#include <set>
+#include <map>
 #include <vector>
 #include <iostream>
 #include <sstream>
@@ -132,7 +135,9 @@ public:
     Faction(int);
     ~Faction();
 
-    void Readin(std::istream &f);
+    // Readin takes engine version so that quest-system fields are read only from
+    // saves written by engine >= 5.2.6.  Older saves leave them empty.
+    void Readin(std::istream &f, ATL_VER engine_version);
     void Writeout(std::ostream &f);
     void View();
 
@@ -203,6 +208,9 @@ public:
     // TODO: Convert this to a hashmap of <attitude, vector<factionid>>
     // For now, just making it a vector of attitudes.  More will come later.
     std::vector<Attitude> attitudes;
+
+    std::set<int>      known_local_quests;  // q->num values the faction has learned about
+    std::map<int, int> quest_debts;         // region_num → tokens owed; key = -1 for GLOBAL pool
 
     // Guard reputation tracking (temporary, not serialized)
     int guard_attack_this_turn;  // 0=no attacks, 1=attacked in guarded city

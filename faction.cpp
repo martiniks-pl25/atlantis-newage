@@ -1,5 +1,7 @@
 #include "gamedata.h"
 #include "game.h"
+#include "quests.h"
+#include "dungeon.h"
 #include "indenter.hpp"
 #include "string_parser.hpp"
 #include "string_filters.hpp"
@@ -153,9 +155,14 @@ void Faction::Writeout(std::ostream& f)
     f << static_cast<int>(defaultattitude) << '\n';
     f << attitudes.size() << '\n';
     for (const auto& attitude: attitudes) f << attitude.factionnum << '\n' << static_cast<int>(attitude.attitude) << '\n';
+
+    f << known_local_quests.size() << '\n';
+    for (int qnum : known_local_quests) f << qnum << '\n';
+    f << quest_debts.size() << '\n';
+    for (const auto& [region_num, tokens] : quest_debts) f << region_num << '\n' << tokens << '\n';
 }
 
-void Faction::Readin(std::istream& f)
+void Faction::Readin(std::istream& f, ATL_VER engine_version)
 {
     f >> num;
 
@@ -198,6 +205,24 @@ void Faction::Readin(std::istream& f)
         if (fnum == num) continue;
         Attitude a = { .factionnum = fnum, .attitude = static_cast<AttitudeType>(fattitude) };
         attitudes.push_back(a);
+    }
+
+    // quest-system fields added in engine 5.2.6; legacy saves leave containers empty.
+    if (engine_version >= MAKE_ATL_VER(5, 2, 6)) {
+        int kq_count;
+        f >> kq_count;
+        for (int i = 0; i < kq_count; i++) {
+            int qnum;
+            f >> qnum;
+            known_local_quests.insert(qnum);
+        }
+        int qd_count;
+        f >> qd_count;
+        for (int i = 0; i < qd_count; i++) {
+            int region_num, tokens;
+            f >> region_num >> tokens;
+            quest_debts[region_num] = tokens;
+        }
     }
 }
 
@@ -663,6 +688,220 @@ void Faction::build_json_report(json& j, Game *game, size_t **citems) {
     }
 
     j["unclaimed_silver"] = unclaimed;
+
+    // --- Bounty quests ---
+    {
+        // Compass-style offset from anchor (mayor's city) to target region.
+        // Strict rule: pure side (north/south/east/west) only when one axis is 0.
+        // Empty string if same region, null inputs, or different map level.
+        // X axis is cylindrical (wraps); Y axis does not wrap.
+        auto describe_offset = [](ARegion *target, ARegion *anchor) -> std::string {
+            if (!target || !anchor || target == anchor) return "";
+            if (target->zloc != anchor->zloc) return "";
+
+            int w  = anchor->level->x;
+            int dx = target->xloc - anchor->xloc;
+            if (dx >  w / 2) dx -= w;
+            if (dx < -w / 2) dx += w;
+            int dy = target->yloc - anchor->yloc;
+
+            int ax = std::abs(dx), ay = std::abs(dy);
+            int dist = ax + std::max(0, (ay - ax) / 2);
+            if (dist == 0) return "";
+
+            const char *dir;
+            if      (dx == 0)          dir = (dy < 0) ? "north" : "south";
+            else if (dy == 0)          dir = (dx < 0) ? "west"  : "east";
+            else if (dx < 0 && dy < 0) dir = "northwest";
+            else if (dx > 0 && dy < 0) dir = "northeast";
+            else if (dx < 0 && dy > 0) dir = "southwest";
+            else                       dir = "southeast";
+
+            return std::to_string(dist) + " hexes " + dir;
+        };
+
+        auto turn_ym = [&](int turn) -> json {
+            int year  = (turn - 1) / 12 + 1;
+            int month = (turn - 1) % 12;
+            return json{{"turn", turn}, {"year", year}, {"month", MonthNames[month]}};
+        };
+
+        auto quest_desc = [&](const std::shared_ptr<Quest>& q) -> std::string {
+            ARegion *ir = (q->issuer_region >= 0)
+                          ? game->regions.GetRegion(q->issuer_region) : nullptr;
+            std::string settlement = (ir && ir->town) ? ir->town->name
+                                   : (ir ? ir->name : "unknown");
+            if (q->subtype == Quest::LOCAL_HUNT) {
+                Location *loc = game->regions.FindUnit(q->target);
+                ARegion  *tr  = loc ? loc->region
+                              : (q->regionnum != -1 ? game->regions.GetRegion(q->regionnum) : ir);
+                std::string terrain = tr ? TerrainDefs[TerrainDefs[tr->type].similar_type].name : "region";
+                std::string rname   = tr ? tr->name : "unknown";
+                // GetMonsterDisplayName() already includes (unit_num) — don't add it again.
+                std::string uname   = loc ? loc->unit->GetMonsterDisplayName() : "unknown creature";
+                return "In the " + terrain + " of " + rname + " roams the " + uname +
+                       ". The mayor of " + settlement + " offers a bounty for its defeat!";
+            }
+            if (q->subtype == Quest::LOCAL_LAIR_CLEAR) {
+                // Dungeon quests store -(DungeonType index + 1) in building (always < 0).
+                // Lair quests store ObjectDefs index (always >= 0).
+                bool is_dungeon = (q->building < 0);
+                if (is_dungeon) {
+                    int dtype = -(q->building + 1);
+                    std::string ename = DungeonTypeDefs[dtype].entrance_name;
+                    Location *bloc = game->regions.FindUnit(q->target);
+                    std::string boss = bloc ? bloc->unit->GetMonsterDisplayName() : "";
+                    std::string article = (!ename.empty() &&
+                        std::string("AEIOUaeiou").find(ename[0]) != std::string::npos)
+                        ? "An" : "A";
+                    std::string base = article + " " + ename + " has appeared near " + settlement + ".";
+                    if (!boss.empty())
+                        base += " Somewhere within lurks " + boss + ".";
+                    return base + " The mayor of " + settlement + " seeks heroes to storm the dungeon!";
+                }
+                std::string lair_name = (q->building >= 0 && q->building < NOBJECTS)
+                                        ? ObjectDefs[q->building].name : "Lair";
+                ARegion *lr = (q->regionnum != -1) ? game->regions.GetRegion(q->regionnum) : ir;
+                std::string lname = lr ? lr->name : "unknown";
+                Location *loc = game->regions.FindUnit(q->target);
+                // Use base name only — unit number would look like a dungeon ID.
+                std::string uname = "dangerous creatures";
+                if (loc) {
+                    std::string full = loc->unit->GetMonsterDisplayName();
+                    // Strip trailing " (num)" to avoid confusion with dungeon numbering.
+                    auto paren = full.rfind(" (");
+                    uname = (paren != std::string::npos) ? full.substr(0, paren) : full;
+                }
+                return "The " + lair_name + " in " + lname + " harbors " + uname +
+                       ". The mayor of " + settlement + " seeks adventurers to clear it!";
+            }
+            if (q->subtype == Quest::LOCAL_BUILD_TOWER) {
+                ARegion *tr = (q->regionnum >= 0)
+                              ? game->regions.GetRegion(q->regionnum) : nullptr;
+                std::string tname = tr ? tr->name : "unknown";
+                std::string terr  = tr ? TerrainDefs[TerrainDefs[tr->type].similar_type].name
+                                       : "region";
+                std::string text  = "The " + terr + " of " + tname + " lacks a watchtower. The mayor of " +
+                                    settlement + " offers a bounty to any faction that builds one there.";
+                std::string off = describe_offset(tr, ir);
+                if (!off.empty())
+                    text += " The site lies " + off + " of " + settlement + ".";
+                return text;
+            }
+            if (q->subtype == Quest::LOCAL_BUILD_INN) {
+                ARegion *tr = (q->regionnum >= 0)
+                              ? game->regions.GetRegion(q->regionnum) : nullptr;
+                std::string tname = tr ? tr->name : "unknown";
+                std::string terr  = tr ? TerrainDefs[TerrainDefs[tr->type].similar_type].name
+                                       : "region";
+                std::string text  = "Travelers passing through the " + terr + " of " + tname +
+                                    " have nowhere to rest. The mayor of " + settlement +
+                                    " offers a bounty to any faction that builds an Inn there.";
+                std::string off = describe_offset(tr, ir);
+                if (!off.empty())
+                    text += " The site lies " + off + " of " + settlement + ".";
+                return text;
+            }
+            if (q->subtype == Quest::LOCAL_BUILD_ROAD) {
+                // regionnum = region to build in; regionname = destination settlement name.
+                ARegion *build_r = (q->regionnum >= 0)
+                                   ? game->regions.GetRegion(q->regionnum) : nullptr;
+                std::string build_name = build_r ? build_r->name : "unknown";
+                std::string build_terr = build_r
+                    ? TerrainDefs[TerrainDefs[build_r->type].similar_type].name : "region";
+                std::string dest_name = q->regionname.empty() ? "unknown" : q->regionname;
+                static const struct { int obj; const char *dir; } road_dir_map[] = {
+                    { O_ROADN,  "North"     }, { O_ROADNE, "Northeast" },
+                    { O_ROADSE, "Southeast" }, { O_ROADS,  "South"     },
+                    { O_ROADSW, "Southwest" }, { O_ROADNW, "Northwest" },
+                };
+                std::string dir_name = "Road";
+                for (const auto& m : road_dir_map)
+                    if (m.obj == q->building) { dir_name = m.dir; break; }
+                return "Build a Road " + dir_name + " in the " + build_terr + " of " +
+                       build_name + " toward " + dest_name +
+                       ". The mayor of " + settlement + " offers a bounty for completing this road!";
+            }
+            if (q->subtype == Quest::GLOBAL_BOSS_HUNT) {
+                Location *loc = game->regions.FindUnit(q->target);
+                if (loc) {
+                    Unit    *cap = loc->unit;
+                    ARegion *r   = loc->region;
+                    // cap->object->name already contains "[num]"; cap->name already
+                    // contains "(num)" — don't add them again.
+                    std::string sname = cap->object ? cap->object->name : "pirate galley";
+                    std::string terr  = TerrainDefs[TerrainDefs[r->type].similar_type].name;
+                    return "The pirate galley " + sname + " under " + cap->name +
+                           " was last sighted in the " + terr + " of " + r->name + ".";
+                }
+                return "A dangerous pirate captain (" + std::to_string(q->target) + ") is at large.";
+            }
+            return "Unknown quest.";
+        };
+
+        json local_arr  = json::array();
+        json global_arr = json::array();
+
+        for (const auto& q : quests) {
+            json entry;
+            entry["num"]         = q->num;
+            entry["subtype"]     = q->subtype;
+            entry["description"] = quest_desc(q);
+            entry["tokens"]      = q->tokens;
+            entry["posted"]      = turn_ym(q->created_turn);
+
+            if (q->scope == Quest::SCOPE_LOCAL) {
+                if (!known_local_quests.count(q->num)) continue;
+                ARegion *ir = game->regions.GetRegion(q->issuer_region);
+                if (ir && ir->town) entry["settlement"] = ir->town->name;
+                else if (ir)        entry["settlement"] = ir->name;
+                if (ir) { entry["x"] = ir->xloc; entry["y"] = ir->yloc; }
+                entry["expires"] = turn_ym(q->expires_turn);
+
+                // Dungeon quests: also show when entrance closes.
+                bool is_dungeon = (q->subtype == Quest::LOCAL_LAIR_CLEAR && q->building < 0);
+                if (is_dungeon) {
+                    int dtype = -(q->building + 1);
+                    // Locate matching dungeon by surface region (regionnum) and dungeon type.
+                    for (const auto& d : game->activeDungeons) {
+                        if (d.surface_region_num == q->regionnum &&
+                            static_cast<int>(d.type) == dtype) {
+                            int close_turn = d.spawn_turn +
+                                             DungeonTypeDefs[(int)d.type].max_lifetime_turns;
+                            entry["entrance_closes"] = turn_ym(close_turn);
+                            break;
+                        }
+                    }
+                }
+                local_arr.push_back(entry);
+            } else if (q->scope == Quest::SCOPE_GLOBAL) {
+                global_arr.push_back(entry);
+            }
+        }
+
+        json bq;
+        bq["local"]  = local_arr;
+        bq["global"] = global_arr;
+        j["bounty_quests"] = bq;
+
+        // Quest debts — always shown so player can plan token logistics.
+        json debts = json::array();
+        for (const auto& [rnum, tokens] : quest_debts) {
+            if (tokens <= 0) continue;
+            json debt;
+            debt["tokens"] = tokens;
+            if (rnum == -1) {
+                debt["global"] = true;
+            } else {
+                ARegion *r = game->regions.GetRegion(rnum);
+                if (r && r->town) debt["region"] = r->town->name;
+                else if (r)       debt["region"] = r->name;
+                if (r) { debt["x"] = r->xloc; debt["y"] = r->yloc; }
+            }
+            debts.push_back(debt);
+        }
+        if (!debts.empty()) j["quest_debts"] = debts;
+    }
 
     json skills = json::array();
     for (auto &skillshow : shows) {

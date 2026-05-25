@@ -1270,7 +1270,7 @@ std::string item_description(int item, int full)
             temp += " This is a token of sacrifice, token of power. The Faction must posess 60 of them to get a WISH power and win the game. This relics can not be given and do not drop in spoils.";
             break;
         case I_HEALPOTION:
-            temp += " This item allows its possessor to heal wounded units after battle. No skill is necessary to use this item; it will be used automatically when the possessor is involved in a battle. It can heal up to 1 casualties, with a 70 percent success rate. Healing consumes an item.";
+            temp += " This item allows its possessor to heal wounded units after battle. No skill is necessary to use this item; it will be used automatically when the possessor is involved in a battle. It can heal up to 1 casualties, with a 75 percent success rate. Healing consumes an item.";
             break;
         default:
             break;

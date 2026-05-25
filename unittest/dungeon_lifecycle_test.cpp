@@ -161,4 +161,111 @@ ut::suite<"DungeonLifecycle"> dungeon_lifecycle_suite = [] {
         expect(room->type == R_BARREN) << "dungeon room must revert to R_BARREN after collapse";
         expect(helper.dungeons_empty()) << "dungeon must be removed after collapse";
     };
+
+    // -----------------------------------------------------------------------
+    // Test 5: DYING + no player units inside + timer NOT expired
+    //         → early collapse (the new behavior). Even though the dying
+    //         timer hasn't run out, there's nobody left to "trap" inside,
+    //         so the dungeon is reclaimed immediately.
+    // -----------------------------------------------------------------------
+    "DYING with no players collapses early"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        ARegion *room = helper.get_region(0, 2, 0);
+        ARegion *surf = helper.get_region(1, 1, 0);
+
+        // Only a monfaction wanderer in the room — no player units.
+        Faction *mon = helper.get_faction(helper.get_monfaction());
+        Unit *wanderer = helper.create_unit(mon, room);
+        wanderer->items.SetNum(I_KOBOLD, 10);
+
+        // phase_turn = previous turn → 1 full turn elapsed in DYING, but
+        // far from expired (dying_turns is 8+). Early-collapse must fire
+        // because no player units are inside.
+        helper.inject_dungeon(
+            make_dungeon_instance(DungeonSlotState::DYING, helper.turn_number() - 1,
+                                  surf, room, -1));
+
+        helper.run_process_dungeons();
+
+        expect(helper.dungeons_empty())
+            << "dungeon with no players must collapse immediately, not wait for timer";
+        expect(room->type == R_BARREN)
+            << "room must revert to R_BARREN after early collapse";
+    };
+
+    // -----------------------------------------------------------------------
+    // Test 6: DYING + player still inside + timer NOT expired → stays DYING.
+    //         Confirms the early-collapse rule does NOT fire while a player
+    //         unit is still in the dungeon (they get the full dying_turns
+    //         grace period to escape via the inner Exit object).
+    // -----------------------------------------------------------------------
+    "DYING with player inside stays DYING until timer"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        ARegion *room = helper.get_region(0, 2, 0);
+        ARegion *surf = helper.get_region(1, 1, 0);
+
+        // Player unit still inside the dungeon room.
+        Faction *player = helper.create_faction("Adventurers");
+        Unit *player_unit = helper.create_unit(player, room);
+        (void)player_unit;
+
+        // phase_turn = previous turn → 1 turn elapsed in DYING, timer NOT
+        // expired (dying_turns ≥ 8). Early-collapse must NOT fire because
+        // a player is still inside.
+        helper.inject_dungeon(
+            make_dungeon_instance(DungeonSlotState::DYING, helper.turn_number() - 1,
+                                  surf, room, -1));
+
+        helper.run_process_dungeons();
+
+        expect(helper.dungeon_count() == 1_ul)
+            << "dungeon must persist while a player is inside and timer hasn't expired";
+        expect(helper.get_dungeon(0).state == DungeonSlotState::DYING)
+            << "state must remain DYING";
+        expect(room->type != R_BARREN)
+            << "room must not be reset while still DYING";
+    };
+
+    // -----------------------------------------------------------------------
+    // Test 7: boss dies in an EMPTY dungeon (no players inside) → ACTIVE
+    //         transitions to DYING this turn (NOT straight to COLLAPSING).
+    //         Early-collapse must wait until at least one full turn has
+    //         elapsed in DYING so the BOSS_KILLED event has a chance to
+    //         reach players who might inspect the region.
+    // -----------------------------------------------------------------------
+    "empty dungeon: boss death goes to DYING, not straight to collapse"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        ARegion *room = helper.get_region(0, 2, 0);
+        ARegion *surf = helper.get_region(1, 1, 0);
+        add_entrance_object(surf, 42);
+
+        // Only monfaction wanderer (no boss item, no players).
+        Faction *mon = helper.get_faction(helper.get_monfaction());
+        Unit *wanderer = helper.create_unit(mon, room);
+        wanderer->items.SetNum(I_KOBOLD, 10);
+
+        helper.inject_dungeon(
+            make_dungeon_instance(DungeonSlotState::ACTIVE, 0, surf, room, 42));
+
+        helper.run_process_dungeons();
+
+        expect(helper.dungeon_count() == 1_ul)
+            << "dungeon must NOT collapse on the same turn the boss dies, even when empty";
+        expect(helper.get_dungeon(0).state == DungeonSlotState::DYING)
+            << "state must be DYING (one-turn grace), not immediately COLLAPSING";
+        expect(helper.get_dungeon(0).entrance_object_num == -1)
+            << "entrance must still be removed at ACTIVE → DYING";
+        expect(helper.get_dungeon(0).phase_turn == helper.turn_number())
+            << "phase_turn must record the turn DYING started — early-collapse "
+               "only fires once phase_turn < TurnNumber() (see Test 5)";
+    };
 };

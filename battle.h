@@ -48,7 +48,7 @@ class Battle
         void DoAttack(int round, Soldier *a, Army *attackers, Army *def,
                 int behind, int ass = 0, bool canAttackBehind = false, bool canAttackFromBehind = false);
 
-        void GetSpoils(std::list<Location *>& losers, ItemList& spoils, int ass);
+        void GetSpoils(std::list<Location *>& losers, ItemList& spoils, int ass, Events *events);
 
         //
         // These functions should be implemented in specials.cpp
@@ -67,6 +67,11 @@ class Battle
         Faction * attacker; /* Only matters in the case of an assassination */
         std::string asstext;
         std::vector<std::string> text;
+        // Set by check_kill_target when a quest target dies; read by Army::Win.
+        int quest_issuer_region = -1;
+        int quest_num = -1;                  // quest->num for awareness lookup; -1 if no quest matched
+        std::string quest_rewards;           // event text for factions that already knew the quest
+        std::string quest_rewards_unaware;   // event text for factions that did NOT know the quest
 
     private:
         /**

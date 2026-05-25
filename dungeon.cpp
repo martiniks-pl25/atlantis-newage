@@ -4,6 +4,7 @@
 #include "aregion.h"
 #include "object.h"
 #include "events.h"
+#include "quests.h"
 #include "logger.hpp"
 #include "rng.hpp"
 
@@ -420,6 +421,14 @@ void Game::try_spawn_dungeon()
         ent->set_name(std::string(td.entrance_name) + " of " + surface_r->name);
         ent->incomplete = 0;
         ent->inner      = d.entry_region_num;
+        {
+            int sy = (TurnNumber() - 1) / 12 + 1;
+            int sm = (TurnNumber() - 1) % 12;
+            ent->describe = "Opened in " + MonthNames[sm] + ", Year "
+                + std::to_string(sy)
+                + ". Ancient and unstable — such rifts rarely endure more than"
+                " a dozen turns, and will seal sooner if the guardian within is slain.";
+        }
         surface_r->objects.push_back(ent);
         d.entrance_object_num = ent->num;
     }
@@ -446,6 +455,17 @@ void Game::try_spawn_dungeon()
 
     populate_dungeon(d);
     activeDungeons.push_back(d);
+
+    {
+        const auto &td_spawn = DungeonTypeDefs[(int)d.type];
+        std::string spawn_msg = std::string("A ") + td_spawn.entrance_name
+            + " has opened in " + surface_r->name
+            + ". Ancient darkness stirs — venture within while you still can.";
+        for (auto *fac : factions) {
+            if (surface_r->Present(fac) || GetFarsight(surface_r->farsees, fac))
+                fac->event(spawn_msg, "dungeon", surface_r);
+        }
+    }
 
     {
         auto *f = new DungeonFact();
@@ -491,6 +511,25 @@ void Game::ProcessDungeons()
         // Lazy-init spawn_turn for dungeons loaded from old save files.
         if (d.spawn_turn == -1) d.spawn_turn = TurnNumber();
 
+        // Backfill describe for entrances created before this feature was added.
+        if (d.entrance_object_num >= 0) {
+            ARegion *sr_bf = regions.GetRegion(d.surface_region_num);
+            if (sr_bf) {
+                for (auto *obj : sr_bf->objects) {
+                    if (obj->num == d.entrance_object_num && obj->describe.empty()) {
+                        int t  = d.spawn_turn;
+                        int by = (t - 1) / 12 + 1;
+                        int bm = (t - 1) % 12;
+                        obj->describe = "Opened in " + MonthNames[bm] + ", Year "
+                            + std::to_string(by)
+                            + ". Ancient and unstable — such rifts rarely endure more than"
+                            " a dozen turns, and will seal sooner if the guardian within is slain.";
+                        break;
+                    }
+                }
+            }
+        }
+
         // Max lifetime: start DYING even if boss is still alive.
         const auto &td_life = DungeonTypeDefs[(int)d.type];
         if (TurnNumber() - d.spawn_turn >= td_life.max_lifetime_turns) {
@@ -502,7 +541,20 @@ void Game::ProcessDungeons()
                 if (sr) {
                     for (auto it = sr->objects.begin(); it != sr->objects.end(); ++it) {
                         if ((*it)->num == d.entrance_object_num) {
-                            delete *it;
+                            Object *ent = *it;
+                            std::vector<Unit*> snap(ent->units.begin(), ent->units.end());
+                            int evicted = 0;
+                            for (auto *u : snap) {
+                                if (u->faction->num == monfaction) continue;
+                                u->MoveUnit(sr->GetDummy());
+                                u->event("Is expelled from a collapsing dungeon entrance.", "dungeon");
+                                evicted++;
+                            }
+                            if (evicted)
+                                logger::write("Dungeon #" + std::to_string(d.id) +
+                                              " lifetime expired: evicted " + std::to_string(evicted) +
+                                              " player unit(s) from entrance.");
+                            delete ent;
                             sr->objects.erase(it);
                             break;
                         }
@@ -547,7 +599,20 @@ void Game::ProcessDungeons()
                 if (sr) {
                     for (auto it = sr->objects.begin(); it != sr->objects.end(); ++it) {
                         if ((*it)->num == d.entrance_object_num) {
-                            delete *it;
+                            Object *ent = *it;
+                            std::vector<Unit*> snap(ent->units.begin(), ent->units.end());
+                            int evicted = 0;
+                            for (auto *u : snap) {
+                                if (u->faction->num == monfaction) continue;
+                                u->MoveUnit(sr->GetDummy());
+                                u->event("Is expelled from a collapsing dungeon entrance.", "dungeon");
+                                evicted++;
+                            }
+                            if (evicted)
+                                logger::write("Dungeon #" + std::to_string(d.id) +
+                                              " boss killed: evicted " + std::to_string(evicted) +
+                                              " player unit(s) from entrance.");
+                            delete ent;
                             sr->objects.erase(it);
                             break;
                         }
@@ -563,16 +628,80 @@ void Game::ProcessDungeons()
                 f->dungeon_type_name = DungeonTypeDefs[(int)d.type].name;
                 f->region_name       = sr ? sr->name : "unknown";
                 this->events->AddFact(f);
+
+                // Notify surface observers that the entrance has collapsed.
+                if (sr) {
+                    std::string msg = std::string("The entrance to the ")
+                        + DungeonTypeDefs[(int)d.type].name
+                        + " in " + sr->name + " has collapsed.";
+                    for (auto *fac : factions) {
+                        if (sr->Present(fac) || GetFarsight(sr->farsees, fac))
+                            fac->event(msg, "dungeon", sr);
+                    }
+                }
             }
             logger::write("Dungeon #" + std::to_string(d.id) + " boss defeated — DYING.");
         }
     }
 
     // --- DYING → COLLAPSING ---
+    // Transition when EITHER the dying timer has expired OR no player units
+    // remain inside (and at least one full turn has passed in DYING). The
+    // surface entrance is already gone (removed at ACTIVE → DYING), so no
+    // one new can enter; once the last player has exited via the inner Exit
+    // object, there is no reason to keep a ghost dungeon with only
+    // monfaction monsters ticking down the timer.
+    //
+    // The "at least one turn in DYING" guard ensures that when a boss is
+    // killed in an empty dungeon (ACTIVE → DYING on this same call), we do
+    // not skip the DYING phase entirely — players still receive the
+    // BOSS_KILLED event before the dungeon vanishes next turn.
     for (auto &d : activeDungeons) {
         if (d.state != DungeonSlotState::DYING) continue;
         int dying_turns = DungeonTypeDefs[(int)d.type].dying_turns;
-        if (TurnNumber() - d.phase_turn >= dying_turns) {
+        bool timer_expired = (TurnNumber() - d.phase_turn >= dying_turns);
+        bool dying_for_at_least_one_turn = (d.phase_turn < TurnNumber());
+
+        bool has_players = false;
+        if (!timer_expired && dying_for_at_least_one_turn) {
+            for (int rnum : d.room_nums) {
+                ARegion *r = regions.GetRegion(rnum);
+                if (!r) continue;
+                for (auto *obj : r->objects) {
+                    for (auto *u : obj->units) {
+                        if (u->faction->num != monfaction) { has_players = true; break; }
+                    }
+                    if (has_players) break;
+                }
+                if (has_players) break;
+            }
+        }
+
+        // Warn player factions still inside the collapsing dungeon.
+        if (dying_for_at_least_one_turn && !timer_expired) {
+            int turns_left = dying_turns - (TurnNumber() - d.phase_turn);
+            const std::string &dname = DungeonTypeDefs[(int)d.type].name;
+            std::string msg = "The " + dname + " is collapsing! "
+                + std::to_string(turns_left) + " turn"
+                + (turns_left != 1 ? "s" : "")
+                + " remaining — find the Exit to escape.";
+            std::unordered_set<int> notified;
+            for (int rnum : d.room_nums) {
+                ARegion *r = regions.GetRegion(rnum);
+                if (!r) continue;
+                for (auto *obj : r->objects) {
+                    for (auto *u : obj->units) {
+                        Faction *fac = u->faction;
+                        if (!fac->is_npc && !notified.count(fac->num)) {
+                            notified.insert(fac->num);
+                            fac->event(msg, "dungeon", r);
+                        }
+                    }
+                }
+            }
+        }
+
+        if (timer_expired || (dying_for_at_least_one_turn && !has_players)) {
             d.state = DungeonSlotState::COLLAPSING;
             ARegion *sr = regions.GetRegion(d.surface_region_num);
             auto *f = new DungeonFact();
@@ -580,6 +709,17 @@ void Game::ProcessDungeons()
             f->dungeon_type_name = DungeonTypeDefs[(int)d.type].name;
             f->region_name       = sr ? sr->name : "unknown";
             this->events->AddFact(f);
+
+            // Erase any LOCAL_LAIR_CLEAR quests that targeted this dungeon's boss.
+            // building == -(dungeon_type+1) identifies dungeon quests.
+            std::vector<std::shared_ptr<Quest>> to_purge;
+            for (const auto& q : quests) {
+                if (q->subtype == Quest::LOCAL_LAIR_CLEAR &&
+                    q->building == -(static_cast<int>(d.type) + 1) &&
+                    q->regionnum == d.surface_region_num)
+                    to_purge.push_back(q);
+            }
+            for (auto& q : to_purge) quests.erase_with_cleanup(q, &factions);
         }
     }
 

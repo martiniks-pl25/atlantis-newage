@@ -635,6 +635,8 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
         f << enclose("li", true) << url("#prepare", "prepare") << '\n' << enclose("li", false);
     f << enclose("li", true) << url("#produce", "produce") << '\n' << enclose("li", false);
     f << enclose("li", true) << url("#promote", "promote") << '\n' << enclose("li", false);
+    if (Globals->TOWNS_EXIST)
+        f << enclose("li", true) << url("#quest", "quest") << '\n' << enclose("li", false);
     f << enclose("li", true) << url("#quit", "quit") << '\n' << enclose("li", false);
     f << enclose("li", true) << url("#restart", "restart") << '\n' << enclose("li", false);
     f << enclose("li", true) << url("#reveal", "reveal") << '\n' << enclose("li", false);
@@ -4719,6 +4721,63 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
     f << example_start("Promote unit 415 to be the owner of the object that this unit owns.")
       << "PROMOTE 415\n"
       << example_end();
+
+    if (Globals->TOWNS_EXIST) {
+        f << enclose(class_tag("div", "rule"), true) << '\n' << enclose("div", false);
+        f << anchor("quest") << '\n';
+        f << enclose("h4", true) << "QUEST\n" << enclose("h4", false);
+        f << enclose("h4", true) << "QUEST [tokens]\n" << enclose("h4", false);
+        f << enclose("h4", true) << "QUEST [tokens] RESOURCE\n" << enclose("h4", false);
+        f << enclose("h4", true) << "QUEST [tokens] EQUIPMENT\n" << enclose("h4", false);
+        f << enclose("p", true)
+          << "Redeem Bounty Tokens at the Town Hall in the current region. "
+          << "The unit must be in a region that has an active Town Hall with a living mayor, "
+          << "and the mayor must regard your faction as at least NEUTRAL. "
+          << "The mayor must also have an outstanding bounty debt to your faction (earned by completing quests).\n"
+          << enclose("p", false);
+        f << enclose("p", true)
+          << "The optional " << enclose("em", true) << "tokens" << enclose("em", false)
+          << " argument specifies how many Bounty Tokens to turn in. "
+          << "If omitted, exactly 1 token is spent. "
+          << "The actual number spent is capped by the tokens your unit carries and the total debt the mayor owes your faction.\n"
+          << enclose("p", false);
+        f << enclose("p", true)
+          << "The optional category argument controls the reward pool:\n"
+          << enclose("p", false);
+        f << enclose("ul", true);
+        f << enclose("li", true)
+          << enclose("b", true) << "RESOURCE" << enclose("b", false)
+          << " — reward drawn from the raw materials pool (advanced resources).\n"
+          << enclose("li", false);
+        f << enclose("li", true)
+          << enclose("b", true) << "EQUIPMENT" << enclose("b", false)
+          << " — reward drawn from the weapons and armor pool.\n"
+          << enclose("li", false);
+        f << enclose("li", true)
+          << "No category — the pool is chosen randomly each time: "
+          << "1-in-3 chance (≈33%) of drawing from the magic pool (artifacts, staves, rings, and other rare items), "
+          << "2-in-3 chance of drawing from the combined equipment and resource pool.\n"
+          << enclose("li", false);
+        f << enclose("ul", false);
+        f << enclose("p", true)
+          << "Each token provides 1,000 silver of purchasing power, plus a random bonus of up to 500 silver per token. "
+          << "The game selects a random item from the chosen pool whose base price fits within that budget; "
+          << "you receive as many units of it as the budget allows.\n"
+          << enclose("p", false);
+        f << enclose("p", true) << "Examples:\n" << enclose("p", false);
+        f << example_start("Turn in 1 Bounty Token (any category).")
+          << "QUEST\n"
+          << example_end();
+        f << example_start("Turn in 5 tokens (any category; 33% chance of a magic item).")
+          << "QUEST 5\n"
+          << example_end();
+        f << example_start("Turn in 5 tokens and request raw materials.")
+          << "QUEST 5 RESOURCE\n"
+          << example_end();
+        f << example_start("Turn in 5 tokens and request weapons or armor.")
+          << "QUEST 5 EQUIPMENT\n"
+          << example_end();
+    }
 
     f << enclose(class_tag("div", "rule"), true) << '\n' << enclose("div", false);
     f << anchor("quit") << '\n';

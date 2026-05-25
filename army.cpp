@@ -1045,7 +1045,7 @@ void Army::DoHeal(Battle * b)
     }
 
     // Use HPOT
-    DoHealLevel(b, 6, 70, 1);
+    DoHealLevel(b, 6, 75, 1);
 
     // Do Normal healing
     for (int i = 5; i > 0; --i) {
@@ -1156,6 +1156,14 @@ void Army::Win(Battle * b, ItemList& spoils)
                             u->items.SetNum(i->type, u->items.GetNum(i->type) + chunk);
                             u->faction->DiscoverItem(i->type, 0, 1);
                             i->num -= chunk;
+                            if (i->type == I_BOUNTY && b->quest_issuer_region != -1) {
+                                u->faction->quest_debts[b->quest_issuer_region] += chunk;
+                                // Differentiated text: factions that read the notice board get
+                                // the standard "quest completed" line; others get a discovery line.
+                                bool knew = (b->quest_num != -1) &&
+                                            u->faction->known_local_quests.count(b->quest_num);
+                                u->event(knew ? b->quest_rewards : b->quest_rewards_unaware, "quest");
+                            }
                             ++it;
                         } else {
                             it = units.erase(it);
@@ -1172,6 +1180,12 @@ void Army::Win(Battle * b, ItemList& spoils)
                         u->items.SetNum(i->type, u->items.GetNum(i->type) + 1);
                         u->faction->DiscoverItem(i->type, 0, 1);
                         i->num--;
+                        if (i->type == I_BOUNTY && b->quest_issuer_region != -1) {
+                            u->faction->quest_debts[b->quest_issuer_region] += 1;
+                            bool knew = (b->quest_num != -1) &&
+                                        u->faction->known_local_quests.count(b->quest_num);
+                            u->event(knew ? b->quest_rewards : b->quest_rewards_unaware, "quest");
+                        }
                     } else {
                         it = units.erase(it);
                         ns--;

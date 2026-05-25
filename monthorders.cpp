@@ -449,7 +449,6 @@ void Game::Do1TeachOrder(ARegion *reg, Unit *unit)
 void Game::Run1BuildOrder(ARegion *r, Object *obj, Unit *u)
 {
     Object *buildobj;
-    int questcomplete = 0;
     string quest_rewards;
 
     if (!Globals->BUILD_NO_TRADE && !ActivityCheck(r, u->faction, FactionActivity::TRADE)) {
@@ -562,7 +561,12 @@ void Game::Run1BuildOrder(ARegion *r, Object *obj, Unit *u)
         if (buildobj->incomplete == 0) {
             job = "Completes construction of ";
             buildobj->incomplete = -(ObjectDefs[type].maxMaintenance);
-            if (quests.check_build_target(r, type, u, &quest_rewards)) { questcomplete = 1; }
+            quests.check_build_target(r, type, u, &quest_rewards);
+            if (buildobj->IsRoad()) quests.check_road_quest(r, type, u, &quest_rewards, regions, this->events);
+            if (type == O_TOWER || type == O_MTOWER)
+                quests.check_tower_quest(r, u, &quest_rewards, regions, this->events);
+            if (type == O_INN)
+                quests.check_inn_quest(r, u, &quest_rewards, regions, this->events);
         }
     }
 
@@ -592,7 +596,7 @@ void Game::Run1BuildOrder(ARegion *r, Object *obj, Unit *u)
 
     // AS
     u->event(job + buildobj->name, "build");
-    if (questcomplete) { u->event("You have completed a quest! " + quest_rewards, "quest"); }
+    if (!quest_rewards.empty()) { u->event(quest_rewards, "quest"); }
     u->Practice(sk);
 }
 
@@ -678,6 +682,37 @@ void Game::AddNewBuildings(ARegion *r)
                         // building.
                         u->build = u->object->num; // keep the current building as the build target
                         break;
+                    }
+
+                    // Re-check SETTLEMENT_ONLY at the destination. The parse-time check
+                    // uses the unit's position when orders are written (source region),
+                    // which is wrong for units that sail — they should be checked where
+                    // they actually build, not where they boarded the ship.
+                    if (ObjectDefs[o->new_building].flags & ObjectType::SETTLEMENT_ONLY) {
+                        if (!r->town) {
+                            u->error("BUILD: " + ObjectDefs[o->new_building].name +
+                                     " can only be built in settlements.");
+                            o->new_building = -1;
+                            continue;
+                        }
+                    }
+
+                    // Defence-in-depth: re-check ONE_PER_REGION here. The parse-time
+                    // check in ProcessBuildStructure cannot see BUILD orders from other
+                    // units, so two builders in the same region can both pass parse when
+                    // no such object exists yet. Without this guard they would both
+                    // create one in the month phase.
+                    if (ObjectDefs[o->new_building].flags & ObjectType::ONE_PER_REGION) {
+                        bool collision = false;
+                        for (const auto existing : r->objects) {
+                            if (existing->type == o->new_building) { collision = true; break; }
+                        }
+                        if (collision) {
+                            u->error("BUILD: " + ObjectDefs[o->new_building].name +
+                                     " can only exist once in a region.");
+                            o->new_building = -1;
+                            continue;
+                        }
                     }
 
                     for (i = 1; i < FLEET_NUM_START; i++) {

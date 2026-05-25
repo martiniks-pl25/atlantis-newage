@@ -1,4 +1,5 @@
 #include <iostream>
+#include <sstream>
 
 #include "astring.h"
 #include "faction.h"
@@ -523,6 +524,113 @@ void TextReportGenerator::output(ostream& f, const json& report, bool show_regio
             f << ';' << left << setw(42) << item_to_string(stat) << setw(6) << stat.value("rank", 0)
               << setw(11) << stat.value("max", 0) << stat.value("total", 0) << right << '\n';
         }
+        f << '\n';
+    }
+
+    // --- Bounty Board ---
+    if (report.contains("bounty_quests") || report.contains("quest_debts")) {
+        // Word-wrap a string with a ';  ' prefix on every line.
+        // width = total column budget (prefix included). Content wraps at width - prefix.size().
+        auto wrap_comment = [](const string& text, int width = 68) -> string {
+            string result;
+            string prefix = ";  ";
+            int content_width = width - (int)prefix.size();
+            istringstream words(text);
+            string word, line;
+            while (words >> word) {
+                if (!line.empty() && (int)(line.size() + 1 + word.size()) > content_width) {
+                    result += prefix + line + "\n";
+                    line = word;
+                } else {
+                    if (!line.empty()) line += " ";
+                    line += word;
+                }
+            }
+            if (!line.empty()) result += prefix + line + "\n";
+            return result;
+        };
+
+        auto turn_ym = [](const json& t) -> string {
+            return "Year " + to_string(t.value("year", 0)) + ", " +
+                   t.value("month", string("?")) +
+                   " (turn " + to_string(t.value("turn", 0)) + ")";
+        };
+
+        f << ";Bounty Board:\n;\n";
+
+        const json& bq = report.value("bounty_quests", json{});
+
+        // Local quests — grouped by settlement.
+        if (bq.contains("local") && !bq["local"].empty()) {
+            json local_sorted = bq["local"];
+            std::sort(local_sorted.begin(), local_sorted.end(), [](const json& a, const json& b) {
+                string ka = a.value("settlement","") + to_string(a.value("x",0)) + to_string(a.value("y",0));
+                string kb = b.value("settlement","") + to_string(b.value("x",0)) + to_string(b.value("y",0));
+                return ka < kb;
+            });
+            string cur_settlement;
+            for (const auto& q : local_sorted) {
+                string settlement = q.value("settlement", "Unknown");
+                string coords;
+                if (q.contains("x") && q.contains("y"))
+                    coords = " (" + to_string(q["x"].get<int>()) + "," +
+                             to_string(q["y"].get<int>()) + ")";
+
+                if (settlement + coords != cur_settlement) {
+                    cur_settlement = settlement + coords;
+                    f << ";  === " << settlement << coords << " ===\n;\n";
+                }
+
+                f << wrap_comment(q.value("description", ""));
+
+                // Reward + dates.
+                int tok = q.value("tokens", 0);
+                string reward = to_string(tok) + " Bounty Token" + (tok != 1 ? "s" : "");
+                string posted  = q.contains("posted")  ? turn_ym(q["posted"])  : "?";
+                string expires = q.contains("expires") ? turn_ym(q["expires"]) : "?";
+
+                f << ";  Reward: " << reward << ". Posted: " << posted << ".\n";
+                if (q.contains("entrance_closes")) {
+                    string closes = turn_ym(q["entrance_closes"]);
+                    f << ";  Entrance closes: " << closes << ".\n";
+                }
+                f << ";  Expires: " << expires << ".\n";
+                f << ";\n";
+            }
+        }
+
+        // Global quests.
+        if (bq.contains("global") && !bq["global"].empty()) {
+            f << ";Global Quests (also in Gazette):\n;\n";
+            for (const auto& q : bq["global"]) {
+                f << wrap_comment(q.value("description", ""));
+                int tok = q.value("tokens", 0);
+                f << ";  Reward: " << tok << " Bounty Token" << (tok != 1 ? "s" : "")
+                  << ". No expiry.\n;\n";
+            }
+        }
+
+        // Quest debts.
+        if (report.contains("quest_debts") && !report["quest_debts"].empty()) {
+            f << ";Outstanding bounty debts:\n";
+            for (const auto& d : report["quest_debts"]) {
+                int tok = d.value("tokens", 0);
+                if (d.value("global", false)) {
+                    f << ";  Any Town Hall: " << tok << " token"
+                      << (tok != 1 ? "s" : "") << " owed  [QUEST " << tok << "]\n";
+                } else {
+                    string region = d.value("region", "?");
+                    string coords;
+                    if (d.contains("x") && d.contains("y"))
+                        coords = " (" + to_string(d["x"].get<int>()) + "," +
+                                 to_string(d["y"].get<int>()) + ")";
+                    f << ";  " << region << coords << ": " << tok << " token"
+                      << (tok != 1 ? "s" : "") << " owed  [QUEST " << tok << "]\n";
+                }
+            }
+            f << ";\n";
+        }
+
         f << '\n';
     }
 

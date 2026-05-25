@@ -65,7 +65,7 @@ int allowedMartialSize = sizeof(ma) / sizeof(ma[0]);
 
 static GameDefs g = {
 	"NewOrigins",	// RULESET_NAME
-	MAKE_ATL_VER( 8, 1, 0 ),	// RULESET_VERSION
+	MAKE_ATL_VER( 8, 1, 1 ),	// RULESET_VERSION
 
 	8,	/* MAX_SPEED */
 	7,	/* PHASED_MOVE_OFFSET */
@@ -102,7 +102,7 @@ static GameDefs g = {
 	5,	/* HEALS_PER_MAN */
 
 	25,	/* GUARD_REGEN */ /* percent */
-	60,	/* CITY_GUARD */
+	80,	/* CITY_GUARD */
 	50,	/* GUARD_MONEY */
 	10000,	/* CITY_POP */
 

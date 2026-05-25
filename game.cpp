@@ -343,6 +343,7 @@ int Game::NewGame()
     unitseq = 1;
     SetupUnitNums();
     shipseq = FLEET_NUM_START;
+    questseq = 1;
     year = 1;
     month = -1;
     gameStatus = GAME_STATUS_NEW;
@@ -460,6 +461,10 @@ int Game::OpenGame()
     f >> factionseq;
     f >> unitseq;
     f >> shipseq;
+    // questseq added in engine 5.2.6; for older saves rebuild it after read_quests (see below).
+    if (eVersion >= MAKE_ATL_VER(5, 2, 6)) {
+        f >> questseq;
+    }
     f >> guardfaction;
     f >> monfaction;
 
@@ -471,7 +476,7 @@ int Game::OpenGame()
 
     for (int j = 0; j < i; j++) {
         Faction *temp = new Faction;
-        temp->Readin(f);
+        temp->Readin(f, eVersion);
         factions.push_back(temp);
     }
 
@@ -491,8 +496,30 @@ int Game::OpenGame()
 
     // read in quests
     logger::write("Reading quests...");
-    if (!quests.read_quests(f))
+    if (!quests.read_quests(f, eVersion))
         return 0;
+    // Legacy saves (< 5.2.6) didn't serialise questseq — rebuild it from the quest count.
+    if (eVersion < MAKE_ATL_VER(5, 2, 6)) {
+        questseq = static_cast<int>(quests.size()) + 1;
+    }
+    // Pre-5.2.8 saves didn't persist Quest::regionname (used for "mayor of X" gazette
+    // text and BUILD_ROAD destination label).  Restore from issuer_region for kill/
+    // build-tower/build-inn quests; ROAD destinations are unrecoverable so use a
+    // placeholder.  Skips quests whose regionname is already set (shouldn't happen
+    // for legacy saves but is harmless).
+    if (eVersion < MAKE_ATL_VER(5, 2, 8)) {
+        for (auto& q : quests) {
+            if (q->scope != Quest::SCOPE_LOCAL) continue;
+            if (q->regionname != "-") continue;
+            if (q->subtype == Quest::LOCAL_BUILD_ROAD) {
+                q->regionname = "a nearby settlement";
+                continue;
+            }
+            ARegion *ir = regions.GetRegion(q->issuer_region);
+            if (!ir) continue;
+            q->regionname = ir->town ? ir->town->name : ir->name;
+        }
+    }
 
     // read dungeon instances (tolerant: missing section = no active dungeons)
     read_dungeons(f);
@@ -523,6 +550,7 @@ int Game::SaveGame()
     f << factionseq << "\n";
     f << unitseq << "\n";
     f << shipseq << "\n";
+    f << questseq << "\n";
     f << guardfaction << "\n";
     f << monfaction << "\n";
     //
@@ -568,6 +596,7 @@ void Game::InitMinimal()
     factionseq = 1;
     unitseq = 1;
     shipseq = FLEET_NUM_START;
+    questseq = 1;
     guardfaction = 0;
     monfaction = 0;
 
@@ -1331,7 +1360,22 @@ void Game::WriteWorldEvents() {
                     text += TerrainDefs[TerrainDefs[l->region->type].similar_type].name;
                     text += " of ";
                     text += l->region->name;
-                    text += ".  Bring proof of their destruction and claim the bounty!";
+                    text += ". Bring proof of their destruction and claim the bounty!";
+                    delete l;
+                }
+            } else if (q->subtype == Quest::GLOBAL_BOSS_HUNT) {
+                item["type"] = "pirate_hunt";
+                Location *l = regions.FindUnit(q->target);
+                if (l) {
+                    text = "Quest: ";
+                    text += l->unit->name;
+                    text += " commands the pirate galley '";
+                    text += l->obj->name;
+                    text += "', last sighted in the ";
+                    text += TerrainDefs[TerrainDefs[l->region->type].similar_type].name;
+                    text += " of ";
+                    text += l->region->name;
+                    text += ". Bring proof of their destruction and claim the bounty!";
                     delete l;
                 }
             }
@@ -1839,9 +1883,46 @@ bool Game::upgrade_minor_version(int current_version)
     return true;
 }
 
+/**
+ * @brief Re-sends skill/item descriptions to factions when balance values change.
+ *
+ * Called automatically by ReadGame() when saved RULESET_VERSION patch < current.
+ * Iterates patches[] in order — each entry fires once per save that hasn't seen it.
+ *
+ * To add a new balance notification:
+ *   1. Bump RULESET_VERSION patch in neworigins/rules.cpp
+ *   2. Add { new_patch, { skills... }, { items... } } to patches below
+ * See docs/BALANCE_NOTIFICATION_SYSTEM.md
+ */
 bool Game::upgrade_patch_level(int current_version)
 {
+    // Each entry: { patch_number, { skill enums }, { item enums } }
+    // Factions that know the skill / have seen the item get updated descriptions.
+    static const std::vector<PatchNotification> patches = {
+        { 1, { S_HEALING }, { I_HEALPOTION } },   // 8.1.0 → 8.1.1: heal balance rework
+    };
+
+    int cur = ATL_VER_PATCH(current_version);
+    for (const auto& p : patches)
+        if (cur < p.patch)
+            deliver_balance_patch(p);
+
     return true;
+}
+
+void Game::deliver_balance_patch(const PatchNotification& p)
+{
+    for (auto fac : factions) {
+        for (int sk : p.skills) {
+            int lvl = fac->skills.GetDays(sk);
+            if (lvl > 0)
+                fac->shows.push_back({ .skill = sk, .level = lvl });
+        }
+        for (int it : p.items) {
+            if (fac->items.GetNum(it) > 0)
+                fac->DiscoverItem(it, 1, 1);
+        }
+    }
 }
 
 void Game::MidProcessUnitExtra(ARegion *r, Unit *u)
@@ -2172,12 +2253,12 @@ void Game::CreateGuardMelee(ARegion *region, int percent)
     int num;
 
     if (region->type == R_NEXUS || region->IsStartingCity()) {
-        skilllevel = TOWN_CITY + 1;
+        skilllevel = TOWN_CITY + 2;
         AC = 1;
         num = Globals->AMT_START_CITY_GUARDS;
     } else {
-        skilllevel = region->town->TownType() + 1;
-        num = Globals->CITY_GUARD * skilllevel;
+        skilllevel = region->town->TownType() + 2;
+        num = Globals->CITY_GUARD * (region->town->TownType() + 1);
     }
     num = num * percent / 100;
 
@@ -2227,7 +2308,7 @@ void Game::CreateGuardMelee(ARegion *region, int percent)
         u->reveal = REVEAL_FACTION;
     } else {
         // Non-leader racial guards (melee front line)
-        int melee_n = 2 * num / 3;
+        int melee_n = num / 2;
 
         u->SetMen(region->race, melee_n);
         u->SetSkill(S_COMBAT, skilllevel);
@@ -2273,12 +2354,12 @@ void Game::CreateGuardRanged(ARegion *region, int percent)
     int num;
 
     if (region->type == R_NEXUS || region->IsStartingCity()) {
-        skilllevel = TOWN_CITY + 1;
+        skilllevel = TOWN_CITY + 2;
         AC = 1;
         num = Globals->AMT_START_CITY_GUARDS;
     } else {
-        skilllevel = region->town->TownType() + 1;
-        num = Globals->CITY_GUARD * skilllevel;
+        skilllevel = region->town->TownType() + 2;
+        num = Globals->CITY_GUARD * (region->town->TownType() + 1);
     }
     num = num * percent / 100;
 
@@ -2295,7 +2376,7 @@ void Game::CreateGuardRanged(ARegion *region, int percent)
     }
 
     // Non-leader racial guards (ranged rear line)
-    int ranged_n = num / 3;
+    int ranged_n = num / 2;
     if (ranged_n < 1) ranged_n = 1;
 
     u->SetMen(region->race, ranged_n);
@@ -2304,9 +2385,9 @@ void Game::CreateGuardRanged(ARegion *region, int percent)
 
     // Equipment will be added by AdjustCityMon on next turn
     if (AC && Globals->GUARDS_EQUIPMENT_BY_TOWN_TYPE) {
-        // Starting city archers: longbow + chain armor
+        // Starting city archers: longbow + leather armor
         u->items.SetNum(I_LONGBOW, ranged_n);
-        u->items.SetNum(I_CHAINARMOR, ranged_n);
+        u->items.SetNum(I_LEATHERARMOR, ranged_n);
     }
 
     if (Globals->SAFE_START_CITIES && AC)
@@ -2495,8 +2576,8 @@ void Game::CreateCityMon(ARegion *region, int percent, int needmage)
         AC = 1;
         num = Globals->AMT_START_CITY_GUARDS;
     } else {
-        skilllevel = region->town->TownType() + 1;
-        num = Globals->CITY_GUARD * skilllevel;
+        skilllevel = region->town->TownType() + 2;
+        num = Globals->CITY_GUARD * (region->town->TownType() + 1);
     }
     num = num * percent / 100;
     Faction *fac = GetFaction(factions, guardfaction);
@@ -2563,9 +2644,9 @@ void Game::CreateCityMon(ARegion *region, int percent, int needmage)
         u->guard = GUARD_GUARD;
         u->reveal = REVEAL_FACTION;
     } else {
-        /* non-leader racial guards: melee front + ranged rear (2:1 ratio) */
-        int melee_n = 2 * num / 3;
-        int ranged_n = num / 3;
+        /* non-leader racial guards: melee front + ranged rear (1:1 ratio) */
+        int melee_n = num / 2;
+        int ranged_n = num / 2;
         if (ranged_n < 1) ranged_n = 1;
 
         /* Front line: melee unit */
@@ -2785,10 +2866,10 @@ void Game::AdjustCityMons(ARegion *r)
     int melee_max = 0;
     if (r->type == R_NEXUS || r->IsStartingCity()) {
         int base = Globals->AMT_START_CITY_GUARDS;
-        melee_max = Globals->GUARDS_USE_LEADERS ? base : 3 * base / 4;
+        melee_max = Globals->GUARDS_USE_LEADERS ? base : base / 2;
     } else {
         int base = Globals->CITY_GUARD * (towntype + 1);
-        melee_max = Globals->GUARDS_USE_LEADERS ? base : 2 * base / 3;
+        melee_max = Globals->GUARDS_USE_LEADERS ? base : base / 2;
     }
     if (has_melee) {
         for(const auto o : r->objects) {
@@ -2811,6 +2892,14 @@ void Game::AdjustCityMons(ARegion *r)
         bool flee_by_attitude = !mayor_attitude_ok;
         if (flee_by_guards || flee_by_attitude) {
             mayor_unit->SetMen(I_LEADERS, 0);   // items disappear with unit
+            // Erase all LOCAL quests issued by this mayor.
+            // Faction debts are preserved — players keep their earned rewards.
+            std::vector<std::shared_ptr<Quest>> to_purge;
+            for (const auto& q : quests) {
+                if (q->scope == Quest::SCOPE_LOCAL && q->issuer_unit == mayor_unit->num)
+                    to_purge.push_back(q);
+            }
+            for (auto& q : to_purge) quests.erase_with_cleanup(q, &factions);
             has_mayor = false;
             mayor_unit = nullptr;
         }
@@ -3031,17 +3120,17 @@ void Game::AdjustCityMon(ARegion *r, Unit *u)
             case TOWN_VILLAGE:
                 req_weapon = I_BAXE; req_armor = I_PLATEARMOR;
                 req_shield = I_ISHIELD; req_horse = I_HORSE;
-                tact = 2; ridi = 1; comb = 3;
+                tact = 2; ridi = 2; comb = 3;
                 break;
             case TOWN_TOWN:
                 req_weapon = I_MBAXE; req_armor = I_MPLATE;
                 req_shield = I_MSHIELD; req_horse = I_HORSE;
-                tact = 3; ridi = 2; comb = 4;
+                tact = 3; ridi = 3; comb = 4;
                 break;
             default: // TOWN_CITY and Nexus
                 req_weapon = I_ADBAXE; req_armor = I_ADPLATE;
                 req_shield = I_ASHIELD; req_horse = I_WHORSE;
-                tact = 4; ridi = 3; comb = 5;
+                tact = 4; ridi = 4; comb = 5;
                 break;
         }
 
@@ -3175,10 +3264,7 @@ void Game::AdjustCityMon(ARegion *r, Unit *u)
         } else {
             maxmen = Globals->AMT_START_CITY_GUARDS;
             if ((!Globals->GUARDS_USE_LEADERS) && (r->type != R_NEXUS)) {
-                if (u->GetFlag(FLAG_BEHIND))
-                    maxmen = maxmen / 4;   // ranged rear unit
-                else
-                    maxmen = 3 * maxmen / 4; // melee front unit
+                maxmen = maxmen / 2;   // 50/50 melee/ranged split
             }
             int current_men = u->GetMen();
             men = current_men + (Globals->AMT_START_CITY_GUARDS/5);
@@ -3192,10 +3278,7 @@ void Game::AdjustCityMon(ARegion *r, Unit *u)
         } else {
             maxmen = Globals->CITY_GUARD * (towntype+1);
             if (!Globals->GUARDS_USE_LEADERS) {
-                if (u->GetFlag(FLAG_BEHIND))
-                    maxmen = maxmen / 3;   // ranged rear unit
-                else
-                    maxmen = 2 * maxmen / 3; // melee front unit
+                maxmen = maxmen / 2;   // 50/50 melee/ranged split
             }
             int current_men = u->GetMen();
             men = current_men + (maxmen/5);
@@ -3212,27 +3295,19 @@ void Game::AdjustCityMon(ARegion *r, Unit *u)
         int req_shield = -1;
 
         if (u->GetFlag(FLAG_BEHIND)) {
-            // Ranged guard unit: longbow + armor (no shield)
+            // Ranged guard unit: longbow + leather armor (no shield, all town types)
             req_weapon = I_LONGBOW;
-            switch(towntype) {
-                case TOWN_VILLAGE:
-                case TOWN_TOWN:
-                    req_armor = I_LEATHERARMOR;
-                    break;
-                case TOWN_CITY:
-                    req_armor = I_CHAINARMOR;
-                    break;
-            }
+            req_armor = I_LEATHERARMOR;
         } else {
             // Melee guard unit: equipment scales by town type
             switch(towntype) {
                 case TOWN_VILLAGE:
-                    req_weapon = I_SPEAR;
+                    req_weapon = I_PIKE;
                     req_armor = I_LEATHERARMOR;
                     req_shield = I_WSHIELD;
                     break;
                 case TOWN_TOWN:
-                    req_weapon = I_PIKE;
+                    req_weapon = I_SWORD;
                     req_armor = I_CHAINARMOR;
                     req_shield = I_WSHIELD;
                     break;
@@ -3361,8 +3436,8 @@ void Game::AdjustCityMon(ARegion *r, Unit *u)
     } else {
         int money = men * (Globals->GUARD_MONEY * men / maxmen);
         u->SetMoney(money);
-        // Upgrade combat skill by town type (never downgrade): village=1, town=2, city=3
-        u->SetSkill(skill, std::max(sl, towntype + 1));
+        // Upgrade combat skill by town type (never downgrade): village=2, town=3, city=4
+        u->SetSkill(skill, std::max(sl, towntype + 2));
         int current_obs = u->GetRealSkill(S_OBSERVATION);
         if (AC) {
             u->SetSkill(S_OBSERVATION,10);
@@ -3427,9 +3502,9 @@ void Game::CreateGuardCommander(ARegion *r)
 
     int tact, ridi, comb;
     switch (tt) {
-        case TOWN_VILLAGE: tact = 2; ridi = 1; comb = 3; break;
-        case TOWN_TOWN:    tact = 3; ridi = 2; comb = 4; break;
-        default:           tact = 4; ridi = 3; comb = 5; break;
+        case TOWN_VILLAGE: tact = 2; ridi = 2; comb = 3; break;
+        case TOWN_TOWN:    tact = 3; ridi = 3; comb = 4; break;
+        default:           tact = 4; ridi = 4; comb = 5; break;
     }
 
     std::string townname = r->town ? r->town->name : "City";

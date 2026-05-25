@@ -1,6 +1,8 @@
 #include "game.h"
 #include "gamedata.h"
 
+void NewOriginsSetupQuests(); // defined in unittest/quest_setup.cpp
+
 /// Run the initial setup for a faction
 /// For unit tests, factions get 1 leader with combat 3.
 int Game::SetupFaction( Faction *pFac ) {
@@ -39,6 +41,7 @@ void Game::ModifyTablesPerRuleset(void) {
         EnableObject(O_CARAVANSERAI);
     }
     EnableObject(O_TOWN_HALL);
+    NewOriginsSetupQuests();
 }
 
 const std::optional<std::string> ARegion::movement_forbidden_by_ruleset(Unit *u, ARegion *origin, ARegionList& regs) {

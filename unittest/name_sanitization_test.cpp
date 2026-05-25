@@ -36,7 +36,7 @@ ut::suite<"Name Sanitization"> name_sanitization_suite = []
     faction->Writeout(ss);
 
     Faction faction2;
-    faction2.Readin(ss);
+    faction2.Readin(ss, CURRENT_ATL_VER);
 
     string actual_name2(faction2.name);
     expect(actual_name2 == expected_name);
@@ -61,7 +61,7 @@ ut::suite<"Name Sanitization"> name_sanitization_suite = []
     faction->Writeout(ss);
 
     Faction faction2;
-    faction2.Readin(ss);
+    faction2.Readin(ss, CURRENT_ATL_VER);
 
     string sanitized_name("Test Faction boy (3)");
     string actual_name2(faction2.name);

@@ -1,5 +1,6 @@
 #include "../game.h"
 #include "../gamedata.h"
+#include "../quests.h"
 #include "../rng.hpp"
 #include "../logger.hpp"
 #include "testhelper.hpp"
@@ -21,6 +22,8 @@ UnitTestHelper::UnitTestHelper() {
 UnitTestHelper::~UnitTestHelper() { }
 
 int UnitTestHelper::initialize_game() {
+    // Clear global quest state so tests don't bleed into each other.
+    quests = QuestList{};
     return game.NewGame();
 }
 

@@ -219,6 +219,8 @@ void Game::MakeLMon(Object *pObj)
             u->SetFlag(FLAG_BEHIND, 1);
             u->guard = GUARD_NONE;
             u->MoveUnit(pObj);
+            u->free = Globals->MONSTER_SPOILS_RECOVERY;
+            u->UpdateMonsterDescription();
 
             u = GetNewUnit(monfac, 0);
 
@@ -241,6 +243,8 @@ void Game::MakeLMon(Object *pObj)
             u->SetFlag(FLAG_BEHIND, 1);
             u->guard = GUARD_NONE;
             u->MoveUnit(pObj);
+            u->free = Globals->MONSTER_SPOILS_RECOVERY;
+            u->UpdateMonsterDescription();
 
             u = GetNewUnit(monfac, 0);
 
@@ -254,6 +258,8 @@ void Game::MakeLMon(Object *pObj)
             u->SetFlag(FLAG_BEHIND, 1);
             u->guard = GUARD_NONE;
             u->MoveUnit(pObj);
+            u->free = Globals->MONSTER_SPOILS_RECOVERY;
+            u->UpdateMonsterDescription();
 
             u = GetNewUnit(monfac, 0);
 
@@ -296,7 +302,7 @@ int Game::MakePirateFleet(ARegion *pReg)
 {
     auto pmon = find_monster(ItemDefs[I_PIRATES].abr, false)->get();
     Faction *monfac = GetFaction(factions, monfaction);
-    bool elite = (rng::get_random(5) == 0);  // 20% chance
+    bool elite = (rng::get_random(10) == 0);  // 10% chance of elite pirate captain
 
     int pira_count = (pmon.number + rng::get_random(pmon.number) + 1) / 2;
     if (elite) pira_count *= 3;

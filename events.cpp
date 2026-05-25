@@ -1,5 +1,6 @@
 #include "logger.hpp"
 #include "events.h"
+#include "quests.h"
 #include "gamedata.h"
 #include "graphs.h"
 #include "object.h"
@@ -504,6 +505,8 @@ static std::string categoryToString(EventCategory cat) {
         case EVENT_SETTLEMENT_STATS:   return "settlement_stats";
         case EVENT_PIRATE_SIGHTING:    return "pirate_sighting";
         case EVENT_DUNGEON:            return "dungeon";
+        case EVENT_VILLAGE_FOUNDED:    return "village_founded";
+        case EVENT_QUEST_COMPLETED:    return "quest_completed";
         default:                       return "unknown";
     }
 }
@@ -735,4 +738,45 @@ void DungeonFact::GetEvents(std::list<Event> &events) {
         .score = score,
         .text = text
     });
+}
+
+// --- QuestCompletedFact ---
+
+void QuestCompletedFact::GetEvents(std::list<Event> &events) {
+    std::string text;
+    int score = 40;
+
+    switch (subtype) {
+        case Quest::LOCAL_HUNT:
+            text = "The bounty on " + target_name
+                 + " posted by the mayor of " + settlement + " has been collected.";
+            score = 50;
+            break;
+        case Quest::LOCAL_LAIR_CLEAR: // non-dungeon only; dungeon handled by BOSS_KILLED
+            text = "The lair of " + target_name + " near " + settlement + " has been cleared.";
+            score = 55;
+            break;
+        case Quest::GLOBAL_BOSS_HUNT:
+            text = "Justice is served — " + target_name + " has been slain and their bounty claimed.";
+            score = 75;
+            break;
+        case Quest::LOCAL_BUILD_ROAD:
+            text = "A new road in the domain of " + settlement + " has been completed.";
+            score = 30;
+            break;
+        case Quest::LOCAL_BUILD_TOWER:
+            text = "A watchtower now stands guard in the domain of " + settlement + ".";
+            score = 30;
+            break;
+        case Quest::LOCAL_BUILD_INN:
+            text = "An inn now welcomes travelers in the domain of " + settlement + ".";
+            score = 30;
+            break;
+        default:
+            return;
+    }
+
+    if (!text.empty()) {
+        events.push_back({ .category = EVENT_QUEST_COMPLETED, .score = score, .text = text });
+    }
 }

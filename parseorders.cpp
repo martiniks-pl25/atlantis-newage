@@ -592,6 +592,9 @@ void Game::ProcessOrder(int order, Unit *unit, parser::string_parser& parser, or
         case O_CREATE:
             ProcessCreateOrder(unit, parser, checker);
             break;
+        case O_QUEST:
+            ProcessQuestOrder(unit, parser, checker);
+            break;
     }
 }
 
@@ -1449,15 +1452,9 @@ BuildOrder* Game::ProcessBuildStructure(Unit *unit, int object_type, orders_chec
         }
     }
 
-    if (ObjectDefs[object_type].flags & ObjectType::ONE_PER_REGION) {
-        for (const auto o : unit->object->region->objects) {
-            if (o->type == object_type) {
-                unit->error("BUILD: " + ObjectDefs[object_type].name +
-                            " can only exist once in a region.");
-                return nullptr;
-            }
-        }
-    }
+    // ONE_PER_REGION is enforced at execution time in AddNewBuildings, not here.
+    // Parse time cannot know where a unit will be after movement (e.g. unit boards
+    // a ship this turn and sails to a different region before BUILD executes).
 
     BuildOrder* order = new BuildOrder;
     order->new_building = object_type;
@@ -2813,6 +2810,36 @@ void Game::ProcessJoinOrder(Unit *u, parser::string_parser& parser, orders_check
     ord->merge = merge;
     if (u->joinorders) delete u->joinorders;
     u->joinorders = ord;
+}
+
+// Syntax: QUEST [amount] [RESOURCE|EQUIPMENT]
+//   amount   — tokens to turn in (default 1 if omitted or <= 0)
+//   RESOURCE — reward from resource pool only (mithril, ironwood, etc.)
+//   EQUIPMENT — reward from weapon/armor pool only
+//   (no keyword) — full pool: 1/3 chance magic, 2/3 chance advanced
+// Preconditions checked at run time in RunQuestOrders.
+void Game::ProcessQuestOrder(Unit *unit, parser::string_parser& parser, orders_check *checker)
+{
+    auto tok = parser.get_token();
+    int amt = tok.get_number().value_or(0);
+    if (amt <= 0) amt = 1;
+
+    QuestOrder::Category cat = QuestOrder::CAT_ANY;
+    auto cat_tok = parser.get_token();
+    if (cat_tok) {
+        if (cat_tok == "resource" || cat_tok == "res")
+            cat = QuestOrder::CAT_RESOURCE;
+        else if (cat_tok == "equipment" || cat_tok == "eqp")
+            cat = QuestOrder::CAT_EQUIPMENT;
+    }
+
+    if (checker) return;
+
+    QuestOrder *order = new QuestOrder;
+    order->amount   = amt;
+    order->category = cat;
+    if (unit->questorders) delete unit->questorders;
+    unit->questorders = order;
 }
 
 void Game::ProcessSacrificeOrder(Unit *unit, parser::string_parser& parser, orders_check *checker)

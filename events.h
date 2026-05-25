@@ -29,6 +29,7 @@ enum EventCategory {
     EVENT_PIRATE_SIGHTING,
     EVENT_DUNGEON,
     EVENT_VILLAGE_FOUNDED,
+    EVENT_QUEST_COMPLETED,
 };
 
 struct Event {
@@ -251,6 +252,17 @@ public:
     DungeonEventType event_type;
     std::string dungeon_type_name;  // e.g. "Skeleton Ruins"
     std::string region_name;        // surface region name
+};
+
+class QuestCompletedFact : public FactBase {
+public:
+    QuestCompletedFact() = default;
+    ~QuestCompletedFact() override = default;
+    void GetEvents(std::list<Event> &events) override;
+
+    int subtype = -1;          // Quest::Subtype value
+    std::string target_name;   // monster name (kill quests)
+    std::string settlement;    // mayor's settlement name
 };
 
 #endif // EVENTS_H

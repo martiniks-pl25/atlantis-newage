@@ -382,18 +382,25 @@ void Battle::NormalRound(int round,Army * a,Army * b)
     b->stats.ClearRound();
 }
 
-void Battle::GetSpoils(std::list<Location *>& losers, ItemList& spoils, int ass)
+void Battle::GetSpoils(std::list<Location *>& losers, ItemList& spoils, int ass, Events *events)
 {
     string quest_rewards;
+    string quest_rewards_unaware;
 
     for(const auto l : losers) {
         Unit *u = l->unit;
         int numalive = u->GetSoldiers();
         int numdead = u->losses;
         if (!numalive) {
-            if (quests.check_kill_target(u, spoils, &quest_rewards)) {
-                // TODO why doesn't the unit get an event here?
+            int issuer_region = -1;
+            int qnum = -1;
+            if (quests.check_kill_target(u, spoils, &quest_rewards, &issuer_region, events,
+                                         &qnum, &quest_rewards_unaware)) {
                 AddLine("Quest completed! " + quest_rewards);
+                if (issuer_region != -1) quest_issuer_region = issuer_region;
+                if (qnum != -1)          quest_num           = qnum;
+                this->quest_rewards         = quest_rewards;
+                this->quest_rewards_unaware = quest_rewards_unaware;
             }
         }
         for(auto it = u->items.begin(); it != u->items.end();) {
@@ -589,7 +596,7 @@ int Battle::Run(
         AddLine("Total Casualties:");
         ItemList spoils;
         armies[0]->Lose(this, spoils);
-        GetSpoils(atts, spoils, ass);
+        GetSpoils(atts, spoils, ass, events);
         if (spoils.size()) {
             temp = "Spoils: " + spoils.report(2,0,1) + ".";
         } else {
@@ -642,7 +649,7 @@ int Battle::Run(
         AddLine("Total Casualties:");
         ItemList spoils;
         armies[1]->Lose(this, spoils);
-        GetSpoils(defs, spoils, ass);
+        GetSpoils(defs, spoils, ass, events);
         if (spoils.size()) {
             temp = "Spoils: " + spoils.report(2,0,1) + ".";
         } else {

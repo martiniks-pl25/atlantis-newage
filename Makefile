@@ -4,12 +4,12 @@ CPLUS = g++
 CC = gcc
 CFLAGS = -g -I. -I.. -Wall -Werror -std=c++20
 
-RULESET_OBJECTS = extra.o map.o monsters.o rules.o world.o
+RULESET_OBJECTS = extra.o map.o monsters.o rules.o world.o quest_setup.o
 
 ENGINE_OBJECTS = aregion.o army.o astring.o battle.o economy.o \
   edit.o faction.o game.o gamedata.o gamedefs.o \
   genrules.o items.o main.o market.o modify.o monthorders.o \
-  npc.o object.o orders.o parseorders.o production.o quests.o runorders.o \
+  npc.o object.o orders.o parseorders.o production.o quests.o quest_data.o quest_generator.o runorders.o \
   skills.o skillshows.o specials.o spells.o unit.o \
   events.o events-battle.o events-assassination.o mapgen.o simplex.o namegen.o \
   indenter.o text_report_generator.o simulate.o dungeon.o

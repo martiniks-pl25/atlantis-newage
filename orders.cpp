@@ -71,6 +71,7 @@ const std::vector<std::string> OrderStrs = {
     "withdraw",
     "work",
     "create",
+    "quest",
 };
 
 
@@ -277,6 +278,9 @@ JoinOrder::~JoinOrder()
 AnnihilateOrder::AnnihilateOrder() { type = O_ANNIHILATE; }
 
 AnnihilateOrder::~AnnihilateOrder() {}
+
+QuestOrder::QuestOrder() { type = O_QUEST; amount = 1; category = CAT_ANY; }
+QuestOrder::~QuestOrder() {}
 
 SacrificeOrder::SacrificeOrder() { type = O_SACRIFICE; }
 

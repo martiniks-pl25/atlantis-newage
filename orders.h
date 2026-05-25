@@ -79,6 +79,7 @@ enum {
     O_WITHDRAW,
     O_WORK,
     O_CREATE,
+    O_QUEST,    // redeem I_BOUNTY tokens at a Town Hall
     NORDERS
 };
 
@@ -416,6 +417,21 @@ class CreateOrder : public Order {
 
     int settlementType; // TOWN_VILLAGE / TOWN_TOWN / TOWN_CITY
     std::string name;   // settlement name
+};
+
+class QuestOrder : public Order {
+  public:
+    QuestOrder();
+    ~QuestOrder();
+
+    int amount = 1;  // tokens to turn in; default 1 (never "all")
+
+    enum Category {
+        CAT_ANY       = 0,  // full pool: 1/3 magic, 2/3 advanced
+        CAT_RESOURCE  = 1,  // resource sub-pool only
+        CAT_EQUIPMENT = 2,  // weapon/armor sub-pool only
+    };
+    Category category = CAT_ANY;
 };
 
 #endif // ORDERS_H

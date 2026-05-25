@@ -309,7 +309,7 @@ ut::suite<"Mayor Town Hall"> mayor_town_hall_suite = [] {
 
     "Mayor in hall stays when guard faction is UNFRIENDLY to a guarding player"_test = [] {
         // UNFRIENDLY is the soft penalty: mayor (and quests) survive; only quest
-        // redemption is gated. Only HOSTILE causes the mayor to flee. See plan §3.4.
+        // redemption is gated. Only HOSTILE causes the mayor to flee.
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();

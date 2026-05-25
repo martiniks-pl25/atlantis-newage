@@ -23,7 +23,7 @@ using json = nlohmann::json;
 #include <unordered_map>
 #include <iosfwd>
 
-#define CURRENT_ATL_VER MAKE_ATL_VER(5, 2, 5)
+#define CURRENT_ATL_VER MAKE_ATL_VER(5, 2, 8)
 #define JSON_REPORT_VERSION MAKE_ATL_VER(1, 0, 1) // version 1.0.0 didn't report the version number
 
 // Object number namespaces: buildings use 1..(FLEET_NUM_START-1), fleets use FLEET_NUM_START+.
@@ -181,11 +181,34 @@ private:
     char GetRChar(ARegion *r);
     std::string GetXtraMap(ARegion *, int type);
 
+public:
     // LLS
     // Functions to do upgrades to the ruleset -- should be in extras.cpp
     bool upgrade_major_version(int current_version);
     bool upgrade_minor_version(int current_version);
     bool upgrade_patch_level(int current_version);
+
+    /**
+     * @brief Describes a single balance patch notification.
+     *
+     * When RULESET_VERSION patch is bumped, list affected skills and items here.
+     * deliver_balance_patch() will re-send their descriptions to all factions
+     * that already know them — so players see updated stats in the next report.
+     *
+     * How to use when making a balance change:
+     *   1. Change the value in gamedata.cpp / rules.cpp
+     *   2. Bump RULESET_VERSION patch in neworigins/rules.cpp (e.g. 8.1.0 → 8.1.1)
+     *   3. Add entry to the patches array in upgrade_patch_level() in game.cpp:
+     *        { <new_patch_number>, { S_SKILL, ... }, { I_ITEM, ... } }
+     *
+     * See docs/BALANCE_NOTIFICATION_SYSTEM.md for full details.
+     */
+    struct PatchNotification {
+        int patch;
+        std::vector<int> skills;
+        std::vector<int> items;
+    };
+    void deliver_balance_patch(const PatchNotification& p);
 
     // JLT
     // Functions to allow enabling/disabling parts of the data tables
@@ -300,6 +323,7 @@ private:
     Unit **ppUnits;
     unsigned int maxppunits;
     int shipseq;
+    int questseq;  // unique-id source for quests; serialised since engine 5.2.6
     int year;
     int month;
 
@@ -422,6 +446,7 @@ private:
     void ProcessJoinOrder(Unit *u, parser::string_parser& parser, orders_check *checker);
     void ProcessAnnihilateOrder(Unit *u, parser::string_parser& parser, orders_check *checker);
     void ProcessSacrificeOrder(Unit *u, parser::string_parser& parser, orders_check *checker);
+    void ProcessQuestOrder(Unit *u, parser::string_parser& parser, orders_check *checker);
 
     void RemoveInactiveFactions();
 
@@ -520,6 +545,10 @@ private:
     void ResetCityMarketsExceptTrade(); // TEMPORARY — remove after one server turn
     void AssignTradeMarketsRoundRobin();
     void DoTowerObservation();
+    void UpdateQuestAwareness();
+    void ExpireLocalQuests();
+    void GenerateLocalQuestsForMayor(ARegion *city, Unit *mayor);
+    std::set<int> ComputeMayorDomain(ARegion *city);
     void ProcessDungeons();       // dungeon.cpp — see docs/DUNGEON_SYSTEM_DESIGN.md
     void try_spawn_dungeon();
     ARegion* find_entrance_spot();
@@ -612,6 +641,7 @@ private:
     void RunTransportPhase(TransportOrder::TransportPhase phase);
     void RunAnnihilateOrders();
     void RunSacrificeOrders();
+    void RunQuestOrders();  // redeem I_BOUNTY tokens at Town Halls
     void CollectInterQMTransportItems();
     void CheckTransportOrders();
     std::list<Faction *>CanSeeSteal(ARegion *r, Unit *u);

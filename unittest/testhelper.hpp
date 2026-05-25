@@ -4,6 +4,7 @@
 
 #include "../game.h"
 
+#include <algorithm>
 #include <iostream>
 #include <sstream>
 
@@ -124,6 +125,42 @@ public:
     void spawn_mayor(ARegion *r, Object *target = nullptr) { game.CreateMayor(r, target); }
     // Get guardfaction id (faction 1)
     int get_guardfaction() { return game.guardfaction; }
+    // Quest system helpers
+    std::list<Faction*>& get_factions() { return game.factions; }
+    void run_generate_quests_for_mayor(ARegion *r, Unit *mayor) {
+        game.GenerateLocalQuestsForMayor(r, mayor);
+    }
+    // Remove all monfaction units from every object in every domain region.
+    // Use before quest generation tests to ensure pre-spawned world monsters
+    // (from NewGame CreateWMons/CreateLMons) don't compete for hunt slots.
+    void clear_domain_monsters(ARegion *city) {
+        std::set<int> domain = game.ComputeMayorDomain(city);
+        int mf = game.monfaction;
+        for (int rnum : domain) {
+            ARegion *dr = game.regions.GetRegion(rnum);
+            if (!dr) continue;
+            for (auto o : dr->objects) {
+                for (auto it = o->units.begin(); it != o->units.end(); ) {
+                    if ((*it)->faction->num == mf)
+                        it = o->units.erase(it);
+                    else
+                        ++it;
+                }
+            }
+        }
+    }
+    void run_expire_local_quests()    { game.ExpireLocalQuests(); }
+    void run_update_quest_awareness() { game.UpdateQuestAwareness(); }
+    void run_quest_orders()           { game.RunQuestOrders(); }
+    std::set<int> compute_mayor_domain(ARegion *r) { return game.ComputeMayorDomain(r); }
+    // Create a monfaction unit with one race item in a region (dummy object).
+    Unit *create_monster(ARegion *region, int race_item, int count) {
+        Faction *mon = get_faction(game.monfaction);
+        Unit *u = create_unit(mon, region);
+        u->type = U_WMON;
+        u->items.SetNum(race_item, count);
+        return u;
+    }
     // Dungeon test helpers
     void inject_dungeon(const DungeonInstance &d) { game.activeDungeons.push_back(d); }
     int get_monfaction() { return game.monfaction; }

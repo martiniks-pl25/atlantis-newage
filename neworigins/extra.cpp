@@ -1,10 +1,13 @@
 #include "game.h"
 #include "gamedata.h"
 #include "quests.h"
+#include "quest_data.h"
 #include <cmath>
 #include <string>
 #include <iterator>
 #include <memory>
+
+void NewOriginsSetupQuests(); // defined in neworigins/quest_setup.cpp
 
 using namespace std;
 
@@ -22,19 +25,6 @@ extern const std::vector<int> CANNOT_FOUND_SETTLEMENT = {
 extern const std::vector<int> RACE_NEUTRAL_FOUNDERS = {
 };
 
-#define MINIMUM_ACTIVE_QUESTS 5
-#define MAXIMUM_ACTIVE_QUESTS 20
-#define QUEST_EXPLORATION_PERCENT 30
-#define QUEST_SPAWN_RATE 7
-#define QUEST_MAX_REWARD 3000
-#define QUEST_SPAWN_CHANCE 70
-#define MAX_DESTINATIONS 5
-
-// --- Pirate hunt quest constants ---
-#define MAX_PIRATE_HUNT_QUESTS    5    // max simultaneous HUNT_PIRATE quests
-#define PIRATE_QUEST_SPAWN_CHANCE 35   // % chance to create quest when elite fleet spawns
-#define PIRATE_QUEST_GROW_CHANCE  50   // % chance per turn to assign quest to uncovered captain
-#define PIRATE_HUNT_MAX_REWARD    4500 // silver-equivalent reward (50% above QUEST_MAX_REWARD)
 
 int Game::SetupFaction( Faction *pFac )
 {
@@ -127,258 +117,6 @@ int Game::SetupFaction( Faction *pFac )
     }
 
     return( 1 );
-}
-
-static void CreateQuest(ARegionList& regions, int monfaction)
-{
-    int d, count, temple, i, j, clash, reward_count;
-    ARegion *r;
-    AString rname;
-    map <string, int> temples;
-    map <string, int>::iterator it;
-    string stlstr;
-    int destprobs[MAX_DESTINATIONS] = { 0, 0, 80, 20, 0 };
-    int destinations[MAX_DESTINATIONS];
-    string destnames[MAX_DESTINATIONS];
-    set<string> intersection;
-
-    std::shared_ptr<Quest> q = std::make_shared<Quest>();
-    q->type = -1;
-
-    // Set up quest rewards
-    count = 0;
-    for (i=0; i<NITEMS; i++) {
-        if (
-                ((ItemDefs[i].type & IT_ADVANCED) || (ItemDefs[i].type & IT_MAGIC)) &&
-                ItemDefs[i].baseprice <= QUEST_MAX_REWARD &&
-                !(ItemDefs[i].type & IT_SPECIAL) &&
-                !(ItemDefs[i].type & IT_SHIP) &&
-                !(ItemDefs[i].type & IT_NEVER_SPOIL) &&
-                !(ItemDefs[i].flags & ItemType::DISABLED)) {
-            count ++;
-        }
-    }
-
-    // No items? Are we playing a game without items?
-    if (count == 0) return;
-
-    count = rng::get_random(count) + 1;
-
-    for (i=0; i<NITEMS; i++) {
-        if (
-                ((ItemDefs[i].type & IT_ADVANCED) || (ItemDefs[i].type & IT_MAGIC)) &&
-                ItemDefs[i].baseprice <= QUEST_MAX_REWARD &&
-                !(ItemDefs[i].type & IT_SPECIAL) &&
-                !(ItemDefs[i].type & IT_SHIP) &&
-                !(ItemDefs[i].type & IT_NEVER_SPOIL) &&
-                !(ItemDefs[i].flags & ItemType::DISABLED)) {
-            count--;
-            if (count == 0) {
-                // Quest reward is based on QUEST_MAX_REWARD silver
-                reward_count = (QUEST_MAX_REWARD + rng::get_random(QUEST_MAX_REWARD / 2)) / ItemDefs[i].baseprice;
-
-                printf("\nQuest reward: %s x %d.\n", ItemDefs[i].name.c_str(), reward_count);
-
-                // Setup reward
-                Item item;
-                item.type = i;
-                item.num = reward_count;
-
-                q->rewards.push_back(item);
-                break;
-            }
-        }
-    }
-
-    d = rng::get_random(100);
-    if (d < 60) {
-        // SLAY quest
-        q->type = Quest::SLAY;
-        count = 0;
-        // Count our current monsters
-        for(const auto r : regions) {
-            if (TerrainDefs[r->type].similar_type == R_OCEAN) continue;
-            // No need to check if quests do not require exploration
-            if (!r->visited && QUEST_EXPLORATION_PERCENT != 0) continue;
-            for(const auto o : r->objects) {
-                for(const auto u : o->units) {
-                    if (u->faction->num == monfaction) count++;
-                }
-            }
-        }
-        if (!count) return;
-        // pick one as the object of the quest
-        d = rng::get_random(count);
-        for(const auto r : regions) {
-            if (TerrainDefs[r->type].similar_type == R_OCEAN) continue;
-            // No need to check if quests do not require exploration
-            if (!r->visited && QUEST_EXPLORATION_PERCENT != 0) continue;
-            for(const auto o : r->objects) {
-                for(const auto u : o->units) {
-                    if (u->faction->num == monfaction) {
-                        if (!d--) q->target = u->num;
-                    }
-                }
-            }
-        }
-        for(const auto& q2 : quests) {
-            if (q2->type == Quest::SLAY && q2->target == q->target) {
-                // Don't hunt the same monster twice
-                q->type = -1;
-                break;
-            }
-        }
-    } else if (d < 80) {
-        // Create a HARVEST quest
-        count = 0;
-        for(const auto r : regions) {
-            // Do allow lakes though
-            if (r->type == R_OCEAN)
-                continue;
-            // No need to check if quests do not require exploration
-            if (!r->visited && QUEST_EXPLORATION_PERCENT != 0)
-                continue;
-            for (const auto& p : r->products) {
-                if (p->itemtype != I_SILVER)
-                    count++;
-            }
-        }
-        count = rng::get_random(count);
-        for(const auto r : regions) {
-            // Do allow lakes though
-            if (r->type == R_OCEAN)
-                continue;
-            // No need to check if quests do not require exploration
-            if (!r->visited && QUEST_EXPLORATION_PERCENT != 0)
-                continue;
-            for (const auto& p : r->products) {
-                if (p->itemtype != I_SILVER) {
-                    if (!count--) {
-                        q->type = Quest::HARVEST;
-                        q->regionnum = r->num;
-                        q->objective.type = p->itemtype;
-                        q->objective.num = 1;
-                    }
-                }
-            }
-        }
-        r = regions.GetRegion(q->regionnum);
-        rname = r->name;
-        for(const auto& q2: quests) {
-            if (q2->type == Quest::HARVEST) {
-                r = regions.GetRegion(q2->regionnum);
-                if (rname == r->name) {
-                    // Don't have 2 harvest quests
-                    // active in the same region
-                    q->type = -1;
-                }
-            }
-        }
-    } else if (d < 100) {
-        // Create a BUILD or VISIT quest
-        // Find all our current temples
-        temple = O_TEMPLE;
-        for(const auto r : regions) {
-            // No need to check if quests do not require exploration
-            if (r->Population() > 0 && (r->visited || QUEST_EXPLORATION_PERCENT == 0)) {
-                stlstr = r->name;
-                // This looks like a null operation, but
-                // actually forces the map<> element creation
-                temples[stlstr];
-                for(const auto o : r->objects) {
-                    if (o->type == temple) {
-                        temples[stlstr]++;
-                    }
-                }
-            }
-        }
-        // Work out how many destnations to use, based on destprobs[]
-        for (i = 0, count = 0; i < MAX_DESTINATIONS; i++)
-            count += destprobs[i];
-        d = rng::get_random(count);
-        for (count = 0; d >= destprobs[count]; count++)
-            d -= destprobs[count];
-        count++;
-        if (count > (int) temples.size()) {
-            q->type = -1;
-            count = -1;
-        }
-        // Choose that many unique regions
-        for (i = 0; i < count; i++) {
-            do {
-                destinations[i] = rng::get_random(temples.size());
-                // give a slight preference to regions with temples
-                for (it = temples.begin(), j = 0;
-                        j < destinations[i];
-                        it++, j++)
-                // ...by rerolling (only once) if we get a
-                // templeless region first time
-                if (!it->second)
-                    destinations[i] = rng::get_random(temples.size());
-                // make sure we haven't chosen duplicates
-                clash = 0;
-                for (j = 0; j < i; j++)
-                    if (destinations[i] == destinations[j])
-                        clash = 1;
-            } while (clash);
-        }
-        // Look up the names of the chosen regions
-        for (it = temples.begin(); it != temples.end(); it++) {
-            for (i = 0; i < count; i++) {
-                if (!destinations[i]--) {
-                    destnames[i] = it->first;
-                }
-            }
-        }
-        // If any of them don't have a temple, then make a quest to
-        // build a temple there
-        for (i = 0; i < count; i++) {
-            if (!temples[destnames[i]]) {
-                q->type = Quest::BUILD;
-                q->building = temple;
-                q->regionname = destnames[i].c_str();
-                break;
-            }
-        }
-        if (i == count) {
-            // They all had temples, so make a VISIT quest
-            q->type = Quest::VISIT;
-            q->building = temple;
-            for (j = 0; j < count; j++) {
-                q->destinations.insert(destnames[j]);
-            }
-        }
-        if (q->type == Quest::BUILD) {
-            for(const auto& q2: quests) {
-                if (q2->type == Quest::BUILD && q->building == q2->building && q->regionname == q2->regionname) {
-                    // Don't have 2 build quests
-                    // active in the same region
-                    q->type = -1;
-                }
-            }
-        } else if (q->type == Quest::VISIT) {
-            // Make sure that a given region is only in one
-            // pilgrimage at a time
-            for(const auto& q2: quests) {
-                if (q2->type == Quest::VISIT && q->building == q2->building) {
-                    intersection.clear();
-                    set_intersection(
-                        q->destinations.begin(),
-                        q->destinations.end(),
-                        q2->destinations.begin(),
-                        q2->destinations.end(),
-                        inserter(intersection,
-                            intersection.begin()),
-                        less<string>()
-                    );
-                    if (intersection.size() > 0)
-                        q->type = -1;
-                }
-            }
-        }
-    }
-    if (q->type != -1)
-        quests.push_back(q);
 }
 
 // Just a quick function to count the number of empowered altars.
@@ -534,7 +272,7 @@ int report_and_count_entities(ARegionList& regions, std::list<Faction *>& factio
 Faction *Game::CheckVictory()
 {
     int visited, unvisited;
-    int d, i, count;
+    int d, count;
     int dir;
     unsigned ucount;
     ARegion *r, *start;
@@ -583,17 +321,6 @@ Faction *Game::CheckVictory()
     }
 
     printf("Players have visited %d regions; %d unvisited.\n", visited, unvisited);
-
-    if (visited >= (unvisited + visited) * QUEST_EXPLORATION_PERCENT / 100) {
-        // Exploration phase complete: start creating relic quests
-        for (i = 0; i < QUEST_SPAWN_RATE; i++) {
-            if (quests.size() < MAXIMUM_ACTIVE_QUESTS && rng::get_random(100) < QUEST_SPAWN_CHANCE)
-                CreateQuest(regions, monfaction);
-        }
-        while (quests.size() < MINIMUM_ACTIVE_QUESTS) {
-            CreateQuest(regions, monfaction);
-        }
-    }
 
     if (unvisited) {
         // Tell the players to get exploring :-)
@@ -737,6 +464,10 @@ Faction *Game::CheckVictory()
 
     std::vector<std::shared_ptr<Quest>> questsWithProblems;
     for(const auto& q: quests) {
+        // New-format quests have type=-1 (Quest() default). They are fully managed
+        // by the new quest system (scope/subtype) and must not go through the legacy
+        // type switch — the default: branch would delete them every turn.
+        if (q->type == -1) continue;
         switch(q->type) {
             case Quest::SLAY:
                 l = regions.FindUnit(q->target);
@@ -819,12 +550,56 @@ Faction *Game::CheckVictory()
                     write_times_article(message);
                 }
                 break;
+            case Quest::HUNT_PIRATE:
+                // Mirror Quest::SLAY: surface the active hunt as a times article,
+                // and only mark as orphan if the target captain unit is gone or
+                // no longer belongs to the monster faction. Without this branch
+                // the quest fell through to default: and was erased every turn,
+                // forcing EnsureElitePirateQuests() to recreate it with a fresh
+                // random reward — observable as quest rewards mutating between
+                // turns. See docs/CURRENT_QUEST_SYSTEM_ANALYSIS.md §10.2.
+                l = regions.FindUnit(q->target);
+                if (!l || l->unit->faction->num != monfaction) {
+                    questsWithProblems.push_back(q);
+                    if (l) delete l;
+                } else {
+                    message = "Quest: ";
+                    message += l->unit->name;
+                    message += " commands the pirate galley '";
+                    message += l->obj->name;
+                    message += "', last sighted in the ";
+                    message += TerrainDefs[TerrainDefs[l->region->type].similar_type].name;
+                    message += " of ";
+                    message += l->region->name;
+                    message += ". Bring proof of their destruction and claim the bounty!";
+                    write_times_article(message);
+                    delete l;
+                }
+                break;
             default:
                 questsWithProblems.push_back(q);
                 break;
         }
     }
     for(const auto& q: questsWithProblems) quests.erase(q);
+
+    // Publish GLOBAL_BOSS_HUNT quests (pirate captains) to the gazette each turn.
+    for (const auto& q : quests) {
+        if (q->subtype != Quest::GLOBAL_BOSS_HUNT) continue;
+        Location *l = regions.FindUnit(q->target);
+        if (!l) continue;
+        std::string message = "Quest: ";
+        message += l->unit->name;
+        message += " commands the pirate galley '";
+        message += (l->obj ? l->obj->name : "unknown galley");
+        message += "', last sighted in the ";
+        message += TerrainDefs[TerrainDefs[l->region->type].similar_type].name;
+        message += " of ";
+        message += l->region->name;
+        message += ". Bring proof of their destruction and claim the bounty!";
+        write_times_article(message);
+        delete l;
+    }
 
     if(rulesetSpecificData.value("victory_type", "") == "city_vote") {
         std::map <int, int> votes; // track votes per faction id
@@ -1812,15 +1587,15 @@ void Game::ModifyTablesPerRuleset(void)
     modify_monster_threat("LICH",  1,   50);  // Lich
     modify_monster_threat("IMP",   50,  20);  // Imp
     modify_monster_threat("DEMO",  10,  50);  // Demon
-    modify_monster_threat("BALR",  1,   50); // Balrog
+    modify_monster_threat("BALR",  1,   80); // Balrog
     modify_monster_threat("EAGL",  1,   20);  // Eagle
 
     // Sea creatures
     modify_monster_threat("PIRA",  20,  25);  // Pirates        (default: num=20, hostile=50%)
-    modify_monster_threat("PCAP",  1,   25);  // Pirate Captain (default: num=1,  hostile=50%)
-    modify_monster_threat("PBOS",  1,   25);  // Pirate Bosun   (default: num=1,  hostile=50%)
+    modify_monster_threat("PCAP",  1,   30);  // Pirate Captain (default: num=1,  hostile=50%)
+    modify_monster_threat("PBOS",  1,   30);  // Pirate Bosun   (default: num=1,  hostile=50%)
     modify_monster_threat("KRAK",  1,   50);  // Kraken
-    modify_monster_threat("MERF",  100, 25);  // Merfolk
+    modify_monster_threat("MERF",  100, 30);  // Merfolk
     modify_monster_threat("ELEM",  7,   35);  // Living Water
 
     // Special monsters (enabled via EnableItem)
@@ -2002,7 +1777,7 @@ void Game::ModifyTablesPerRuleset(void)
     // Dungeon entrance/exit portal (same object type for both directions — see dungeon.h)
     EnableObject(O_DUNGEON_ENTRANCE);
 
-    return;
+    NewOriginsSetupQuests();
 }
 
 const std::optional<std::string> ARegion::movement_forbidden_by_ruleset(Unit *u, ARegion *origin, ARegionList& regions) {
@@ -2041,152 +1816,50 @@ const std::optional<std::string> ARegion::movement_forbidden_by_ruleset(Unit *u,
     return std::nullopt;
 }
 
-// --- Pirate Hunt Quest helpers ---
+// --- Global Boss Hunt helpers ---
 
 /**
- * @brief Generates a random reward item for a pirate hunt quest.
+ * @brief Creates a GLOBAL_BOSS_HUNT quest for the given pirate captain unit.
  *
- * Selects a random IT_ADVANCED or IT_MAGIC item (not IT_NEVER_SPOIL, not
- * IT_SHIP, not IT_SPECIAL) with baseprice <= PIRATE_HUNT_MAX_REWARD and
- * computes a quantity so the total value approximates PIRATE_HUNT_MAX_REWARD.
- *
- * @return Item with type/num set, or type==-1 if no eligible items found.
- */
-static Item generate_pirate_hunt_reward() {
-    Item result;
-    result.type = -1;
-    result.num  = 0;
-
-    int count = 0;
-    for (int i = 0; i < NITEMS; i++) {
-        if (((ItemDefs[i].type & IT_ADVANCED) || (ItemDefs[i].type & IT_MAGIC)) &&
-                ItemDefs[i].baseprice > 0 &&
-                ItemDefs[i].baseprice <= PIRATE_HUNT_MAX_REWARD &&
-                !(ItemDefs[i].type & IT_SPECIAL) &&
-                !(ItemDefs[i].type & IT_SHIP) &&
-                !(ItemDefs[i].type & IT_NEVER_SPOIL) &&
-                !(ItemDefs[i].flags & ItemType::DISABLED)) {
-            count++;
-        }
-    }
-    if (count == 0) return result;
-
-    count = rng::get_random(count) + 1;
-    for (int i = 0; i < NITEMS; i++) {
-        if (((ItemDefs[i].type & IT_ADVANCED) || (ItemDefs[i].type & IT_MAGIC)) &&
-                ItemDefs[i].baseprice > 0 &&
-                ItemDefs[i].baseprice <= PIRATE_HUNT_MAX_REWARD &&
-                !(ItemDefs[i].type & IT_SPECIAL) &&
-                !(ItemDefs[i].type & IT_SHIP) &&
-                !(ItemDefs[i].type & IT_NEVER_SPOIL) &&
-                !(ItemDefs[i].flags & ItemType::DISABLED)) {
-            if (--count == 0) {
-                result.type = i;
-                result.num  = (PIRATE_HUNT_MAX_REWARD +
-                               rng::get_random(PIRATE_HUNT_MAX_REWARD / 2)) /
-                              ItemDefs[i].baseprice;
-                break;
-            }
-        }
-    }
-    return result;
-}
-
-/**
- * @brief Tries to create a HUNT_PIRATE quest for the given captain unit.
- *
- * Called at spawn time (35% chance) from MakePirateFleet(), and on each turn
- * from EnsureElitePirateQuests() (50% chance for uncovered captains).
- * Does nothing if MAX_PIRATE_HUNT_QUESTS is already reached or captain
- * already has a quest.
- *
- * @param cap  The I_PIRATE_CAPTAIN unit to target.
- * @param spawn_time  true → apply PIRATE_QUEST_SPAWN_CHANCE roll.
- *                    false → caller handles the chance roll.
+ * Called at spawn time from MakePirateFleet() and each turn from
+ * EnsureElitePirateQuests(). Creates at most one quest per captain.
+ * Token payout from boss_targets[I_PIRATE_CAPTAIN]; falls back to 4 if
+ * quest_setup has not yet populated boss_targets (e.g. in unit tests).
  */
 void Game::TryCreatePirateHuntQuest(Unit *cap) {
-    // Respect global limit
-    int active = 0;
     for (const auto& q : quests) {
-        if (q->type == Quest::HUNT_PIRATE) active++;
-    }
-    if (active >= MAX_PIRATE_HUNT_QUESTS) return;
-
-    // Don't create duplicate quest for the same captain
-    for (const auto& q : quests) {
-        if (q->type == Quest::HUNT_PIRATE && q->target == cap->num) return;
+        if (q->subtype == Quest::GLOBAL_BOSS_HUNT && q->target == cap->num) return;
     }
 
-    // Spawn-time chance roll
-    if (rng::get_random(100) >= PIRATE_QUEST_SPAWN_CHANCE) return;
-
-    Item reward = generate_pirate_hunt_reward();
-    if (reward.type == -1) return;
-
-    auto q = std::make_shared<Quest>();
-    q->type   = Quest::HUNT_PIRATE;
-    q->target = cap->num;
-    q->rewards.push_back(reward);
+    auto q         = std::make_shared<Quest>();
+    q->num         = questseq++;
+    q->scope       = Quest::SCOPE_GLOBAL;
+    q->subtype     = Quest::GLOBAL_BOSS_HUNT;
+    q->target      = cap->num;
+    q->target_monster = I_PIRATE_CAPTAIN;
+    q->tokens      = LookupBossTokens(I_PIRATE_CAPTAIN, 4);
+    q->created_turn = TurnNumber();
     quests.push_back(q);
 
-    printf("Pirate hunt quest created for captain '%s' (unit %d). Reward: %s x%d.\n",
-           cap->name.c_str(), cap->num,
-           ItemDefs[reward.type].name.c_str(), reward.num);
+    printf("Pirate hunt quest %d created for captain '%s' (unit %d), %d tokens.\n",
+           q->num, cap->name.c_str(), cap->num, q->tokens);
 }
 
 /**
- * @brief Each turn: fills open HUNT_PIRATE quest slots from uncovered captains.
+ * @brief Each turn: ensures every elite pirate captain has a GLOBAL_BOSS_HUNT quest.
  *
- * Runs after GrowWMons() in PostProcessTurn(). Collects all I_PIRATE_CAPTAIN
- * units belonging to the monster faction that have no active HUNT_PIRATE quest,
- * then with PIRATE_QUEST_GROW_CHANCE (50%) assigns a quest to a random one.
- * At most one new quest is created per call, so the gazette fills gradually.
- *
- * @note Does NOT apply PIRATE_QUEST_SPAWN_CHANCE — that roll is for spawn-time.
+ * Runs after GrowWMons() in PostProcessTurn(). Walks all I_PIRATE_CAPTAIN units
+ * in the monster faction and creates a quest for any uncovered captain (1:1 mapping,
+ * no cap, no probabilistic gating). Mirrors pirate_sighting at game.cpp:1197.
  */
 void Game::EnsureElitePirateQuests() {
-    // Count active HUNT_PIRATE quests
-    int active = 0;
-    for (const auto& q : quests) {
-        if (q->type == Quest::HUNT_PIRATE) active++;
-    }
-    if (active >= MAX_PIRATE_HUNT_QUESTS) return;
-
-    // Collect all living captains without a quest
-    std::vector<Unit *> uncovered;
     for (const auto r : regions) {
         for (const auto o : r->objects) {
             for (const auto u : o->units) {
                 if (u->faction->num != monfaction) continue;
                 if (u->items.GetNum(I_PIRATE_CAPTAIN) == 0) continue;
-                bool has_quest = false;
-                for (const auto& q : quests) {
-                    if (q->type == Quest::HUNT_PIRATE && q->target == u->num) {
-                        has_quest = true;
-                        break;
-                    }
-                }
-                if (!has_quest) uncovered.push_back(u);
+                TryCreatePirateHuntQuest(u);
             }
         }
     }
-    if (uncovered.empty()) return;
-
-    // 50% chance to assign a quest to one random uncovered captain this turn
-    if (rng::get_random(100) >= PIRATE_QUEST_GROW_CHANCE) return;
-
-    Unit *cap = uncovered[rng::get_random(uncovered.size())];
-
-    Item reward = generate_pirate_hunt_reward();
-    if (reward.type == -1) return;
-
-    auto q = std::make_shared<Quest>();
-    q->type   = Quest::HUNT_PIRATE;
-    q->target = cap->num;
-    q->rewards.push_back(reward);
-    quests.push_back(q);
-
-    printf("Pirate hunt quest assigned to existing captain '%s' (unit %d). Reward: %s x%d.\n",
-           cap->name.c_str(), cap->num,
-           ItemDefs[reward.type].name.c_str(), reward.num);
 }

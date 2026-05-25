@@ -88,6 +88,7 @@ ut::suite<"Town Hall Build"> town_hall_build_suite = [] {
         ss << "unit " << builder->num << "\n";
         ss << "build \"Town Hall\"\n";
         helper.parse_orders(faction->num, ss, nullptr);
+        helper.run_month_orders();
 
         expect(count_town_halls(r) == 1_ul) << "the second Town Hall must not be created";
         expect(faction->errors.size() >= 1_ul) << "an error must be reported";
@@ -119,6 +120,7 @@ ut::suite<"Town Hall Build"> town_hall_build_suite = [] {
         ss << "unit " << builder->num << "\n";
         ss << "build \"Town Hall\"\n";
         helper.parse_orders(faction->num, ss, nullptr);
+        helper.run_month_orders();
 
         expect(count_town_halls(r) == 1_ul) << "incomplete hall still counts as the unique one";
         expect(faction->errors.size() >= 1_ul);
@@ -221,5 +223,73 @@ ut::suite<"Town Hall Build"> town_hall_build_suite = [] {
 
         expect(faction->errors.size() == 0_ul) << "continuing build must not be blocked by ONE_PER_REGION";
         expect(count_town_halls(r) == 1_ul);
+    };
+
+    "Two units in the same region cannot both build a Town Hall in one turn"_test = [] {
+        // Guards the race where two builders issue BUILD in the same turn when no
+        // Town Hall exists yet. ONE_PER_REGION is enforced in AddNewBuildings so
+        // exactly one hall is created and the other unit receives an error.
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        Faction *faction = helper.create_faction("Test Faction");
+        Unit *u1 = helper.get_first_unit(faction);
+        ARegion *r = u1->object->region;
+        expect(r->town != nullptr) << "starting region must have a settlement";
+        expect(count_town_halls(r) == 0_ul) << "starting region must have no Town Hall";
+
+        Unit *u2 = helper.create_unit(faction, r);
+
+        u1->items.SetNum(I_WOOD, 30);
+        u2->items.SetNum(I_WOOD, 30);
+        helper.set_skill_level(u1, S_BUILDING, 3);
+        helper.set_skill_level(u2, S_BUILDING, 3);
+
+        stringstream ss;
+        ss << "#atlantis " << faction->num << " \"mypassword\"\n";
+        ss << "unit " << u1->num << "\n";
+        ss << "build \"Town Hall\"\n";
+        ss << "unit " << u2->num << "\n";
+        ss << "build \"Town Hall\"\n";
+        helper.parse_orders(faction->num, ss, nullptr);
+        helper.run_month_orders();
+
+        expect(count_town_halls(r) == 1_ul) << "at most one Town Hall must be created in a single turn";
+        expect(faction->errors.size() >= 1_ul) << "the loser of the race must receive an error";
+        expect(any_error_contains(faction, "can only exist once")) << "error must mention the one-per-region rule";
+    };
+
+    "BUILD Town Hall in region with existing Town Hall produces no parse-time error"_test = [] {
+        // Regression: Unit (4862) was inside a Town Hall, boarded a ship, and sailed to a
+        // region without a Town Hall. The parse-time ONE_PER_REGION check fired against the
+        // source region (where a Town Hall existed) and incorrectly blocked the BUILD order.
+        // Fix: ONE_PER_REGION is enforced only at execution time in AddNewBuildings, not at
+        // parse time, because at parse time we cannot know where the unit will be after movement.
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        Faction *faction = helper.create_faction("Test Faction");
+        Unit *leader = helper.get_first_unit(faction);
+        ARegion *r = leader->object->region;
+        expect(r->town != nullptr) << "starting region must have a settlement";
+
+        helper.create_building(r, nullptr, O_TOWN_HALL);
+        expect(count_town_halls(r) == 1_ul);
+
+        Unit *builder = helper.create_unit(faction, r);
+        builder->items.SetNum(I_WOOD, 30);
+        helper.set_skill_level(builder, S_BUILDING, 3);
+
+        stringstream ss;
+        ss << "#atlantis " << faction->num << " \"mypassword\"\n";
+        ss << "unit " << builder->num << "\n";
+        ss << "build \"Town Hall\"\n";
+        helper.parse_orders(faction->num, ss, nullptr);
+
+        expect(faction->errors.size() == 0_ul)
+            << "parse-time must not block BUILD when current region has a Town Hall "
+               "(unit may sail to a different region before the order executes)";
     };
 };
