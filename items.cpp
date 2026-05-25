@@ -1272,6 +1272,12 @@ std::string item_description(int item, int full)
         case I_HEALPOTION:
             temp += " This item allows its possessor to heal wounded units after battle. No skill is necessary to use this item; it will be used automatically when the possessor is involved in a battle. It can heal up to 1 casualties, with a 75 percent success rate. Healing consumes an item.";
             break;
+        case I_BOUNTY:
+            temp += " A proof of deed issued by the quest system. Present these tokens to a mayor"
+                " at a Town Hall to claim your reward. Tokens earned for local quests must be"
+                " redeemed at the issuing mayor's hall; tokens from global bounties are accepted"
+                " at any Town Hall.";
+            break;
         default:
             break;
     }

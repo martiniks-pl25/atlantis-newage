@@ -1457,6 +1457,13 @@ const std::string ShowSkill::Report(Faction *f) const
                 str += " This skill can target a region anywhere in the world.";
             }
             break;
+        case S_CALL_PIRATES:
+            if (level > 1) break;
+            str += "Allows the caster to call nearby pirate fleets to converge on "
+                "their location. At level N, fleets within N hexes are drawn toward "
+                "the caster. This skill is granted by the Bosun's Whistle at a level "
+                "equal to the bearer's Manipulation skill.";
+            break;
     }
 
     std::string temp;

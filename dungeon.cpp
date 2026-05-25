@@ -426,7 +426,7 @@ void Game::try_spawn_dungeon()
             int sm = (TurnNumber() - 1) % 12;
             ent->describe = "Opened in " + MonthNames[sm] + ", Year "
                 + std::to_string(sy)
-                + ". Ancient and unstable — such rifts rarely endure more than"
+                + ". Ancient and unstable - such rifts rarely endure more than"
                 " a dozen turns, and will seal sooner if the guardian within is slain.";
         }
         surface_r->objects.push_back(ent);
@@ -522,7 +522,7 @@ void Game::ProcessDungeons()
                         int bm = (t - 1) % 12;
                         obj->describe = "Opened in " + MonthNames[bm] + ", Year "
                             + std::to_string(by)
-                            + ". Ancient and unstable — such rifts rarely endure more than"
+                            + ". Ancient and unstable - such rifts rarely endure more than"
                             " a dozen turns, and will seal sooner if the guardian within is slain.";
                         break;
                     }

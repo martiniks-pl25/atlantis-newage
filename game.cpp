@@ -442,15 +442,6 @@ int Game::OpenGame()
         }
         gVersion = MAKE_ATL_VER(ATL_VER_MAJOR(gVersion), ATL_VER_MINOR(Globals->RULESET_VERSION), 0);
     }
-    if (ATL_VER_PATCH(gVersion) < ATL_VER_PATCH(Globals->RULESET_VERSION)) {
-        logger::write("Upgrading to " + ATL_VER_STRING(Globals->RULESET_VERSION));
-        if (!upgrade_patch_level(gVersion)) {
-            logger::write("Unable to upgrade!  Aborting!");
-            return(0);
-        }
-        gVersion = MAKE_ATL_VER(ATL_VER_MAJOR(gVersion), ATL_VER_MINOR(gVersion), ATL_VER_PATCH(Globals->RULESET_VERSION));
-    }
-
     f >> year;
     f >> month;
 
@@ -478,6 +469,17 @@ int Game::OpenGame()
         Faction *temp = new Faction;
         temp->Readin(f, eVersion);
         factions.push_back(temp);
+    }
+
+    // Patch-level upgrade runs after factions are loaded so deliver_balance_patch
+    // can iterate factions and push skill/item descriptions into their show queues.
+    if (ATL_VER_PATCH(gVersion) < ATL_VER_PATCH(Globals->RULESET_VERSION)) {
+        logger::write("Upgrading to " + ATL_VER_STRING(Globals->RULESET_VERSION));
+        if (!upgrade_patch_level(gVersion)) {
+            logger::write("Unable to upgrade!  Aborting!");
+            return(0);
+        }
+        gVersion = MAKE_ATL_VER(ATL_VER_MAJOR(gVersion), ATL_VER_MINOR(gVersion), ATL_VER_PATCH(Globals->RULESET_VERSION));
     }
 
     //
@@ -1899,7 +1901,8 @@ bool Game::upgrade_patch_level(int current_version)
     // Each entry: { patch_number, { skill enums }, { item enums } }
     // Factions that know the skill / have seen the item get updated descriptions.
     static const std::vector<PatchNotification> patches = {
-        { 1, { S_HEALING }, { I_HEALPOTION } },   // 8.1.0 → 8.1.1: heal balance rework
+        { 1, { S_HEALING }, {} },   // 8.1.0 → 8.1.1: heal balance rework (HPOT re-sent automatically via skill show)
+        { 2, {}, { I_BOUNTY } },    // 8.1.1 → 8.1.2: I_BOUNTY description added
     };
 
     int cur = ATL_VER_PATCH(current_version);
@@ -1914,8 +1917,8 @@ void Game::deliver_balance_patch(const PatchNotification& p)
 {
     for (auto fac : factions) {
         for (int sk : p.skills) {
-            int lvl = fac->skills.GetDays(sk);
-            if (lvl > 0)
+            int max_lvl = fac->skills.GetDays(sk);
+            for (int lvl = 1; lvl <= max_lvl; lvl++)
                 fac->shows.push_back({ .skill = sk, .level = lvl });
         }
         for (int it : p.items) {

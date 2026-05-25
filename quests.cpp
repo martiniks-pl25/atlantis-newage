@@ -153,15 +153,23 @@ int QuestList::check_kill_target(Unit *u, ItemList& spoils, std::string *quest_r
         // q->regionname holds the mayor's settlement name (set at quest creation).
         // Pre-5.2.8 saves resurfaced as constructor default "-" before migration ran;
         // treat that sentinel the same as empty so the text never reads "of -".
+        bool is_global = (q->subtype == Quest::GLOBAL_BOSS_HUNT);
         bool name_known = !q->regionname.empty() && q->regionname != "-";
         std::string settlement = name_known ? ("the mayor of " + q->regionname) : "the mayor";
         std::string token_str  = std::to_string(q->tokens) + " Bounty Token" +
                                  (q->tokens != 1 ? "s" : "");
-        *quest_rewards = "Bounty quest for " + settlement + " completed: +" + token_str + ".";
+        if (is_global) {
+            *quest_rewards = "Global bounty completed: +" + token_str
+                + ". Tokens may be redeemed at any Town Hall.";
+        } else {
+            *quest_rewards = "Bounty quest for " + settlement + " completed: +" + token_str + ".";
+        }
         if (out_unaware_msg) {
             // Surprise-discovery wording for factions that never read the notice board.
-            *out_unaware_msg = "Found a bounty notice on the slain creature — " +
-                               settlement + " will pay " + token_str + " for this deed.";
+            *out_unaware_msg = "Found a bounty notice on the slain creature - " +
+                               (is_global ? std::string("any mayor")
+                                          : settlement)
+                               + " will pay " + token_str + " for this deed.";
         }
         if (out_issuer_region) *out_issuer_region = q->issuer_region;
         if (out_quest_num)     *out_quest_num     = q->num;
