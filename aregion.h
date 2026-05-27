@@ -210,6 +210,7 @@ class ARegion
         int food_effective_amount(const Market* m) const;
         void PostTurn();
         void UpdateProducts();
+        void add_or_increase_product(int item, int amount);
         void SetWeather(int newWeather);
         int IsCoastal();
         int IsCoastalOrLakeside();

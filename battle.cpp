@@ -1169,8 +1169,9 @@ int Game::RunBattle(ARegion * r,Unit * attacker,Unit * target,int ass,
     if (hadCityGuards && guardForRep) {
         bool penalize = false;
 
-        // Check if attacked city guards directly
-        if (target->type == U_GUARD || target->type == U_GUARDMAGE) {
+        // Check if attacked city guards or civic NPCs directly
+        if (target->type == U_GUARD || target->type == U_GUARDMAGE ||
+            target->type == U_GUARDCOMMANDER || target->type == U_MAYOR) {
             penalize = true;
         }
         // Check if attacked player defended by guards (not monster)

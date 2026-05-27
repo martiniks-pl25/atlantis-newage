@@ -1008,8 +1008,13 @@ void Army::Lose(Battle *b, ItemList& spoils)
     }
     if (had_pirates) pirate_tmap_chance += 10;
     if (pirate_tmap_chance > 0 && rng::get_random(100) < pirate_tmap_chance) {
-        spoils.SetNum(I_TREASURE_MAP, spoils.GetNum(I_TREASURE_MAP) + 1);
-        b->AddLine("Searching the pirate vessel, the victors discover a weathered treasure map hidden below deck.");
+        if (rng::get_random(100) < 10) {
+            spoils.SetNum(I_TREASURE_MAP, spoils.GetNum(I_TREASURE_MAP) + 1);
+            b->AddLine("Searching the pirate vessel, the victors discover a weathered treasure map hidden below deck.");
+        } else {
+            spoils.SetNum(I_RESOURCE_MAP, spoils.GetNum(I_RESOURCE_MAP) + 1);
+            b->AddLine("Searching the pirate vessel, the victors discover ancient resource charts hidden among the cargo.");
+        }
     }
 }
 

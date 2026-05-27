@@ -1278,6 +1278,18 @@ std::string item_description(int item, int full)
                 " redeemed at the issuing mayor's hall; tokens from global bounties are accepted"
                 " at any Town Hall.";
             break;
+        case I_TREASURE_MAP:
+            temp += " A weathered pirate navigation chart. Use EXPLORE TMAP to spend a month"
+                " deciphering it and locate a hidden pirate hideout somewhere along the coast."
+                " (Not yet available — check back in a future update.)";
+            break;
+        case I_RESOURCE_MAP:
+            temp += " Ancient resource charts recovered from defeated pirate ships or dungeon"
+                " bosses. Use EXPLORE RMAP to spend a month studying them and permanently"
+                " increase production of one terrain-appropriate resource (or food) in the"
+                " current region by 1-2 units. The effect is permanent. Any unit may use this"
+                " item; no skill is required.";
+            break;
         default:
             break;
     }

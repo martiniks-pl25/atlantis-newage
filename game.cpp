@@ -1900,17 +1900,73 @@ bool Game::upgrade_patch_level(int current_version)
 {
     // Each entry: { patch_number, { skill enums }, { item enums } }
     // Factions that know the skill / have seen the item get updated descriptions.
+    // Patches 1–2: description-only, safe to apply immediately during ReadGame.
     static const std::vector<PatchNotification> patches = {
-        { 1, { S_HEALING }, {} },   // 8.1.0 → 8.1.1: heal balance rework (HPOT re-sent automatically via skill show)
+        { 1, { S_HEALING }, {} },   // 8.1.0 → 8.1.1: heal balance rework
         { 2, {}, { I_BOUNTY } },    // 8.1.1 → 8.1.2: I_BOUNTY description added
     };
 
     int cur = ATL_VER_PATCH(current_version);
+
     for (const auto& p : patches)
         if (cur < p.patch)
             deliver_balance_patch(p);
 
+    // Patch 3: item data migration (TMAP→RMAP + boss RMAP) must run at the END
+    // of the turn so that any GIVE TMAP orders in this turn still execute against
+    // the original item. The flag is checked in PostProcessTurn().
+    if (cur < 3)
+        pending_rmap_migration = true;
+
     return true;
+}
+
+// Convert every I_TREASURE_MAP held by any unit in the world to I_RESOURCE_MAP.
+// Also migrates faction knowledge: factions that knew TMAP now know RMAP.
+void Game::migrate_tmap_to_rmap()
+{
+    for (auto *r : regions) {
+        for (auto *obj : r->objects) {
+            for (auto *u : obj->units) {
+                int n = u->items.GetNum(I_TREASURE_MAP);
+                if (n <= 0) continue;
+                u->items.SetNum(I_TREASURE_MAP, 0);
+                u->items.SetNum(I_RESOURCE_MAP, u->items.GetNum(I_RESOURCE_MAP) + n);
+            }
+        }
+    }
+    // Migrate faction item-knowledge so DiscoverItem in deliver_balance_patch works.
+    for (auto *fac : factions) {
+        int known = fac->items.GetNum(I_TREASURE_MAP);
+        if (known <= 0) continue;
+        fac->items.SetNum(I_TREASURE_MAP, 0);
+        // Mark RMAP as discovered (full = 2) so the faction gets the new description.
+        if (fac->items.GetNum(I_RESOURCE_MAP) == 0)
+            fac->items.SetNum(I_RESOURCE_MAP, 2);
+    }
+    logger::write("Patch 3: TMAP → RMAP conversion complete.");
+}
+
+// Add 1 I_RESOURCE_MAP to every active dungeon boss unit that doesn't have one yet.
+void Game::migrate_dungeon_boss_rmap()
+{
+    int count = 0;
+    for (const auto &d : activeDungeons) {
+        if (d.boss_region_num < 0) continue;
+        ARegion *boss_r = regions.GetRegion(d.boss_region_num);
+        if (!boss_r) continue;
+        int kill_item = DungeonTypeDefs[(int)d.type].boss_kill_item;
+        for (auto *obj : boss_r->objects) {
+            for (auto *u : obj->units) {
+                if (u->items.GetNum(kill_item) > 0 &&
+                    u->items.GetNum(I_RESOURCE_MAP) == 0) {
+                    u->items.SetNum(I_RESOURCE_MAP, 1);
+                    count++;
+                }
+            }
+        }
+    }
+    logger::write("Patch 3: added RMAP to " + std::to_string(count) + " dungeon boss unit(s).");
 }
 
 void Game::deliver_balance_patch(const PatchNotification& p)
@@ -2843,24 +2899,39 @@ void Game::AdjustCityMons(ARegion *r)
                 has_mayor = true;
                 mayor_unit = u;
             }
+
+            if (u->type == U_MAYOR && u->GetMen() == 0) {
+                // Mayor killed in combat this turn — clean up their quests now.
+                std::vector<std::shared_ptr<Quest>> to_purge;
+                for (const auto& q : quests) {
+                    if (q->scope == Quest::SCOPE_LOCAL && q->issuer_unit == u->num)
+                        to_purge.push_back(q);
+                }
+                for (auto& q : to_purge) quests.erase_with_cleanup(q, &factions);
+            }
         }
     }
 
     bool player_on_guard = !guarding_player_facs.empty();
 
-    // Mayor presence rule: only HOSTILE attitude to a guarding player breaks it.
-    // UNFRIENDLY is a softer penalty handled at quest redemption (see plan §3.2/§3.4
-    // and §4.13). Rationale: when a player retakes one of their own cities by killing
-    // the city guard, guardfaction goes UNFRIENDLY; that should NOT cascade into mayors
-    // fleeing all of that player's other cities — only HOSTILE relations do.
-    bool mayor_attitude_ok = true;
+    // Two attitude thresholds for mayor logic:
+    // mayor_can_stay  — existing mayor flees only at HOSTILE (UNFRIENDLY is a soft
+    //                   penalty; the mayor stays but quest redemption is gated).
+    // mayor_can_spawn — new mayor requires NEUTRAL or better; UNFRIENDLY blocks spawn
+    //                   (e.g. attacker killed the previous mayor this very turn).
+    bool mayor_can_stay  = true;
+    bool mayor_can_spawn = true;
     if (player_on_guard) {
         Faction *gfac = GetFaction(factions, guardfaction);
         for (int fnum : guarding_player_facs) {
-            if (gfac->get_attitude(fnum) == AttitudeType::HOSTILE) {
-                mayor_attitude_ok = false;
+            AttitudeType att = gfac->get_attitude(fnum);
+            if (att == AttitudeType::HOSTILE) {
+                mayor_can_stay  = false;
+                mayor_can_spawn = false;
                 break;
             }
+            if (att == AttitudeType::UNFRIENDLY)
+                mayor_can_spawn = false;
         }
     }
 
@@ -2892,7 +2963,7 @@ void Game::AdjustCityMons(ARegion *r)
     if (has_mayor && mayor_unit) {
         bool mayor_in_hall = (mayor_unit->object && mayor_unit->object->type == O_TOWN_HALL);
         bool flee_by_guards = !mayor_in_hall && melee_men < melee_max * 50 / 100;
-        bool flee_by_attitude = !mayor_attitude_ok;
+        bool flee_by_attitude = !mayor_can_stay;
         if (flee_by_guards || flee_by_attitude) {
             mayor_unit->SetMen(I_LEADERS, 0);   // items disappear with unit
             // Erase all LOCAL quests issued by this mayor.
@@ -2959,7 +3030,7 @@ void Game::AdjustCityMons(ARegion *r)
     // Branch: empty completed hall → spawn into hall, no melee% gate.
     //         No hall → spawn in dummy, requires melee_men ≥ 75% × melee_max.
     bool someone_on_guard = has_melee || player_on_guard;
-    if (!has_mayor && someone_on_guard && mayor_attitude_ok) {
+    if (!has_mayor && someone_on_guard && mayor_can_spawn) {
         if (empty_hall) {
             CreateMayor(r, empty_hall);
         } else if (has_melee && melee_men >= melee_max * 75 / 100) {
@@ -2968,7 +3039,7 @@ void Game::AdjustCityMons(ARegion *r)
     }
 
     // --- Move existing mayor from dummy into a freshly-built Town Hall (plan §3.3) ---
-    if (has_mayor && mayor_unit && mayor_attitude_ok && empty_hall &&
+    if (has_mayor && mayor_unit && mayor_can_stay && empty_hall &&
         mayor_unit->object == r->GetDummy())
     {
         mayor_unit->MoveUnit(empty_hall);

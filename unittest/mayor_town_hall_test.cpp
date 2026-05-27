@@ -7,6 +7,7 @@ using json = nlohmann::json;
 #include "gamedata.h"
 #include "object.h"
 #include "unit.h"
+#include "quests.h"
 #include "testhelper.hpp"
 
 namespace ut = boost::ut;
@@ -335,9 +336,9 @@ ut::suite<"Mayor Town Hall"> mayor_town_hall_suite = [] {
         expect(find_mayor(r) != nullptr);
     };
 
-    "Mayor spawns into hall when guard faction is UNFRIENDLY to lone guarding player"_test = [] {
-        // No city guard, only an UNFRIENDLY player on GUARD: under new rule this
-        // is enough to spawn (HOSTILE alone blocks).
+    "Mayor does NOT spawn when guard faction is UNFRIENDLY to guarding player"_test = [] {
+        // UNFRIENDLY blocks spawn (e.g. attacker killed the previous mayor this turn).
+        // Only an existing mayor is allowed to stay at UNFRIENDLY — a new one cannot appear.
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
@@ -349,8 +350,7 @@ ut::suite<"Mayor Town Hall"> mayor_town_hall_suite = [] {
         clear_city_mons(r, helper);
 
         helper.create_building(r, nullptr, O_TOWN_HALL);
-        Object *hall = find_town_hall(r);
-        if (!hall) return;
+        if (!find_town_hall(r)) return;
 
         leader->guard = GUARD_GUARD;
         Faction *gfac = helper.get_faction(helper.get_guardfaction());
@@ -360,9 +360,7 @@ ut::suite<"Mayor Town Hall"> mayor_town_hall_suite = [] {
 
         helper.run_adjust_city_mons(r);
 
-        Unit *mayor = find_mayor(r);
-        expect(mayor != nullptr);
-        if (mayor) expect(mayor->object == hall);
+        expect(find_mayor(r) == nullptr);
     };
 
     "Mayor does NOT spawn when guard faction is HOSTILE to lone guarding player"_test = [] {
@@ -403,5 +401,45 @@ ut::suite<"Mayor Town Hall"> mayor_town_hall_suite = [] {
         helper.run_adjust_city_mons(r);
 
         expect(find_mayor(r) == nullptr);
+    };
+
+    "Mayor killed in combat has quests cleaned up by AdjustCityMons"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        Faction *f = helper.create_faction("Test Faction");
+        Unit *leader = helper.get_first_unit(f);
+        ARegion *r = leader->object->region;
+        if (!r->town) return;
+        clear_city_mons(r, helper);
+
+        helper.create_building(r, nullptr, O_TOWN_HALL);
+        Object *hall = find_town_hall(r);
+        if (!hall) return;
+
+        helper.spawn_mayor(r, hall);
+        Unit *mayor = find_mayor(r);
+        if (!mayor) return;
+
+        helper.run_generate_quests_for_mayor(r, mayor);
+        int mayor_num = mayor->num;
+
+        bool had_quests = false;
+        for (const auto& q : quests)
+            if (q->scope == Quest::SCOPE_LOCAL && q->issuer_unit == mayor_num)
+                had_quests = true;
+        expect(had_quests) << "mayor must have quests before test";
+
+        // Simulate combat kill: set men to 0 (unit stays in list until DeleteEmptyUnits)
+        mayor->SetMen(I_LEADERS, 0);
+
+        helper.run_adjust_city_mons(r);
+
+        bool quests_remain = false;
+        for (const auto& q : quests)
+            if (q->scope == Quest::SCOPE_LOCAL && q->issuer_unit == mayor_num)
+                quests_remain = true;
+        expect(!quests_remain) << "quests must be purged when combat-killed mayor found by AdjustCityMons";
     };
 };

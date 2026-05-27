@@ -1054,6 +1054,7 @@ void Game::RunMonthOrders()
         AddNewBuildings(r);
         RunBuildHelpers(r);
         RunProduceOrders(r);
+        RunExploreOrders(r);
     }
 }
 
@@ -2269,4 +2270,112 @@ done_moving:
     delete o;
     unit->monthorders = nullptr;
     return 0;
+}
+
+// Build weighted candidate pool for RMAP: terrain products + food.
+// Returns a vector of {item, weight} pairs; empty if region has no products.
+static std::vector<std::pair<int,int>> rmap_candidate_pool(ARegion *r)
+{
+    std::vector<std::pair<int,int>> pool;
+
+    // Nexus has no terrain products — RMAP unusable there.
+    if (r->type == R_NEXUS) return pool;
+
+    TerrainType *typer = &TerrainDefs[r->type];
+
+    // Terrain products from TerrainDefs.
+    for (unsigned int c = 0; c < sizeof(typer->prods)/sizeof(typer->prods[0]); c++) {
+        int item   = typer->prods[c].product;
+        int chance = typer->prods[c].chance;
+        if (item != -1 && chance > 0 &&
+            !(ItemDefs[item].flags & ItemType::DISABLED)) {
+            pool.push_back({item, chance});
+        }
+    }
+
+    // Food: if region has food production, add that food item to the pool.
+    // If the terrain can produce food but the region got none at world gen,
+    // offer grain (or fish for coastal) so RMAP can introduce it.
+    if (typer->economy > 0) {
+        int existing_food = -1;
+        for (const auto& prod : r->products) {
+            if (prod->itemtype == I_GRAIN    ||
+                prod->itemtype == I_LIVESTOCK ||
+                prod->itemtype == I_FISH) {
+                existing_food = prod->itemtype;
+                break;
+            }
+        }
+        if (existing_food != -1) {
+            pool.push_back({existing_food, 50});
+        } else {
+            // No food yet — offer grain/livestock each at weight 25 so RMAP
+            // can unlock the region's first food source.
+            if (!(ItemDefs[I_GRAIN].flags & ItemType::DISABLED))
+                pool.push_back({I_GRAIN, 25});
+            if (!(ItemDefs[I_LIVESTOCK].flags & ItemType::DISABLED))
+                pool.push_back({I_LIVESTOCK, 25});
+        }
+    }
+
+    return pool;
+}
+
+void Game::RunExploreOrders(ARegion *r)
+{
+    for (const auto obj : r->objects) {
+        for (const auto u : obj->units) {
+            if (!u->monthorders || u->monthorders->type != O_EXPLORE) continue;
+
+            ExploreOrder *o = static_cast<ExploreOrder *>(u->monthorders);
+
+            if (o->mapitem == I_RESOURCE_MAP) {
+                // Consume the RMAP.
+                if (u->items.GetNum(I_RESOURCE_MAP) < 1) {
+                    u->error("EXPLORE: No resource map to use.");
+                    delete u->monthorders;
+                    u->monthorders = nullptr;
+                    continue;
+                }
+                u->items.SetNum(I_RESOURCE_MAP,
+                    u->items.GetNum(I_RESOURCE_MAP) - 1);
+
+                auto pool = rmap_candidate_pool(r);
+                if (pool.empty()) {
+                    u->error("EXPLORE: This region has no terrain resources to chart.");
+                    delete u->monthorders;
+                    u->monthorders = nullptr;
+                    continue;
+                }
+
+                // Weighted random selection.
+                int total_weight = 0;
+                for (const auto& [item, w] : pool) total_weight += w;
+                int roll = rng::get_random(total_weight);
+                int chosen = pool[0].first;
+                int acc = 0;
+                for (const auto& [item, w] : pool) {
+                    acc += w;
+                    if (roll < acc) { chosen = item; break; }
+                }
+
+                int bonus = 1 + rng::get_random(2);  // 1d2
+                r->add_or_increase_product(chosen, bonus);
+
+                u->event("Studying the ancient charts, " +
+                    u->name + " discovers new " +
+                    item_string(chosen, 2, ALWAYSPLURAL) +
+                    " deposits in " + r->short_print() +
+                    ", adding to the region's production.", "explore");
+
+            } else if (o->mapitem == I_TREASURE_MAP) {
+                // TMAP — not yet implemented; map is not consumed.
+                u->error("EXPLORE: Treasure map exploration is not yet available.");
+            }
+
+            delete u->monthorders;
+            u->monthorders = nullptr;
+
+        }
+    }
 }

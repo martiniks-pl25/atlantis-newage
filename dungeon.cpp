@@ -307,6 +307,7 @@ void Game::populate_dungeon(const DungeonInstance &d)
             boss->MoveUnit(r->GetDummy());
             boss->free = 0;  // Elder: full loot immediately
             boss->UpdateMonsterDescription();
+            boss->items.SetNum(I_RESOURCE_MAP, 1);  // guaranteed drop via IT_ALWAYS_SPOIL
 
         } else {
             // Wander unit (corridor or entry room).
@@ -460,7 +461,7 @@ void Game::try_spawn_dungeon()
         const auto &td_spawn = DungeonTypeDefs[(int)d.type];
         std::string spawn_msg = std::string("A ") + td_spawn.entrance_name
             + " has opened in " + surface_r->name
-            + ". Ancient darkness stirs — venture within while you still can.";
+            + ". Ancient darkness stirs -- venture within while you still can.";
         for (auto *fac : factions) {
             if (surface_r->Present(fac) || GetFarsight(surface_r->farsees, fac))
                 fac->event(spawn_msg, "dungeon", surface_r);
@@ -684,7 +685,7 @@ void Game::ProcessDungeons()
             std::string msg = "The " + dname + " is collapsing! "
                 + std::to_string(turns_left) + " turn"
                 + (turns_left != 1 ? "s" : "")
-                + " remaining — find the Exit to escape.";
+                + " remaining -- find the Exit to escape.";
             std::unordered_set<int> notified;
             for (int rnum : d.room_nums) {
                 ARegion *r = regions.GetRegion(rnum);

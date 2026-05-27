@@ -2483,6 +2483,19 @@ std::vector<ItemType> ItemDefs =
      -1,0, 0,
      0, NULL, 0,
      "", { "", "", "", "" }, 0, 0},
+    // I_RESOURCE_MAP — ancient resource charts found on defeated pirate ships.
+    // EXPLORE RMAP consumes the map and permanently adds 1d2 units to one
+    // terrain-appropriate resource (or food) in the current region.
+    {"resource map","resource maps","RMAP",
+     ItemType::NOMARKET,
+     NULL,0,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
+     NULL,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
+     1, IT_SPECIAL|IT_ALWAYS_SPOIL, 20,0,
+     0,0,0,0,0,
+     -1,0,
+     -1,0, 0,
+     0, NULL, 0,
+     "", { "", "", "", "" }, 0, 0},
 };
 
 //

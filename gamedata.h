@@ -255,8 +255,9 @@ enum {
     I_PIRATE_BOSUN,     // PBOS — pirate fleet bosun, bosun_whistle special
     I_COMPASS,          // COMP — captain's compass; future: SAILING skill bonus
     I_BOSUN_WHISTLE,    // BWHI — bosun's whistle; future: IT_BATTLE demoralize for players
-    I_TREASURE_MAP,     // TMAP — found on wrecked pirate ships; future: quest trigger
+    I_TREASURE_MAP,     // TMAP — found on wrecked pirate ships; EXPLORE TMAP → pirate hideout
     I_BOUNTY,           // BNTY — quest reward token (step 3 / quests system)
+    I_RESOURCE_MAP,     // RMAP — ancient resource charts; EXPLORE RMAP → add production to region
     NITEMS
 };
 

@@ -595,6 +595,9 @@ void Game::ProcessOrder(int order, Unit *unit, parser::string_parser& parser, or
         case O_QUEST:
             ProcessQuestOrder(unit, parser, checker);
             break;
+        case O_EXPLORE:
+            ProcessExploreOrder(unit, parser, checker);
+            break;
     }
 }
 
@@ -1553,7 +1556,7 @@ void Game::ProcessBuildOrder(Unit *unit, parser::string_parser& parser, orders_c
         if (ObjectDefs[order->new_building].item != I_WOOD_OR_STONE) {
             parse_error(checker, unit, 0,
                 "BUILD: " + ObjectDefs[order->new_building].name +
-                " does not use wood or stone — material preference ignored.");
+                " does not use wood or stone -- material preference ignored.");
             order->preferred_material = -1;
         }
     }
@@ -2997,5 +3000,42 @@ void Game::ProcessCreateOrder(Unit *unit, parser::string_parser& parser, orders_
     CreateOrder *order = new CreateOrder;
     order->settlementType = settlementType;
     order->name = name;  // empty = auto-generate at execution time
+    unit->monthorders = order;
+}
+
+// EXPLORE RMAP  — use resource map in current region (month-long)
+// EXPLORE TMAP  — use treasure map to find pirate hideout (month-long)
+// EXPLORE       — error: item argument required
+void Game::ProcessExploreOrder(Unit *unit, parser::string_parser& parser, orders_check *checker)
+{
+    auto tok = parser.get_token();
+    if (!tok) {
+        parse_error(checker, unit, 0, "EXPLORE: Specify RMAP or TMAP.");
+        return;
+    }
+
+    int mapitem = -1;
+    if (tok == "rmap") {
+        mapitem = I_RESOURCE_MAP;
+    } else if (tok == "tmap") {
+        mapitem = I_TREASURE_MAP;
+    } else {
+        parse_error(checker, unit, 0,
+            "EXPLORE: Unknown map type '" + tok.get_string() + "'. Use RMAP or TMAP.");
+        return;
+    }
+
+    bool monthtaxing = (Globals->TAX_PILLAGE_MONTH_LONG &&
+                        (unit->taxing == TAX_TAX || unit->taxing == TAX_PILLAGE));
+    if (unit->monthorders || monthtaxing) {
+        if (unit->monthorders) delete unit->monthorders;
+        overwrite_month_warning("EXPLORE", unit, checker);
+    }
+    if (Globals->TAX_PILLAGE_MONTH_LONG) unit->taxing = TAX_NONE;
+
+    if (checker) return;
+
+    ExploreOrder *order = new ExploreOrder;
+    order->mapitem = mapitem;
     unit->monthorders = order;
 }

@@ -80,6 +80,7 @@ enum {
     O_WORK,
     O_CREATE,
     O_QUEST,    // redeem I_BOUNTY tokens at a Town Hall
+    O_EXPLORE,  // use a map item (RMAP/TMAP) in current region
     NORDERS
 };
 
@@ -119,7 +120,7 @@ class MoveDir {
 class MoveOrder : public Order {
   public:
     MoveOrder();
-    ~MoveOrder();
+    ~MoveOrder() override;
 
     int advancing;
     std::list<MoveDir *> dirs;
@@ -128,7 +129,7 @@ class MoveOrder : public Order {
 class WithdrawOrder : public Order {
   public:
     WithdrawOrder();
-    ~WithdrawOrder();
+    ~WithdrawOrder() override;
 
     int item;
     int amount;
@@ -137,7 +138,7 @@ class WithdrawOrder : public Order {
 class GiveOrder : public Order {
   public:
     GiveOrder();
-    ~GiveOrder();
+    ~GiveOrder() override;
 
     int item;
     /* if amount == -1, transfer whole unit, -2 means all of item */
@@ -152,7 +153,7 @@ class GiveOrder : public Order {
 class StudyOrder : public Order {
   public:
     StudyOrder();
-    ~StudyOrder();
+    ~StudyOrder() override;
 
     int skill;
     int days;
@@ -162,7 +163,7 @@ class StudyOrder : public Order {
 class TeachOrder : public Order {
   public:
     TeachOrder();
-    ~TeachOrder();
+    ~TeachOrder() override;
 
     std::list<UnitId *> targets;
 };
@@ -170,7 +171,7 @@ class TeachOrder : public Order {
 class ProduceOrder : public Order {
   public:
     ProduceOrder();
-    ~ProduceOrder();
+    ~ProduceOrder() override;
 
     int item;
     int skill; /* -1 for none */
@@ -181,7 +182,7 @@ class ProduceOrder : public Order {
 class BuyOrder : public Order {
   public:
     BuyOrder();
-    ~BuyOrder();
+    ~BuyOrder() override;
 
     int item;
     int num;
@@ -191,7 +192,7 @@ class BuyOrder : public Order {
 class SellOrder : public Order {
   public:
     SellOrder();
-    ~SellOrder();
+    ~SellOrder() override;
 
     int item;
     int num;
@@ -201,7 +202,7 @@ class SellOrder : public Order {
 class AttackOrder : public Order {
   public:
     AttackOrder();
-    ~AttackOrder();
+    ~AttackOrder() override;
 
     std::list<UnitId *> targets;
 };
@@ -209,7 +210,7 @@ class AttackOrder : public Order {
 class BuildOrder : public Order {
   public:
     BuildOrder();
-    ~BuildOrder();
+    ~BuildOrder() override;
 
     UnitId *target;
     int new_building;
@@ -221,7 +222,7 @@ class BuildOrder : public Order {
 class SailOrder : public Order {
   public:
     SailOrder();
-    ~SailOrder();
+    ~SailOrder() override;
 
     std::list<MoveDir *> dirs;
 };
@@ -229,7 +230,7 @@ class SailOrder : public Order {
 class FindOrder : public Order {
   public:
     FindOrder();
-    ~FindOrder();
+    ~FindOrder() override;
 
     int find;
 };
@@ -237,7 +238,7 @@ class FindOrder : public Order {
 class StealthOrder : public Order {
   public:
     StealthOrder();
-    ~StealthOrder();
+    ~StealthOrder() override;
 
     UnitId *target;
 };
@@ -245,7 +246,7 @@ class StealthOrder : public Order {
 class StealOrder : public StealthOrder {
   public:
     StealOrder();
-    ~StealOrder();
+    ~StealOrder() override;
 
     int item;
 };
@@ -253,13 +254,13 @@ class StealOrder : public StealthOrder {
 class AssassinateOrder : public StealthOrder {
   public:
     AssassinateOrder();
-    ~AssassinateOrder();
+    ~AssassinateOrder() override;
 };
 
 class ForgetOrder : public Order {
   public:
     ForgetOrder();
-    ~ForgetOrder();
+    ~ForgetOrder() override;
 
     int skill;
 };
@@ -268,7 +269,7 @@ class ForgetOrder : public Order {
 class ExchangeOrder : public Order {
   public:
     ExchangeOrder();
-    ~ExchangeOrder();
+    ~ExchangeOrder() override;
 
     int giveItem;
     int giveAmount;
@@ -283,7 +284,7 @@ class ExchangeOrder : public Order {
 class TurnOrder : public Order {
   public:
     TurnOrder();
-    ~TurnOrder();
+    ~TurnOrder() override;
     bool repeating;
     std::vector<std::string> turnOrders;
 };
@@ -291,7 +292,7 @@ class TurnOrder : public Order {
 class CastOrder : public Order {
   public:
     CastOrder();
-    ~CastOrder();
+    ~CastOrder() override;
 
     int spell;
     int level;
@@ -300,7 +301,7 @@ class CastOrder : public Order {
 class CastMindOrder : public CastOrder {
   public:
     CastMindOrder();
-    ~CastMindOrder();
+    ~CastMindOrder() override;
 
     UnitId *id;
 };
@@ -308,7 +309,7 @@ class CastMindOrder : public CastOrder {
 class CastRegionOrder : public CastOrder {
   public:
     CastRegionOrder();
-    ~CastRegionOrder();
+    ~CastRegionOrder() override;
 
     int xloc, yloc, zloc;
 };
@@ -316,7 +317,7 @@ class CastRegionOrder : public CastOrder {
 class TeleportOrder : public CastRegionOrder {
   public:
     TeleportOrder();
-    ~TeleportOrder();
+    ~TeleportOrder() override;
 
     int gate;
     std::list<UnitId *> units;
@@ -325,7 +326,7 @@ class TeleportOrder : public CastRegionOrder {
 class CastIntOrder : public CastOrder {
   public:
     CastIntOrder();
-    ~CastIntOrder();
+    ~CastIntOrder() override;
 
     int target;
 };
@@ -333,7 +334,7 @@ class CastIntOrder : public CastOrder {
 class CastUnitsOrder : public CastOrder {
   public:
     CastUnitsOrder();
-    ~CastUnitsOrder();
+    ~CastUnitsOrder() override;
 
     std::list<UnitId *> units;
 };
@@ -341,7 +342,7 @@ class CastUnitsOrder : public CastOrder {
 class CastTransmuteOrder : public CastOrder {
   public:
     CastTransmuteOrder();
-    ~CastTransmuteOrder();
+    ~CastTransmuteOrder() override;
 
     int item;
     int number;
@@ -350,7 +351,7 @@ class CastTransmuteOrder : public CastOrder {
 class EvictOrder : public Order {
   public:
     EvictOrder();
-    ~EvictOrder();
+    ~EvictOrder() override;
 
     std::list<UnitId *> targets;
 };
@@ -358,13 +359,13 @@ class EvictOrder : public Order {
 class IdleOrder : public Order {
   public:
     IdleOrder();
-    ~IdleOrder();
+    ~IdleOrder() override;
 };
 
 class TransportOrder : public Order {
   public:
     TransportOrder();
-    ~TransportOrder();
+    ~TransportOrder() override;
 
     int item;
     // amount == -1 means all available at transport time
@@ -386,7 +387,7 @@ class TransportOrder : public Order {
 class JoinOrder : public Order {
   public:
     JoinOrder();
-    ~JoinOrder();
+    ~JoinOrder() override;
 
     UnitId *target;
     int overload;
@@ -396,7 +397,7 @@ class JoinOrder : public Order {
 class AnnihilateOrder : public Order {
   public:
     AnnihilateOrder();
-    ~AnnihilateOrder();
+    ~AnnihilateOrder() override;
 
     int xloc, yloc, zloc;
 };
@@ -404,7 +405,7 @@ class AnnihilateOrder : public Order {
 class SacrificeOrder : public Order {
   public:
     SacrificeOrder();
-    ~SacrificeOrder();
+    ~SacrificeOrder() override;
 
     int item;
     int amount;
@@ -413,7 +414,7 @@ class SacrificeOrder : public Order {
 class CreateOrder : public Order {
   public:
     CreateOrder();
-    ~CreateOrder();
+    ~CreateOrder() override;
 
     int settlementType; // TOWN_VILLAGE / TOWN_TOWN / TOWN_CITY
     std::string name;   // settlement name
@@ -422,7 +423,7 @@ class CreateOrder : public Order {
 class QuestOrder : public Order {
   public:
     QuestOrder();
-    ~QuestOrder();
+    ~QuestOrder() override;
 
     int amount = 1;  // tokens to turn in; default 1 (never "all")
 
@@ -432,6 +433,14 @@ class QuestOrder : public Order {
         CAT_EQUIPMENT = 2,  // weapon/armor sub-pool only
     };
     Category category = CAT_ANY;
+};
+
+class ExploreOrder : public Order {
+  public:
+    ExploreOrder();
+    ~ExploreOrder() override;
+
+    int mapitem = -1;  // I_RESOURCE_MAP or I_TREASURE_MAP
 };
 
 #endif // ORDERS_H

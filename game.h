@@ -209,6 +209,9 @@ public:
         std::vector<int> items;
     };
     void deliver_balance_patch(const PatchNotification& p);
+    void migrate_tmap_to_rmap();
+    void migrate_dungeon_boss_rmap();
+    bool pending_rmap_migration = false;
 
     // JLT
     // Functions to allow enabling/disabling parts of the data tables
@@ -447,6 +450,7 @@ public:
     void ProcessAnnihilateOrder(Unit *u, parser::string_parser& parser, orders_check *checker);
     void ProcessSacrificeOrder(Unit *u, parser::string_parser& parser, orders_check *checker);
     void ProcessQuestOrder(Unit *u, parser::string_parser& parser, orders_check *checker);
+    void ProcessExploreOrder(Unit *u, parser::string_parser& parser, orders_check *checker);
 
     void RemoveInactiveFactions();
 
@@ -641,7 +645,8 @@ public:
     void RunTransportPhase(TransportOrder::TransportPhase phase);
     void RunAnnihilateOrders();
     void RunSacrificeOrders();
-    void RunQuestOrders();  // redeem I_BOUNTY tokens at Town Halls
+    void RunQuestOrders();   // redeem I_BOUNTY tokens at Town Halls
+    void RunExploreOrders(ARegion *r); // process EXPLORE RMAP/TMAP in a region
     void CollectInterQMTransportItems();
     void CheckTransportOrders();
     std::list<Faction *>CanSeeSteal(ARegion *r, Unit *u);

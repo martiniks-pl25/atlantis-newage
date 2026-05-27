@@ -608,6 +608,7 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
     f << enclose("li", true) << url("#enter", "enter") << '\n' << enclose("li", false);
     if (!(SkillDefs[S_ENTERTAINMENT].flags & SkillType::DISABLED))
         f << enclose("li", true) << url("#entertain", "entertain") << '\n' << enclose("li", false);
+    f << enclose("li", true) << url("#explore", "explore") << '\n' << enclose("li", false);
     f << enclose("li", true) << url("#evict", "evict") << '\n' << enclose("li", false);
     f << enclose("li", true) << url("#exchange", "exchange") << '\n' << enclose("li", false);
     if (Globals->FACTION_LIMIT_TYPE == GameDefs::FACLIM_FACTION_TYPES)
@@ -4135,6 +4136,35 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
           << "ENTERTAIN\n"
           << example_end();
     }
+
+    f << enclose(class_tag("div", "rule"), true) << '\n' << enclose("div", false);
+    f << anchor("explore") << '\n';
+    f << enclose("h4", true) << "EXPLORE RMAP\n" << enclose("h4", false);
+    f << enclose("h4", true) << "EXPLORE TMAP\n" << enclose("h4", false);
+    f << enclose("p", true)
+      << "Spend the month studying a map item to gain a lasting benefit. "
+      << "The map is consumed when the order executes. Any unit may use this order; "
+      << "no skill is required.\n"
+      << enclose("p", false);
+    f << enclose("p", true) << enclose("b", true) << "EXPLORE RMAP" << enclose("b", false)
+      << " — Study an ancient resource map (RMAP). "
+      << "The unit examines the charts and discovers new resource deposits in the current region, "
+      << "permanently increasing the production of one terrain-appropriate resource "
+      << "(or existing food supply) by 1-2 units. "
+      << "The effect persists indefinitely and survives subsequent turns.\n"
+      << enclose("p", false);
+    f << enclose("p", true) << enclose("b", true) << "EXPLORE TMAP" << enclose("b", false)
+      << " — Decipher a treasure map (TMAP). "
+      << "Leads the unit to a hidden pirate hideout carved into coastal cliffs near the current region. "
+      << "(This feature is planned and will be available in a future update.)\n"
+      << enclose("p", false);
+    f << enclose("p", true) << "Examples:\n" << enclose("p", false);
+    f << example_start("Study a resource map to boost production in the current region.")
+      << "EXPLORE RMAP\n"
+      << example_end();
+    f << example_start("Use a treasure map to locate a pirate hideout.")
+      << "EXPLORE TMAP\n"
+      << example_end();
 
     f << enclose(class_tag("div", "rule"), true) << '\n' << enclose("div", false);
     f << anchor("evict") << '\n';

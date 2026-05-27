@@ -163,6 +163,7 @@ public:
     }
     // Dungeon test helpers
     void inject_dungeon(const DungeonInstance &d) { game.activeDungeons.push_back(d); }
+    void run_populate_dungeon(const DungeonInstance &d) { game.populate_dungeon(d); }
     int get_monfaction() { return game.monfaction; }
     size_t dungeon_count() { return game.activeDungeons.size(); }
     DungeonInstance get_dungeon(size_t idx) { return game.activeDungeons[idx]; }

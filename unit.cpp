@@ -56,6 +56,7 @@ Unit::Unit()
     castorders = nullptr;
     sacrificeorders = nullptr;
     questorders = nullptr;
+    exploreorders = nullptr;
     teleportorders = nullptr;
     joinorders = nullptr;
     inTurnBlock = 0;
@@ -102,6 +103,7 @@ Unit::Unit(int seq, Faction *f, int a)
     joinorders = nullptr;
     sacrificeorders = nullptr;
     questorders = nullptr;
+    exploreorders = nullptr;
     inTurnBlock = 0;
     presentTaxing = 0;
     presentMonthOrders = nullptr;
@@ -932,6 +934,8 @@ void Unit::ClearOrders()
     sacrificeorders = nullptr;
     if (questorders) delete questorders;
     questorders = nullptr;
+    if (exploreorders) delete exploreorders;
+    exploreorders = nullptr;
 }
 
 void Unit::ClearCastOrders()

@@ -72,6 +72,7 @@ const std::vector<std::string> OrderStrs = {
     "work",
     "create",
     "quest",
+    "explore",
 };
 
 
@@ -281,6 +282,9 @@ AnnihilateOrder::~AnnihilateOrder() {}
 
 QuestOrder::QuestOrder() { type = O_QUEST; amount = 1; category = CAT_ANY; }
 QuestOrder::~QuestOrder() {}
+
+ExploreOrder::ExploreOrder() { type = O_EXPLORE; mapitem = -1; }
+ExploreOrder::~ExploreOrder() {}
 
 SacrificeOrder::SacrificeOrder() { type = O_SACRIFICE; }
 

@@ -449,15 +449,15 @@ static const std::vector<std::string> hostile_templates = {
     "settlements are granted the right to defend themselves against their forces.",
 
     "A dark proclamation echoes through the city: {NAME} stands condemned by the "
-    "City Guard. Their presence in guarded settlements is forbidden — by sword if "
+    "City Guard. Their presence in guarded settlements is forbidden -- by sword if "
     "necessary. Any who strike them within our walls commit no crime.",
 
     "The drums of justice beat for {NAME}! Declared enemies of all guarded cities, "
     "they have forfeited their right to safety within our walls. The City Guard "
     "commands: drive them out, or cut them down.",
 
-    "By solemn decree: {NAME} is branded outlaw. City guards are authorized — nay, "
-    "commanded — to engage their forces within any settlement they patrol. "
+    "By solemn decree: {NAME} is branded outlaw. City guards are authorized -- nay, "
+    "commanded -- to engage their forces within any settlement they patrol. "
     "Let no gate offer them shelter.",
 
     "The realm speaks with one voice: {NAME} is exiled and condemned. They shall "
@@ -669,13 +669,13 @@ void VillageFoundedFact::GetEvents(std::list<Event> &events) {
 
 static const std::vector<std::string> dungeon_spawn_templates = {
     "Dark passages have opened near {REGION}. Strange creatures stir within.",
-    "Travelers near {REGION} speak of {DUNGEON} — dark corridors, foul sounds, and the stench of death.",
+    "Travelers near {REGION} speak of {DUNGEON} -- dark corridors, foul sounds, and the stench of death.",
     "A {DUNGEON} has appeared near {REGION}. None who entered have returned to tell the tale.",
     "Adventurers near {REGION} report the discovery of {DUNGEON}. Proceed with caution.",
 };
 
 static const std::vector<std::string> dungeon_boss_killed_templates = {
-    "The ground shakes near {REGION} — the master of {DUNGEON} has fallen.",
+    "The ground shakes near {REGION} -- the master of {DUNGEON} has fallen.",
     "Distant tremors near {REGION}: {DUNGEON} shudders as its guardian breathes its last.",
     "Something powerful died beneath {REGION}. {DUNGEON} grows unstable.",
     "{DUNGEON} near {REGION} trembles violently. Its guardian has been slain.",
@@ -690,7 +690,7 @@ static const std::vector<std::string> dungeon_collapsing_templates = {
 
 static const std::vector<std::string> dungeon_decaying_templates = {
     "{DUNGEON} near {REGION} has stood unchallenged for too long. The entrance seals itself.",
-    "The passage to {DUNGEON} near {REGION} collapses — its time has passed.",
+    "The passage to {DUNGEON} near {REGION} collapses -- its time has passed.",
     "{DUNGEON} near {REGION} begins to crumble. Those inside must flee before it is too late.",
     "Age claims {DUNGEON} near {REGION}. The entrance crumbles shut.",
 };
@@ -757,7 +757,7 @@ void QuestCompletedFact::GetEvents(std::list<Event> &events) {
             score = 55;
             break;
         case Quest::GLOBAL_BOSS_HUNT:
-            text = "Justice is served — " + target_name + " has been slain and their bounty claimed.";
+            text = "Justice is served -- " + target_name + " has been slain and their bounty claimed.";
             score = 75;
             break;
         case Quest::LOCAL_BUILD_ROAD:
