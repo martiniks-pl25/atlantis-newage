@@ -46,3 +46,6 @@ scripts/
 CLAUDE.md
 GEMINI.md
 QUICK_REFERENCE.md
+
+# Claude Code local state
+.claude/
