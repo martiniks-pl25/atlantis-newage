@@ -5,6 +5,7 @@
 #include "object.h"
 #include "events.h"
 #include "quests.h"
+#include "namegen.h"
 #include "logger.hpp"
 #include "rng.hpp"
 
@@ -62,6 +63,20 @@ const std::vector<DungeonTypeDef> DungeonTypeDefs = {
         0, 25,   // turn 1: 0%;   turn 50+: 25%
         12,      // dying_turns (+2): DFS/large — up to 14 rooms deep
         12       // max_lifetime_turns
+    },
+    {   // DUNGEON_PIRATE_HIDEOUT — triggered by EXPLORE TMAP; never auto-spawns (weight=0)
+        // Coastal cave carved into cliff faces; narrow corridors (DFS), few dead ends.
+        // Custom population via populate_pirate_hideout() — two units in boss room
+        // (pirates in front, King+officers FLAG_BEHIND).
+        "Sea Cave", "Hidden Cove Entrance",
+        6, 9,
+        { {I_PIRATES,40,50}, {I_PIRATE_BOSUN,1,2} }, "Pirates",
+        { {I_PIRATES,80,100} }, "Admiral",
+        I_PIRATE_KING,
+        DungeonGenStyle::DFS_CORRIDOR, 15,
+        0, 0,    // never auto-spawns
+        5,       // dying_turns: pirates evacuate quickly
+        8        // max_lifetime_turns
     },
 };
 
@@ -840,5 +855,240 @@ void Game::read_dungeons(std::istream &f)
     }
 
     f >> kw;  // consume "END_DUNGEONS"
+}
+
+// ---------------------------------------------------------------------------
+// Game::find_pirate_hideout_spot
+// BFS from origin; returns a coastal surface region at distance 2–4 that has
+// no town and no existing dungeon entrance within 4 hexes. Returns nullptr if
+// no suitable spot is found.
+// ---------------------------------------------------------------------------
+ARegion* Game::find_pirate_hideout_spot(ARegion* origin)
+{
+    ARegionArray *surface =
+        regions.get_first_region_array_of_type(ARegionArray::LEVEL_SURFACE);
+    if (!surface) return nullptr;
+
+    // BFS up to distance 4.
+    std::unordered_map<int, int> dist;
+    std::queue<ARegion*> q;
+    dist[origin->num] = 0;
+    q.push(origin);
+    while (!q.empty()) {
+        ARegion *cur = q.front(); q.pop();
+        int d = dist[cur->num];
+        if (d >= 4) continue;
+        for (int dir = 0; dir < NDIRS; dir++) {
+            ARegion *nb = cur->neighbors[dir];
+            if (!nb) continue;
+            if (nb->level && nb->level->levelType != ARegionArray::LEVEL_SURFACE) continue;
+            if (!dist.count(nb->num)) {
+                dist[nb->num] = d + 1;
+                q.push(nb);
+            }
+        }
+    }
+
+    // Collect candidates: coastal, no town, distance 2–4, no dungeon nearby.
+    std::vector<ARegion*> candidates;
+    for (auto &[rnum, d] : dist) {
+        if (d < 2) continue;
+        ARegion *r = regions.GetRegion(rnum);
+        if (!r) continue;
+        if (r->type == R_OCEAN || r->type == R_LAKE) continue;
+        if (!r->IsCoastal()) continue;
+        if (r->town) continue;
+
+        bool too_close = false;
+        for (const auto &di : activeDungeons) {
+            if (di.entrance_object_num < 0) continue;
+            ARegion *existing = regions.GetRegion(di.surface_region_num);
+            if (!existing) continue;
+            if (regions.find_distance_between_regions(r, existing) < 4) {
+                too_close = true;
+                break;
+            }
+        }
+        if (!too_close) candidates.push_back(r);
+    }
+
+    if (candidates.empty()) return nullptr;
+    return candidates[rng::get_random((int)candidates.size())];
+}
+
+// ---------------------------------------------------------------------------
+// Game::populate_pirate_hideout
+// Custom population for DUNGEON_PIRATE_HIDEOUT.
+// Every named NPC (bosun, captain, king) is a separate unit with its own name,
+// matching the MakePirateFleet pattern. Crew units remain anonymous ("Pirates").
+// ---------------------------------------------------------------------------
+static Unit *make_pirate_mob(Game *g, Faction *mfac, ARegion *r,
+                              const char *unit_name, int item, int count,
+                              bool behind)
+{
+    Unit *u = g->GetNewUnit(mfac, 0);
+    u->MakeWMon(unit_name, item, count);
+    if (behind) u->SetFlag(FLAG_BEHIND, 1);
+    u->guard = GUARD_NONE;
+    u->free  = 0;
+    u->MoveUnit(r->GetDummy());
+    u->UpdateMonsterDescription();
+    return u;
+}
+
+static void populate_pirate_hideout_impl(Game *g, const DungeonInstance &d,
+                                          const std::string &king_name)
+{
+    Faction *mfac = GetFaction(g->factions, g->monfaction);
+
+    for (int rnum : d.room_nums) {
+        ARegion *r = g->regions.GetRegion(rnum);
+        if (!r) continue;
+
+        if (rnum == d.boss_region_num) {
+            // Front: heavy crew.
+            int pira = 80 + rng::get_random(21);  // 80–100
+            make_pirate_mob(g, mfac, r, "Pirates", I_PIRATES, pira, false);
+
+            // Behind: Dread Admiral (king).
+            make_pirate_mob(g, mfac, r, king_name.c_str(), I_PIRATE_KING, 1, true);
+
+            // Behind: 2–3 named bosuns.
+            int n_bos = 2 + rng::get_random(2);
+            for (int i = 0; i < n_bos; i++)
+                make_pirate_mob(g, mfac, r, getPirateName().c_str(), I_PIRATE_BOSUN, 1, true);
+
+            // Behind: 1–2 named captains.
+            int n_cap = 1 + rng::get_random(2);
+            for (int i = 0; i < n_cap; i++)
+                make_pirate_mob(g, mfac, r, getPirateName().c_str(), I_PIRATE_CAPTAIN, 1, true);
+
+        } else if (rnum == d.entry_region_num) {
+            // Entry room: light guard, no named officers.
+            int pira = 20 + rng::get_random(11);  // 20–30
+            make_pirate_mob(g, mfac, r, "Pirates", I_PIRATES, pira, false);
+
+        } else {
+            // Corridor room: crew + 1–2 named bosuns (each separate unit).
+            int pira = 40 + rng::get_random(11);  // 40–50
+            make_pirate_mob(g, mfac, r, "Pirates", I_PIRATES, pira, false);
+
+            int n_bos = 1 + rng::get_random(2);   // 1–2
+            for (int i = 0; i < n_bos; i++)
+                make_pirate_mob(g, mfac, r, getPirateName().c_str(), I_PIRATE_BOSUN, 1, true);
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Game::spawn_pirate_hideout
+// Called from RunExploreOrders() when a unit successfully uses EXPLORE TMAP.
+// Finds a coastal spot, generates a DUNGEON_PIRATE_HIDEOUT cell, populates it
+// with custom pirate composition (each named NPC is a separate unit), and
+// notifies only the discovering unit.
+// Returns true on success, false if no suitable spot was found (fallback).
+// ---------------------------------------------------------------------------
+bool Game::spawn_pirate_hideout(ARegion *origin, Unit *u)
+{
+    ARegionArray *da =
+        regions.get_first_region_array_of_type(ARegionArray::LEVEL_DUNGEON);
+    if (!da) return false;
+
+    ARegion *surface_r = find_pirate_hideout_spot(origin);
+    if (!surface_r) return false;
+
+    // Find a free dungeon cell.
+    int grid_x = da->x / dungeon::CELL_SIZE;
+    int grid_y = da->y / dungeon::CELL_SIZE;
+    std::unordered_set<int> occupied;
+    for (const auto &d : activeDungeons)
+        occupied.insert(d.cell_x * 1000 + d.cell_y);
+
+    std::vector<std::pair<int,int>> free_cells;
+    for (int cx = 0; cx < grid_x; cx++)
+        for (int cy = 0; cy < grid_y; cy++)
+            if (!occupied.count(cx * 1000 + cy))
+                free_cells.push_back({cx, cy});
+
+    if (free_cells.empty()) return false;
+
+    auto [cx, cy] = free_cells[rng::get_random((int)free_cells.size())];
+
+    DungeonInstance d;
+    d.id        = nextDungeonId++;
+    d.type      = DungeonType::DUNGEON_PIRATE_HIDEOUT;
+    d.state     = DungeonSlotState::ACTIVE;
+    d.phase_turn = 0;
+    d.spawn_turn = TurnNumber();
+    d.cell_x    = cx;
+    d.cell_y    = cy;
+    d.surface_region_num = surface_r->num;
+
+    generate_dungeon_cell(d);
+    if (d.room_nums.empty()) return false;
+
+    // Place entrance on surface (private — only discovering faction notified).
+    {
+        int ent_num = 1;
+        for (; ent_num < FLEET_NUM_START; ent_num++)
+            if (!surface_r->GetObject(ent_num)) break;
+        if (ent_num >= FLEET_NUM_START) return false;
+
+        Object *ent = new Object(surface_r);
+        ent->num       = ent_num;
+        ent->type      = O_DUNGEON_ENTRANCE;
+        ent->set_name("Hidden Cove Entrance of " + surface_r->name);
+        ent->incomplete = 0;
+        ent->inner      = d.entry_region_num;
+        {
+            int sy = (TurnNumber() - 1) / 12 + 1;
+            int sm = (TurnNumber() - 1) % 12;
+            ent->describe = "Discovered in " + MonthNames[sm] + ", Year "
+                + std::to_string(sy)
+                + ". A hidden pirate stronghold carved into the cliff face."
+                " The pirates will receive word and evacuate within 8 turns.";
+        }
+        surface_r->objects.push_back(ent);
+        d.entrance_object_num = ent->num;
+    }
+
+    // Place exit in entry room.
+    {
+        ARegion *entry_r = regions.GetRegion(d.entry_region_num);
+        if (entry_r) {
+            int ex_num = 1;
+            for (; ex_num < FLEET_NUM_START; ex_num++)
+                if (!entry_r->GetObject(ex_num)) break;
+            if (ex_num < FLEET_NUM_START) {
+                Object *ex = new Object(entry_r);
+                ex->num       = ex_num;
+                ex->type      = O_DUNGEON_ENTRANCE;
+                ex->set_name("Exit");
+                ex->incomplete = 0;
+                ex->inner      = surface_r->num;
+                entry_r->objects.push_back(ex);
+                d.exit_object_num = ex_num;
+            }
+        }
+    }
+
+    // Generate boss name and populate.
+    std::string king_name = "Dread Admiral " + getPirateName();
+    populate_pirate_hideout_impl(this, d, king_name);
+
+    activeDungeons.push_back(d);
+
+    // Notify only the discovering unit (not gazette — competitive advantage).
+    u->event("Deciphering the salt-stained charts, " + u->name +
+        " locates a hidden pirate stronghold near " + surface_r->short_print() +
+        ". The entrance is concealed in the cliff face — " + king_name +
+        " commands within. The pirates will receive word and evacuate soon.",
+        "explore");
+
+    logger::write("Pirate Hideout #" + std::to_string(d.id) +
+        " spawned at region " + std::to_string(surface_r->num) +
+        " (" + surface_r->name + "), boss: " + king_name +
+        ", " + std::to_string((int)d.room_nums.size()) + " rooms.");
+    return true;
 }
 

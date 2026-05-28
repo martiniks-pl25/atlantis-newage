@@ -2369,8 +2369,55 @@ void Game::RunExploreOrders(ARegion *r)
                     ", adding to the region's production.", "explore");
 
             } else if (o->mapitem == I_TREASURE_MAP) {
-                // TMAP — not yet implemented; map is not consumed.
-                u->error("EXPLORE: Treasure map exploration is not yet available.");
+                if (u->items.GetNum(I_TREASURE_MAP) < 1) {
+                    u->error("EXPLORE: No treasure map to use.");
+                    delete u->monthorders;
+                    u->monthorders = nullptr;
+                    continue;
+                }
+
+                // Compass doubles the base 25% success chance to 50%.
+                bool has_compass = (u->items.GetNum(I_COMPASS) > 0);
+                int chance = has_compass ? 50 : 25;
+                bool success = (rng::get_random(100) < chance);
+
+                if (success) {
+                    u->items.SetNum(I_TREASURE_MAP,
+                        u->items.GetNum(I_TREASURE_MAP) - 1);
+                    bool found = spawn_pirate_hideout(r, u);
+                    if (!found) {
+                        // No suitable coastal spot within range — map used up, no reward.
+                        if (r->IsCoastal()) {
+                            u->event(u->name + " spends the month following the treasure map's"
+                                " bearings, but finds no trace of the hidden cove — the pirates"
+                                " may have abandoned this hideout. The worn charts fall apart"
+                                " in the attempt.",
+                                "explore");
+                        } else {
+                            u->event(u->name + " studies the treasure map but the charts"
+                                " describe a coastal hideout that lies beyond reach from here."
+                                " Move closer to the sea before attempting to use this map.",
+                                "explore");
+                            // Map not consumed — return it so unit can try from the coast.
+                            u->items.SetNum(I_TREASURE_MAP,
+                                u->items.GetNum(I_TREASURE_MAP) + 1);
+                        }
+                    }
+                } else {
+                    // Failed to decipher. 50% chance map is destroyed.
+                    if (rng::get_random(2) == 0) {
+                        u->items.SetNum(I_TREASURE_MAP,
+                            u->items.GetNum(I_TREASURE_MAP) - 1);
+                        u->event(u->name + " failed to decipher the treasure map "
+                            "and the salt-stained charts fell apart in the attempt.",
+                            "explore");
+                    } else {
+                        u->event(u->name + " failed to decipher the treasure map "
+                            "this month" +
+                            std::string(has_compass ? "" : " (a compass might help)") +
+                            ".", "explore");
+                    }
+                }
             }
 
             delete u->monthorders;

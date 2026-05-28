@@ -15,13 +15,13 @@ void unit_stat_control::Clear(UnitStat& us) {
     us.attackStats.clear();
 }
 
-AttackStat* unit_stat_control::FindStat(UnitStat& us, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect) {
+AttackStat* unit_stat_control::FindStat(UnitStat& us, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect, int attackType) {
     for (auto &stat : us.attackStats) {
         std::string effectName = effect == std::nullopt
             ? ""
             : effect->get().specialname;
 
-        if (stat.weaponIndex == weaponIndex && stat.effect == effectName) {
+        if (stat.weaponIndex == weaponIndex && stat.effect == effectName && stat.attackType == attackType) {
             return &stat;
         }
     }
@@ -30,7 +30,7 @@ AttackStat* unit_stat_control::FindStat(UnitStat& us, int weaponIndex, std::opti
 }
 
 void unit_stat_control::TrackSoldier(UnitStat& us, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect, int attackType, int weaponClass) {
-    AttackStat* s = unit_stat_control::FindStat(us, weaponIndex, effect);
+    AttackStat* s = unit_stat_control::FindStat(us, weaponIndex, effect, attackType);
     if (s == NULL) {
         AttackStat stat;
         if (effect != std::nullopt) {
@@ -49,51 +49,51 @@ void unit_stat_control::TrackSoldier(UnitStat& us, int weaponIndex, std::optiona
     s->soldiers++;
 }
 
-void unit_stat_control::RecordAttack(UnitStat& us, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect) {
-    AttackStat* s = unit_stat_control::FindStat(us, weaponIndex, effect);
+void unit_stat_control::RecordAttack(UnitStat& us, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect, int attackType) {
+    AttackStat* s = unit_stat_control::FindStat(us, weaponIndex, effect, attackType);
     assert(s != NULL);
 
     s->attacks++;
 }
 
-void unit_stat_control::RecordAttackFailed(UnitStat& us, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect) {
-    AttackStat* s = unit_stat_control::FindStat(us, weaponIndex, effect);
+void unit_stat_control::RecordAttackFailed(UnitStat& us, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect, int attackType) {
+    AttackStat* s = unit_stat_control::FindStat(us, weaponIndex, effect, attackType);
     assert(s != NULL);
 
     s->failed++;
 }
 
-void unit_stat_control::RecordAttackMissed(UnitStat& us, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect) {
-    AttackStat* s = unit_stat_control::FindStat(us, weaponIndex, effect);
+void unit_stat_control::RecordAttackMissed(UnitStat& us, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect, int attackType) {
+    AttackStat* s = unit_stat_control::FindStat(us, weaponIndex, effect, attackType);
     assert(s != NULL);
 
     s->missed++;
 }
 
-void unit_stat_control::RecordAttackBlocked(UnitStat& us, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect) {
-    AttackStat* s = unit_stat_control::FindStat(us, weaponIndex, effect);
+void unit_stat_control::RecordAttackBlocked(UnitStat& us, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect, int attackType) {
+    AttackStat* s = unit_stat_control::FindStat(us, weaponIndex, effect, attackType);
     assert(s != NULL);
 
     s->blocked++;
 }
 
-void unit_stat_control::RecordStun(UnitStat& us, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect) {
-    AttackStat* s = unit_stat_control::FindStat(us, weaponIndex, effect);
+void unit_stat_control::RecordStun(UnitStat& us, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect, int attackType) {
+    AttackStat* s = unit_stat_control::FindStat(us, weaponIndex, effect, attackType);
     assert(s != NULL);
 
     s->stunned++;
 }
 
-void unit_stat_control::RecordHit(UnitStat& us, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect, int damage) {
-    AttackStat* s = unit_stat_control::FindStat(us, weaponIndex, effect);
+void unit_stat_control::RecordHit(UnitStat& us, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect, int attackType, int damage) {
+    AttackStat* s = unit_stat_control::FindStat(us, weaponIndex, effect, attackType);
     assert(s != NULL);
 
     s->hit++;
     s->damage += damage;
 }
 
-void unit_stat_control::RecordKill(UnitStat& us, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect) {
-    AttackStat* s = unit_stat_control::FindStat(us, weaponIndex, effect);
+void unit_stat_control::RecordKill(UnitStat& us, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect, int attackType) {
+    AttackStat* s = unit_stat_control::FindStat(us, weaponIndex, effect, attackType);
     assert(s != NULL);
 
     s->killed++;
@@ -121,39 +121,39 @@ void ArmyStats::TrackSoldier(int unitNumber, int weaponIndex, std::optional<std:
     unit_stat_control::TrackSoldier(battleStats[unitNumber], weaponIndex, effect, attackType, weaponClass);
 }
 
-void ArmyStats::RecordAttack(int unitNumber, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect) {
-    unit_stat_control::RecordAttack(roundStats[unitNumber],  weaponIndex, effect);
-    unit_stat_control::RecordAttack(battleStats[unitNumber], weaponIndex, effect);
+void ArmyStats::RecordAttack(int unitNumber, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect, int attackType) {
+    unit_stat_control::RecordAttack(roundStats[unitNumber],  weaponIndex, effect, attackType);
+    unit_stat_control::RecordAttack(battleStats[unitNumber], weaponIndex, effect, attackType);
 }
 
-void ArmyStats::RecordAttackFailed(int unitNumber, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect) {
-    unit_stat_control::RecordAttackFailed(roundStats[unitNumber],  weaponIndex, effect);
-    unit_stat_control::RecordAttackFailed(battleStats[unitNumber], weaponIndex, effect);
+void ArmyStats::RecordAttackFailed(int unitNumber, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect, int attackType) {
+    unit_stat_control::RecordAttackFailed(roundStats[unitNumber],  weaponIndex, effect, attackType);
+    unit_stat_control::RecordAttackFailed(battleStats[unitNumber], weaponIndex, effect, attackType);
 }
 
-void ArmyStats::RecordAttackMissed(int unitNumber, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect) {
-    unit_stat_control::RecordAttackMissed(roundStats[unitNumber],  weaponIndex, effect);
-    unit_stat_control::RecordAttackMissed(battleStats[unitNumber], weaponIndex, effect);
+void ArmyStats::RecordAttackMissed(int unitNumber, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect, int attackType) {
+    unit_stat_control::RecordAttackMissed(roundStats[unitNumber],  weaponIndex, effect, attackType);
+    unit_stat_control::RecordAttackMissed(battleStats[unitNumber], weaponIndex, effect, attackType);
 }
 
-void ArmyStats::RecordAttackBlocked(int unitNumber, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect) {
-    unit_stat_control::RecordAttackBlocked(roundStats[unitNumber],  weaponIndex, effect);
-    unit_stat_control::RecordAttackBlocked(battleStats[unitNumber], weaponIndex, effect);
+void ArmyStats::RecordAttackBlocked(int unitNumber, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect, int attackType) {
+    unit_stat_control::RecordAttackBlocked(roundStats[unitNumber],  weaponIndex, effect, attackType);
+    unit_stat_control::RecordAttackBlocked(battleStats[unitNumber], weaponIndex, effect, attackType);
 }
 
-void ArmyStats::RecordStun(int unitNumber, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect) {
-    unit_stat_control::RecordStun(roundStats[unitNumber],  weaponIndex, effect);
-    unit_stat_control::RecordStun(battleStats[unitNumber], weaponIndex, effect);
+void ArmyStats::RecordStun(int unitNumber, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect, int attackType) {
+    unit_stat_control::RecordStun(roundStats[unitNumber],  weaponIndex, effect, attackType);
+    unit_stat_control::RecordStun(battleStats[unitNumber], weaponIndex, effect, attackType);
 }
 
-void ArmyStats::RecordHit(int unitNumber, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect, int damage) {
-    unit_stat_control::RecordHit(roundStats[unitNumber],  weaponIndex, effect, damage);
-    unit_stat_control::RecordHit(battleStats[unitNumber], weaponIndex, effect, damage);
+void ArmyStats::RecordHit(int unitNumber, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect, int attackType, int damage) {
+    unit_stat_control::RecordHit(roundStats[unitNumber],  weaponIndex, effect, attackType, damage);
+    unit_stat_control::RecordHit(battleStats[unitNumber], weaponIndex, effect, attackType, damage);
 }
 
-void ArmyStats::RecordKill(int unitNumber, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect) {
-    unit_stat_control::RecordKill(roundStats[unitNumber],  weaponIndex, effect);
-    unit_stat_control::RecordKill(battleStats[unitNumber], weaponIndex, effect);
+void ArmyStats::RecordKill(int unitNumber, int weaponIndex, std::optional<std::reference_wrapper<SpecialType>> effect, int attackType) {
+    unit_stat_control::RecordKill(roundStats[unitNumber],  weaponIndex, effect, attackType);
+    unit_stat_control::RecordKill(battleStats[unitNumber], weaponIndex, effect, attackType);
 }
 
 
@@ -1558,7 +1558,7 @@ int Army::DoAnAttack(Battle * b, char const *special, int numAttacks, int attack
 
         /* 5. Attack soldier */
         if (attackType != NUM_ATTACK_TYPES) {
-            attackers->stats.RecordAttack(attacker->unit->num, weaponIndex, sp);
+            attackers->stats.RecordAttack(attacker->unit->num, weaponIndex, sp, attackType);
 
             if (!(flags & WeaponType::ALWAYSREADY)) {
                 int failchance = 2;
@@ -1567,7 +1567,7 @@ int Army::DoAnAttack(Battle * b, char const *special, int numAttacks, int attack
                 }
 
                 if (rng::get_random(failchance)) {
-                    attackers->stats.RecordAttackFailed(attacker->unit->num, weaponIndex, sp);
+                    attackers->stats.RecordAttackFailed(attacker->unit->num, weaponIndex, sp, attackType);
                     continue;
                 }
             }
@@ -1575,12 +1575,12 @@ int Army::DoAnAttack(Battle * b, char const *special, int numAttacks, int attack
             if (combat) {
                 /* 5.1 Add advanced tactics bonus */
                 if (!Hits(attackLevel + attackers->tactics_bonus, tlev + tactics_bonus)) {
-                    attackers->stats.RecordAttackMissed(attacker->unit->num, weaponIndex, sp);
+                    attackers->stats.RecordAttackMissed(attacker->unit->num, weaponIndex, sp, attackType);
                     continue;
                 }
             } else {
                 if (!Hits(attackLevel, tlev)) {
-                    attackers->stats.RecordAttackMissed(attacker->unit->num, weaponIndex, sp);
+                    attackers->stats.RecordAttackMissed(attacker->unit->num, weaponIndex, sp, attackType);
                     continue;
                 }
             }
@@ -1590,23 +1590,23 @@ int Army::DoAnAttack(Battle * b, char const *special, int numAttacks, int attack
         if (effect == NULL) {
             /* 7. Last chance... Check armor */
             if (tar->armor_protect(weaponClass)) {
-                attackers->stats.RecordAttackBlocked(attacker->unit->num, weaponIndex, sp);
+                attackers->stats.RecordAttackBlocked(attacker->unit->num, weaponIndex, sp, attackType);
                 // Stun on armor block: hammer hit absorbed by armor stuns non-monster targets
                 if ((flags & WeaponType::STUN_ON_ARMOR) &&
                     !(ItemDefs[tar->race].type & IT_MONSTER) &&
                     !tar->has_effect("stun")) {
                     tar->set_effect("stun");
-                    attackers->stats.RecordStun(attacker->unit->num, weaponIndex, sp);
+                    attackers->stats.RecordStun(attacker->unit->num, weaponIndex, sp, attackType);
                 }
                 continue;
             }
 
-            attackers->stats.RecordHit(attacker->unit->num, weaponIndex, sp, attackDamage);
+            attackers->stats.RecordHit(attacker->unit->num, weaponIndex, sp, attackType, attackDamage);
 
             /* 8. Seeya! */
             Kill(tarnum, attackDamage);
             if (tar->hits == 0) {
-                attackers->stats.RecordKill(attacker->unit->num, weaponIndex, sp);
+                attackers->stats.RecordKill(attacker->unit->num, weaponIndex, sp, attackType);
             }
 
             ret++;

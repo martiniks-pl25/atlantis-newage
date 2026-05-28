@@ -450,16 +450,20 @@ std::string show_special(const std::string& special, int level, int expandLevel,
     /* Now the damages */
     for (i = 0; i < 4; i++) {
         if (spd.damage[i].type == -1) continue;
-        temp += " This ability does between " + std::to_string(spd.damage[i].minnum) + " and ";
         val = spd.damage[i].value * 2;
         if (expandLevel) {
             if (spd.effectflags & SpecialType::FX_USE_LEV)
                 val *= level;
             val += spd.damage[i].minnum - 2;
         }
-        temp += std::to_string(val);
-        if (!expandLevel) {
-            temp += " times the skill level of the mage";
+        if (expandLevel && val == spd.damage[i].minnum) {
+            temp += " This ability does exactly " + std::to_string(val);
+        } else {
+            temp += " This ability does between " + std::to_string(spd.damage[i].minnum) + " and ";
+            temp += std::to_string(val);
+            if (!expandLevel) {
+                temp += " times the skill level of the mage";
+            }
         }
         temp += " " + attack_type(spd.damage[i].type) + " attacks and each " +
             attack_damage_description(spd.damage[i].hitDamage) + ".";
@@ -1278,10 +1282,19 @@ std::string item_description(int item, int full)
                 " redeemed at the issuing mayor's hall; tokens from global bounties are accepted"
                 " at any Town Hall.";
             break;
+        case I_COMPASS:
+            temp += " A finely balanced brass compass recovered from a pirate captain."
+                " When carried during EXPLORE TMAP, it doubles the chance of successfully"
+                " locating a hidden pirate hideout from a treasure map.";
+            break;
         case I_TREASURE_MAP:
-            temp += " A weathered pirate navigation chart. Use EXPLORE TMAP to spend a month"
-                " deciphering it and locate a hidden pirate hideout somewhere along the coast."
-                " (Not yet available — check back in a future update.)";
+            temp += " A weathered pirate navigation chart recovered from a defeated fleet."
+                " Use EXPLORE TMAP to spend a month deciphering it — the unit will attempt"
+                " to locate a hidden pirate hideout carved into coastal cliffs within a few"
+                " days' journey. Carrying a compass (COMP) doubles the chance of success."
+                " The map is consumed on a successful attempt."
+                " On failure, the salt-stained charts may fall apart."
+                " The unit must be near the coast — this map cannot be used deep inland.";
             break;
         case I_RESOURCE_MAP:
             temp += " Ancient resource charts recovered from defeated pirate ships or dungeon"

@@ -60,10 +60,11 @@ extern const std::vector<DungeonTypeDef> DungeonTypeDefs;
 // Dungeon lifecycle
 // ---------------------------------------------------------------------------
 enum class DungeonType {
-    DUNGEON_KOBOLD_WARRENS = 0,
-    DUNGEON_SKELETON_RUINS = 1,
-    DUNGEON_DEMON_PIT      = 2,
-    DUNGEON_DRAGON_LAIR    = 3,
+    DUNGEON_KOBOLD_WARRENS  = 0,
+    DUNGEON_SKELETON_RUINS  = 1,
+    DUNGEON_DEMON_PIT       = 2,
+    DUNGEON_DRAGON_LAIR     = 3,
+    DUNGEON_PIRATE_HIDEOUT  = 4,
 };
 
 enum class DungeonSlotState { FREE, ACTIVE, DYING, COLLAPSING };

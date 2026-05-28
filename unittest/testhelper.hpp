@@ -149,6 +149,20 @@ public:
             }
         }
     }
+    void run_steal_orders() { game.RunStealthOrders(); }
+    // Remove all NPC faction units from a specific region (guard + monster factions).
+    // Needed in steal/assassinate tests to prevent city guards or wandering monsters
+    // from appearing in CanSeeSteal seers and triggering unexpected succ=0.
+    void clear_npc_units_in_region(ARegion *r) {
+        for (auto o : r->objects) {
+            for (auto it = o->units.begin(); it != o->units.end(); ) {
+                if ((*it)->faction->is_npc)
+                    it = o->units.erase(it);
+                else
+                    ++it;
+            }
+        }
+    }
     void run_expire_local_quests()    { game.ExpireLocalQuests(); }
     void run_update_quest_awareness() { game.UpdateQuestAwareness(); }
     void run_quest_orders()           { game.RunQuestOrders(); }

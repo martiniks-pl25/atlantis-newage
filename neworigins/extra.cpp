@@ -1594,6 +1594,7 @@ void Game::ModifyTablesPerRuleset(void)
     modify_monster_threat("PIRA",  20,  25);  // Pirates        (default: num=20, hostile=50%)
     modify_monster_threat("PCAP",  1,   30);  // Pirate Captain (default: num=1,  hostile=50%)
     modify_monster_threat("PBOS",  1,   30);  // Pirate Bosun   (default: num=1,  hostile=50%)
+    modify_monster_threat("PKIN",  1,  100);  // Pirate King    — always attacks
     modify_monster_threat("KRAK",  1,   50);  // Kraken
     modify_monster_threat("MERF",  100, 30);  // Merfolk
     modify_monster_threat("ELEM",  7,   35);  // Living Water

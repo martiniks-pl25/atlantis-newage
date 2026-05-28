@@ -2233,7 +2233,9 @@ static const std::vector<std::string> aPirateEpithet = {
     "the Bold", "the Cunning", "the Swift",
     // Romantic/poetic
     "the Wanderer", "the Forsaken", "the Lost", "of the Deep", "Dawnbreaker",
-    "Starsailor", "the Dreamer", "Wavesong", "the Forgotten", "Tidecaller"
+    "Starsailor", "the Dreamer", "Wavesong", "the Forgotten", "Tidecaller",
+    // Kraken-bound (Pirate King pool)
+    "Krakenbound", "the Drowned", "Stormborn"
 };
 
 /**

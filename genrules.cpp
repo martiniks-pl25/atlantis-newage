@@ -4155,8 +4155,12 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
       << enclose("p", false);
     f << enclose("p", true) << enclose("b", true) << "EXPLORE TMAP" << enclose("b", false)
       << " — Decipher a treasure map (TMAP). "
-      << "Leads the unit to a hidden pirate hideout carved into coastal cliffs near the current region. "
-      << "(This feature is planned and will be available in a future update.)\n"
+      << "The unit spends the month following the charts to locate a hidden pirate hideout"
+      << " carved into coastal cliffs within a few hexes of the current region."
+      << " Carrying a compass (COMP) doubles the chance of success."
+      << " The map is consumed on a successful attempt."
+      << " On failure, the salt-stained charts may fall apart."
+      << " The unit must be near the coast — this order has no effect deep inland.\n"
       << enclose("p", false);
     f << enclose("p", true) << "Examples:\n" << enclose("p", false);
     f << example_start("Study a resource map to boost production in the current region.")

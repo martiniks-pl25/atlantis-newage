@@ -153,6 +153,9 @@ std::string Unit::GetMonsterDisplayName()
 
     // === Special categories (check by item type, not name) ===
 
+    // Pirate King — name already fully set by MakeWMon ("Dread Admiral <name>"); no prefix.
+    if (items.GetNum(I_PIRATE_KING) > 0) return base_name;
+
     // Pirate bosses: rank prefix changes with age (free 3→0)
     if (items.GetNum(I_PIRATE_CAPTAIN) > 0) {
         if (free >= 3)      prefix = "Corsair ";
@@ -249,6 +252,13 @@ void Unit::UpdateMonsterDescription()
     else                loot_info = "Full treasure trove.";
 
     // Category-specific descriptions (check by item type, not name)
+
+    // Pirate King — unique boss; description reflects the Kraken lore.
+    if (items.GetNum(I_PIRATE_KING) > 0) {
+        describe = "The Dread Admiral — a legendary pirate warlord whose soul is bound to a slain Kraken. "
+                   "Commands the hideout from behind a wall of loyal crew. Full treasure trove.";
+        return;
+    }
 
     // Pirate bosses: thematic rank descriptions
     if (items.GetNum(I_PIRATE_CAPTAIN) > 0) {
@@ -1099,7 +1109,8 @@ void Unit::DefaultOrders(Object *obj)
             // Priority 1 (radius 1): neighbors that are sea or coastal
             // Priority 2 (radius 2): neighbors that have a sea/coastal neighbor
             // Priority 3 (fallback): any reachable neighbor (creature is truly deep inland)
-            bool isLost = isCoastalOnly && !isCoastalOrSea(r);
+            // R_DUNGEON rooms are never coastal; skip escape mode so pirates stay put inside hideouts.
+            bool isLost = isCoastalOnly && !isCoastalOrSea(r) && r->type != R_DUNGEON;
             if (isLost) {
                 // Priority 1: direct coastal/sea neighbors (2x weight)
                 for (i = 0; i < NDIRS; i++) {

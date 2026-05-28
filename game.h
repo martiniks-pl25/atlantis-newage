@@ -558,6 +558,8 @@ public:
     ARegion* find_entrance_spot();
     void generate_dungeon_cell(DungeonInstance &d);
     void populate_dungeon(const DungeonInstance &d);
+    ARegion* find_pirate_hideout_spot(ARegion* origin);
+    bool spawn_pirate_hideout(ARegion* origin, Unit* u);
     void read_dungeons(std::istream &f);
     void write_dungeons(std::ostream &f);
 

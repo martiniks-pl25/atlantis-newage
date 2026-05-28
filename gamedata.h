@@ -258,6 +258,7 @@ enum {
     I_TREASURE_MAP,     // TMAP — found on wrecked pirate ships; EXPLORE TMAP → pirate hideout
     I_BOUNTY,           // BNTY — quest reward token (step 3 / quests system)
     I_RESOURCE_MAP,     // RMAP — ancient resource charts; EXPLORE RMAP → add production to region
+    I_PIRATE_KING,      // PKIN — Pirate King dungeon boss; soul of a Kraken within
     NITEMS
 };
 

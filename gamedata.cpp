@@ -2496,6 +2496,22 @@ std::vector<ItemType> ItemDefs =
      -1,0, 0,
      0, NULL, 0,
      "", { "", "", "", "" }, 0, 0},
+    // I_PIRATE_KING — Pirate Hideout dungeon boss.
+    // Spawned exclusively by spawn_pirate_hideout() via EXPLORE TMAP; never in open world.
+    // CANTGIVE/NOTRANSPORT: cannot be moved or traded.
+    // BEHIND_CAPABLE: the King commands from behind his crew (FLAG_BEHIND set at spawn).
+    // COASTAL_ONLY: cosmetic — the hideout is always placed on a coastal region.
+    // No DISABLED: enabled by default (spawned directly, not via monster tables).
+    {"pirate king","pirate kings","PKIN",
+     ItemType::CANTGIVE|ItemType::NOTRANSPORT|ItemType::BEHIND_CAPABLE|ItemType::COASTAL_ONLY,
+     NULL,0,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
+     NULL,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
+     10, IT_MONSTER, 100,1,
+     15,0,0,15,2,
+     -1,0,
+     -1,0, 0,
+     0, NULL, 0,
+     "", { "", "", "", "" }, 0, 0},
 };
 
 //
@@ -2815,6 +2831,12 @@ std::vector<MonType> MonDefs = {
      2,1,2,
      "bosun_whistle",2,
      600,IT_ADVANCED,50,1,"Pirate Bosun","PBOS",1,/*size*/2, {R_OCEAN},{R_MOUNTAIN,R_VOLCANO}},
+    // Pirate King — hideout boss; fires pistol volley + Kraken tornado spirit from behind
+    {7,{7,5,5,5,5,5},
+     50,50,0,
+     5,1,5,
+     "pistol_volley",5,
+     10000,IT_MAGIC,100,1,"Pirate King","PKIN",2,/*size*/2, {R_OCEAN},{R_MOUNTAIN,R_VOLCANO}},
     {6,{6,5,5,5,3,3},
      200,200,0,
      5,1,3,
@@ -2946,7 +2968,7 @@ std::vector<MonType> MonDefs = {
      0,30,0,
      0,0,0,
      "catapult strike", 6,
-     0,-1,0,0,"Catapult","CATP",0,/*size*/3, {}, {}},
+     0,-1,0,0,"Catapult","CATP",0,/*size*/4, {}, {}},
     {0,{4,1,1,1,0,4},
      0,100,0,
      0,0,0,
@@ -5660,6 +5682,21 @@ std::vector<SpecialType> SpecialDefs = {
       {-1, 0, 0, 0, 0, 0, 0},
       {-1, 0, 0, 0, 0, 0, 0}},
      "orders a broadside volley", "killing ", ""},
+    // SPECIAL_PISTOL_VOLLEY — Pirate King: 10 armor-piercing shots + Kraken tornado
+    {"pistol_volley", "a pistol volley and howling tornado",
+     0,
+     {-1, -1, -1, -1, -1},
+     {-1, -1, -1, -1, -1, -1, -1},
+     {NULL, NULL, NULL},
+     SpecialType::FX_DAMAGE,
+     {-1, -1, -1, -1},
+     {{-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}},
+     "a non-shield attack",
+     {{ATTACK_RANGED, 10, 1, WeaponType::ALWAYSREADY|WeaponType::RANGED, ARMORPIERCING, 0, 5},
+      {ATTACK_WEATHER, 2, 25, WeaponType::ALWAYSREADY|WeaponType::RANGED, MAGIC_WEATHER, 0, 1},
+      {-1, 0, 0, 0, 0, 0, 0},
+      {-1, 0, 0, 0, 0, 0, 0}},
+     "unleashes a pistol volley and summons a wild tornado", "killing ", ""},
     // SPECIAL_BOSUN_WHISTLE — pirate bosun demoralizes enemy troops
     {"bosun_whistle", "a bosun's whistle",
      SpecialType::HIT_EFFECTEXCEPT | SpecialType::HIT_NOMONSTER,

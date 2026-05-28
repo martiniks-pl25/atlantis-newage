@@ -312,6 +312,17 @@ void Game::Do1Steal(ARegion *r, Object *o, Unit *u)
         return;
     }
 
+    if (tar->faction == u->faction) {
+        u->error("STEAL: Cannot steal from your own units.");
+        return;
+    }
+
+    if (u->faction->get_attitude(tar->faction->num) == AttitudeType::ALLY
+        && u->faction->CanSee(r, tar) == 2) {
+        u->error("STEAL: Cannot steal from units of an allied faction.");
+        return;
+    }
+
     if (u->GetMen() != 1) {
         u->error("STEAL: Must be executed by a 1-man unit.");
         return;
