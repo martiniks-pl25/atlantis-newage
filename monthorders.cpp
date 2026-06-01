@@ -219,6 +219,41 @@ Location *Game::Do1SailOrder(ARegion *reg, Object *fleet, Unit *cap)
             if (newreg && newreg->weather != W_NORMAL && !newreg->clearskies) cost = 2;
         }
         if (x->dir == MOVE_PAUSE) { cost = 1; }
+
+        // Canal through-pass cost: charged ONLY when the canal is what enables the
+        // move (i.e. the exit would be blocked without it). An ordinary allowed exit
+        // from a canal region — sailing back the way it came, or turning to an
+        // adjacent ocean hex — keeps its normal cost; the canal must not slow down a
+        // move that was already legal. The extra cost applies only to the straight
+        // through-pass the canal makes possible. Stone canal = 2 (half speed),
+        // Mystic (rootstone, IT_ADVANCED) canal = 1. cost = max(weather, canal).
+        if (x->dir != MOVE_PAUSE && newreg &&
+            TerrainDefs[reg->type].similar_type != R_OCEAN &&
+            TerrainDefs[newreg->type].similar_type == R_OCEAN) {
+
+            // Would this exit be allowed WITHOUT a canal? (mirrors SailThroughCheck)
+            int d1 = (fleet->prevdir + 1) % NDIRS;
+            int d2 = (fleet->prevdir - 1 + NDIRS) % NDIRS;
+            bool allowed_without_canal =
+                (fleet->prevdir == -1) ||
+                (fleet->prevdir == x->dir) ||
+                (x->dir == d1 && reg->neighbors[d1] &&
+                    TerrainDefs[reg->neighbors[d1]->type].similar_type == R_OCEAN) ||
+                (x->dir == d2 && reg->neighbors[d2] &&
+                    TerrainDefs[reg->neighbors[d2]->type].similar_type == R_OCEAN);
+
+            if (!allowed_without_canal) {
+                int canal_cost = 0;
+                for (const auto o : reg->objects) {
+                    if (!(ObjectDefs[o->type].flags & ObjectType::CANAL)) continue;
+                    if (o->incomplete > 0) continue;
+                    int mat = ObjectDefs[o->type].item;
+                    int c = (mat >= 0 && (ItemDefs[mat].type & IT_ADVANCED)) ? 1 : 2;
+                    if (canal_cost == 0 || c < canal_cost) canal_cost = c;
+                }
+                if (canal_cost > cost) cost = canal_cost;
+            }
+        }
         // We probably shouldn't see terrain-based errors until
         // we accumulate enough movement points to get there
         if (fleet->movepoints < cost * Globals->MAX_SPEED) return 0;
@@ -736,6 +771,8 @@ void Game::AddNewBuildings(ARegion *r)
                                 autoName = getCaravanseraiName(r->race);
                             else if (obj->type == O_TOWN_HALL)
                                 autoName = getTownHallName(r->race);
+                            else if (obj->type == O_CANAL || obj->type == O_MCANAL)
+                                autoName = getCanalName();
                             else if (ot.productionAided != -1)
                                 autoName = getProductionBuildingName(obj->type, ot.productionAided, r->race);
                             else

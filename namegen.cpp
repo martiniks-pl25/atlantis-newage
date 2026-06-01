@@ -124,6 +124,9 @@ std::vector<std::string> aSufHumans = { "dare", "don", "field", "ford", "grove",
 std::vector<std::string> aPrefInn = { "Bent", "Black", "Blind", "Blue", "Bob's", "Joe's", "Broken", "Buxom", "Cat's", "Crow's", "Dirty", "Dragon", "Dragon's", "Drunken", "Diamond", "Eagle's", "Eastern", "Falcon's", "Fawning", "Fiend's", "Flaming", "Frosty", "Frozen", "Gilded", "Genie's", "Golden", "Golden", "Gray", "Green", "King's", "Licked", "Lion's", "Iron", "Mended", "Octopus", "Old", "Old", "Orc's", "Pink", "Pot", "Puking", "Queen's", "Red", "Ruby", "Delicate", "Sea", "Sexy", "Shining", "Silver", "Singing", "Steel", "Strange", "Thirsty", "Violet", "White", "Wild", "Yawing"};
 std::vector<std::string> aSufInn = { " Axe", " Anchor", " Barrel", " Basilisk", " Belly", " Blade", " Boar", " Breath", " Brew", " Claw", " Coin", " Delight", " Den", " Dragon", " Drum", " Dwarf", " Fist", " Flower", " Gem", " Gryphon", " Hand", " Head", " Hole", " Inn", " Lady", " Maiden", " Lantern", " Monk", " Mug", " Nest", " Orc", " Paradise", " Pearl", " Pig", " Pit", " Place", " Tavern", " Portal", " Ranger", " Rest", " Sailor", " Sleep", " Song", " Swan", " Swords", " Tree", " Unicorn", " Whale", " Wish", " Wizard", " Rain"};
 
+std::vector<std::string> aPrefCanal = { "King's", "Queen's", "Royal", "Storm", "Iron", "Dragon", "Sea", "Tide", "Salt", "Mariner's", "Grand", "Old", "Deep", "Silver", "Golden", "Misty", "Serpent's", "Kraken's", "Emerald", "Sapphire", "Moonlit", "Sunken", "Whispering", "Wandering", "Mistral", "Tempest", "Azure", "Coral", "Pearl", "Leviathan's", "Siren's", "Wyrm's", "Glimmer", "Shadowmere", "Frostgale", "Brine", "Squall", "Riptide", "Lorelei", "Galewind" };
+std::vector<std::string> aSufCanal = { "Cut", "Passage", "Channel", "Strait", "Reach", "Run", "Narrows", "Crossing", "Waterway", "Lane", "Gut", "Race", "Sound" };
+
 std::vector<std::string> aPrefFort = { "Mind ", "Iron ", "Dimension ", "Demonic ", "Blood ", "Mystery ", "Ancient ", "Doom ", "Black ", "Crimson ", "Blue ", "Eternal ", "Cursed ", "Ruined ", "Stone ", "Ethereal ", "Phantom ", "Forgotten ", "King's ", "Queen's ", "Royal ", "Fallen ", "Lost ", "Warrior's ", "Sorcerer's ", "Steel ", "Blademaster's ", "Screaming ", "Ice ", "Frozen ", "Dragon ", "Glorious ", "Infernal "};
 std::vector<std::string> aSufFort = {
     "Storm", "Fist", "Keep", "Rage", "Rose", "Residence", "Mansion", "Haven", "Gates",
@@ -884,6 +887,13 @@ std::string getInnName() {
     std::string second = getSuffix(aSufInn);
 
     return (first + second) | filter::capitalize;
+}
+
+std::string getCanalName() {
+    std::string first = rng::one_of(aPrefCanal);
+    std::string second = rng::one_of(aSufCanal);
+
+    return (first + " " + second) | filter::capitalize;
 }
 
 /**
@@ -1741,6 +1751,10 @@ std::string getObjectName(const int typeIndex, const ObjectType& type) {
 
         case O_INN:
             return getInnName();
+
+        case O_CANAL:
+        case O_MCANAL:
+            return getCanalName();
 
         case O_ISLE:
         case O_OCAVE:

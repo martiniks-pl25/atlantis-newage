@@ -1040,6 +1040,8 @@ void Game::ModifyTablesPerRuleset(void)
     EnableObject(O_OASIS);
     EnableObject(O_TRAPPINGHUT);
     EnableObject(O_TOWN_HALL);
+    EnableObject(O_CANAL);
+    EnableObject(O_MCANAL);
 
     DisableObject(O_GEMAPPRAISER);
     DisableObject(O_PALACE);

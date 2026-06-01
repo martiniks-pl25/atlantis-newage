@@ -476,6 +476,9 @@ enum {
     O_ACTIVE_MONOLITH,
     O_DUNGEON_ENTRANCE,
     O_TOWN_HALL,
+    // Canals — infrastructure that lets ships sail through a coastal isthmus.
+    O_CANAL,        // Stone canal: pass cost 2 (half speed)
+    O_MCANAL,       // Mystic (rootstone) canal: pass cost 1 (full speed)
     NOBJECTS
 };
 

@@ -33,6 +33,8 @@
 std::string getAbstractName();
 std::string getEthnicName(const Ethnicity etnos);
 std::string getInnName();
+// Canal names — themed after sea-passages / cuts, e.g. "Westgate Cut", "King's Passage"
+std::string getCanalName();
 std::string getFortressName(const ObjectType& type);
 std::string getObjectName(const int typeIndex, const ObjectType& type);
 std::string getRegionName(const Ethnicity etnos, const int type, const int size, const bool island);

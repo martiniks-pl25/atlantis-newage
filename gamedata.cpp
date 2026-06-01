@@ -4656,6 +4656,30 @@ std::vector<ObjectType> ObjectDefs = {
      5,1,2,
      -1,-1,
      {0,0,0,0,0,0}},
+    // Stone Canal — lets ships sail through a coastal isthmus at half speed (pass cost 2).
+    // Built in a coastal land region; bypasses PREVENT_SAIL_THROUGH directional restriction.
+    // No effect inland (region is still not IsCoastalOrLakeside).
+    {"Canal",
+     ObjectType::DISABLED | ObjectType::CANENTER | ObjectType::CANMODIFY |
+     ObjectType::ONE_PER_REGION | ObjectType::CANAL,
+     0,0,0,0,
+     I_STONE,300,"BUIL",4,
+     -1, -1, 0, -1, 0,
+     { -1, 0, -1, false },
+     0,0,0,
+     -1,-1,
+     {0,0,0,0,0,0}},
+    // Mystic Canal — premium rootstone waterway; sail through at full speed (pass cost 1).
+    {"Mystic Canal",
+     ObjectType::DISABLED | ObjectType::CANENTER | ObjectType::CANMODIFY |
+     ObjectType::ONE_PER_REGION | ObjectType::CANAL,
+     0,0,0,0,
+     I_ROOTSTONE,150,"BUIL",5,
+     -1, -1, 0, -1, 0,
+     { -1, 0, -1, false },
+     0,0,0,
+     -1,-1,
+     {0,0,0,0,0,0}},
 
 };
 

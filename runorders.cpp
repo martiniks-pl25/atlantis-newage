@@ -1260,6 +1260,8 @@ void Game::AutoNameBuildings()
                 newName = getCaravanseraiName(r->race);
             else if (o->type == O_TOWN_HALL)
                 newName = getTownHallName(r->race);
+            else if (o->type == O_CANAL || o->type == O_MCANAL)
+                newName = getCanalName();
             else if (ot.productionAided != -1)
                 newName = getProductionBuildingName(o->type, ot.productionAided, r->race);
             else

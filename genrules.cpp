@@ -2573,6 +2573,21 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
         f << enclose("table", false);
         f << enclose("center", false);
     }
+    if (!(ObjectDefs[O_CANAL].flags & ObjectType::DISABLED)) {
+        f << anchor("economy_canals") << '\n';
+        f << enclose("h3", true) << "Canals:\n" << enclose("h3", false);
+        f << enclose("p", true) << "A Canal is an infrastructure building that can be constructed in a "
+          << "coastal land region (one bordering at least one ocean hex). When a Canal is present, ships "
+          << "may sail through the region in any direction, bypassing the normal restriction that prevents "
+          << "sailing through an isthmus. Without a canal, a ship that enters a coastal land region may only "
+          << "sail back the way it came or turn to an adjacent ocean hex in the same sailing sequence.\n"
+          << enclose("p", false);
+        f << enclose("p", true) << "There are two grades of canal. A Canal of cut stone slows ships passing "
+          << "through it (the through-pass costs as much movement as sailing in bad weather). A Mystic Canal, "
+          << "engineered from rootstone, lets ships pass at full speed. Only one canal of a given grade may be "
+          << "built per region. A canal built in a non-coastal region has no effect on ship movement.\n"
+          << enclose("p", false);
+    }
     if (Globals->DECAY) {
         f << anchor("economy_builddecay") << '\n';
         f << enclose("h3", true) << "Building Decay:\n" << enclose("h3", false);

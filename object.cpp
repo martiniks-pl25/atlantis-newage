@@ -560,6 +560,14 @@ int Object::SailThroughCheck(int dir)
         if (dir == d2 && region->neighbors[d2] && TerrainDefs[region->neighbors[d2]->type].similar_type == R_OCEAN) {
             return 1;
         }
+
+        // A completed canal in this region lets the fleet sail through in any
+        // direction that leads to ocean, bypassing the isthmus restriction.
+        for (const auto o : region->objects) {
+            if ((ObjectDefs[o->type].flags & ObjectType::CANAL) && o->incomplete < 1) {
+                return 1;
+            }
+        }
     }
     return 0;
 }
@@ -725,6 +733,17 @@ std::string object_description(int obj)
                 " regardless of their Observation skill."
                 " Skills such as Observation, True Seeing and Mind Reading do not enhance this ability:"
                 " stealth units and invisible items will not be detected.";
+    }
+
+    if (o->flags & ObjectType::CANAL) {
+        temp += " This canal allows ships to sail through this coastal land region in any"
+                " direction, bypassing the isthmus restriction.";
+        bool fast = (o->item >= 0 && (ItemDefs[o->item].type & IT_ADVANCED));
+        if (fast)
+            temp += " Passage through a mystic canal costs 1 movement point.";
+        else
+            temp += " Passage through a stone canal costs 2 movement points.";
+        temp += " A canal built in a non-coastal region has no effect on ship movement.";
     }
 
     if (o->protect) {

@@ -41,6 +41,7 @@ class ObjectType {
             NOANNIHILATE = 0x800, // This object cannot be annihilated
             SETTLEMENT_ONLY = 0x1000, // Can only be constructed in regions with a settlement
             ONE_PER_REGION  = 0x2000, // Only one such object can exist per region (incomplete counts)
+            CANAL           = 0x4000, // Lets ships sail through this land region (SailThroughCheck bypass)
         };
         int flags;
 

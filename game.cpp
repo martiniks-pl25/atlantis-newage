@@ -1904,6 +1904,7 @@ bool Game::upgrade_patch_level(int current_version)
     static const std::vector<PatchNotification> patches = {
         { 1, { S_HEALING }, {} },   // 8.1.0 → 8.1.1: heal balance rework
         { 2, {}, { I_BOUNTY } },    // 8.1.1 → 8.1.2: I_BOUNTY description added
+        { 4, { S_BUILDING }, {} },  // 8.1.3 → 8.1.4: Canal/Mystic Canal object descriptions
     };
 
     int cur = ATL_VER_PATCH(current_version);
