@@ -5327,6 +5327,10 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
         f << enclose("li", true) << url("#sacrifice", "SACRIFICE") << " orders are processed.\n"
           << enclose("li", false);
     }
+    if (Globals->TOWNS_EXIST) {
+        f << enclose("li", true) << url("#quest", "QUEST") << " orders are processed.\n"
+          << enclose("li", false);
+    }
     f << enclose("li", true) << "Movement orders.\n";
     f << enclose("ul", true);
     f << enclose("li", true) << url("#advance", "ADVANCE") << (may_sail ? ", " : " and ") << url("#move", "MOVE")
@@ -5343,6 +5347,8 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
       << " orders (those that produce items from other items, such as using the weaponsmith skill to make swords out "
       << "of iron) are processed.\n" << enclose("li", false);
     f << enclose("li", true) << url("#build", "BUILD") << " orders are processed.\n" << enclose("li", false);
+    f << enclose("li", true) << url("#create_village", "CREATE") << " orders are processed.\n"
+      << enclose("li", false);
     f << enclose("li", true) << "Primary " << url("#produce", "PRODUCE")
       << " orders (those that produce items from region resources, such as using the mining skill to produce iron) "
       << "are processed.\n" << enclose("li", false);
@@ -5351,6 +5357,8 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
           << enclose("li", false);
     }
     f << enclose("li", true) << url("#work", "WORK") << " orders are processed.\n" << enclose("li", false);
+    f << enclose("li", true) << url("#explore", "EXPLORE") << " orders are processed.\n"
+      << enclose("li", false);
     f << enclose("ul", false);
     f << enclose("li", false);
     f << enclose("li", true) << "Teleportation spells are " << url("#cast", "CAST") << ".\n" << enclose("li", false);

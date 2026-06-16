@@ -2966,7 +2966,12 @@ void Game::AdjustCityMons(ARegion *r)
         bool flee_by_guards = !mayor_in_hall && melee_men < melee_max * 50 / 100;
         bool flee_by_attitude = !mayor_can_stay;
         if (flee_by_guards || flee_by_attitude) {
-            mayor_unit->SetMen(I_LEADERS, 0);   // items disappear with unit
+            mayor_unit->SetMen(I_LEADERS, 0);   // remove the mayor (men + skills)
+            // Mayor flees taking ALL his possessions with him — leave nothing
+            // behind. Otherwise ARegion::Kill() would hand his gear (mithril
+            // weapon/armor, shieldstone, etc.) to the first fellow guard unit
+            // in the region, leaking artifacts into the city guards.
+            for (auto i : mayor_unit->items) i->num = 0;
             // Erase all LOCAL quests issued by this mayor.
             // Faction debts are preserved — players keep their earned rewards.
             std::vector<std::shared_ptr<Quest>> to_purge;
@@ -3313,17 +3318,25 @@ void Game::AdjustCityMon(ARegion *r, Unit *u)
         int num = u->items.GetNum(i);
         if (num == 0) continue;
         if (ItemDefs[i].type & IT_MAN) mantype = i;
+        // Only standard rank-issued guard equipment occupies a slot, so the
+        // sync below (SetNum(..., men)) restores/replicates exactly what the
+        // guard is owed by town rank. Stray artifacts (e.g. a mayor's mithril
+        // weapon/armor or shieldstone) have tier 0 and are ignored — they are
+        // neither multiplied to men-count nor used as the unit's weapon/shield.
         if ((ItemDefs[i].type & IT_WEAPON)
+            && GetWeaponTier(i) > 0
             && (num > maxweapon)) {
             weapon = i;
             maxweapon = num;
         }
         if ((ItemDefs[i].type & IT_ARMOR)
+            && GetArmorTier(i) > 0
             && (num > maxarmor)) {
             armor = i;
             maxarmor = num;
         }
         if ((ItemDefs[i].type & IT_BATTLE)
+            && GetShieldTier(i) > 0
             && (num > maxshield)) {
             shield = i;
             maxshield = num;
@@ -3518,14 +3531,17 @@ void Game::AdjustCityMon(ARegion *r, Unit *u)
             u->SetSkill(S_OBSERVATION,10);
             if (Globals->START_CITY_TACTICS)
                 u->SetSkill(S_TACTICS, Globals->START_CITY_TACTICS);
-            if (Globals->START_CITY_GUARDS_PLATE)
-                u->items.SetNum(armor,men);
         } else {
             // Don't lower Observation - keep maximum level
             u->SetSkill(S_OBSERVATION, std::max(current_obs, towntype + 3));
-            if (armor != -1) {
-                u->items.SetNum(armor,men);
-            }
+        }
+        // Rank-issued kit is replicated to the current men count uniformly for
+        // weapon, armor and shield. START_CITY_GUARDS_PLATE governs which armor a
+        // start-city guard is owed (its tier via req_armor), not whether the count
+        // is maintained — gating the count-sync here previously left start-city
+        // archers' leather (and any non-plate armor) frozen while their weapon grew.
+        if (armor != -1) {
+            u->items.SetNum(armor,men);
         }
         if (weapon!= -1) {
             u->items.SetNum(weapon,men);

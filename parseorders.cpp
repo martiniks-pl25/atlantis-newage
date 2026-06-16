@@ -2841,8 +2841,9 @@ void Game::ProcessQuestOrder(Unit *unit, parser::string_parser& parser, orders_c
     QuestOrder *order = new QuestOrder;
     order->amount   = amt;
     order->category = cat;
-    if (unit->questorders) delete unit->questorders;
-    unit->questorders = order;
+    // Multiple QUEST orders per unit are allowed; each is a separate redemption
+    // (own amount and reward category), processed in order in RunQuestOrders.
+    unit->questorders.push_back(order);
 }
 
 void Game::ProcessSacrificeOrder(Unit *unit, parser::string_parser& parser, orders_check *checker)

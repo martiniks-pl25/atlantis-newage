@@ -442,4 +442,79 @@ ut::suite<"Mayor Town Hall"> mayor_town_hall_suite = [] {
                 quests_remain = true;
         expect(!quests_remain) << "quests must be purged when combat-killed mayor found by AdjustCityMons";
     };
+
+    "Fleeing mayor takes all gear — nothing leaks to the city guards"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        Faction *f = helper.create_faction("Test Faction");
+        Unit *leader = helper.get_first_unit(f);
+        ARegion *r = leader->object->region;
+        if (!r->town) return;
+        clear_city_mons(r, helper);
+
+        // A surviving ranged guard is the faction-mate that ARegion::Kill()
+        // would otherwise gift the fleeing mayor's gear to. Ranged guards do
+        // not count toward melee_men, so the mayor still flees (<50% melee).
+        Faction *gfac = helper.get_faction(helper.get_guardfaction());
+        Unit *archer = helper.create_unit(gfac, r);
+        archer->type = U_GUARD;
+        archer->SetMen(I_LEADERS, 20);
+        archer->SetFlag(FLAG_BEHIND, 1);
+
+        helper.spawn_mayor(r);
+        Unit *mayor = find_mayor(r);
+        if (!mayor) return;
+        mayor->items.SetNum(I_MSWORD, 1);
+        mayor->items.SetNum(I_MCHAIN, 1);
+        mayor->items.SetNum(I_SHIELDSTONE, 1);
+
+        // No melee guards → melee_men 0 < 50% → mayor flees.
+        helper.run_adjust_city_mons(r);
+
+        // Mayor fled empty-handed: men gone AND all gear gone.
+        expect(mayor->GetMen() == 0_i);
+        expect(mayor->items.GetNum(I_MSWORD) == 0_i);
+        expect(mayor->items.GetNum(I_MCHAIN) == 0_i);
+        expect(mayor->items.GetNum(I_SHIELDSTONE) == 0_i);
+
+        // The guard did NOT inherit the mayor's artifacts.
+        expect(archer->items.GetNum(I_MSWORD) == 0_i);
+        expect(archer->items.GetNum(I_MCHAIN) == 0_i);
+        expect(archer->items.GetNum(I_SHIELDSTONE) == 0_i);
+    };
+
+    "AdjustCityMon does not multiply a stray shieldstone on archers"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        Faction *f = helper.create_faction("Test Faction");
+        Unit *leader = helper.get_first_unit(f);
+        ARegion *r = leader->object->region;
+        if (!r->town) return;
+        clear_city_mons(r, helper);
+
+        // Ranged guard with a stray shieldstone (an IT_BATTLE artifact that is
+        // NOT rank-issued). It must stay at 1, not get scaled to men-count.
+        Faction *gfac = helper.get_faction(helper.get_guardfaction());
+        Unit *archer = helper.create_unit(gfac, r);
+        archer->type = U_GUARD;
+        archer->SetMen(I_LEADERS, 10);
+        archer->SetFlag(FLAG_BEHIND, 1);
+        archer->items.SetNum(I_LONGBOW, 10);
+        archer->items.SetNum(I_LEATHERARMOR, 10);
+        archer->items.SetNum(I_SHIELDSTONE, 1);
+
+        helper.run_adjust_city_mons(r);
+
+        int men = archer->GetMen();
+        expect(men > 0_i);
+        // Stray shieldstone left untouched (not multiplied to men-count).
+        expect(archer->items.GetNum(I_SHIELDSTONE) == 1_i);
+        // Rank-issued kit is synced to the (grown) men count.
+        expect(eq(archer->items.GetNum(I_LONGBOW), men));
+        expect(eq(archer->items.GetNum(I_LEATHERARMOR), men));
+    };
 };

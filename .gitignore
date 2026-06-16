@@ -49,3 +49,16 @@ QUICK_REFERENCE.md
 
 # Claude Code local state
 .claude/
+
+# Live game data and local artifacts (never publish: player messages, faction
+# reports, server credentials)
+gamedata/
+atlantis.db
+deploy-binary.sh
+download-reports.sh
+compile_test.sh
+.idea/
+tags
+*.log
+test_output.txt
+test_armor_battle

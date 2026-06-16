@@ -96,9 +96,9 @@ namespace dungeon {
 
     // Spawn control
     // MAX_ACTIVE is computed dynamically as total_cells/3 — see ProcessDungeons()
-    constexpr int MIN_DISTANCE       = 6;   // min hex-distance between surface entrances
-    constexpr int SPAWN_ATTEMPTS     = 5;   // spawn attempts per turn
-    constexpr int SPAWN_CHANCE       = 50;  // % chance per attempt
+    constexpr int MIN_DISTANCE       = 5;   // min hex-distance between surface entrances
+    constexpr int SPAWN_ATTEMPTS     = 10;   // spawn attempts per turn
+    constexpr int SPAWN_CHANCE       = 75;  // % chance per attempt
     constexpr int PLACEMENT_ATTEMPTS = 100; // random surface region tries per spawn
 
     // Monster aggression multiplier inside dungeons

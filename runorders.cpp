@@ -3708,98 +3708,110 @@ void Game::RunQuestOrders()
 
         for (const auto obj : r->objects) {
             for (const auto u : obj->units) {
-                QuestOrder *o = u->questorders;
-                if (o == nullptr) continue;
+                if (u->questorders.empty()) continue;
 
-                // Take ownership of the order pointer immediately so any early return
-                // doesn't leak it; defer actual deletion to the end of processing.
-                u->questorders = nullptr;
+                // Take ownership of the orders immediately so any early return
+                // doesn't leak them; defer actual deletion to the end of processing.
+                std::list<QuestOrder *> orders;
+                orders.swap(u->questorders);
 
-                int requested = o->amount;
-                if (!hall || !mayor) {
-                    u->error("QUEST: No active Town Hall with a mayor here.");
-                    delete o;
-                    continue;
-                }
-
-                // Stance gate at redemption — mayor must regard the redeemer as
-                // at least NEUTRAL.  HOSTILE or UNFRIENDLY refuses the trade but
-                // preserves the faction's debt at this hall.
-                if (mayor->GetAttitude(r, u) < AttitudeType::NEUTRAL) {
-                    u->error("QUEST: The mayor refuses to deal with you.");
-                    delete o;
-                    continue;
-                }
-
-                int tokens_in_unit = u->items.GetNum(I_BOUNTY);
-                if (tokens_in_unit <= 0) {
-                    u->error("QUEST: You carry no Bounty Tokens.");
-                    delete o;
-                    continue;
-                }
+                // Per-unit invariants are checked once and apply to every order:
+                // a missing Town Hall/mayor or a hostile mayor fails all of them.
+                bool hall_ok = (hall && mayor);
+                bool stance_ok = hall_ok &&
+                    mayor->GetAttitude(r, u) >= AttitudeType::NEUTRAL;
 
                 Faction *f = u->faction;
-                int local_debt  = f->quest_debts.count(r->num) ? f->quest_debts[r->num] : 0;
-                int global_debt = f->quest_debts.count(-1)     ? f->quest_debts[-1]     : 0;
-                int total_debt  = local_debt + global_debt;
-                if (total_debt <= 0) {
-                    u->error("QUEST: The mayor has no outstanding bounty for your faction.");
+
+                for (const auto o : orders) {
+                    int requested = o->amount;
+
+                    if (!hall_ok) {
+                        u->error("QUEST: No active Town Hall with a mayor here.");
+                        delete o;
+                        continue;
+                    }
+
+                    // Stance gate at redemption — mayor must regard the redeemer as
+                    // at least NEUTRAL.  HOSTILE or UNFRIENDLY refuses the trade but
+                    // preserves the faction's debt at this hall.
+                    if (!stance_ok) {
+                        u->error("QUEST: The mayor refuses to deal with you.");
+                        delete o;
+                        continue;
+                    }
+
+                    // Re-read tokens and debt for each order: earlier orders in this
+                    // unit's list may have already spent tokens / cleared debt.
+                    int tokens_in_unit = u->items.GetNum(I_BOUNTY);
+                    if (tokens_in_unit <= 0) {
+                        u->error("QUEST: You carry no Bounty Tokens.");
+                        delete o;
+                        continue;
+                    }
+
+                    int local_debt  = f->quest_debts.count(r->num) ? f->quest_debts[r->num] : 0;
+                    int global_debt = f->quest_debts.count(-1)     ? f->quest_debts[-1]     : 0;
+                    int total_debt  = local_debt + global_debt;
+                    if (total_debt <= 0) {
+                        u->error("QUEST: The mayor has no outstanding bounty for your faction.");
+                        delete o;
+                        continue;
+                    }
+
+                    // requested is always >= 1 (parser default); cap by available tokens and debt.
+                    int paid = std::min(requested, std::min(tokens_in_unit, total_debt));
+                    if (paid <= 0) {
+                        u->error("QUEST: Nothing to turn in.");
+                        delete o;
+                        continue;
+                    }
+
+                    // Decrement local debt first, GLOBAL pool second.
+                    int from_local  = std::min(paid, local_debt);
+                    int from_global = paid - from_local;
+                    if (from_local > 0) {
+                        int remaining = local_debt - from_local;
+                        if (remaining > 0) f->quest_debts[r->num] = remaining;
+                        else               f->quest_debts.erase(r->num);
+                    }
+                    if (from_global > 0) {
+                        int remaining = global_debt - from_global;
+                        if (remaining > 0) f->quest_debts[-1] = remaining;
+                        else               f->quest_debts.erase(-1);
+                    }
+                    u->items.SetNum(I_BOUNTY, tokens_in_unit - paid);
+
+                    // Issue reward item.
+                    Item reward = pick_quest_reward(o->category, paid);
+                    std::string reward_str;
+                    if (reward.type != -1) {
+                        u->items.SetNum(reward.type,
+                                        u->items.GetNum(reward.type) + reward.num);
+                        reward_str = "Receives: " +
+                                     item_string(reward.type, reward.num) + ".";
+                    } else {
+                        // Pool empty or all items exceed budget — shouldn't normally happen.
+                        reward_str = "No suitable reward found for this token count.";
+                    }
+
+                    // Faction event.
+                    std::string msg = "Turns in " + std::to_string(paid) +
+                                      " Bounty Token" + (paid == 1 ? "" : "s") +
+                                      " at the Town Hall of " + r->name + ". " +
+                                      reward_str;
+                    int remaining_local  = f->quest_debts.count(r->num) ? f->quest_debts[r->num] : 0;
+                    int remaining_global = f->quest_debts.count(-1)     ? f->quest_debts[-1]     : 0;
+                    if (remaining_local > 0 || remaining_global > 0) {
+                        msg += " Outstanding bounty: " +
+                               std::to_string(remaining_local) + " here";
+                        if (remaining_global > 0)
+                            msg += ", " + std::to_string(remaining_global) + " (any mayor)";
+                        msg += ".";
+                    }
+                    u->event(msg, "quest");
                     delete o;
-                    continue;
                 }
-
-                // requested is always >= 1 (parser default); cap by available tokens and debt.
-                int paid = std::min(requested, std::min(tokens_in_unit, total_debt));
-                if (paid <= 0) {
-                    u->error("QUEST: Nothing to turn in.");
-                    delete o;
-                    continue;
-                }
-
-                // Decrement local debt first, GLOBAL pool second.
-                int from_local  = std::min(paid, local_debt);
-                int from_global = paid - from_local;
-                if (from_local > 0) {
-                    int remaining = local_debt - from_local;
-                    if (remaining > 0) f->quest_debts[r->num] = remaining;
-                    else               f->quest_debts.erase(r->num);
-                }
-                if (from_global > 0) {
-                    int remaining = global_debt - from_global;
-                    if (remaining > 0) f->quest_debts[-1] = remaining;
-                    else               f->quest_debts.erase(-1);
-                }
-                u->items.SetNum(I_BOUNTY, tokens_in_unit - paid);
-
-                // Issue reward item.
-                Item reward = pick_quest_reward(o->category, paid);
-                std::string reward_str;
-                if (reward.type != -1) {
-                    u->items.SetNum(reward.type,
-                                    u->items.GetNum(reward.type) + reward.num);
-                    reward_str = "Receives: " +
-                                 item_string(reward.type, reward.num) + ".";
-                } else {
-                    // Pool empty or all items exceed budget — shouldn't normally happen.
-                    reward_str = "No suitable reward found for this token count.";
-                }
-
-                // Faction event.
-                std::string msg = "Turns in " + std::to_string(paid) +
-                                  " Bounty Token" + (paid == 1 ? "" : "s") +
-                                  " at the Town Hall of " + r->name + ". " +
-                                  reward_str;
-                int remaining_local  = f->quest_debts.count(r->num) ? f->quest_debts[r->num] : 0;
-                int remaining_global = f->quest_debts.count(-1)     ? f->quest_debts[-1]     : 0;
-                if (remaining_local > 0 || remaining_global > 0) {
-                    msg += " Outstanding bounty: " +
-                           std::to_string(remaining_local) + " here";
-                    if (remaining_global > 0)
-                        msg += ", " + std::to_string(remaining_global) + " (any mayor)";
-                    msg += ".";
-                }
-                u->event(msg, "quest");
-                delete o;
             }
         }
     }

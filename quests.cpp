@@ -84,11 +84,10 @@ static int read_quests_v527(QuestList& list, std::istream& f, ATL_VER engine_ver
         f >> q->target;
         f >> q->regionnum;
         f >> q->building;
-        // Migrate old encoding: dungeon quests stored DungeonType index (0..N-1).
-        // New encoding uses -(index+1) to avoid collision with ObjectDefs indices (0..N-1).
-        if (q->subtype == Quest::LOCAL_LAIR_CLEAR && q->building >= 0 &&
-            q->building < static_cast<int>(DungeonTypeDefs.size()))
-            q->building = -(q->building + 1);
+        // Do NOT add a building-encoding migration here. Dungeon LOCAL_LAIR_CLEAR
+        // quests always use the -(index+1) encoding, so a positive `building` is
+        // never a dungeon index — it's an ObjectDefs index (e.g. O_FLEET=1). A past
+        // migration that flipped positive values mis-fired on pirate-fleet lair quests.
         // regionname persisted since 5.2.8; older saves leave the constructor default "-",
         // which Game::ReadGame migrates from issuer_region after both regions and quests load.
         if (engine_version >= MAKE_ATL_VER(5, 2, 8))

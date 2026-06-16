@@ -270,7 +270,7 @@ class Unit {
         AttackOrder *attackorders;
         EvictOrder *evictorders;
         SacrificeOrder *sacrificeorders;
-        QuestOrder *questorders;   // QUEST order pending for this turn
+        std::list<QuestOrder *> questorders;   // QUEST orders pending for this turn (multiple allowed)
         ExploreOrder *exploreorders; // EXPLORE order pending for this turn
         std::list<AnnihilateOrder *>annihilateorders;
         ARegion *advancefrom;

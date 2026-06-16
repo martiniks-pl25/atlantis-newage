@@ -52,12 +52,12 @@ void give_tokens_and_debt(Unit *u, ARegion *r, int tokens) {
 }
 
 // Issue a QUEST order on unit with given amount and category.
+// Appends to the unit's order list (multiple QUEST orders per unit are allowed).
 void issue_quest_order(Unit *u, int amount, QuestOrder::Category cat = QuestOrder::CAT_ANY) {
-    if (u->questorders) { delete u->questorders; u->questorders = nullptr; }
     auto *o = new QuestOrder;
     o->amount   = amount;
     o->category = cat;
-    u->questorders = o;
+    u->questorders.push_back(o);
 }
 
 // Total items in unit inventory except I_BOUNTY and I_LEADERS/I_MAN.
@@ -481,5 +481,61 @@ ut::suite<"QuestReward"> quest_reward_suite = [] {
 
         expect(eq(u->items.GetNum(I_BOUNTY), 2)) << "tokens not consumed";
         expect(eq(count_reward_items(u), 0))     << "no reward";
+    };
+
+    // -----------------------------------------------------------------------
+    // Test 17: Multiple QUEST orders on one unit are all processed in sequence
+    "Multiple QUEST orders on one unit redeem sequentially"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        ClearRewardPools();
+        AddRewardEquipment(I_MSWORD);
+
+        ARegion *r = helper.get_region(0, 0, 0);
+        setup_hall_with_mayor(helper, r);
+        Faction *fac = helper.create_faction("Player");
+        Unit *u = helper.create_unit(fac, r);
+
+        u->items.SetNum(I_BOUNTY, 5);
+        fac->quest_debts[r->num] = 5;
+
+        // Two separate redemptions of 2 tokens each.
+        issue_quest_order(u, 2);
+        issue_quest_order(u, 2);
+        helper.run_quest_orders();
+
+        expect(eq(u->items.GetNum(I_BOUNTY), 1)) << "4 of 5 tokens consumed across both orders";
+        expect(eq(fac->quest_debts[r->num], 1))  << "debt reduced by 4";
+    };
+
+    // -----------------------------------------------------------------------
+    // Test 18: Later QUEST orders see depleted tokens (no limit on count)
+    "Extra QUEST orders are no-ops once tokens are exhausted"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        ClearRewardPools();
+        AddRewardEquipment(I_MSWORD);
+
+        ARegion *r = helper.get_region(0, 0, 0);
+        setup_hall_with_mayor(helper, r);
+        Faction *fac = helper.create_faction("Player");
+        Unit *u = helper.create_unit(fac, r);
+
+        u->items.SetNum(I_BOUNTY, 3);
+        fac->quest_debts[r->num] = 10;
+
+        // Three orders of 2: pays 2, then 1, then nothing left.
+        issue_quest_order(u, 2);
+        issue_quest_order(u, 2);
+        issue_quest_order(u, 2);
+        helper.run_quest_orders();
+
+        expect(eq(u->items.GetNum(I_BOUNTY), 0))  << "all 3 tokens consumed";
+        expect(eq(fac->quest_debts[r->num], 7))   << "debt reduced by 3";
+        expect(u->questorders.empty())            << "all quest orders consumed";
     };
 };
