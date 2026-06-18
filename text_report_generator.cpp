@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <iostream>
 #include <sstream>
 
@@ -822,7 +823,12 @@ void TextReportGenerator::output(ostream& f, const json& report, bool show_regio
 
 void TextReportGenerator::output_unit_orders(ostream& f, const json& orders) {
     for (const auto& order : orders) {
-        f << to_s(order["order"]) << '\n';
+        // Order lines are executable commands. Wrapping one would push the tail of
+        // the line (often a trailing ';' comment) onto a second physical line with
+        // no leading ';', turning it into an invalid order when the template is
+        // submitted back in. Disable wrapping for the order text itself while
+        // keeping the current indentation, then restore the template's wrap width.
+        f << indent::wrap(SIZE_MAX) << to_s(order["order"]) << '\n' << indent::wrap();
         if (order.contains("nested") && !order["nested"].empty()) {
             f << indent::incr;
             output_unit_orders(f, order["nested"]);
