@@ -24,7 +24,7 @@ using json = nlohmann::json;
 #include <iosfwd>
 
 #define CURRENT_ATL_VER MAKE_ATL_VER(5, 2, 8)
-#define JSON_REPORT_VERSION MAKE_ATL_VER(1, 0, 1) // version 1.0.0 didn't report the version number
+#define JSON_REPORT_VERSION MAKE_ATL_VER(1, 1, 0) // 1.1.0: GM report gets engine/name/number/date; O_NONE removed; clean semver; object_reports structured fields
 
 // Object number namespaces: buildings use 1..(FLEET_NUM_START-1), fleets use FLEET_NUM_START+.
 // TODO: raise to 200 on next server restart (update shipseq init and BUILD scan limit together).

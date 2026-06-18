@@ -303,7 +303,7 @@ static inline GmData collect_gm_data() {
         data.items.push_back({.item = i, .full = true});
     }
 
-    for (auto i = 0; i < NOBJECTS; i++) data.objects.push_back({.obj = i });
+    for (auto i = 1; i < NOBJECTS; i++) data.objects.push_back({.obj = i }); // skip O_NONE
     return data;
 }
 
@@ -371,8 +371,67 @@ static std::string object_category(int obj) {
     return "other";
 }
 
+// Build human-readable flags array for object_reports (avoids bitwise ops in JS)
+static json object_flags_json(int obj) {
+    json flags = json::array();
+    auto& def = ObjectDefs[obj];
+    int f = def.flags;
+    if (f & ObjectType::DISABLED)         flags.push_back("disabled");
+    if (f & ObjectType::NOMONSTERGROWTH)  flags.push_back("no_monster_growth");
+    if (f & ObjectType::NEVERDECAY)       flags.push_back("never_decay");
+    if (f & ObjectType::CANENTER)         flags.push_back("can_enter");
+    if (f & ObjectType::CANMODIFY)        flags.push_back("can_modify");
+    if (f & ObjectType::TRANSPORT)        flags.push_back("transport");
+    if (f & ObjectType::GROUP)            flags.push_back("group");
+    if (f & ObjectType::KEYBARRIER)       flags.push_back("key_barrier");
+    if (f & ObjectType::SACRIFICE)        flags.push_back("sacrifice");
+    if (f & ObjectType::GRANTSKILL)       flags.push_back("grant_skill");
+    if (f & ObjectType::NOANNIHILATE)     flags.push_back("no_annihilate");
+    if (f & ObjectType::SETTLEMENT_ONLY)  flags.push_back("settlement_only");
+    if (f & ObjectType::ONE_PER_REGION)   flags.push_back("one_per_region");
+    if (f & ObjectType::CANAL)            flags.push_back("canal");
+    return flags;
+}
+
+// Build structured build-info for object_reports.
+// Returns nullptr (json null) when object cannot be built by players.
+// Mirrors object_description() buildability logic in object.cpp.
+static json object_build_json(int obj) {
+    auto& def = ObjectDefs[obj];
+    // item == -1 means no material required; only GROUP objects (Fleet) are
+    // buildable in that case (object.cpp line 800 skips "cannot be built" for GROUP).
+    if (def.item == -1 && !(def.flags & ObjectType::GROUP)) return nullptr;
+    if (def.item == -1 &&  (def.flags & ObjectType::GROUP)) {
+        // Fleet — free build, no material
+        return json{{"item", nullptr}, {"cost", 0}, {"skill", nullptr}, {"level", 0}};
+    }
+    json b;
+    if (def.item == I_WOOD_OR_STONE) {
+        b["item"] = nullptr; // player chooses wood or stone
+    } else {
+        b["item"] = ItemDefs[def.item].abr;
+    }
+    b["cost"] = def.cost;
+    b["skill"] = (def.skill && def.skill[0]) ? json(def.skill) : json(nullptr);
+    b["level"] = def.level;
+    return b;
+}
+
 void Faction::build_gm_json_report(json& j, Game *game) {
     GmData data = collect_gm_data();
+
+    j["engine"] = {
+        { "version", ATL_VER_STRING(CURRENT_ATL_VER) },
+        { "ruleset", Globals->RULESET_NAME },
+        { "ruleset_version", ATL_VER_STRING(Globals->RULESET_VERSION) },
+        { "json_report_version", ATL_VER_STR(JSON_REPORT_VERSION) }
+    };
+    j["name"] = name | filter::strip_number;
+    j["number"] = num;
+    j["date"] = {
+        { "month", MonthNames[game->month] },
+        { "year", game->year }
+    };
 
     json skills = json::array();
     for (auto &skillshow : data.skills) {
@@ -388,26 +447,53 @@ void Faction::build_gm_json_report(json& j, Game *game) {
         if (sflags & SkillType::CAST)       skill_flags.push_back("cast");
         if (sflags & SkillType::FOUNDATION) skill_flags.push_back("foundation");
         if (sflags & SkillType::APPRENTICE) skill_flags.push_back("apprentice");
+        if (sflags & SkillType::DISABLED)   skill_flags.push_back("disabled");
+        if (sflags & SkillType::SLOWSTUDY)  skill_flags.push_back("slow_study");
+        if (sflags & SkillType::BATTLEREP)  skill_flags.push_back("battle_report");
+        if (sflags & SkillType::NOTIFY)     skill_flags.push_back("notify");
+        if (sflags & SkillType::DAMAGE)     skill_flags.push_back("damage");
+        if (sflags & SkillType::FEAR)       skill_flags.push_back("fear");
+        if (sflags & SkillType::MAGEOTHER)  skill_flags.push_back("mage_other");
+        if (sflags & SkillType::NOSTUDY)    skill_flags.push_back("no_study");
+        if (sflags & SkillType::NOTEACH)    skill_flags.push_back("no_teach");
+        if (sflags & SkillType::NOEXP)      skill_flags.push_back("no_exp");
+        if (sflags & SkillType::GRANTED)    skill_flags.push_back("granted");
+
+        // Skill dependencies for study
+        auto& sdeps = SkillDefs[skillshow.skill].depends;
+        json depends = json::array();
+        for (auto& d : sdeps) {
+            if (d.skill && d.skill[0])
+                depends.push_back({{"skill", d.skill}, {"level", d.level}});
+        }
+
         json produces = build_skill_produces(abbr, skillshow.level);
         json skill_entry = {
             { "name", skill_name }, { "tag", abbr }, { "level", skillshow.level },
             { "flags", skill_flags },
+            { "cost", SkillDefs[skillshow.skill].cost },
             { "description", description }
         };
         if (!produces.empty()) skill_entry["produces"] = produces;
+        if (!depends.empty()) skill_entry["depends"] = depends;
+        if (SkillDefs[skillshow.skill].special)
+            skill_entry["special"] = SkillDefs[skillshow.skill].special.value();
+        if (SkillDefs[skillshow.skill].range)
+            skill_entry["range"] = SkillDefs[skillshow.skill].range.value();
         skills.push_back(skill_entry);
     }
     j["skill_reports"] = skills;
 
     json items = json::array();
     for (auto &itemshow : data.items) {
+        int ii = itemshow.item;
         std::string item_name = itemshow.display_name();
         std::string tag = itemshow.display_tag();
-        std::string description = item_description(itemshow.item, itemshow.full);
+        std::string description = item_description(ii, itemshow.full);
         if (description.empty()) continue;
         // Build human-readable types array for frontend
         json item_types = json::array();
-        int itype = ItemDefs[itemshow.item].type;
+        int itype = ItemDefs[ii].type;
         if (itype & IT_NORMAL)   item_types.push_back("normal");
         if (itype & IT_ADVANCED) item_types.push_back("advanced");
         if (itype & IT_TRADE)    item_types.push_back("trade");
@@ -432,7 +518,7 @@ void Faction::build_gm_json_report(json& j, Game *game) {
         json item_stats = json::object();
 
         if (itype & IT_MONSTER) {
-            auto mon_opt = find_monster(ItemDefs[itemshow.item].abr, (itype & IT_ILLUSION) ? 1 : 0);
+            auto mon_opt = find_monster(ItemDefs[ii].abr, (itype & IT_ILLUSION) ? 1 : 0);
             if (mon_opt) {
                 auto &m = mon_opt->get();
                 json def_arr = json::array();
@@ -444,7 +530,7 @@ void Faction::build_gm_json_report(json& j, Game *game) {
                 item_stats = {
                     {"size",              m.size},
                     {"attack",            m.attackLevel},
-                    {"defense",           def_arr},  // [melee, energy, spirit, weather, riding, ranged]
+                    {"defense",           def_arr},
                     {"hp",                m.hits},
                     {"attacks_per_round", m.numAttacks},
                     {"damage_per_attack", m.hitDamage},
@@ -454,10 +540,17 @@ void Faction::build_gm_json_report(json& j, Game *game) {
                     {"preferred_terrain", preferred},
                     {"forbidden_terrain", forbidden},
                     {"free_roamer",       m.preferredTerrain.empty() && m.forbiddenTerrain.empty()},
+                    {"regen",             m.regen},
+                    {"hostile",           m.hostile},
+                    {"silver",            m.silver},
+                    {"spoiltype",         m.spoiltype == -1 ? json(nullptr) : json(ItemDefs[m.spoiltype].abr)},
+                    {"number",            m.number},
                 };
+                if (m.special) item_stats["special"]       = m.special;
+                if (m.special) item_stats["special_level"]  = m.specialLevel;
             }
         } else if (itype & IT_WEAPON) {
-            auto wp_opt = find_weapon(ItemDefs[itemshow.item].abr);
+            auto wp_opt = find_weapon(ItemDefs[ii].abr);
             if (wp_opt) {
                 auto &w = wp_opt->get();
                 static const char* WEAP_CLASS_NAMES[NUM_WEAPON_CLASSES] = {
@@ -475,7 +568,7 @@ void Faction::build_gm_json_report(json& j, Game *game) {
                 };
             }
         } else if (itype & IT_ARMOR) {
-            auto arm_opt = find_armor(ItemDefs[itemshow.item].abr);
+            auto arm_opt = find_armor(ItemDefs[ii].abr);
             if (arm_opt) {
                 auto &a = arm_opt->get();
                 json saves = json::array();
@@ -490,7 +583,7 @@ void Faction::build_gm_json_report(json& j, Game *game) {
             }
         } else if (itype & IT_BATTLE) {
             // Non-weapon battle items (shields, misc combat items)
-            auto bi_opt = find_battle_item(ItemDefs[itemshow.item].abr);
+            auto bi_opt = find_battle_item(ItemDefs[ii].abr);
             if (bi_opt) {
                 auto &b = bi_opt->get();
                 item_stats = {
@@ -502,7 +595,7 @@ void Faction::build_gm_json_report(json& j, Game *game) {
 
         // Race stats (IT_MAN can coexist with other flags)
         if (itype & IT_MAN) {
-            auto race_opt = find_race(ItemDefs[itemshow.item].abr);
+            auto race_opt = find_race(ItemDefs[ii].abr);
             if (race_opt) {
                 auto &r = race_opt->get();
                 json skills = json::array();
@@ -515,7 +608,17 @@ void Faction::build_gm_json_report(json& j, Game *game) {
             }
         }
 
-        json item_entry = { {"name", item_name}, {"tag", tag}, {"types", item_types}, {"description", description} };
+        // Universal structured fields (v1.1+)
+        json capacity = {{"walk", ItemDefs[ii].walk}, {"ride", ItemDefs[ii].ride},
+                          {"fly", ItemDefs[ii].fly}, {"swim", ItemDefs[ii].swim}};
+
+        json item_entry = {
+            {"name", item_name}, {"tag", tag}, {"types", item_types}, {"description", description},
+            {"weight", ItemDefs[ii].weight},
+            {"baseprice", ItemDefs[ii].baseprice},
+            {"capacity", capacity},
+            {"speed", ItemDefs[ii].speed},
+        };
         if (!item_stats.empty()) item_entry["_stats"] = item_stats;
         items.push_back(item_entry);
     }
@@ -523,10 +626,25 @@ void Faction::build_gm_json_report(json& j, Game *game) {
 
     json objects = json::array();
     for (auto &objectshow : data.objects) {
-        std::string obj_name = ObjectDefs[objectshow.obj].name;
-        std::string description = object_description(objectshow.obj);
+        int oi = objectshow.obj;
+        std::string obj_name = ObjectDefs[oi].name;
+        std::string description = object_description(oi);
         if (description.empty()) continue;
-        objects.push_back({ { "name", obj_name }, { "description", description }, { "category", object_category(objectshow.obj) } });
+        auto& def = ObjectDefs[oi];
+        json defense = json::array();
+        for (int i = 0; i < NUM_ATTACK_TYPES; i++)
+            defense.push_back(def.defenceArray[i]);
+        json obj_entry = {
+            { "name", obj_name },
+            { "category", object_category(oi) },
+            { "description", description },
+            { "flags", object_flags_json(oi) },
+            { "protect", def.protect },
+            { "max_mages", def.maxMages },
+            { "defense", defense },
+            { "build", object_build_json(oi) }
+        };
+        objects.push_back(obj_entry);
     }
     j["object_reports"] = objects;
 
@@ -563,7 +681,7 @@ void Faction::build_json_report(json& j, Game *game, size_t **citems) {
         { "version", ATL_VER_STRING(CURRENT_ATL_VER) },
         { "ruleset", Globals->RULESET_NAME },
         { "ruleset_version", ATL_VER_STRING(Globals->RULESET_VERSION) },
-        { "json_report_version", ATL_VER_STRING(JSON_REPORT_VERSION) }
+        { "json_report_version", ATL_VER_STR(JSON_REPORT_VERSION) }
     };
 
     j["name"] = name | filter::strip_number;
@@ -928,12 +1046,13 @@ void Faction::build_json_report(json& j, Game *game, size_t **citems) {
 
     json items = json::array();
     for (auto &itemshow : itemshows) {
+        int ii = itemshow.item;
         std::string item_name = itemshow.display_name();
         std::string tag = itemshow.display_tag();
-        std::string description = item_description(itemshow.item, itemshow.full);
+        std::string description = item_description(ii, itemshow.full);
         if (description.empty()) continue;
         json item_types = json::array();
-        int itype = ItemDefs[itemshow.item].type;
+        int itype = ItemDefs[ii].type;
         if (itype & IT_NORMAL)   item_types.push_back("normal");
         if (itype & IT_ADVANCED) item_types.push_back("advanced");
         if (itype & IT_TRADE)    item_types.push_back("trade");
@@ -958,7 +1077,7 @@ void Faction::build_json_report(json& j, Game *game, size_t **citems) {
         json item_stats = json::object();
 
         if (itype & IT_MONSTER) {
-            auto mon_opt = find_monster(ItemDefs[itemshow.item].abr, (itype & IT_ILLUSION) ? 1 : 0);
+            auto mon_opt = find_monster(ItemDefs[ii].abr, (itype & IT_ILLUSION) ? 1 : 0);
             if (mon_opt) {
                 auto &m = mon_opt->get();
                 json def_arr = json::array();
@@ -970,7 +1089,7 @@ void Faction::build_json_report(json& j, Game *game, size_t **citems) {
                 item_stats = {
                     {"size",              m.size},
                     {"attack",            m.attackLevel},
-                    {"defense",           def_arr},  // [melee, energy, spirit, weather, riding, ranged]
+                    {"defense",           def_arr},
                     {"hp",                m.hits},
                     {"attacks_per_round", m.numAttacks},
                     {"damage_per_attack", m.hitDamage},
@@ -980,10 +1099,17 @@ void Faction::build_json_report(json& j, Game *game, size_t **citems) {
                     {"preferred_terrain", preferred},
                     {"forbidden_terrain", forbidden},
                     {"free_roamer",       m.preferredTerrain.empty() && m.forbiddenTerrain.empty()},
+                    {"regen",             m.regen},
+                    {"hostile",           m.hostile},
+                    {"silver",            m.silver},
+                    {"spoiltype",         m.spoiltype == -1 ? json(nullptr) : json(ItemDefs[m.spoiltype].abr)},
+                    {"number",            m.number},
                 };
+                if (m.special) item_stats["special"]       = m.special;
+                if (m.special) item_stats["special_level"]  = m.specialLevel;
             }
         } else if (itype & IT_WEAPON) {
-            auto wp_opt = find_weapon(ItemDefs[itemshow.item].abr);
+            auto wp_opt = find_weapon(ItemDefs[ii].abr);
             if (wp_opt) {
                 auto &w = wp_opt->get();
                 static const char* WEAP_CLASS_NAMES[NUM_WEAPON_CLASSES] = {
@@ -1001,7 +1127,7 @@ void Faction::build_json_report(json& j, Game *game, size_t **citems) {
                 };
             }
         } else if (itype & IT_ARMOR) {
-            auto arm_opt = find_armor(ItemDefs[itemshow.item].abr);
+            auto arm_opt = find_armor(ItemDefs[ii].abr);
             if (arm_opt) {
                 auto &a = arm_opt->get();
                 json saves = json::array();
@@ -1016,7 +1142,7 @@ void Faction::build_json_report(json& j, Game *game, size_t **citems) {
             }
         } else if (itype & IT_BATTLE) {
             // Non-weapon battle items (shields, misc combat items)
-            auto bi_opt = find_battle_item(ItemDefs[itemshow.item].abr);
+            auto bi_opt = find_battle_item(ItemDefs[ii].abr);
             if (bi_opt) {
                 auto &b = bi_opt->get();
                 item_stats = {
@@ -1028,7 +1154,7 @@ void Faction::build_json_report(json& j, Game *game, size_t **citems) {
 
         // Race stats (IT_MAN can coexist with other flags)
         if (itype & IT_MAN) {
-            auto race_opt = find_race(ItemDefs[itemshow.item].abr);
+            auto race_opt = find_race(ItemDefs[ii].abr);
             if (race_opt) {
                 auto &r = race_opt->get();
                 json skills = json::array();
@@ -1041,7 +1167,17 @@ void Faction::build_json_report(json& j, Game *game, size_t **citems) {
             }
         }
 
-        json item_entry = { {"name", item_name}, {"tag", tag}, {"types", item_types}, {"description", description} };
+        // Universal structured fields (v1.1+)
+        json capacity = {{"walk", ItemDefs[ii].walk}, {"ride", ItemDefs[ii].ride},
+                          {"fly", ItemDefs[ii].fly}, {"swim", ItemDefs[ii].swim}};
+
+        json item_entry = {
+            {"name", item_name}, {"tag", tag}, {"types", item_types}, {"description", description},
+            {"weight", ItemDefs[ii].weight},
+            {"baseprice", ItemDefs[ii].baseprice},
+            {"capacity", capacity},
+            {"speed", ItemDefs[ii].speed},
+        };
         if (!item_stats.empty()) item_entry["_stats"] = item_stats;
         items.push_back(item_entry);
     }
@@ -1049,10 +1185,25 @@ void Faction::build_json_report(json& j, Game *game, size_t **citems) {
 
     json objects = json::array();
     for(const auto objectshow : objectshows) {
-        std::string obj_name = ObjectDefs[objectshow.obj].name;
-        std::string description = object_description(objectshow.obj);
+        int oi = objectshow.obj;
+        std::string obj_name = ObjectDefs[oi].name;
+        std::string description = object_description(oi);
         if(description.empty()) continue;
-        objects.push_back({ { "name", obj_name }, { "description", description }, { "category", object_category(objectshow.obj) } });
+        auto& def = ObjectDefs[oi];
+        json defense = json::array();
+        for (int i = 0; i < NUM_ATTACK_TYPES; i++)
+            defense.push_back(def.defenceArray[i]);
+        json obj_entry = {
+            { "name", obj_name },
+            { "category", object_category(oi) },
+            { "description", description },
+            { "flags", object_flags_json(oi) },
+            { "protect", def.protect },
+            { "max_mages", def.maxMages },
+            { "defense", defense },
+            { "build", object_build_json(oi) }
+        };
+        objects.push_back(obj_entry);
     }
     j["object_reports"] = objects;
 
