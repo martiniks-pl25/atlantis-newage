@@ -7,9 +7,10 @@
 
 void usage()
 {
-    logger::write("atlantis new");
+    logger::write("atlantis new [world_id]");
     logger::write("atlantis run");
     logger::write("atlantis edit");
+    logger::write("atlantis set-world-id <world_id>");
     logger::write("");
     logger::write("atlantis map <geo|wmon|lair|gate|hex> <mapfile>");
     logger::write("atlantis mapunits");
@@ -45,9 +46,21 @@ int main(int argc, char *argv[])
 
     do {
         if (args[1] == "new") {
+            // Optional world id (lowercased by arg normalization). Defaults to "none".
+            if (argc >= 3) {
+                if (!Game::is_valid_world_id(args[2])) {
+                    logger::write("Invalid world id '" + args[2] + "': use [a-z0-9_-], max 32 chars.");
+                    break;
+                }
+            }
+
             if (!game.NewGame()) {
                 logger::write("Couldn't make the new game!");
                 break;
+            }
+
+            if (argc >= 3) {
+                game.worldId = args[2];
             }
 
             if ( !game.SaveGame() ) {
@@ -107,6 +120,25 @@ int main(int argc, char *argv[])
                     break;
                 }
             }
+        } else if (args[1] == "set-world-id") {
+            if (argc != 3) {
+                usage();
+                break;
+            }
+            if (!Game::is_valid_world_id(args[2])) {
+                logger::write("Invalid world id '" + args[2] + "': use [a-z0-9_-], max 32 chars.");
+                break;
+            }
+            if (!game.OpenGame()) {
+                logger::write("Couldn't open the game file!");
+                break;
+            }
+            game.worldId = args[2];
+            if (!game.SaveGame()) {
+                logger::write("Couldn't save the game!");
+                break;
+            }
+            logger::write("World id set to: " + game.worldId);
         } else if (args[1] == "check") {
             if (argc != 4) {
                 usage();

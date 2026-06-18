@@ -56,6 +56,37 @@ ut::suite<"JSON Report"> json_report_suite = []
     expect(regions == 1_ul); // and we should only have 1 region we know about (our start region)
   };
 
+  "world id validator accepts slugs, rejects junk"_test = []
+  {
+    expect(Game::is_valid_world_id("arcanum") == true);
+    expect(Game::is_valid_world_id("new-age_2") == true);
+    expect(Game::is_valid_world_id("") == false);
+    expect(Game::is_valid_world_id("My World") == false);  // space + uppercase
+    expect(Game::is_valid_world_id("Arc!") == false);      // bang + uppercase
+    expect(Game::is_valid_world_id(std::string(40, 'a')) == false); // too long
+  };
+
+  "engine.world_id present when set, absent when unset"_test = []
+  {
+    UnitTestHelper helper;
+    helper.initialize_game();
+    helper.setup_turn();
+    Faction *faction = helper.create_faction("Test Faction");
+    helper.setup_reports();
+    Game &game = helper.game_object();
+
+    // Unset (default "none") -> field omitted
+    json r_unset;
+    faction->build_json_report(r_unset, &game, nullptr);
+    expect(r_unset["engine"].contains("world_id") == false);
+
+    // Set -> field present with the id
+    game.worldId = "arcanum";
+    json r_set;
+    faction->build_json_report(r_set, &game, nullptr);
+    expect(r_set["engine"]["world_id"] == std::string("arcanum"));
+  };
+
   "Errors are reported"_test = []
   {
     UnitTestHelper helper;

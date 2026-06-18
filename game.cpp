@@ -11,6 +11,7 @@
 #include <set>
 #include <string.h>
 #include <ctime>
+#include <cctype>
 
 #include "astring.h"
 #include "game.h"
@@ -379,6 +380,18 @@ int Game::NewGame()
     return(1);
 }
 
+// Valid world id = URL-safe slug: 1-32 chars of [a-z0-9_-].
+// Must match the portal world slug (used in URLs, report filenames, JWT).
+bool Game::is_valid_world_id(const std::string &id)
+{
+    if (id.empty() || id.size() > 32) return false;
+    for (char c : id) {
+        if (!(islower((unsigned char)c) || isdigit((unsigned char)c) || c == '-' || c == '_'))
+            return false;
+    }
+    return true;
+}
+
 int Game::OpenGame()
 {
     //
@@ -458,6 +471,12 @@ int Game::OpenGame()
     }
     f >> guardfaction;
     f >> monfaction;
+    // world_id added in engine 5.2.9; older saves have no field — set via `set-world-id` GM command.
+    if (eVersion >= MAKE_ATL_VER(5, 2, 9)) {
+        f >> worldId;
+    } else {
+        worldId = "none";
+    }
 
     //
     // Read in the Factions
@@ -555,6 +574,7 @@ int Game::SaveGame()
     f << questseq << "\n";
     f << guardfaction << "\n";
     f << monfaction << "\n";
+    f << worldId << "\n";  // world_id (engine 5.2.9+); "none" when unset — never empty (positional read)
     //
     // Write out the Factions
     //

@@ -426,6 +426,9 @@ void Faction::build_gm_json_report(json& j, Game *game) {
         { "ruleset_version", ATL_VER_STRING(Globals->RULESET_VERSION) },
         { "json_report_version", ATL_VER_STR(JSON_REPORT_VERSION) }
     };
+    if (game->worldId != "none" && !game->worldId.empty()) {
+        j["engine"]["world_id"] = game->worldId;
+    }
     j["name"] = name | filter::strip_number;
     j["number"] = num;
     j["date"] = {
@@ -683,6 +686,9 @@ void Faction::build_json_report(json& j, Game *game, size_t **citems) {
         { "ruleset_version", ATL_VER_STRING(Globals->RULESET_VERSION) },
         { "json_report_version", ATL_VER_STR(JSON_REPORT_VERSION) }
     };
+    if (game->worldId != "none" && !game->worldId.empty()) {
+        j["engine"]["world_id"] = game->worldId;
+    }
 
     j["name"] = name | filter::strip_number;
     j["number"] = num;

@@ -23,7 +23,7 @@ using json = nlohmann::json;
 #include <unordered_map>
 #include <iosfwd>
 
-#define CURRENT_ATL_VER MAKE_ATL_VER(5, 2, 8)
+#define CURRENT_ATL_VER MAKE_ATL_VER(5, 2, 9)
 #define JSON_REPORT_VERSION MAKE_ATL_VER(1, 1, 0) // 1.1.0: GM report gets engine/name/number/date; O_NONE removed; clean semver; object_reports structured fields
 
 // Object number namespaces: buildings use 1..(FLEET_NUM_START-1), fleets use FLEET_NUM_START+.
@@ -64,6 +64,10 @@ public:
     int NewGame();
     int OpenGame();
     void DummyGame();
+
+    // Valid world id = URL-safe slug: 1-32 chars of [a-z0-9_-]. Must match the
+    // portal world slug (used in URLs, report filenames, JWT).
+    static bool is_valid_world_id(const std::string &id);
     void InitMinimal(); // Minimal initialization for battle tests
     int SimulateBattle(const std::string& inputFile);
 
@@ -327,6 +331,7 @@ public:
     unsigned int maxppunits;
     int shipseq;
     int questseq;  // unique-id source for quests; serialised since engine 5.2.6
+    std::string worldId = "none";  // stable per-world identifier; serialised since engine 5.2.9. "none" = unset
     int year;
     int month;
 
