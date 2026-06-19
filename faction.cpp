@@ -407,7 +407,7 @@ static json object_build_json(int obj) {
     }
     json b;
     if (def.item == I_WOOD_OR_STONE) {
-        b["item"] = nullptr; // player chooses wood or stone
+        b["item"] = "wood or stone"; // player chooses wood or stone
     } else {
         b["item"] = ItemDefs[def.item].abr;
     }
