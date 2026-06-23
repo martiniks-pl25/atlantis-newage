@@ -1236,7 +1236,6 @@ void Game::PostProcessTurn()
 
     if (pending_rmap_migration) {
         migrate_tmap_to_rmap();
-        migrate_dungeon_boss_rmap();
         deliver_balance_patch({ 3, {}, { I_RESOURCE_MAP } });
         pending_rmap_migration = false;
     }

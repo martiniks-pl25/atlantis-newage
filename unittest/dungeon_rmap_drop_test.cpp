@@ -11,179 +11,119 @@
 namespace ut = boost::ut;
 
 // ---------------------------------------------------------------------------
-// Helper: build a minimal Location list with one unit for GetSpoils.
-// `alive`  — soldiers still alive (SetMen count after battle).
-// `dead`   — soldiers that died during battle (unit->losses).
-// The unit also carries 1 I_RESOURCE_MAP (the boss drop).
+// Resource-map drop from dungeon bosses.
+//
+// A non-pirate dungeon boss (race == boss_kill_item: ETTI/LICH/DEVIL/DRAGON)
+// grants exactly 1 I_RESOURCE_MAP to the victors when killed inside a
+// LEVEL_DUNGEON region. This is wired at kill time in Army::Lose() — like
+// pirate compasses/whistles — so it does not depend on spawn-time inventory.
 // ---------------------------------------------------------------------------
-static std::list<Location *> make_loser_list(Unit *u, int alive, int dead)
+
+// Sum a given item across all units of a faction in a region (spoils landing).
+static int faction_item_in_region(ARegion *r, Faction *f, int item)
 {
-    // create_unit() adds I_LEADERS=1; clear it so only the explicit soldier
-    // type contributes to GetSoldiers(), giving precise percent control.
-    u->items.SetNum(I_LEADERS, 0);
-
-    // Set surviving soldier count via I_LICH.
-    u->items.SetNum(I_LICH, alive > 0 ? alive : 0);
-
-    u->items.SetNum(I_RESOURCE_MAP, 1);
-    u->losses = dead;
-
-    Location *loc = new Location();
-    loc->unit   = u;
-    loc->obj    = u->object;
-    loc->region = u->object ? u->object->region : nullptr;
-
-    std::list<Location *> losers;
-    losers.push_back(loc);
-    return losers;
+    int total = 0;
+    for (auto *obj : r->objects)
+        for (auto *u : obj->units)
+            if (u->faction == f) total += u->items.GetNum(item);
+    return total;
 }
 
-static void free_loser_list(std::list<Location *>& losers)
+// Create a player unit with overwhelming, well-armed force so it reliably wins
+// and fully wipes even a tough dungeon boss (lich/devil: 50 hits, regen, etc.).
+static Unit *create_strong_attacker(UnitTestHelper &helper, ARegion *r)
 {
-    for (auto *l : losers) delete l;
-    losers.clear();
+    Faction *player = helper.create_faction("Player");
+    Unit *u = helper.create_unit(player, r);
+    u->items.SetNum(I_LEADERS, 500);
+    u->items.SetNum(I_MSWORD, 500);          // mithril swords: cleaving, +attack
+    helper.set_skill_level(u, S_COMBAT, 5);  // max combat skill
+    return u;
 }
 
 ut::suite<"DungeonRmapDrop"> dungeon_rmap_drop_suite = [] {
     using namespace ut;
 
     // -----------------------------------------------------------------------
-    // Test 1: boss unit fully wiped → exactly 1 RMAP drops.
-    // numalive=0, numdead=N → percent=1.0 → num=1 → IT_ALWAYS_SPOIL → num2=1.
+    // The classifier underpinning the drop: only the four non-pirate
+    // boss_kill_items qualify; pirate kings and ordinary mobs do not.
     // -----------------------------------------------------------------------
-    "boss fully killed drops exactly 1 RMAP"_test = [] {
-        UnitTestHelper helper;
-        helper.initialize_game();
-        helper.setup_turn();
+    "is_dungeon_boss_kill_race classifies boss races"_test = [] {
+        expect(is_dungeon_boss_kill_race(I_ETTIN))  << "Kobold Warrens boss";
+        expect(is_dungeon_boss_kill_race(I_LICH))   << "Skeleton Ruins boss";
+        expect(is_dungeon_boss_kill_race(I_DEVIL))  << "Demon Pit boss";
+        expect(is_dungeon_boss_kill_race(I_DRAGON)) << "Dragon Lair boss";
 
-        Faction *mon = helper.get_faction(helper.get_monfaction());
-        ARegion *room = helper.get_region(0, 2, 0);
-
-        Unit *boss = helper.create_unit(mon, room);
-        // alive=0 (all dead), dead=5
-        auto losers = make_loser_list(boss, 0, 5);
-
-        Battle b;
-        ItemList spoils;
-        b.GetSpoils(losers, spoils, 0, nullptr);
-
-        expect(spoils.GetNum(I_RESOURCE_MAP) == 1_i)
-            << "fully wiped boss must drop exactly 1 RMAP";
-
-        free_loser_list(losers);
+        expect(!is_dungeon_boss_kill_race(I_PIRATE_KING))
+            << "pirate king handled by its own loot path";
+        expect(!is_dungeon_boss_kill_race(I_KOBOLD)) << "ordinary wander mob";
+        expect(!is_dungeon_boss_kill_race(I_TROLL))  << "ordinary wander mob";
+        expect(!is_dungeon_boss_kill_race(I_LEADERS)) << "not a monster";
     };
 
     // -----------------------------------------------------------------------
-    // Test 2: boss unit partially killed → RMAP does NOT drop.
-    // numalive=3, numdead=2 → percent=0.4 → num=(int)(1*0.4)=0 → num2=0.
-    // The boss is still alive (dungeon stays ACTIVE); loot must not drop.
+    // Boss killed inside a dungeon → victors receive exactly 1 RMAP.
     // -----------------------------------------------------------------------
-    "boss partially killed does not drop RMAP"_test = [] {
+    "dungeon boss killed drops exactly 1 RMAP"_test = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
 
-        Faction *mon = helper.get_faction(helper.get_monfaction());
-        ARegion *room = helper.get_region(0, 2, 0);
+        ARegion *r = helper.get_region(0, 2, 0);  // no city, no guards
+        // Mark the region's level as a dungeon so the kill-time grant fires.
+        r->level->levelType = ARegionArray::LEVEL_DUNGEON;
 
-        Unit *boss = helper.create_unit(mon, room);
-        // alive=3, dead=2  (players retreated mid-fight)
-        auto losers = make_loser_list(boss, 3, 2);
+        Unit *boss     = helper.create_monster(r, I_LICH, 1);
+        Unit *attacker = create_strong_attacker(helper, r);
 
-        Battle b;
-        ItemList spoils;
-        b.GetSpoils(losers, spoils, 0, nullptr);
+        int result = helper.run_battle(r, attacker, boss);
+        expect(result == BATTLE_WON) << "attacker must win";
 
-        expect(spoils.GetNum(I_RESOURCE_MAP) == 0_i)
-            << "partially killed boss must not drop RMAP";
-
-        free_loser_list(losers);
+        expect(faction_item_in_region(r, attacker->faction, I_RESOURCE_MAP) == 1_i)
+            << "a killed dungeon boss must drop exactly 1 RMAP";
     };
 
     // -----------------------------------------------------------------------
-    // Test 3: populate_dungeon gives the boss unit exactly 1 RMAP.
-    // Verifies the drop is wired at spawn time.
+    // Same boss race on the surface → no RMAP (gated on LEVEL_DUNGEON so that
+    // wild ettins/dragons in the open world do not hand out maps).
     // -----------------------------------------------------------------------
-    "populate_dungeon gives boss exactly 1 RMAP"_test = [] {
+    "boss race on surface drops no RMAP"_test = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
 
-        ARegion *room = helper.get_region(0, 2, 0);
-        ARegion *surf = helper.get_region(1, 1, 0);
+        ARegion *r = helper.get_region(0, 2, 0);  // surface, no city
+        expect(r->level->levelType == ARegionArray::LEVEL_SURFACE)
+            << "precondition: region is on the surface";
 
-        // Add a fake entrance object so the dungeon looks valid.
-        Object *ent = new Object(surf);
-        ent->num = 77;
-        ent->type = O_DUNGEON_ENTRANCE;
-        ent->incomplete = 0;
-        surf->objects.push_back(ent);
+        Unit *boss     = helper.create_monster(r, I_LICH, 1);
+        Unit *attacker = create_strong_attacker(helper, r);
 
-        // Build a minimal DungeonInstance pointing to room as boss room.
-        DungeonInstance d;
-        d.id                 = 998;
-        d.type               = DungeonType::DUNGEON_SKELETON_RUINS;
-        d.state              = DungeonSlotState::ACTIVE;
-        d.phase_turn         = 0;
-        d.surface_region_num = surf->num;
-        d.entrance_object_num = 77;
-        d.entry_region_num   = room->num;
-        d.boss_region_num    = room->num;
-        d.room_nums          = { room->num };
+        int result = helper.run_battle(r, attacker, boss);
+        expect(result == BATTLE_WON) << "attacker must win";
 
-        helper.inject_dungeon(d);
-        helper.run_populate_dungeon(d);
-
-        // Find the boss unit (monfaction unit in the boss room).
-        Faction *mon = helper.get_faction(helper.get_monfaction());
-        Unit *boss_unit = nullptr;
-        for (auto *obj : room->objects) {
-            for (auto *u : obj->units) {
-                if (u->faction == mon) { boss_unit = u; break; }
-            }
-            if (boss_unit) break;
-        }
-
-        expect(boss_unit != nullptr) << "boss unit must be present after populate_dungeon";
-        if (boss_unit) {
-            expect(boss_unit->items.GetNum(I_RESOURCE_MAP) == 1_i)
-                << "boss unit must carry exactly 1 RMAP after populate_dungeon";
-        }
+        expect(faction_item_in_region(r, attacker->faction, I_RESOURCE_MAP) == 0_i)
+            << "boss race outside a dungeon must not drop RMAP";
     };
 
     // -----------------------------------------------------------------------
-    // Test 4: single-soldier boss (e.g. I_DEVIL = 1) fully killed → 1 RMAP.
-    // Confirms the mechanic works even when numdead=1, numalive=0.
+    // Ordinary wander mob inside a dungeon → no RMAP (only the boss qualifies).
     // -----------------------------------------------------------------------
-    "single-monster boss fully killed drops 1 RMAP"_test = [] {
+    "non-boss mob in dungeon drops no RMAP"_test = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
 
-        Faction *mon = helper.get_faction(helper.get_monfaction());
-        ARegion *room = helper.get_region(0, 2, 0);
+        ARegion *r = helper.get_region(0, 2, 0);
+        r->level->levelType = ARegionArray::LEVEL_DUNGEON;
 
-        Unit *boss = helper.create_unit(mon, room);
-        // clear the default I_LEADERS=1 added by create_unit
-        boss->items.SetNum(I_LEADERS, 0);
-        // 1 devil died, 0 alive
-        boss->items.SetNum(I_DEVIL, 0);
-        boss->items.SetNum(I_RESOURCE_MAP, 1);
-        boss->losses = 1;
+        Unit *mob      = helper.create_monster(r, I_KOBOLD, 20);
+        Unit *attacker = create_strong_attacker(helper, r);
 
-        Location *loc = new Location();
-        loc->unit   = boss;
-        loc->obj    = boss->object;
-        loc->region = room;
-        std::list<Location *> losers = { loc };
+        int result = helper.run_battle(r, attacker, mob);
+        expect(result == BATTLE_WON) << "attacker must win";
 
-        Battle b;
-        ItemList spoils;
-        b.GetSpoils(losers, spoils, 0, nullptr);
-
-        expect(spoils.GetNum(I_RESOURCE_MAP) == 1_i)
-            << "single-monster boss fully killed must drop 1 RMAP";
-
-        delete loc;
+        expect(faction_item_in_region(r, attacker->faction, I_RESOURCE_MAP) == 0_i)
+            << "ordinary dungeon mobs must not drop RMAP";
     };
 };

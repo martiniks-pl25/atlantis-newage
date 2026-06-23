@@ -2,6 +2,8 @@
 #include "logger.hpp"
 #include "gamedata.h"
 #include "rng.hpp"
+#include "aregion.h"
+#include "dungeon.h"
 
 #include <assert.h>
 #include <iterator>
@@ -984,6 +986,7 @@ void Army::Lose(Battle *b, ItemList& spoils)
     std::map<std::pair<Unit*, int>, std::set<int>> unit_chosen_types;
     int pirate_tmap_chance = 0;
     bool had_pirates = false;
+    bool killed_dungeon_boss = false;
     for (int i=0; i<count; i++) {
         Soldier *s = soldiers[i];
         if (i < notbehind) {
@@ -991,6 +994,14 @@ void Army::Lose(Battle *b, ItemList& spoils)
         } else {
             if ((s->unit->type==U_WMON) && (ItemDefs[s->race].type&IT_MONSTER))
                 GetMonSpoils(spoils, s->race, s->unit->free, unit_chosen_types[{s->unit, s->race}]);
+            // A non-pirate dungeon boss grants one guaranteed resource map at kill
+            // time (like pirate compasses/whistles), independent of spawn-time state.
+            // Gated on LEVEL_DUNGEON so wild ettins/dragons on the surface don't qualify.
+            if (s->unit->type==U_WMON && is_dungeon_boss_kill_race(s->race) &&
+                s->unit->object && s->unit->object->region &&
+                s->unit->object->region->level &&
+                s->unit->object->region->level->levelType == ARegionArray::LEVEL_DUNGEON)
+                killed_dungeon_boss = true;
             // Pirate special loot must be collected before Dead() zeroes item counts
             if (s->race == I_PIRATE_CAPTAIN) {
                 spoils.SetNum(I_COMPASS, spoils.GetNum(I_COMPASS) + 1);
@@ -1005,6 +1016,10 @@ void Army::Lose(Battle *b, ItemList& spoils)
             s->Dead();
         }
         delete s;
+    }
+    if (killed_dungeon_boss) {
+        spoils.SetNum(I_RESOURCE_MAP, spoils.GetNum(I_RESOURCE_MAP) + 1);
+        b->AddLine("Among the warden's hoard the victors find ancient resource charts.");
     }
     if (had_pirates) pirate_tmap_chance += 10;
     if (pirate_tmap_chance > 0 && rng::get_random(100) < pirate_tmap_chance) {

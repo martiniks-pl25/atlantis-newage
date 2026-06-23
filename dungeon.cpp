@@ -80,6 +80,17 @@ const std::vector<DungeonTypeDef> DungeonTypeDefs = {
     },
 };
 
+// True if `item` is a non-pirate dungeon boss_kill_item. Pirate hideouts
+// (I_PIRATE_KING) are excluded — Army::Lose() handles their loot separately.
+bool is_dungeon_boss_kill_race(int item)
+{
+    for (const auto &td : DungeonTypeDefs) {
+        if (td.boss_kill_item == I_PIRATE_KING) continue;
+        if (td.boss_kill_item == item) return true;
+    }
+    return false;
+}
+
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
@@ -322,7 +333,9 @@ void Game::populate_dungeon(const DungeonInstance &d)
             boss->MoveUnit(r->GetDummy());
             boss->free = 0;  // Elder: full loot immediately
             boss->UpdateMonsterDescription();
-            boss->items.SetNum(I_RESOURCE_MAP, 1);  // guaranteed drop via IT_ALWAYS_SPOIL
+            // The guaranteed resource-map drop is granted at kill time in
+            // Army::Lose() (see is_dungeon_boss_kill_race), so it works for every
+            // boss regardless of when it spawned — no pre-stored inventory needed.
 
         } else {
             // Wander unit (corridor or entry room).

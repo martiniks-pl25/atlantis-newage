@@ -1637,7 +1637,7 @@ void Game::ModifyTablesPerRuleset(void)
     modify_monster_spoils("SPHI",  4000, IT_ADVANCED);  // Sphinx              (default: 5000, IT_ADVANCED)
     modify_monster_spoils("ICEW",  800,  IT_ADVANCED);  // Ice Wurms           (default: 500,  IT_ADVANCED)
     modify_monster_spoils("DRAG",  8000, IT_MAGIC);     // Dragon              (default: 8000, IT_MAGIC)
-    modify_monster_spoils("WYVR",  3000, IT_ADVANCED);  // Wyvern              (default: 3000, IT_ADVANCED)
+    modify_monster_spoils("WYVR",  4000, IT_ADVANCED);  // Wyvern              (default: 3000, IT_ADVANCED)
 
     // Humanoid wandering monsters — drop basic goods/items
     modify_monster_spoils("CENT",  250,  IT_NORMAL);    // Tribe of Centaurs   (default: 250,  IT_NORMAL)

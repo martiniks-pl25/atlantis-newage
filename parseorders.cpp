@@ -1624,6 +1624,11 @@ void Game::ProcessSellOrder(Unit *u, parser::string_parser& parser, orders_check
 
     int it = parse_giveable_item(token);
 
+    if (it < 0 || it >= NITEMS) {
+        u->error("SELL: Invalid or unknown item '" + token.get_string() + "'.");
+        return;
+    }
+
     // Check if we already have an order for this type of item.  If we do, merge with it.
     // We will not merge repeating orders with non-repeating, but will merge all orders of
     // the same type for the same item.

@@ -56,6 +56,12 @@ struct DungeonTypeDef {
 // Type table — defined in dungeon.cpp, indexed by DungeonType enum.
 extern const std::vector<DungeonTypeDef> DungeonTypeDefs;
 
+// True if `item` is the boss_kill_item of a non-pirate dungeon type
+// (I_ETTIN / I_LICH / I_DEVIL / I_DRAGON). Pirate hideouts (I_PIRATE_KING)
+// are excluded — they have their own richer loot logic in Army::Lose().
+// Used to grant the guaranteed resource-map spoil when a dungeon boss dies.
+extern bool is_dungeon_boss_kill_race(int item);
+
 // ---------------------------------------------------------------------------
 // Dungeon lifecycle
 // ---------------------------------------------------------------------------

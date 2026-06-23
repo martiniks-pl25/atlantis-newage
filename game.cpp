@@ -1968,28 +1968,6 @@ void Game::migrate_tmap_to_rmap()
     logger::write("Patch 3: TMAP → RMAP conversion complete.");
 }
 
-// Add 1 I_RESOURCE_MAP to every active dungeon boss unit that doesn't have one yet.
-void Game::migrate_dungeon_boss_rmap()
-{
-    int count = 0;
-    for (const auto &d : activeDungeons) {
-        if (d.boss_region_num < 0) continue;
-        ARegion *boss_r = regions.GetRegion(d.boss_region_num);
-        if (!boss_r) continue;
-        int kill_item = DungeonTypeDefs[(int)d.type].boss_kill_item;
-        for (auto *obj : boss_r->objects) {
-            for (auto *u : obj->units) {
-                if (u->items.GetNum(kill_item) > 0 &&
-                    u->items.GetNum(I_RESOURCE_MAP) == 0) {
-                    u->items.SetNum(I_RESOURCE_MAP, 1);
-                    count++;
-                }
-            }
-        }
-    }
-    logger::write("Patch 3: added RMAP to " + std::to_string(count) + " dungeon boss unit(s).");
-}
-
 void Game::deliver_balance_patch(const PatchNotification& p)
 {
     for (auto fac : factions) {

@@ -174,4 +174,34 @@ ut::suite<"Market Orders"> market_order_suite = []
     expect(unit->oldorders.back() == "@sell 1 " + std::string(ItemDefs[item_id].abr));
     expect(unit2->oldorders.front() == "@sell " + std::to_string(max_amount) + ' ' + std::string(ItemDefs[item_id].abr));
   };
+
+  // Regression: SELL of an unknown item must not create a bad sell order.
+  // Previously ProcessSellOrder stored the -1 returned by parse_giveable_item
+  // without validation, and RunSellOrders later called item_string(-1, ...),
+  // reading ItemDefs[-1] out of bounds and crashing with std::bad_alloc.
+  "SELL of unknown item is rejected without crashing"_test = []
+  {
+    UnitTestHelper helper;
+    helper.initialize_game();
+    helper.setup_turn();
+
+    std::string name = "Test Faction";
+    Faction *faction = helper.create_faction(name);
+    Unit *unit = helper.get_first_unit(faction);
+
+    std::stringstream ss;
+    ss << "#atlantis " << faction->num << "\n";
+    ss << "unit " << unit->num << "\n";
+    ss << "sell 10 ZZZZ" << std::endl;  // ZZZZ is not a valid item abbreviation
+
+    helper.parse_orders(faction->num, ss);
+
+    // The bogus order must be rejected at parse time, leaving no sell order behind.
+    expect(unit->sellorders.size() == 0_ul);
+    expect(faction->errors.size() == 1_ul);
+
+    // RunSellOrders must not crash on whatever state parsing left behind.
+    helper.run_sell_orders();
+    expect(unit->sellorders.size() == 0_ul);
+  };
 };
