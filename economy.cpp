@@ -1018,7 +1018,7 @@ void ARegion::UpdateEditRegion()
         // Trade goods and food use town->pop; other markets use total Population()
         int pop = (town && (ItemDefs[m->item].type & (IT_TRADE | IT_FOOD))) ? town->pop : Population();
         m->post_turn(pop, Wages());
-        // Food markets scale supply through village/town/city tiers based on town->popну
+        // Food markets scale supply through village/town/city tiers based on town->pop
         if (town && (ItemDefs[m->item].type & IT_FOOD) && m->type == Market::MarketType::M_SELL)
             m->amount = food_effective_amount(m);
     }
@@ -1432,7 +1432,10 @@ int ARegion::TownGrowth()
                 } else { // m->type == M_SELL
                     // Add to amt based on item type
                     if (ItemDefs[m->item].type & IT_FOOD) {
-                        amt += 2 * m->activity;      // 2× weight for food
+                        // Food growth weight reduced 2x -> 1.5x. The tot
+                        // denominator below stays at 2x, so food pulls ~75% of
+                        // its former population growth per unit sold to town.
+                        amt += (3 * m->activity) / 2;  // 1.5× weight for food
                     } else {
                         amt += m->activity;          // 1× weight for non-food
                     }
@@ -1451,7 +1454,7 @@ int ARegion::TownGrowth()
                     }
                     // Food goods generate moderate development
                     else if (ItemDefs[m->item].type & IT_FOOD) {
-                        improvement += amt / 2;  // Food goods: 0.5×
+                        improvement += amt / 3;  // Food goods: ~0.33×
                     }
                     // Other normal goods generate development
                     else if (ItemDefs[m->item].type & IT_NORMAL) {
@@ -1461,11 +1464,19 @@ int ARegion::TownGrowth()
             }
         }
 
-        // Entertainment production contribution to improvement
+        // Entertainment production contribution to improvement.
+        // Size-dependent weight: entertainment helps small settlements develop, but
+        // is a weak lever for large cities (where it would otherwise be a "free"
+        // development path, since entertainment costs no faction points).
+        //   village -> /1 (no divisor), town -> /4, city -> /8
+        int ent_div = 4;
+        {
+            int tier = town->TownType();
+            ent_div = (tier == TOWN_CITY) ? 8 : (tier == TOWN_TOWN) ? 4 : 1;
+        }
         for (const auto& p : products) {
             if (p->itemtype == I_SILVER && p->skill == S_ENTERTAINMENT) {
-                // Entertainment: 0.5× (like IT_FOOD)
-                improvement += (p->activity / Globals->ENTERTAIN_FRACTION) / 2;
+                improvement += (p->activity / Globals->ENTERTAIN_FRACTION) / ent_div;
             }
         }
 
@@ -1688,6 +1699,39 @@ void ARegion::Grow()
     // AdjustPop() distributes growpop between town->pop and region->population
     // based on available space in each (proportional allocation)
     AdjustPop(growpop);
+
+    // ===== GENTLE TOWN DECLINE (FLOOR AT HABITAT) =====
+    // A town shrinks slightly only when there was NO real development effort in the
+    // region this turn. "Real effort" = producing goods (PRODUCE) OR selling real
+    // goods (food / trade / other normal goods) to the town (M_SELL). Entertainment
+    // is deliberately EXCLUDED: it costs no faction points, so otherwise nearly every
+    // town would always count as active. Work/tax/recruitment also do not count.
+    bool dev_effort = false;
+    if (town) {
+        for (const auto& p : products) {
+            if ((ItemDefs[p->itemtype].type & IT_NORMAL) && p->itemtype != I_SILVER
+                    && p->activity > 0) { dev_effort = true; break; }
+        }
+        if (!dev_effort) {
+            for (const auto& m : markets) {
+                if (m->type == Market::MarketType::M_SELL && m->activity > 0
+                        && (ItemDefs[m->item].type & (IT_FOOD | IT_TRADE | IT_NORMAL))) {
+                    dev_effort = true; break;
+                }
+            }
+        }
+    }
+    // Decline erodes only the player-inflated EXCESS above town->hab (the size the
+    // town's development/buildings naturally support; fresh towns are generated at
+    // 2/3 hab, so they are below the floor and never decay). It stops at hab, so a
+    // city stays a city — only PILLAGE (which cuts development/hab) can demote a tier.
+    // Decay-only: we never raise population (so it can't "heal" pillage damage).
+    if (town && !dev_effort && town->pop > town->hab) {
+        const int TOWN_DECAY_DIVISOR = 200;   // ~0.5% of population per idle turn
+        int decayed = town->pop - town->pop / TOWN_DECAY_DIVISOR;
+        if (decayed < town->hab) decayed = town->hab;
+        if (decayed < town->pop) town->pop = decayed;
+    }
 
     // Reset migration tracking variables
     migdev = 0;

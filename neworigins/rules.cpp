@@ -132,7 +132,7 @@ static GameDefs g = {
 	1,	// RANDOM_ECONOMY
 	1,	// VARIABLE_ECONOMY
 
-	25,	// CITY_MARKET_NORMAL_AMT
+	30,	// CITY_MARKET_NORMAL_AMT
 	20,	// CITY_MARKET_ADVANCED_AMT
 	50,	// CITY_MARKET_TRADE_AMT
 	20,	// CITY_MARKET_MAGIC_AMT
@@ -239,7 +239,7 @@ static GameDefs g = {
 	3,	// DELAY_MORTALITY
 	6,	// DELAY_GROWTH
 	100,	// RECRUIT_POP_LOSS_PERCENT (25% = recruit 100 men, lose 25 population)
-	1,	// DISABLE_PILLAGE (1 = disabled and hidden from rules)
+	0,	// DISABLE_PILLAGE (0 = enabled)
 	100,	// TOWN_DEVELOPMENT
 	1,	// VILLAGES_ONLY - all settlements start as villages
 	0,	// TACTICS_NEEDS_WAR
