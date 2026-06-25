@@ -1779,8 +1779,11 @@ void Game::ProcessTeachOrder(Unit *u, parser::string_parser& parser, orders_chec
 
     if (!students) {
         parse_error(checker, u, 0, "TEACH: No students given.");
-        // If we weren't adding to an existing order, delete the new order
-        if (order && u->monthorders->type != O_TEACH) delete order;
+        // Delete the order only if we created a fresh one here (i.e. it is not an
+        // existing TEACH month-order being extended). Guard u->monthorders: a unit
+        // with no month order yet has u->monthorders == nullptr, and dereferencing
+        // ->type there would crash (bare "teach" with no prior order).
+        if (order && (!u->monthorders || u->monthorders->type != O_TEACH)) delete order;
         return;
     }
 

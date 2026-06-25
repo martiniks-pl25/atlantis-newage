@@ -116,4 +116,29 @@ ut::suite<"order_parsing"> order_parsing_suite = []
     expect(unit_desc == "Unit Description");
     expect(building_desc == "Building Description");
   };
+
+  // Regression: a bare "teach" (no student units) on a unit with no prior month
+  // order used to dereference u->monthorders (nullptr) -> segfault during ParseOrders.
+  "TEACH with no students does not crash"_test = [] {
+    UnitTestHelper helper;
+    helper.initialize_game();
+    helper.setup_turn();
+
+    Faction *faction = helper.create_faction("Test Faction");
+    Unit *unit = helper.get_first_unit(faction);
+
+    // The crash case requires no existing month order on the unit.
+    expect(unit->monthorders == nullptr)
+      << "precondition: fresh unit has no month order";
+
+    std::stringstream ss;
+    ss << "#atlantis " << faction->num << "\n";
+    ss << "unit " << unit->num << "\n";
+    ss << "teach\n";
+    helper.parse_orders(faction->num, ss, nullptr);
+
+    // Must not crash; a bare TEACH yields no month order.
+    expect(unit->monthorders == nullptr)
+      << "bare TEACH (no students) must not create a month order";
+  };
 };
