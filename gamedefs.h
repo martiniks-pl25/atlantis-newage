@@ -860,6 +860,16 @@ public:
 	// Enable dynamic dungeon system (5th map level with auto-generated dungeons).
 	// 0 = disabled (level not created), 1 = enabled
 	int DUNGEON_LEVEL;
+
+	// Starting faction number for player factions. 0 = no shift (the first player
+	// faction takes the next free number after the built-in NPC factions, default).
+	// A positive value pulls the faction counter up to it at world creation, so the
+	// first player faction starts at that number and the lower slots stay empty.
+	// Acts as a floor (guarded by >): a value <= the current count is ignored, so it
+	// can never collide with the NPC factions. Applied once at `new` (factionseq is
+	// baked into game.out); changing it on a live world has no effect. Set per-world
+	// in the ruleset's GameDefs.
+	int PLAYER_FACTION_NUM_START;
 };
 
 extern GameDefs *Globals;

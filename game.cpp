@@ -2300,6 +2300,14 @@ void Game::CreateNPCFactions()
         f->lastorders = 0;
         factions.push_back(f);
     } else monfaction = 0;
+
+    // Optionally start player faction numbering at a fixed value. Guarded by >,
+    // so it only pulls factionseq up (never down): 0 is a no-op and a value <= the
+    // current NPC count cannot cause a collision. The lower slots stay empty. This
+    // runs only at `new`, and factionseq is baked into game.out, so the shift is
+    // permanent for the world and has no effect if changed later.
+    if (Globals->PLAYER_FACTION_NUM_START > factionseq)
+        factionseq = Globals->PLAYER_FACTION_NUM_START;
 }
 
 void Game::CreateGuardMelee(ARegion *region, int percent)

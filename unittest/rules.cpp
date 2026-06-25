@@ -239,6 +239,8 @@ static GameDefs g = {
 
     1,   // GUARDS_USE_LEADERS (0 = racial guards, 1 = leader guards)
     1,   // DUNGEON_LEVEL
+
+    0,   // PLAYER_FACTION_NUM_START
 };
 
 GameDefs *Globals = &g;
