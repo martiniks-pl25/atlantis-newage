@@ -116,6 +116,11 @@ enum {
     NTOWNS
 };
 
+// Development-weight divisor for entertainment income by town tier (see TownGrowth()).
+// village /1 (max help to small settlements), town /4, city /8 (weak development
+// lever for large cities, since entertainment costs no faction points).
+int entertainment_dev_divisor(int towntype);
+
 class TownInfo
 {
     public:

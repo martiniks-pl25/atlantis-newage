@@ -1378,6 +1378,29 @@ int ARegion::food_effective_amount(const Market* m) const {
 }
 
 /**
+ * @brief Development-weight divisor for entertainment income, by town tier.
+ *
+ * Entertainment income contributes to town development as
+ * (entertainment_silver / ENTERTAIN_FRACTION) / divisor. Entertainment costs no
+ * faction points (unlike production), so it is given full weight for small
+ * villages (a meaningful boost where it is most needed) and a heavily reduced
+ * weight for large cities (so it is not a "free" path to high development).
+ *
+ * @param towntype TOWN_VILLAGE / TOWN_TOWN / TOWN_CITY
+ * @return divisor: village 1, town 4, city 8 (defaults to 4 for unknown)
+ * @see ARegion::TownGrowth()
+ */
+int entertainment_dev_divisor(int towntype)
+{
+    switch (towntype) {
+        case TOWN_VILLAGE: return 1;
+        case TOWN_TOWN:    return 4;
+        case TOWN_CITY:    return 8;
+        default:           return 4;
+    }
+}
+
+/**
  * @brief Calculate target town population based on market trading activity
  *
  * Market terminology:
@@ -1464,16 +1487,10 @@ int ARegion::TownGrowth()
             }
         }
 
-        // Entertainment production contribution to improvement.
-        // Size-dependent weight: entertainment helps small settlements develop, but
-        // is a weak lever for large cities (where it would otherwise be a "free"
-        // development path, since entertainment costs no faction points).
-        //   village -> /1 (no divisor), town -> /4, city -> /8
-        int ent_div = 4;
-        {
-            int tier = town->TownType();
-            ent_div = (tier == TOWN_CITY) ? 8 : (tier == TOWN_TOWN) ? 4 : 1;
-        }
+        // Entertainment production contribution to improvement (size-dependent
+        // weight, see entertainment_dev_divisor): entertainment helps small
+        // settlements develop but is a weak lever for large cities.
+        int ent_div = entertainment_dev_divisor(town->TownType());
         for (const auto& p : products) {
             if (p->itemtype == I_SILVER && p->skill == S_ENTERTAINMENT) {
                 improvement += (p->activity / Globals->ENTERTAIN_FRACTION) / ent_div;

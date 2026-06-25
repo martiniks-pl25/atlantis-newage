@@ -836,3 +836,148 @@ ut::suite<"Economy - Frozen town recovery"> frozen_town_suite = []
             << "town must have grown beyond initial frozen value";
     };
 };
+
+// ============================================================
+// Gentle town decline (2026-06-24) — economy.cpp Grow() decline block
+// ============================================================
+// Decline fires only when a town had NO development effort this turn (no PRODUCE
+// of IT_NORMAL non-silver goods and no M_SELL of food/trade/normal). It erodes
+// 0.5%/turn of the population ABOVE town->hab (= TownHabitat()), floored at hab,
+// and never raises population.
+//
+// Test isolation: in the unittest world IsStartingCity()==(town!=nullptr), so
+// TownGrowth()'s market loop is skipped (returns town->pop) -> no market-driven
+// town growth. We also put the region at equilibrium (habitat==basepopulation==
+// population) so Phase-1 regional growth is zero. That leaves the decline block
+// as the only thing that can move town->pop.
+
+ut::suite<"Economy - Town decline"> town_decline_suite = []
+{
+    using namespace ut;
+
+    // Region at equilibrium (zero regional growth) + an idle town of given pop.
+    auto setup_idle_town = [](ARegion* r, int town_pop) {
+        r->habitat = 200;
+        r->basepopulation = 200;
+        r->population = 200;        // == habitat == basepop -> Phase-1 growth = 0
+        r->development = 0;         // low dev -> small TownHabitat()
+        r->immigrants = 0;
+        r->emigrants = 0;
+        for (auto p : r->products) p->activity = 0;   // no production effort
+        for (auto m : r->markets)  m->activity = 0;   // no market effort
+        delete r->town;
+        r->town = new TownInfo();
+        r->town->pop = town_pop;
+        r->town->dev = 0;
+        r->town->hab = 0;           // recomputed by Grow() via TownHabitat()
+    };
+
+    "Idle town above habitat declines and stays >= hab"_test = [setup_idle_town]
+    {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        ARegion *r = get_plain_region(helper);
+        setup_idle_town(r, 3000);
+        int hab = r->TownHabitat();          // the decline floor
+        int before = r->town->pop;
+
+        helper.run_grow(r);
+
+        expect(r->town->pop < before)
+            << "idle town above habitat must lose population";
+        expect(r->town->pop >= hab)
+            << "decline must not push town below its habitat floor";
+    };
+
+    "Town with production effort does NOT decline"_test = [setup_idle_town]
+    {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        ARegion *r = get_plain_region(helper);
+        setup_idle_town(r, 3000);
+        // Real production this turn -> dev_effort = true -> exempt from decline.
+        Production *p = new Production(I_WOOD, 10);
+        p->activity = 5;
+        r->products.push_back(p);
+        int before = r->town->pop;
+
+        helper.run_grow(r);
+
+        expect(r->town->pop == before)
+            << "a town with production effort must not decline";
+    };
+
+    "Fresh town below habitat is not declined"_test = [setup_idle_town]
+    {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        ARegion *r = get_plain_region(helper);
+        setup_idle_town(r, 3000);
+        int hab = r->TownHabitat();
+        // Fresh towns generate at 2/3 hab -> below the floor -> never decay.
+        r->town->pop = hab * 2 / 3;
+        int before = r->town->pop;
+
+        helper.run_grow(r);
+
+        expect(r->town->pop >= before)
+            << "town at/below habitat (fresh) must not be reduced by decline";
+    };
+
+    "Sustained idle decline converges toward habitat, never below"_test = [setup_idle_town]
+    {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        ARegion *r = get_plain_region(helper);
+        setup_idle_town(r, 3000);
+        int hab = r->TownHabitat();
+        int before = r->town->pop;
+
+        for (int i = 0; i < 50; i++) helper.run_grow(r);
+
+        expect(r->town->pop < before)
+            << "sustained idle town must shrink over many turns";
+        expect(r->town->pop >= hab)
+            << "town must never decline below its habitat";
+    };
+};
+
+// ============================================================
+// Entertainment development divisor (size-dependent, 2026-06-24)
+// ============================================================
+// entertainment_dev_divisor(towntype): village 1, town 4, city 8. Entertainment
+// is "free" (no faction points), so it is a full-weight development boost for
+// small villages and a weak lever for large cities.
+
+ut::suite<"Economy - Entertainment dev divisor"> ent_div_suite = []
+{
+    using namespace ut;
+
+    "village divisor is 1 (full weight)"_test = []
+    {
+        expect(entertainment_dev_divisor(TOWN_VILLAGE) == 1_i);
+    };
+
+    "town divisor is 4"_test = []
+    {
+        expect(entertainment_dev_divisor(TOWN_TOWN) == 4_i);
+    };
+
+    "city divisor is 8 (weakest)"_test = []
+    {
+        expect(entertainment_dev_divisor(TOWN_CITY) == 8_i);
+    };
+
+    "divisor is monotonically non-decreasing by tier (smaller towns get more help)"_test = []
+    {
+        expect(entertainment_dev_divisor(TOWN_VILLAGE)
+                 <= entertainment_dev_divisor(TOWN_TOWN));
+        expect(entertainment_dev_divisor(TOWN_TOWN)
+                 <= entertainment_dev_divisor(TOWN_CITY));
+    };
+
+    "unknown tier falls back to town divisor (4)"_test = []
+    {
+        expect(entertainment_dev_divisor(999) == 4_i);
+    };
+};
