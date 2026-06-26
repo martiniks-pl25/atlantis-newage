@@ -598,6 +598,9 @@ void Game::ProcessOrder(int order, Unit *unit, parser::string_parser& parser, or
         case O_EXPLORE:
             ProcessExploreOrder(unit, parser, checker);
             break;
+        case O_CAPITAL:
+            ProcessCapitalOrder(unit, checker);
+            break;
     }
 }
 
@@ -3013,6 +3016,43 @@ void Game::ProcessCreateOrder(Unit *unit, parser::string_parser& parser, orders_
 }
 
 // EXPLORE RMAP  — use resource map in current region (month-long)
+// CAPITAL — designate the city the issuing unit occupies as the faction capital.
+//
+// Instant order (no month consumed), processed at parse time like NAME: the unit must be the
+// owner of a finished Palace (O_PALACE) standing in a city-tier settlement. Sets
+// Faction::capital_region. Capturing an enemy Palace never sets this — only this order does.
+// No win effect here; the coronation/victory check is Phase B (Trident only).
+// See docs/TRIDENT_VICTORY_MECHANIC_DESIGN.md.
+void Game::ProcessCapitalOrder(Unit *unit, orders_check *checker)
+{
+    // No arguments; CAPITAL always refers to the unit's current region.
+    if (checker) return;
+
+    if (!unit->object || unit->object->type != O_PALACE) {
+        unit->error("CAPITAL: Must be the owner of a Palace to declare a capital.");
+        return;
+    }
+    ARegion *r = unit->object->region;
+    if (!r || !r->town || r->town->TownType() != TOWN_CITY) {
+        unit->error("CAPITAL: A capital can only be declared in a city.");
+        return;
+    }
+    if (unit != unit->object->GetOwner()) {
+        unit->error("CAPITAL: Unit is not the owner of the Palace.");
+        return;
+    }
+    if (unit->object->incomplete > 0) {
+        unit->error("CAPITAL: The Palace is not finished.");
+        return;
+    }
+    if (unit->faction->capital_region == r->num) {
+        unit->event(r->town->name + " is already your faction capital.", "capital");
+        return;
+    }
+    unit->faction->capital_region = r->num;
+    unit->event("Declares " + r->town->name + " the faction capital.", "capital");
+}
+
 // EXPLORE TMAP  — use treasure map to find pirate hideout (month-long)
 // EXPLORE       — error: item argument required
 void Game::ProcessExploreOrder(Unit *unit, parser::string_parser& parser, orders_check *checker)

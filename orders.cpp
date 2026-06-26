@@ -73,6 +73,7 @@ const std::vector<std::string> OrderStrs = {
     "create",
     "quest",
     "explore",
+    "capital",
 };
 
 

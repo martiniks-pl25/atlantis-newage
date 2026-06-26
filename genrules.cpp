@@ -601,6 +601,8 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
     f << enclose("li", true) << url("#behind", "behind") << '\n' << enclose("li", false);
     f << enclose("li", true) << url("#build", "build") << '\n' << enclose("li", false);
     f << enclose("li", true) << url("#buy", "buy") << '\n' << enclose("li", false);
+    if (!(ObjectDefs[O_PALACE].flags & ObjectType::DISABLED))
+        f << enclose("li", true) << url("#capital", "capital") << '\n' << enclose("li", false);
     f << enclose("li", true) << url("#cast", "cast") << '\n' << enclose("li", false);
     f << enclose("li", true) << url("#claim", "claim") << '\n' << enclose("li", false);
     f << enclose("li", true) << url("#create_village", "create village") << '\n' << enclose("li", false);
@@ -3983,6 +3985,21 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
     }
 
     f << enclose(class_tag("div", "rule"), true) << '\n' << enclose("div", false);
+    if (!(ObjectDefs[O_PALACE].flags & ObjectType::DISABLED)) {
+        f << anchor("capital") << '\n';
+        f << enclose("h4", true) << "CAPITAL\n" << enclose("h4", false);
+        f << enclose("p", true) << "Designate the city you are standing in as your faction's capital. "
+          << "The issuing unit must be the owner of a finished Palace building in a city. "
+          << "The chosen city becomes your faction's seat of power and the choice is "
+          << "announced publicly. Issue the order again from another city where you own a Palace to "
+          << "move your capital. This order is instant and does not use up the unit's month.\n"
+          << enclose("p", false);
+        f << enclose("p", true) << "Example:\n" << enclose("p", false);
+        f << example_start("Make the city you occupy your faction capital.")
+          << "CAPITAL\n"
+          << example_end();
+        f << enclose(class_tag("div", "rule"), true) << '\n' << enclose("div", false);
+    }
     f << anchor("cast") << '\n';
     f << enclose("h4", true) << "CAST [skill] [arguments]\n" << enclose("h4", false);
     f << enclose("p", true) << "Cast the given spell.  Note that most spell names contain spaces; be sure to "

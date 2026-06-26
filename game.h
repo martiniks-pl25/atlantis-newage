@@ -23,7 +23,7 @@ using json = nlohmann::json;
 #include <unordered_map>
 #include <iosfwd>
 
-#define CURRENT_ATL_VER MAKE_ATL_VER(5, 2, 9)
+#define CURRENT_ATL_VER MAKE_ATL_VER(5, 2, 10) // 5.2.10: Faction::capital_region (CAPITAL order, Trident)
 #define JSON_REPORT_VERSION MAKE_ATL_VER(1, 1, 0) // 1.1.0: GM report gets engine/name/number/date; O_NONE removed; clean semver; object_reports structured fields
 
 // Object number namespaces: buildings use 1..(FLEET_NUM_START-1), fleets use FLEET_NUM_START+.
@@ -456,6 +456,7 @@ public:
     void ProcessSacrificeOrder(Unit *u, parser::string_parser& parser, orders_check *checker);
     void ProcessQuestOrder(Unit *u, parser::string_parser& parser, orders_check *checker);
     void ProcessExploreOrder(Unit *u, parser::string_parser& parser, orders_check *checker);
+    void ProcessCapitalOrder(Unit *u, orders_check *checker);
 
     void RemoveInactiveFactions();
 

@@ -81,6 +81,7 @@ enum {
     O_CREATE,
     O_QUEST,    // redeem I_BOUNTY tokens at a Town Hall
     O_EXPLORE,  // use a map item (RMAP/TMAP) in current region
+    O_CAPITAL,  // designate the city you own a Palace in as your faction capital (Trident)
     NORDERS
 };
 

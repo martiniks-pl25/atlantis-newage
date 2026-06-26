@@ -212,6 +212,10 @@ public:
     std::set<int>      known_local_quests;  // q->num values the faction has learned about
     std::map<int, int> quest_debts;         // region_num → tokens owed; key = -1 for GLOBAL pool
 
+    // Trident victory mechanic: region num of the faction's declared capital, -1 = none.
+    // Set only by the CAPITAL order (engine 5.2.10+). See docs/TRIDENT_VICTORY_MECHANIC_DESIGN.md.
+    int capital_region;
+
     // Guard reputation tracking (temporary, not serialized)
     int guard_attack_this_turn;  // 0=no attacks, 1=attacked in guarded city
 

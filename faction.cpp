@@ -88,6 +88,7 @@ Faction::Faction()
     quit = 0;
     defaultattitude = AttitudeType::NEUTRAL;
     unclaimed = 0;
+    capital_region = -1;
     pReg = NULL;
     pStartLoc = NULL;
     noStartLeader = 0;
@@ -115,6 +116,7 @@ Faction::Faction(int n)
     defaultattitude = AttitudeType::NEUTRAL;
     quit = 0;
     unclaimed = 0;
+    capital_region = -1;
     pReg = NULL;
     pStartLoc = NULL;
     noStartLeader = 0;
@@ -160,6 +162,9 @@ void Faction::Writeout(std::ostream& f)
     for (int qnum : known_local_quests) f << qnum << '\n';
     f << quest_debts.size() << '\n';
     for (const auto& [region_num, tokens] : quest_debts) f << region_num << '\n' << tokens << '\n';
+
+    // capital_region added in engine 5.2.10 (CAPITAL order / Trident victory mechanic).
+    f << capital_region << '\n';
 }
 
 void Faction::Readin(std::istream& f, ATL_VER engine_version)
@@ -223,6 +228,13 @@ void Faction::Readin(std::istream& f, ATL_VER engine_version)
             f >> region_num >> tokens;
             quest_debts[region_num] = tokens;
         }
+    }
+
+    // capital_region added in engine 5.2.10; legacy saves default to -1 (no capital).
+    if (engine_version >= MAKE_ATL_VER(5, 2, 10)) {
+        f >> capital_region;
+    } else {
+        capital_region = -1;
     }
 }
 
