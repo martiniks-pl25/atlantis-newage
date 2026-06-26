@@ -112,57 +112,29 @@ ut::suite<"Balance Notification"> balance_notification_suite = []
 
     // ----------------------------------------------------------------
     // upgrade_patch_level — version gating
+    //
+    // The patch table inside Game::upgrade_patch_level is baselined EMPTY for the NewAge 1.x
+    // line: the old 8.1.x notifications were already delivered while the world ran on 8.1.x, and
+    // their patch numbers would collide with the fresh 1.x line. So upgrade_patch_level currently
+    // delivers nothing for any saved version. The delivery mechanism itself stays covered by the
+    // deliver_balance_patch tests above. When a real 1.x balance notification is added to the
+    // table, add a "fires for patch N" gating test here.
     // ----------------------------------------------------------------
 
-    "upgrade_patch_level fires notification when saved patch is lower than current"_test = []
+    "upgrade_patch_level delivers nothing while the 1.x patch table is empty"_test = []
     {
         UnitTestHelper helper;
         helper.initialize_game();
 
         Faction *fac = helper.create_faction("Test Faction");
-        fac->skills.SetDays(S_HEALING, 2);
+        fac->skills.SetDays(S_HEALING, 3);
 
-        // saved patch 0 < current patch 1 → should fire
-        helper.game_object().upgrade_patch_level(MAKE_ATL_VER(8, 1, 0));
-
-        bool found = std::any_of(fac->shows.begin(), fac->shows.end(),
-            [](const ShowSkill& s) { return s.skill == S_HEALING; });
-        expect(found) << "expected notification fired for patch 0 < 1";
-    };
-
-    "upgrade_patch_level skips notification when saved patch equals current"_test = []
-    {
-        UnitTestHelper helper;
-        helper.initialize_game();
-
-        Faction *fac = helper.create_faction("Test Faction");
-        fac->skills.SetDays(S_HEALING, 2);
-
-        // saved patch 1 == current patch 1 → should NOT fire
-        helper.game_object().upgrade_patch_level(MAKE_ATL_VER(8, 1, 1));
+        // With an empty patch table, no notification is delivered regardless of saved version.
+        bool ok = helper.game_object().upgrade_patch_level(MAKE_ATL_VER(1, 0, 0));
+        expect(ok) << "upgrade_patch_level must succeed";
 
         bool found = std::any_of(fac->shows.begin(), fac->shows.end(),
             [](const ShowSkill& s) { return s.skill == S_HEALING; });
-        expect(!found) << "expected no notification when patch already current";
-    };
-
-    "upgrade_patch_level notifies multiple factions"_test = []
-    {
-        UnitTestHelper helper;
-        helper.initialize_game();
-
-        Faction *fac1 = helper.create_faction("Faction One");
-        Faction *fac2 = helper.create_faction("Faction Two");
-        fac1->skills.SetDays(S_HEALING, 1);
-        fac2->skills.SetDays(S_HEALING, 4);
-
-        helper.game_object().upgrade_patch_level(MAKE_ATL_VER(8, 1, 0));
-
-        auto has_heal = [](Faction *f) {
-            return std::any_of(f->shows.begin(), f->shows.end(),
-                [](const ShowSkill& s) { return s.skill == S_HEALING; });
-        };
-        expect(has_heal(fac1)) << "fac1 should receive notification";
-        expect(has_heal(fac2)) << "fac2 should receive notification";
+        expect(!found) << "empty 1.x patch table must deliver no notifications";
     };
 };

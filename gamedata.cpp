@@ -4351,14 +4351,17 @@ std::vector<ObjectType> ObjectDefs = {
      {0,0,0,0,0,0}},
     // Added for citadel replacement in conquest
     {"Palace",
-     ObjectType::CANENTER | ObjectType::NEVERDECAY | ObjectType::CANMODIFY,
-     1250,0,0,200,
-     -1,0,NULL,0,
+     // NewAge: capital "throne" for the Trident victory mechanic. Castle-level civic seat.
+     // One per region, settlement only. Enabled by removing DisableObject in extra.cpp.
+     ObjectType::CANENTER | ObjectType::NEVERDECAY | ObjectType::CANMODIFY |
+        ObjectType::SETTLEMENT_ONLY | ObjectType::ONE_PER_REGION,
+     300,0,0,5,
+     I_STONE,300,"BUIL",3,
      -1, -1, 0, -1, 0,
      { -1, 0, -1, false },
      0,0,0,
      -1,-1,
-     {0,0,0,0,0,0}},
+     {3,2,2,2,3,3}},
     // Added for Ceran
     {"Dragon Cliffs",
      ObjectType::DISABLED | ObjectType::CANENTER | ObjectType::CANMODIFY,

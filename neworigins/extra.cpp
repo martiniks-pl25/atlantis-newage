@@ -1044,7 +1044,7 @@ void Game::ModifyTablesPerRuleset(void)
     EnableObject(O_MCANAL);
 
     DisableObject(O_GEMAPPRAISER);
-    DisableObject(O_PALACE);
+    // O_PALACE is enabled in NewAge (capital seat for the Trident victory mechanic).
 
     ModifyObjectName(O_MFORTRESS, "Magical Fortress");
     ModifyObjectName(O_MCASTLE, "Magical Castle");
