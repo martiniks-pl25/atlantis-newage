@@ -259,6 +259,7 @@ enum {
     I_BOUNTY,           // BNTY — quest reward token (step 3 / quests system)
     I_RESOURCE_MAP,     // RMAP — ancient resource charts; EXPLORE RMAP → add production to region
     I_PIRATE_KING,      // PKIN — Pirate King dungeon boss; soul of a Kraken within
+    I_CROWN,            // CROW — Crown dropped by the Admiral at kill time; Trident victory token (NewAge)
     NITEMS
 };
 

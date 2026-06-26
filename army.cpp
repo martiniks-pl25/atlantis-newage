@@ -987,6 +987,7 @@ void Army::Lose(Battle *b, ItemList& spoils)
     int pirate_tmap_chance = 0;
     bool had_pirates = false;
     bool killed_dungeon_boss = false;
+    bool killed_admiral = false;
     for (int i=0; i<count; i++) {
         Soldier *s = soldiers[i];
         if (i < notbehind) {
@@ -1012,6 +1013,10 @@ void Army::Lose(Battle *b, ItemList& spoils)
                 pirate_tmap_chance += 20;
             } else if (s->race == I_PIRATES) {
                 had_pirates = true;
+            } else if (s->race == I_PIRATE_KING) {
+                // The Admiral drops the Crown at kill time (Trident victory token).
+                spoils.SetNum(I_CROWN, spoils.GetNum(I_CROWN) + 1);
+                killed_admiral = true;
             }
             s->Dead();
         }
@@ -1020,6 +1025,9 @@ void Army::Lose(Battle *b, ItemList& spoils)
     if (killed_dungeon_boss) {
         spoils.SetNum(I_RESOURCE_MAP, spoils.GetNum(I_RESOURCE_MAP) + 1);
         b->AddLine("Among the warden's hoard the victors find ancient resource charts.");
+    }
+    if (killed_admiral) {
+        b->AddLine("Upon the Admiral's fall, the victors lift the Crown from the ruin of the cove.");
     }
     if (had_pirates) pirate_tmap_chance += 10;
     if (pirate_tmap_chance > 0 && rng::get_random(100) < pirate_tmap_chance) {

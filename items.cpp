@@ -1287,6 +1287,11 @@ std::string item_description(int item, int full)
                 " When carried during EXPLORE TMAP, it doubles the chance of successfully"
                 " locating a hidden pirate hideout from a treasure map.";
             break;
+        case I_CROWN:
+            temp += " A heavy gold crown wrested from a fallen pirate Admiral. Its bearer cannot"
+                " hide — the crown's renown precedes them, and word of who holds it travels far."
+                " Gather three crowns to lay claim to the throne of these lands.";
+            break;
         case I_TREASURE_MAP:
             temp += " A weathered pirate navigation chart recovered from a defeated fleet."
                 " Use EXPLORE TMAP to spend a month deciphering it — the unit will attempt"

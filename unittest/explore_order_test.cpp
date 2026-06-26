@@ -139,6 +139,36 @@ ut::suite<"ExploreOrder"> explore_order_suite = [] {
     };
 
     // -----------------------------------------------------------------------
+    // EXPLORE TMAP off the surface → error, and the map is NOT consumed.
+    // Pirate hideouts only spawn on the surface, so using a TMAP underground
+    // must fail cleanly without wasting the map.
+    // -----------------------------------------------------------------------
+    "EXPLORE TMAP underground errors and does not consume the map"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        Faction *fac = helper.create_faction("DeepDelver");
+        Unit *u = helper.get_first_unit(fac);
+        ARegion *r = u->object->region;
+        u->items.SetNum(I_TREASURE_MAP, 1);
+
+        // Force the region's level to non-surface.
+        r->level->levelType = ARegionArray::LEVEL_UNDERWORLD;
+
+        std::stringstream ss;
+        ss << "#atlantis " << fac->num << " \"pw\"\n";
+        ss << "unit " << u->num << "\n";
+        ss << "explore tmap\n";
+        helper.parse_orders(fac->num, ss);
+        helper.run_month_orders();
+
+        expect(fac->errors.size() == 1_ul) << "error expected when using a TMAP off the surface";
+        expect(u->items.GetNum(I_TREASURE_MAP) == 1_i) << "TMAP must NOT be consumed underground";
+        expect(u->monthorders == nullptr) << "monthorders must be cleared";
+    };
+
+    // -----------------------------------------------------------------------
     // Test 4: EXPLORE RMAP in nexus → error "no terrain resources", map consumed.
     // -----------------------------------------------------------------------
     "EXPLORE RMAP in nexus yields error and consumes map"_test = [] {

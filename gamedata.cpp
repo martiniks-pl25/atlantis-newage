@@ -2512,6 +2512,24 @@ std::vector<ItemType> ItemDefs =
      -1,0, 0,
      0, NULL, 0,
      "", { "", "", "", "" }, 0, 0},
+    // I_CROWN — Crown dropped by the Admiral (I_PIRATE_KING) at kill time. Victory token for
+    // the Trident "Three Crowns" mechanic. Modeled on I_COMPASS:
+    //   IT_SPECIAL: excluded from the procedural monster spoil pool (army.cpp).
+    //   IT_ALWAYS_SPOIL: full proportional drop in battle spoils (battle.cpp) — beating the
+    //     bearer in combat hands over the crown.
+    //   NOSTEALTH: the bearer cannot be stealthy, so crowns are always visible (gazette transparency).
+    //   NOMARKET: cannot be sold. Givable (no CANTGIVE) so units can pass crowns to the capital.
+    // See docs/TRIDENT_VICTORY_MECHANIC_DESIGN.md.
+    {"crown","crowns","CROW",
+     ItemType::NOMARKET | ItemType::NOSTEALTH,
+     NULL,0,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
+     NULL,0,0, {{-1,0},{-1,0},{-1,0},{-1,0}},
+     1, IT_SPECIAL|IT_ALWAYS_SPOIL, 0,0,
+     0,0,0,0,0,
+     -1,0,
+     -1,0, 0,
+     0, NULL, 0,
+     "", { "", "", "", "" }, 0, 0},
 };
 
 //

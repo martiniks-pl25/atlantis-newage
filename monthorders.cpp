@@ -2413,6 +2413,16 @@ void Game::RunExploreOrders(ARegion *r)
                     continue;
                 }
 
+                // Treasure maps lead to coastal pirate hideouts, which spawn only on the
+                // surface (find_pirate_hideout_spot searches LEVEL_SURFACE). Block use from
+                // the underworld/underdeep with a clear error and do NOT consume the map.
+                if (!r->level || r->level->levelType != ARegionArray::LEVEL_SURFACE) {
+                    u->error("EXPLORE: Treasure maps can only be used on the surface.");
+                    delete u->monthorders;
+                    u->monthorders = nullptr;
+                    continue;
+                }
+
                 // Compass doubles the base 25% success chance to 50%.
                 bool has_compass = (u->items.GetNum(I_COMPASS) > 0);
                 int chance = has_compass ? 50 : 25;
