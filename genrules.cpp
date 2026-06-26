@@ -340,7 +340,8 @@ string Game::FactionTypeDescription(Faction &fac) {
 }
 
 // LLS - converted HTML tags to lowercase
-int Game::generate_rules(const std::string& rules, const std::string& css, const std::string& intro)
+int Game::generate_rules(const std::string& rules, const std::string& css, const std::string& intro,
+    const std::string& world_name)
 {
     Faction fac;
     bool found;
@@ -413,16 +414,22 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
     f << enclose("head", true);
     f << "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">\n";
     f << "<link type=\"text/css\" rel=\"stylesheet\" href=\"" << css << "\">\n";
-    f << enclose("title", true) << Globals->RULESET_NAME << " "
-      << ATL_VER_STR(Globals->RULESET_VERSION) << " Rules\n" << enclose("title", false);
+    // Player-facing version is name + major.minor only (patch churns with bugfixes; the
+    // "Last Change" date below covers freshness). The optional world marker tells players which
+    // world's rules they are reading, so switching worlds in the portal is unambiguous.
+    std::string verShort = ATL_MJR_STR(Globals->RULESET_VERSION) + "." + ATL_MNR_STR(Globals->RULESET_VERSION);
+    std::string worldMarker = world_name.empty() ? "" : (" — " + world_name);
+
+    f << enclose("title", true) << Globals->RULESET_NAME << " " << verShort
+      << " Rules" << worldMarker << "\n" << enclose("title", false);
     f << enclose("head", false);
 
     f << enclose("body", true);
     f << enclose("center", true);
-    f << enclose("h1", true) << "Rules for " << Globals->RULESET_NAME << " "
-      << ATL_VER_STR(Globals->RULESET_VERSION) << '\n' << enclose("h1", false);
+    f << enclose("h1", true) << Globals->RULESET_NAME << " " << verShort
+      << " Rules" << worldMarker << '\n' << enclose("h1", false);
 
-    f << enclose("p", true) << "Based on Atlantis v" << ATL_VER_STR(CURRENT_ATL_VER) << '\n' << enclose("p", false);
+    f << enclose("p", true) << "Based on Atlantis Engine v5 (Atlantis-PBEM)\n" << enclose("p", false);
     f << enclose("p", true) << "Copyright 1996 by Geoff Dunbar\n" << enclose("p", false);
     f << enclose("p", true) << "Based on Russell Wallace's Draft Rules\n" << enclose("p", false);
     f << enclose("p", true) << "Copyright 1993 by Russell Wallace\n" << enclose("p", false);

@@ -14,7 +14,7 @@ void usage()
     logger::write("");
     logger::write("atlantis map <geo|wmon|lair|gate|hex> <mapfile>");
     logger::write("atlantis mapunits");
-    logger::write("atlantis genrules <introfile> <cssfile> <rules-outputfile>");
+    logger::write("atlantis genrules <introfile> <cssfile> <rules-outputfile> [world-name]");
     logger::write("");
     logger::write("atlantis check <orderfile> <checkfile>");
 }
@@ -165,11 +165,14 @@ int main(int argc, char *argv[])
             }
             game.UnitFactionMap();
         } else if (args[1] == "genrules") {
-            if (argc != 5) {
+            if (argc != 5 && argc != 6) {
                 usage();
                 break;
             }
-            if (!game.generate_rules(args[4], args[3], args[2])) {
+            // Optional 4th arg: world name shown in the rules title/header (per-world generate-rules.sh).
+            // Use the raw argv (not the lowercased `args`) to preserve display case, e.g. "Trident".
+            std::string worldName = (argc == 6) ? std::string(argv[5]) : "";
+            if (!game.generate_rules(args[4], args[3], args[2], worldName)) {
                 logger::write("Unable to generate rules!");
                 break;
             }

@@ -428,7 +428,9 @@ int Game::OpenGame()
     f >> std::ws >> gameName;
     if (f.eof()) return(0);
 
-    if (!(gameName == Globals->RULESET_NAME)) {
+    // Accept the legacy ruleset name from saves created before the NewOrigins -> NewAge
+    // rename. Self-heals on the next WriteGame, which stamps the current RULESET_NAME.
+    if (gameName != Globals->RULESET_NAME && gameName != "NewOrigins") {
         logger::write("Incompatible rule-set!");
         return(0);
     }
@@ -1920,24 +1922,19 @@ bool Game::upgrade_patch_level(int current_version)
 {
     // Each entry: { patch_number, { skill enums }, { item enums } }
     // Factions that know the skill / have seen the item get updated descriptions.
-    // Patches 1–2: description-only, safe to apply immediately during ReadGame.
-    static const std::vector<PatchNotification> patches = {
-        { 1, { S_HEALING }, {} },   // 8.1.0 → 8.1.1: heal balance rework
-        { 2, {}, { I_BOUNTY } },    // 8.1.1 → 8.1.2: I_BOUNTY description added
-        { 4, { S_BUILDING }, {} },  // 8.1.3 → 8.1.4: Canal/Mystic Canal object descriptions
-    };
+    //
+    // Baselined empty for the NewAge 1.x line: the old 8.1.x notifications (heal, I_BOUNTY,
+    // building) and the TMAP->RMAP migration were already delivered to the live world while it
+    // ran on 8.1.x. Keeping them here would mis-fire after the move to 1.x, because the patch
+    // counter resets on a minor/major version change and the old patch numbers would collide
+    // with the fresh 1.x line. Add new 1.x balance notifications below as needed.
+    static const std::vector<PatchNotification> patches = {};
 
     int cur = ATL_VER_PATCH(current_version);
 
     for (const auto& p : patches)
         if (cur < p.patch)
             deliver_balance_patch(p);
-
-    // Patch 3: item data migration (TMAP→RMAP + boss RMAP) must run at the END
-    // of the turn so that any GIVE TMAP orders in this turn still execute against
-    // the original item. The flag is checked in PostProcessTurn().
-    if (cur < 3)
-        pending_rmap_migration = true;
 
     return true;
 }

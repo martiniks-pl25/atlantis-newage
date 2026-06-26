@@ -64,8 +64,8 @@ int *allowedMartial = ma;
 int allowedMartialSize = sizeof(ma) / sizeof(ma[0]);
 
 static GameDefs g = {
-	"NewOrigins",	// RULESET_NAME
-	MAKE_ATL_VER( 8, 1, 4 ),	// RULESET_VERSION
+	"NewAge",	// RULESET_NAME (renamed from "NewOrigins"; see ReadGame name-compat shim)
+	MAKE_ATL_VER( 1, 2, 0 ),	// RULESET_VERSION (dev/Arcanum = 1.2.0 beta; Trident prod = 1.1.0)
 
 	8,	/* MAX_SPEED */
 	7,	/* PHASED_MOVE_OFFSET */

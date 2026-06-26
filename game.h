@@ -83,7 +83,8 @@ public:
     int view_map(const std::string& typestr,const std::string& mapfile);
     // LLS
     void UnitFactionMap();
-    int generate_rules(const std::string& rules, const std::string& css, const std::string& intro);
+    int generate_rules(const std::string& rules, const std::string& css, const std::string& intro,
+        const std::string& world_name = "");
     std::string FactionTypeDescription(Faction &fac);
     int do_orders_check(const std::string& strOrders, const std::string& strCheck);
 
