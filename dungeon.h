@@ -101,11 +101,13 @@ namespace dungeon {
     constexpr int CELL_SIZE = 8;
 
     // Spawn control
-    // MAX_ACTIVE is computed dynamically as total_cells/3 — see ProcessDungeons()
+    // AUTO-dungeon cap = total_cells - (total_cells / PIRATE_HIDEOUT_RESERVE_DIV),
+    // i.e. ~10% of cells are reserved for on-demand pirate hideouts — see ProcessDungeons()
     constexpr int MIN_DISTANCE       = 5;   // min hex-distance between surface entrances
-    constexpr int SPAWN_ATTEMPTS     = 10;   // spawn attempts per turn
-    constexpr int SPAWN_CHANCE       = 75;  // % chance per attempt
+    constexpr int SPAWN_ATTEMPTS     = 6;   // spawn attempts per turn
+    constexpr int SPAWN_CHANCE       = 75;  // % chance per attempt (≈4.5 nominal spawns/turn before placement misses)
     constexpr int PLACEMENT_ATTEMPTS = 100; // random surface region tries per spawn
+    constexpr int PIRATE_HIDEOUT_RESERVE_DIV = 10; // reserve total_cells/10 (~10%) for hideouts
 
     // Monster aggression multiplier inside dungeons
     constexpr int AGGRESSION_MULT    = 2;
