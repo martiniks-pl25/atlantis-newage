@@ -65,7 +65,7 @@ int allowedMartialSize = sizeof(ma) / sizeof(ma[0]);
 
 static GameDefs g = {
 	"NewAge",	// RULESET_NAME (renamed from "NewOrigins"; see ReadGame name-compat shim)
-	MAKE_ATL_VER( 1, 2, 0 ),	// RULESET_VERSION (dev/Arcanum = 1.2.0 beta; Trident prod = 1.1.0)
+	MAKE_ATL_VER( 1, 1, 0 ),	// RULESET_VERSION (Trident prod = 1.1.0 stable; dev/Arcanum = 1.2.0 beta on neworigins-v8-newage)
 
 	8,	/* MAX_SPEED */
 	7,	/* PHASED_MOVE_OFFSET */

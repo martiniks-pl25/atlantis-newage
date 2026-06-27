@@ -887,12 +887,12 @@ void Game::ModifyTablesPerRuleset(void)
     // this set is for the city vote win condition, and was not active for NO7
     // rulesetSpecificData["victory_type"] = "city_vote";
 
-    // Trident coronation win — enable ONLY on the Trident world. Left disabled on
-    // Arcanum (dev): the engine code ships dormant. See Game::check_coronation()
-    // and docs/TRIDENT_VICTORY_MECHANIC_DESIGN.md.
-    // rulesetSpecificData["victory_type"]     = "coronation";
-    // rulesetSpecificData["crowns_to_win"]    = 3;
-    // rulesetSpecificData["coronation_turns"] = 5;
+    // Trident coronation win — ENABLED on this Trident release branch. On dev
+    // (Arcanum, neworigins-v8-newage) these lines stay commented so the engine ships
+    // dormant. See Game::check_coronation() and docs/TRIDENT_VICTORY_MECHANIC_DESIGN.md.
+    rulesetSpecificData["victory_type"]     = "coronation";
+    rulesetSpecificData["crowns_to_win"]    = 3;
+    rulesetSpecificData["coronation_turns"] = 5;
 
     EnableItem(I_CAMEL);
     EnableItem(I_MCROSSBOW);
