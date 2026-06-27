@@ -185,6 +185,8 @@ public:
     int turn_number() { return game.TurnNumber(); }
     // Build the gazette regalia block (crowns + capitals) for assertion in tests.
     json build_regalia_json() { return game.BuildRegaliaJson(); }
+    // Run the Trident coronation victory check; returns the winning faction or null.
+    Faction *run_check_coronation() { return game.check_coronation(); }
 
     // dummy
     int get_seed() { return rng::get_random(10000); };

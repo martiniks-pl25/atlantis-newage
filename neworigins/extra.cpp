@@ -837,6 +837,10 @@ Faction *Game::CheckVictory()
         winner = nullptr;
     }
 
+    // Trident coronation victory (Phase B). Dormant unless rulesetSpecificData
+    // victory_type == "coronation"; engine-side so it stays unit-testable.
+    if (Faction *crowned = check_coronation()) return crowned;
+
     return winner;
 }
 
@@ -882,6 +886,13 @@ void Game::ModifyTablesPerRuleset(void)
 
     // this set is for the city vote win condition, and was not active for NO7
     // rulesetSpecificData["victory_type"] = "city_vote";
+
+    // Trident coronation win — enable ONLY on the Trident world. Left disabled on
+    // Arcanum (dev): the engine code ships dormant. See Game::check_coronation()
+    // and docs/TRIDENT_VICTORY_MECHANIC_DESIGN.md.
+    // rulesetSpecificData["victory_type"]     = "coronation";
+    // rulesetSpecificData["crowns_to_win"]    = 3;
+    // rulesetSpecificData["coronation_turns"] = 5;
 
     EnableItem(I_CAMEL);
     EnableItem(I_MCROSSBOW);

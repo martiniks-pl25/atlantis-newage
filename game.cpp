@@ -1209,6 +1209,81 @@ json Game::BuildRegaliaJson() {
     return regalia;
 }
 
+// --- Trident coronation victory predicates (hold_condition components) ---
+
+// Does faction f actively guard region r? (a unit of f on GUARD_GUARD in r)
+static bool coronation_guards_region(Faction *f, ARegion *r) {
+    for (const auto obj : r->objects)
+        for (const auto u : obj->units)
+            if (u->faction == f && u->guard == GUARD_GUARD)
+                return true;
+    return false;
+}
+
+// Does faction f own a finished Palace in region r? Mirrors the CAPITAL order
+// check (O_PALACE, incomplete <= 0, owner's faction == f). The city-tier
+// requirement was enforced when the capital was declared.
+static bool coronation_owns_palace(Faction *f, ARegion *r) {
+    for (const auto obj : r->objects) {
+        if (obj->type != O_PALACE) continue;
+        if (obj->incomplete > 0) continue;
+        Unit *owner = obj->GetOwner();
+        if (owner && owner->faction == f) return true;
+    }
+    return false;
+}
+
+// Total crowns held by faction f's units physically present in region r.
+static int coronation_crowns_in_region(Faction *f, ARegion *r) {
+    int total = 0;
+    for (const auto obj : r->objects)
+        for (const auto u : obj->units)
+            if (u->faction == f)
+                total += u->items.GetNum(I_CROWN);
+    return total;
+}
+
+Faction *Game::check_coronation() {
+    // Dormant unless the world enables the coronation victory (Trident only).
+    // On Arcanum this key is left unset → the method is a no-op.
+    if (rulesetSpecificData.value("victory_type", std::string()) != "coronation")
+        return nullptr;
+
+    int crowns_to_win    = rulesetSpecificData.value("crowns_to_win", 3);
+    int coronation_turns = rulesetSpecificData.value("coronation_turns", 5);
+
+    Faction *winner = nullptr;
+    for (const auto f : factions) {
+        if (f->is_npc) continue;
+        if (f->capital_region == -1) { f->coronation = 0; continue; }
+
+        ARegion *cap = regions.GetRegion(f->capital_region);
+        bool hold = cap
+            && coronation_guards_region(f, cap)
+            && coronation_owns_palace(f, cap)
+            && coronation_crowns_in_region(f, cap) >= crowns_to_win;
+
+        if (!hold) { f->coronation = 0; continue; }
+
+        // Hold condition met this turn: advance the counter (clamped) and announce.
+        if (f->coronation < coronation_turns) f->coronation++;
+        std::string city = cap->town ? cap->town->name : cap->name;
+        if (f->coronation >= coronation_turns) {
+            write_times_article((f->name | filter::strip_number) +
+                " has been crowned at " + city +
+                "! The Trident is theirs. The game is won.");
+            winner = f;
+            break;
+        }
+        int remaining = coronation_turns - f->coronation;
+        write_times_article("CORONATION: " + (f->name | filter::strip_number) +
+            " holds the crowns at " + city + ". The crowning completes in " +
+            std::to_string(remaining) + (remaining == 1 ? " turn" : " turns") +
+            " unless stopped.");
+    }
+    return winner;
+}
+
 void Game::WriteWorldEvents() {
     constexpr bool write_legacy_text = true;  // set to false to disable times.N text files
 

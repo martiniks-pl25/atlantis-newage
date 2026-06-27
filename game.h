@@ -132,6 +132,12 @@ private:
     // resolve Faction::capital_region. Returns {"crowns":[...],"capitals":[...]}.
     json BuildRegaliaJson();
 
+    // Trident coronation victory check (engine-side so it is unit-testable, unlike
+    // the ruleset-stubbed CheckVictory). Gated on rulesetSpecificData victory_type
+    // == "coronation"; advances/resets each faction's Faction::coronation counter
+    // and returns the winning faction (counter >= coronation_turns) or nullptr.
+    Faction *check_coronation();
+
     //
     // Game editing functions.
     //

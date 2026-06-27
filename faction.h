@@ -216,6 +216,12 @@ public:
     // Set only by the CAPITAL order (engine 5.2.10+). See docs/TRIDENT_VICTORY_MECHANIC_DESIGN.md.
     int capital_region;
 
+    // Trident victory mechanic: consecutive turns the coronation hold condition has
+    // held (3 crowns + owned Palace + guarded capital region). Reset to 0 when broken;
+    // a win fires at coronation_turns. Serialized in the same 5.2.10 save block as
+    // capital_region. Only ever advanced by Game::check_coronation().
+    int coronation;
+
     // Guard reputation tracking (temporary, not serialized)
     int guard_attack_this_turn;  // 0=no attacks, 1=attacked in guarded city
 
