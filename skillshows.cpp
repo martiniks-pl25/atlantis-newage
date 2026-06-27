@@ -1462,7 +1462,10 @@ const std::string ShowSkill::Report(Faction *f) const
             str += "Allows the caster to call nearby pirate fleets to converge on "
                 "their location. At level N, fleets within N hexes are drawn toward "
                 "the caster. This skill is granted by the Bosun's Whistle at a level "
-                "equal to the bearer's Manipulation skill.";
+                "equal to the bearer's Manipulation skill. To call the pirates, the "
+                "mage should issue the order CAST Call_Pirates. The summoned fleets "
+                "approach by sea, so cast it on or near the coast — only fleets that "
+                "can sail to the caster's region will answer.";
             break;
     }
 
