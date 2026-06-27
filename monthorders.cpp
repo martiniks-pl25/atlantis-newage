@@ -2429,26 +2429,25 @@ void Game::RunExploreOrders(ARegion *r)
                 bool success = (rng::get_random(100) < chance);
 
                 if (success) {
-                    u->items.SetNum(I_TREASURE_MAP,
-                        u->items.GetNum(I_TREASURE_MAP) - 1);
+                    // Decipher succeeded — try to place the hideout BEFORE spending the
+                    // map. The treasure map is consumed ONLY if a hideout is actually
+                    // created, so a successful roll that fails to place (no coastal spot
+                    // in range, all dungeon cells taken, no building slot) never wastes
+                    // the map — the player can simply try again next month.
                     bool found = spawn_pirate_hideout(r, u);
-                    if (!found) {
-                        // No suitable coastal spot within range — map used up, no reward.
-                        if (r->IsCoastal()) {
-                            u->event(u->name + " spends the month following the treasure map's"
-                                " bearings, but finds no trace of the hidden cove — the pirates"
-                                " may have abandoned this hideout. The worn charts fall apart"
-                                " in the attempt.",
-                                "explore");
-                        } else {
-                            u->event(u->name + " studies the treasure map but the charts"
-                                " describe a coastal hideout that lies beyond reach from here."
-                                " Move closer to the sea before attempting to use this map.",
-                                "explore");
-                            // Map not consumed — return it so unit can try from the coast.
-                            u->items.SetNum(I_TREASURE_MAP,
-                                u->items.GetNum(I_TREASURE_MAP) + 1);
-                        }
+                    if (found) {
+                        u->items.SetNum(I_TREASURE_MAP,
+                            u->items.GetNum(I_TREASURE_MAP) - 1);
+                    } else if (r->IsCoastal()) {
+                        u->event(u->name + " follows the treasure map's bearings but finds"
+                            " no hidden cove this month — the charts still hold. Try again,"
+                            " perhaps from a different stretch of coast.",
+                            "explore");
+                    } else {
+                        u->event(u->name + " studies the treasure map but the charts"
+                            " describe a coastal hideout that lies beyond reach from here."
+                            " Move closer to the sea before attempting to use this map.",
+                            "explore");
                     }
                 } else {
                     // Failed to decipher. 50% chance map is destroyed.

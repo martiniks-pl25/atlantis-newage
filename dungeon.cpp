@@ -75,8 +75,8 @@ const std::vector<DungeonTypeDef> DungeonTypeDefs = {
         I_PIRATE_KING,
         DungeonGenStyle::DFS_CORRIDOR, 15,
         0, 0,    // never auto-spawns
-        5,       // dying_turns: pirates evacuate quickly
-        8        // max_lifetime_turns
+        8,       // dying_turns: grace to clear/leave the cove
+        12       // max_lifetime_turns: victory-critical, give time to muster and assault
     },
 };
 
@@ -516,12 +516,16 @@ void Game::ProcessDungeons()
 {
     if (!Globals->DUNGEON_LEVEL) return;
 
-    // Dynamic cap: ~1/3 of available 8×8 cells, minimum 1.
+    // Cap for AUTO dungeons: all 8×8 cells minus a reserve kept free for pirate
+    // hideouts (spawned on demand by EXPLORE TMAP, which uses the full cell pool).
+    // Reserving ~10% guarantees a free cell for a hideout even when auto dungeons
+    // are at their ceiling. Pirate hideouts are not subject to this cap.
     ARegionArray *da = regions.get_first_region_array_of_type(ARegionArray::LEVEL_DUNGEON);
     int max_active = 1;
     if (da) {
         int total_cells = (da->x / dungeon::CELL_SIZE) * (da->y / dungeon::CELL_SIZE);
-        max_active = std::max(1, total_cells);
+        int reserve     = std::max(1, total_cells / dungeon::PIRATE_HIDEOUT_RESERVE_DIV);
+        max_active      = std::max(1, total_cells - reserve);
     }
 
     // --- Spawn (not before turn 6 — players need time to develop) ---
@@ -902,7 +906,11 @@ ARegion* Game::find_pirate_hideout_spot(ARegion* origin)
         }
     }
 
-    // Collect candidates: coastal, no town, distance 2–4, no dungeon nearby.
+    // Collect candidates: coastal, no town, distance 2–4 from the explorer.
+    // NOTE: pirate hideouts intentionally ignore the distance-to-other-entrances
+    // rule that regular dungeons use — a hidden cove may sit right next to another
+    // dungeon. This guarantees a usable spot exists even on a saturated map, so a
+    // successfully deciphered treasure map almost always yields a hideout.
     std::vector<ARegion*> candidates;
     for (auto &[rnum, d] : dist) {
         if (d < 2) continue;
@@ -911,18 +919,7 @@ ARegion* Game::find_pirate_hideout_spot(ARegion* origin)
         if (r->type == R_OCEAN || r->type == R_LAKE) continue;
         if (!r->IsCoastal()) continue;
         if (r->town) continue;
-
-        bool too_close = false;
-        for (const auto &di : activeDungeons) {
-            if (di.entrance_object_num < 0) continue;
-            ARegion *existing = regions.GetRegion(di.surface_region_num);
-            if (!existing) continue;
-            if (regions.find_distance_between_regions(r, existing) < 4) {
-                too_close = true;
-                break;
-            }
-        }
-        if (!too_close) candidates.push_back(r);
+        candidates.push_back(r);
     }
 
     if (candidates.empty()) return nullptr;
