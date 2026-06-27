@@ -1161,6 +1161,54 @@ std::string Game::GenerateWantedSection() {
     return result;
 }
 
+json Game::BuildRegaliaJson() {
+    // Crowns reuse the engine's canonical item census (CountItem sums an item
+    // across all of a faction's present_regions, so crowns carried outside towns
+    // are still counted). Capitals resolve Faction::capital_region to its
+    // town/region. Only factions that actually hold a crown / have a capital
+    // appear; empty arrays are a valid "no regalia yet" signal.
+    struct CrownHolder { int num; std::string name; int crowns; };
+    std::vector<CrownHolder> crown_holders;
+    json capitals_arr = json::array();
+    for (const auto f : factions) {
+        if (f->is_npc) continue;
+        int c = CountItem(f, I_CROWN);
+        if (c > 0)
+            crown_holders.push_back({ f->num, f->name | filter::strip_number, c });
+        if (f->capital_region != -1) {
+            ARegion *cr = regions.GetRegion(f->capital_region);
+            if (cr && cr->town) {
+                capitals_arr.push_back({
+                    { "faction_num",  f->num },
+                    { "faction_name", f->name | filter::strip_number },
+                    { "city",         cr->town->name | filter::strip_number },
+                    { "region", {
+                        { "terrain", TerrainDefs[cr->type].name },
+                        { "name",    cr->name }
+                    } }
+                });
+            }
+        }
+    }
+    // Crowns ranked by count desc, faction number asc as a stable tiebreak.
+    std::sort(crown_holders.begin(), crown_holders.end(),
+        [](const CrownHolder& a, const CrownHolder& b) {
+            if (a.crowns != b.crowns) return a.crowns > b.crowns;
+            return a.num < b.num;
+        });
+    json crowns_arr = json::array();
+    for (const auto& h : crown_holders)
+        crowns_arr.push_back({
+            { "faction_num",  h.num },
+            { "faction_name", h.name },
+            { "crowns",       h.crowns }
+        });
+    json regalia;
+    regalia["crowns"]   = crowns_arr;
+    regalia["capitals"] = capitals_arr;
+    return regalia;
+}
+
 void Game::WriteWorldEvents() {
     constexpr bool write_legacy_text = true;  // set to false to disable times.N text files
 
@@ -1442,6 +1490,9 @@ void Game::WriteWorldEvents() {
         for (const auto& o : all_owners) all_array.push_back(make_owner_json(o));
         settlement_stats["all_owners"] = all_array;
         j["settlement_stats"] = settlement_stats;
+
+        // Regalia: crowns held and declared capitals (Trident victory summary)
+        j["regalia"] = BuildRegaliaJson();
 
         std::ofstream jf(base + ".json", std::ios::out | std::ios::trunc);
         if (jf.is_open()) {

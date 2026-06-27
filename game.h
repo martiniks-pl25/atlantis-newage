@@ -127,6 +127,11 @@ public:
     void WriteWorldEvents();
 
 private:
+    // Build the gazette "regalia" block: crowns held per faction and declared
+    // capitals (Trident victory summary). Crowns reuse CountItem(); capitals
+    // resolve Faction::capital_region. Returns {"crowns":[...],"capitals":[...]}.
+    json BuildRegaliaJson();
+
     //
     // Game editing functions.
     //
