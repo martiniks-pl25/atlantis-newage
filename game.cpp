@@ -641,6 +641,11 @@ int Game::WritePlayers()
 
     f << PLAYERS_FIRST_LINE << "\n";
     f << "Version: " << CURRENT_ATL_VER << "\n";
+    // Ruleset version exposed for the portal (per-world feature gating) from world
+    // genesis — players.out exists before turn 1. Matches the report's
+    // engine.ruleset_version field (ATL_VER_STRING, with a " (beta)" suffix for even
+    // minor versions) so consumers share one parser. ReadPlayers skips it tolerantly.
+    f << "RulesetVersion: " << ATL_VER_STRING(Globals->RULESET_VERSION) << "\n";
     f << "TurnNumber: " << TurnNumber() << "\n";
     if (gameStatus == GAME_STATUS_UNINIT)
         return(0);
@@ -698,15 +703,14 @@ bool Game::ReadPlayers()
         }
 
         //
-        // Ignore the turn number line.
+        // Skip the remaining header lines (turn number, RulesetVersion, and any
+        // future header fields) until GameStatus:. A tolerant loop keeps the reader
+        // compatible with older players.in files that lack the RulesetVersion line
+        // (and with anything the portal appends to the header later).
         //
-        f >> parser;
-
-        //
-        // Next, the game status.
-        //
-        f >> parser;
-        if (parser.get_token() != "GameStatus:") break;
+        do {
+            f >> parser;
+        } while (!f.eof() && parser.get_token() != "GameStatus:");
 
         token = parser.get_token();
         if (!token) break;
