@@ -975,7 +975,13 @@ void Game::ModifyTablesPerRuleset(void)
     DisableSkill(S_CREATE_STAFF_OF_LIGHTNING);
     DisableItem(I_STAFFOFL);
 
-    EnableSkill(S_ENCHANT_SHIELDS);
+    // Trident: mages cannot enchant mithril weapons/armor/shields (balance).
+    // Swords and armor are enabled by default in gamedata; shields would otherwise
+    // be enabled below — so it is left un-enabled and all three are disabled here.
+    DisableSkill(S_ENCHANT_SWORDS);   // no I_MSWORD production
+    DisableSkill(S_ENCHANT_ARMOR);    // no I_MPLATE production
+    DisableSkill(S_ENCHANT_SHIELDS);  // no I_MSHIELD production
+
     EnableSkill(S_CREATE_AEGIS);
     EnableSkill(S_CREATE_WINDCHIME);
     EnableSkill(S_CREATE_GATE_CRYSTAL);
