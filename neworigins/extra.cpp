@@ -1570,35 +1570,35 @@ void Game::ModifyTablesPerRuleset(void)
 
     // --- Monster aggression and group size (modify_monster_threat) ---
     // Natural wandering monsters
-    modify_monster_threat("LION",  3,   20);  // Pride of Lions
+    modify_monster_threat("LION",  4,   20);  // Pride of Lions
     modify_monster_threat("WOLF",  10,  20);  // Wolf Pack
     modify_monster_threat("GRIZ",  3,   20);  // Grizzly Bears
     modify_monster_threat("CROC",  6,   20);  // Crocodiles
-    modify_monster_threat("ANAC",  5,   20);  // Anacondas
+    modify_monster_threat("ANAC",  6,   20);  // Anacondas
     modify_monster_threat("SCOR",  8,   20);  // Giant Scorpions
     modify_monster_threat("POLA",  3,   20);  // Polar Bears
     modify_monster_threat("GRAT",  30,  20);  // Pack of Rats
     modify_monster_threat("GSPI",  4,   20);  // Giant Spiders
     modify_monster_threat("GLIZ",  3,   25);  // Giant Lizards
-    modify_monster_threat("TREN",  7,   25);  // Living Trees
+    modify_monster_threat("TREN",  7,   30);  // Living Trees
     modify_monster_threat("ROC",   2,   50);  // Giant Birds
-    modify_monster_threat("BOGT",  2,   25);  // Swamp Creatures
+    modify_monster_threat("BOGT",  2,   30);  // Swamp Creatures
     modify_monster_threat("KONG",  2,   80);  // Great Apes
     modify_monster_threat("SPHI",  1,   50);  // Sphinx
-    modify_monster_threat("ICEW",  8,   25);  // Ice Wurms
+    modify_monster_threat("ICEW",  8,   30);  // Ice Wurms
     modify_monster_threat("DRAG",  1,   80);  // Dragon
     modify_monster_threat("WYVR",  1,   50);  // Wyvern
     modify_monster_threat("CENT",  8,   20);  // Tribe of Centaurs
     modify_monster_threat("KOBO",  20,  20);  // Kobold Pack
-    modify_monster_threat("OGRE",  2,   20);  // Family of Ogres
+    modify_monster_threat("OGRE",  2,   25);  // Family of Ogres
     modify_monster_threat("IFRI",  2,   25);  // Fire Ifrits
     modify_monster_threat("LMAN",  10,  20);  // Lizard Men
     modify_monster_threat("WMAN",  10,  20);  // Clan of Wild Men
     modify_monster_threat("SAND",  10,  20);  // Sandlings
-    modify_monster_threat("YETI",  5,   20);  // Yeti
+    modify_monster_threat("YETI",  5,   25);  // Yeti
     modify_monster_threat("GOBL",  40,  20);  // Goblin Horde
-    modify_monster_threat("TROL",  8,   20);  // Troll Pack
-    modify_monster_threat("ETTI",  2,   20);  // Ettins
+    modify_monster_threat("TROL",  8,   25);  // Troll Pack
+    modify_monster_threat("ETTI",  2,   25);  // Ettins
 
     // Summoned / undead monsters
     modify_monster_threat("SKEL",  100, 20);  // Skeleton
@@ -1610,7 +1610,7 @@ void Game::ModifyTablesPerRuleset(void)
     modify_monster_threat("EAGL",  1,   20);  // Eagle
 
     // Sea creatures
-    modify_monster_threat("PIRA",  20,  25);  // Pirates        (default: num=20, hostile=50%)
+    modify_monster_threat("PIRA",  25,  30);  // Pirates        (default: num=20, hostile=50%)
     modify_monster_threat("PCAP",  1,   30);  // Pirate Captain (default: num=1,  hostile=50%)
     modify_monster_threat("PBOS",  1,   30);  // Pirate Bosun   (default: num=1,  hostile=50%)
     modify_monster_threat("PKIN",  1,  100);  // Pirate King    — always attacks
@@ -1758,6 +1758,29 @@ void Game::ModifyTablesPerRuleset(void)
 
     // --- Shields IT_ADVANCED + NOMARKET ---
     ModifyItemBasePrice(I_ASHIELD,    1200); // was:600 | ARMO5 1m 1xMSHD(450)+1xADMT(300)
+
+    // --- Raw materials IT_ADVANCED ---
+    ModifyItemBasePrice(I_MITHRIL,     100); // was:100 | MINI3 1m (resource)
+    ModifyItemBasePrice(I_IRONWOOD,    100); // was:100 | LUMB3 1m (resource)
+    ModifyItemBasePrice(I_ROOTSTONE,   100); // was:100 | QUAR3 1m (resource)
+    ModifyItemBasePrice(I_YEW,         200); // was:200 | LUMB5 1m (resource)
+    ModifyItemBasePrice(I_FLOATER,     100); // was:100 | HUNT3 1m (resource)
+    ModifyItemBasePrice(I_ADMANTIUM,   300); // was:300 | MINI5 1m (resource, NOMARKET)
+    ModifyItemBasePrice(I_MUSHROOM,    100); // was:100 | HERB3 1m (resource)
+
+    // --- Mounts IT_NORMAL ---
+    ModifyItemBasePrice(I_CAMEL,        30); // was:30  | HORS1 1m (capture)
+
+    // --- Mounts IT_ADVANCED ---
+    ModifyItemBasePrice(I_WHORSE,      300); // was:300 | HORS5 1m (capture)
+    ModifyItemBasePrice(I_TURT,        100); // was:100 | FISH3 1m (capture)
+
+    // --- Transport IT_ADVANCED ---
+    ModifyItemBasePrice(I_MWAGON,      200); // was:200 | CARP3 1m 1xIRWD(100)
+    ModifyItemBasePrice(I_GLIDER,      250); // was:250 | CARP5 1m 2xFLOA(100)
+
+    // --- Misc IT_ADVANCED ---
+    ModifyItemBasePrice(I_HEALPOTION,  200); // was:200 | HEAL3 1m 1xHERBS+1xMUSH(100)
 
     // Modify the various spells which are allowed to cross levels
     if (Globals->EASIER_UNDERWORLD) {
