@@ -284,6 +284,10 @@ void Game::generate_dungeon_cell(DungeonInstance &d)
     for (auto *r : active) {
         r->type = R_DUNGEON;
         r->set_name(td.name);
+        // Self-heal: a cell recycled from a collapsed dungeon may have lost its
+        // O_DUMMY (see ProcessDungeons collapse reset). Guarantee one so that
+        // GetDummy() is never null when monsters/players move into these rooms.
+        if (!r->GetDummy()) r->objects.push_back(new Object(r));
     }
 
     for (auto *r : active)
@@ -791,6 +795,13 @@ void Game::ProcessDungeons()
                 delete obj;
             }
             r->objects.clear();
+
+            // Recreate the O_DUMMY object. Clearing objects above destroyed it,
+            // and every region must own a dummy so GetDummy() never returns null
+            // (units/monsters move into a region via MoveUnit(GetDummy())). Without
+            // this, a dungeon later recycling this cell would orphan everyone who
+            // enters its dummy-less rooms.
+            r->objects.push_back(new Object(r));
 
             // Reset terrain and name.
             r->type = R_BARREN;
