@@ -2010,11 +2010,14 @@ void Game::RunTeleportOrders()
 /**
  * @brief Summons nearby pirate fleets to sail toward the caster.
  *
- * Triggered by CAST CPIR. Level = GetSkill(S_CALL_PIRATES) which equals the
- * caster's MANI level (granted via I_BOSUN_WHISTLE grantSkill mechanism).
+ * Triggered by CAST CPIR. Level = GetSkill(S_CALL_PIRATES) = max(MANI, PATT, FORC, SPIR),
+ * granted via I_BOSUN_WHISTLE grantSkill mechanism (1-5).
+ *
+ * Radius formula: radius = (level + 1) / 2
+ *   level 1-2 → radius 1, level 3-4 → radius 2, level 5 → radius 3
  *
  * Algorithm:
- *   1. BFS from caster's region through valid ocean/coastal cells up to `level` hops,
+ *   1. BFS from caster's region through valid ocean/coastal cells up to `radius` hops,
  *      building a distance map. Same movement constraints as pirate DefaultOrders.
  *   2. For each NPC pirate fleet found in that map: build a directed SailOrder
  *      following decreasing BFS-distance (shortest ocean path toward caster).
@@ -2034,6 +2037,7 @@ void Game::RunTeleportOrders()
 int Game::RunCallPirates(ARegion *r, Unit *u)
 {
     int level = u->GetSkill(S_CALL_PIRATES);
+    int radius = (level + 1) / 2;  // skill 3→2, skill 5→3
 
     auto has_player_guarded_town = [](const ARegion *rg) -> bool {
         if (!rg->town || rg->town->TownType() <= TOWN_VILLAGE) return false;
@@ -2056,7 +2060,7 @@ int Game::RunCallPirates(ARegion *r, Unit *u)
     while (!bfsq.empty()) {
         ARegion *cur = bfsq.front(); bfsq.pop();
         int d = dist[cur];
-        if (d >= level) continue;
+        if (d >= radius) continue;
 
         bool cur_is_ocean = is_ocean(cur);
 
@@ -2166,13 +2170,13 @@ int Game::RunCallPirates(ARegion *r, Unit *u)
     }
 
     if (fleets_summoned > 0) {
-        u->event("Calls pirates within " + to_string(level) + " hex" +
-                 (level > 1 ? "es" : "") + ", summoning " +
+        u->event("Calls pirates within " + to_string(radius) + " hex" +
+                 (radius > 1 ? "es" : "") + ", summoning " +
                  to_string(fleets_summoned) + " fleet" +
                  (fleets_summoned > 1 ? "s" : "") + ".", "spell");
     } else {
-        u->event("Calls pirates within " + to_string(level) + " hex" +
-                 (level > 1 ? "es" : "") + ", but no pirate fleets respond.", "spell");
+        u->event("Calls pirates within " + to_string(radius) + " hex" +
+                 (radius > 1 ? "es" : "") + ", but no pirate fleets respond.", "spell");
     }
 
     return 1;

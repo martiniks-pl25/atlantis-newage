@@ -94,10 +94,10 @@ ut::suite<"PirateWhistle"> pirate_whistle_suite = [] {
     };
 
     // -----------------------------------------------------------------------
-    // MANI 2 reaches distance 2: same fleet that was out of range above
-    // now gets redirected.
+    // With radius = (level+1)/2, MANI 2 → radius 1, so distance-2 fleet is
+    // out of range. MANI 3 → radius 2 → fleet at distance 2 IS redirected.
     // -----------------------------------------------------------------------
-    "MANI 2 gives radius 2, reaches fleet at distance 2"_test = [] {
+    "MANI 3 gives radius 2, reaches fleet at distance 2"_test = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
@@ -111,7 +111,7 @@ ut::suite<"PirateWhistle"> pirate_whistle_suite = [] {
         ARegion *r_fleet = helper.get_region(1, 3, 0); // 2 hops from caster
         r_fleet->type = R_OCEAN;
 
-        Unit *caster = create_whistle_caster(helper, r_caster, 2); // radius 2
+        Unit *caster = create_whistle_caster(helper, r_caster, 3); // MANI 3 → radius 2
         Unit *pirates = helper.create_npc_pirate_fleet(r_fleet, 5);
 
         auto *original_so = new SailOrder;
@@ -120,7 +120,7 @@ ut::suite<"PirateWhistle"> pirate_whistle_suite = [] {
         helper.activate_spell(S_CALL_PIRATES, { r_caster, caster, nullptr, 0, 0 });
 
         expect(pirates->monthorders != original_so)
-            << "fleet at distance 2 must be redirected with MANI 2";
+            << "fleet at distance 2 must be redirected with MANI 3 (radius 2)";
 
         SailOrder *so = dynamic_cast<SailOrder *>(pirates->monthorders);
         expect(so != nullptr && !so->dirs.empty())
@@ -166,6 +166,7 @@ ut::suite<"PirateWhistle"> pirate_whistle_suite = [] {
     // Closest wins: closer caster overrides farther one.
     // Caster A at distance 2, caster B at distance 1.
     // B must win even if A ran first.
+    // A uses MANI 3 → radius 2 (covers distance 2).
     // -----------------------------------------------------------------------
     "Closest wins: nearer caster overrides farther one"_test = [] {
         UnitTestHelper helper;
@@ -181,9 +182,9 @@ ut::suite<"PirateWhistle"> pirate_whistle_suite = [] {
         ARegion *r_fleet = helper.get_region(1, 3, 0);
         r_fleet->type = R_OCEAN;
 
-        // Caster A: 2 hops from fleet, radius 2
-        Unit *caster_a = create_whistle_caster(helper, r_far, 2);
-        // Caster B: 1 hop from fleet, radius 1
+        // Caster A: 2 hops from fleet, MANI 3 → radius 2
+        Unit *caster_a = create_whistle_caster(helper, r_far, 3);
+        // Caster B: 1 hop from fleet, MANI 1 → radius 1
         Unit *caster_b = create_whistle_caster(helper, r_near, 1);
         Unit *pirates  = helper.create_npc_pirate_fleet(r_fleet, 5);
 
@@ -269,5 +270,90 @@ ut::suite<"PirateWhistle"> pirate_whistle_suite = [] {
 
         expect(pirates->monthorders == original_so)
             << "unit without BWHI/MANI must not redirect fleet (level=0, radius=0)";
+    };
+
+    // -----------------------------------------------------------------------
+    // Mage with FORCE 3 (no MANI) + BWHI:
+    // CPIR = max(0, 0, 3, 0) = 3 → radius = (3+1)/2 = 2.
+    // Fleet at distance 2 must be redirected.
+    // -----------------------------------------------------------------------
+    "Mage with FORCE 3 + BWHI summons at radius 2"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        ARegion *r_caster = helper.get_region(0, 0, 0);
+        r_caster->type = R_OCEAN;
+        ARegion *r_hop1 = helper.get_region(1, 1, 0);
+        r_hop1->type = R_OCEAN;
+        ARegion *r_hop2 = helper.get_region(0, 2, 0);
+        r_hop2->type = R_OCEAN;
+        ARegion *r_fleet = helper.get_region(1, 3, 0); // 2 hops from caster
+        r_fleet->type = R_OCEAN;
+
+        Faction *f = helper.create_faction("Mage");
+        Unit *u = helper.create_unit(f, r_caster);
+        u->SetMen(I_LEADERS, 1);
+        u->type = U_MAGE;
+        helper.set_skill_level(u, S_FORCE, 3);
+        u->items.SetNum(I_BOSUN_WHISTLE, 1);
+
+        Unit *pirates = helper.create_npc_pirate_fleet(r_fleet, 5);
+        auto *original_so = new SailOrder;
+        pirates->monthorders = original_so;
+
+        helper.activate_spell(S_CALL_PIRATES, { r_caster, u, nullptr, 0, 0 });
+
+        expect(pirates->monthorders != original_so)
+            << "fleet at distance 2 must be redirected by mage with FORCE 3 (radius 2)";
+
+        SailOrder *so = dynamic_cast<SailOrder *>(pirates->monthorders);
+        expect(so != nullptr && !so->dirs.empty())
+            << "mage-redirected fleet must have a non-empty SailOrder";
+    };
+
+    // -----------------------------------------------------------------------
+    // MANI 5 → CPIR 5 → radius = (5+1)/2 = 3.
+    // Fleet at distance 3 is in range, fleet at distance 4 is not.
+    // -----------------------------------------------------------------------
+    "MANI 5 gives radius 3, reaches distance 3 but not 4"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        // Build a chain: (0,0) → (1,1) → (0,2) → (1,3) — distance 3
+        // (0,0) → (1,1) → (0,2) → (1,3) → (0,4) — distance 4
+        ARegion *r_caster = helper.get_region(0, 0, 0);
+        r_caster->type = R_OCEAN;
+        ARegion *r_hop1 = helper.get_region(1, 1, 0);
+        r_hop1->type = R_OCEAN;
+        ARegion *r_hop2 = helper.get_region(0, 2, 0);
+        r_hop2->type = R_OCEAN;
+        ARegion *r_dist3 = helper.get_region(1, 3, 0); // 3 hops
+        r_dist3->type = R_OCEAN;
+        ARegion *r_dist4 = helper.get_region(0, 4, 0); // 4 hops
+        r_dist4->type = R_OCEAN;
+
+        Unit *caster = create_whistle_caster(helper, r_caster, 5); // MANI 5 → radius 3
+        Unit *pirates_dist3 = helper.create_npc_pirate_fleet(r_dist3, 5);
+        Unit *pirates_dist4 = helper.create_npc_pirate_fleet(r_dist4, 5);
+
+        auto *so_dist3 = new SailOrder;
+        pirates_dist3->monthorders = so_dist3;
+        auto *so_dist4 = new SailOrder;
+        pirates_dist4->monthorders = so_dist4;
+
+        helper.activate_spell(S_CALL_PIRATES, { r_caster, caster, nullptr, 0, 0 });
+
+        // Distance 3 → within radius 3 → must be redirected
+        expect(pirates_dist3->monthorders != so_dist3)
+            << "fleet at distance 3 must be redirected with MANI 5 (radius 3)";
+        SailOrder *so3 = dynamic_cast<SailOrder *>(pirates_dist3->monthorders);
+        expect(so3 != nullptr && !so3->dirs.empty())
+            << "distance-3 fleet must have a valid SailOrder";
+
+        // Distance 4 → beyond radius 3 → must NOT be touched
+        expect(pirates_dist4->monthorders == so_dist4)
+            << "fleet at distance 4 must not be redirected (beyond radius 3)";
     };
 };

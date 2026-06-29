@@ -2437,8 +2437,9 @@ std::vector<ItemType> ItemDefs =
      0, NULL, 0,
      "", { "", "", "", "" }, 0, 0},
     // I_BOSUN_WHISTLE — bosun's command whistle
-    // IT_MAGEONLY: grants CPIR (Call Pirates) at level = MANI skill level (1-5)
-    // Apprentice with MANI + BWHI can CAST CPIR to summon pirate fleets within MANI hexes
+    // IT_MAGEONLY: grants CPIR (Call Pirates) at level = max(MANI, PATT, FORC, SPIR) (1-5)
+    // Apprentice with MANI or Mage with FORC/SPIR/PATT + BWHI can CAST CPIR to summon pirate fleets
+    // Radius = (level + 1) / 2: skill 3→2, skill 5→3 (see RunCallPirates in spells.cpp)
     // IT_SPECIAL: excluded from procedural monster spoil pool (army.cpp:887)
     // IT_ALWAYS_SPOIL: full proportional drop in PvP battle spoils (battle.cpp:421)
     {"bosun's whistle","bosun's whistles","BWHI",
@@ -2450,7 +2451,7 @@ std::vector<ItemType> ItemDefs =
      -1,0,
      -1,0, 0,
      0, NULL, 0,
-     "CPIR", { "MANI", "", "", "" }, 1, 5},
+     "CPIR", { "MANI", "PATT", "FORC", "SPIR" }, 1, 5},
     // I_TREASURE_MAP — map found on wrecked pirate ships
     // Future: quest trigger item (EXPLORE order)
     // IT_SPECIAL: excluded from procedural monster spoil pool (army.cpp:887)
@@ -3875,7 +3876,7 @@ std::vector<SkillType> SkillDefs = {
      SkillType::DISABLED | SkillType::NOSTUDY | SkillType::NOTEACH | SkillType::GRANTED,
      std::nullopt, "rng_annihilate",
      {{NULL, 0}, {NULL, 0}, {NULL, 0}}},
-    // granted by Bosun's Whistle (BWHI); level = MANI level; radius = level hexes
+    // granted by Bosun's Whistle (BWHI); level = max(MANI, PATT, FORC, SPIR); radius = (level+1)/2 hexes
     {"call pirates","CPIR",0,
      SkillType::MAGIC | SkillType::CAST | SkillType::DISABLED | SkillType::NOSTUDY | SkillType::NOTEACH,
      std::nullopt, std::nullopt,
