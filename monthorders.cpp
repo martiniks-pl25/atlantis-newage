@@ -2249,7 +2249,21 @@ Location *Game::DoAMoveOrder(Unit *unit, ARegion *region, Object *obj)
     unit->alias = 0;
     unit->movepoints -= cost * Globals->MAX_SPEED;
     unit->moved += cost;
-    unit->MoveUnit(newreg->GetDummy());
+    {
+        // Every region must own an O_DUMMY so the unit has somewhere to land.
+        // If one is missing (e.g. an unmigrated legacy save with a recycled
+        // collapsed-dungeon cell), create it here rather than orphan the unit
+        // via MoveUnit(null) — an orphan vanishes silently on the next save.
+        Object *dest = newreg->GetDummy();
+        if (!dest) {
+            logger::write("WARNING: region " + newreg->short_print()
+                + " had no O_DUMMY on entry — recreating it (unit "
+                + std::to_string(unit->num) + ").");
+            dest = new Object(newreg);
+            newreg->objects.push_back(dest);
+        }
+        unit->MoveUnit(dest);
+    }
     unit->DiscardUnfinishedShips();
 
     // Track the initial region the unit started from for part of NO7 victory handling

@@ -2879,6 +2879,10 @@ int Unit::get_weapon(
 
 void Unit::MoveUnit(Object *toobj)
 {
+    // Note: a null toobj is a legitimate "detach" used by unit teardown
+    // (ARegion::Kill moves the unit to hell with MoveUnit(0) before deletion).
+    // Callers that move a LIVE unit into a region must pass a real object;
+    // see the GetDummy() guard in DoAMoveOrder for the dungeon-orphan case.
     if (object) std::erase(object->units, this);
     object = toobj;
     if (object) {

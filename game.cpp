@@ -547,6 +547,26 @@ int Game::OpenGame()
     // read dungeon instances (tolerant: missing section = no active dungeons)
     read_dungeons(f);
 
+    // Migrate: repair regions missing their O_DUMMY object. An earlier bug left
+    // recycled collapsed-dungeon cells without a dummy (the collapse reset cleared
+    // all objects but never recreated one). Units and monsters moving into such a
+    // region via MoveUnit(GetDummy()) became orphans and vanished silently on save.
+    // Restore the invariant "every region owns a dummy" for all affected worlds.
+    {
+        int repaired = 0;
+        for (const auto r : regions) {
+            if (!r->GetDummy()) {
+                r->objects.push_back(new Object(r));
+                repaired++;
+                logger::write("Migrating: region num " + std::to_string(r->num)
+                    + " " + r->short_print() + " was missing its O_DUMMY — recreated.");
+            }
+        }
+        if (repaired > 0)
+            logger::write("Migrating: recreated O_DUMMY in " + std::to_string(repaired)
+                + " region(s).");
+    }
+
     logger::write("Setting up unit numbers...");
     SetupUnitNums();
 
