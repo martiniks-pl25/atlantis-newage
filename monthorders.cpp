@@ -2415,7 +2415,7 @@ void Game::RunExploreOrders(ARegion *r)
 
                 u->event("Studying the ancient charts, " +
                     u->name + " discovers new " +
-                    item_string(chosen, 2, ALWAYSPLURAL) +
+                    item_string(chosen, bonus, FULLNUM | ALWAYSPLURAL) +
                     " deposits in " + r->short_print() +
                     ", adding to the region's production.", "explore");
 

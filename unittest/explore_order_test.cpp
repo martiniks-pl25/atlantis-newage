@@ -218,9 +218,12 @@ ut::suite<"ExploreOrder"> explore_order_suite = [] {
     };
 
     // -----------------------------------------------------------------------
-    // Test 6: add_or_increase_product creates a new product when absent.
+    // Test 6: a newly discovered product is sized to the bonus only, NOT to the
+    // terrain default. Picks an absent terrain product whose terrain default is
+    // large enough that the old "terrain_default + bonus" behaviour would be
+    // distinguishable, then asserts the deposit equals the bonus.
     // -----------------------------------------------------------------------
-    "add_or_increase_product creates new product when item is absent"_test = [] {
+    "add_or_increase_product creates new product sized to the bonus only"_test = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
@@ -230,7 +233,7 @@ ut::suite<"ExploreOrder"> explore_order_suite = [] {
 
         TerrainType *typer = &TerrainDefs[r->type];
         int target_item    = -1;
-        int terrain_default = 1;
+        int terrain_default = 0;
         for (unsigned int c = 0; c < sizeof(typer->prods)/sizeof(typer->prods[0]); c++) {
             int it = typer->prods[c].product;
             if (it == -1 || (ItemDefs[it].flags & ItemType::DISABLED)) continue;
@@ -246,7 +249,8 @@ ut::suite<"ExploreOrder"> explore_order_suite = [] {
         if (target_item == -1) return;  // all terrain products already present — skip
 
         size_t before_count = r->products.size();
-        r->add_or_increase_product(target_item, 2);
+        const int bonus = 2;
+        r->add_or_increase_product(target_item, bonus);
 
         expect(r->products.size() == before_count + 1u) << "products list must grow by 1";
 
@@ -256,10 +260,29 @@ ut::suite<"ExploreOrder"> explore_order_suite = [] {
 
         expect(new_prod != nullptr) << "new product must be findable";
         if (new_prod) {
-            expect(new_prod->baseamount == terrain_default + 2)
-                << "baseamount must be terrain_default + bonus";
-            expect(new_prod->amount == new_prod->baseamount)
-                << "amount must equal baseamount";
+            expect(new_prod->baseamount == bonus)
+                << "new deposit must be the bonus size, not terrain_default + bonus";
+            expect(new_prod->amount == bonus)
+                << "amount must equal the bonus";
+            // Regression guard: if the terrain has a non-trivial default, the old
+            // behaviour would have produced terrain_default + bonus instead.
+            if (terrain_default > 0)
+                expect(new_prod->baseamount != terrain_default + bonus)
+                    << "must not seed the deposit with the terrain default";
         }
+    };
+
+    // -----------------------------------------------------------------------
+    // Test 7: the discovery message reports the real bonus count, not a
+    // hardcoded "2". item_string(..., FULLNUM | ALWAYSPLURAL) is the exact call
+    // used by RunExploreOrders to build the event text.
+    // -----------------------------------------------------------------------
+    "explore discovery message reflects the real bonus count"_test = [] {
+        std::string one = item_string(I_IRON, 1, FULLNUM | ALWAYSPLURAL);
+        std::string two = item_string(I_IRON, 2, FULLNUM | ALWAYSPLURAL);
+
+        expect(one.rfind("1 ", 0) == 0u) << "a bonus of 1 must render as \"1 ...\"";
+        expect(two.rfind("2 ", 0) == 0u) << "a bonus of 2 must render as \"2 ...\"";
+        expect(one != two) << "different bonuses must produce different text";
     };
 };

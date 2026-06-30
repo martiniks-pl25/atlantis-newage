@@ -1188,7 +1188,7 @@ void ARegion::UpdateProducts()
 
 // Permanently add `amount` to a product's baseamount in this region.
 // If the product already exists, just increases its baseamount.
-// If not, creates a new Production entry with a terrain-default max.
+// If not, creates a new Production entry sized to `amount` only.
 void ARegion::add_or_increase_product(int item, int amount)
 {
     for (auto& prod : products) {
@@ -1198,23 +1198,12 @@ void ARegion::add_or_increase_product(int item, int amount)
             return;
         }
     }
-    // New product: pick the terrain default amount, then add the bonus.
-    int terrain_default = 1;
-    TerrainType *typer = &TerrainDefs[type];
-    for (unsigned int c = 0; c < sizeof(typer->prods)/sizeof(typer->prods[0]); c++) {
-        if (typer->prods[c].product == item) {
-            terrain_default = typer->prods[c].amount;
-            break;
-        }
-    }
-    // Food items aren't in prods[]; use the economy value as their default.
-    if (terrain_default == 1 &&
-        (item == I_GRAIN || item == I_LIVESTOCK || item == I_FISH)) {
-        if (typer->economy > 0) terrain_default = typer->economy;
-    }
-    Production *p = new Production(item, terrain_default);
-    p->baseamount += amount;
-    p->amount = p->baseamount;
+    // New product: the chart reveals a fresh deposit of exactly `amount` size.
+    // A discovery adds only the small bonus (1-2) — NOT a full natural-sized
+    // deposit — so do not seed it with the terrain-default amount.
+    Production *p = new Production(item, 0);  // ctor still sets itemtype + production skill
+    p->baseamount = amount;
+    p->amount = amount;
     products.push_back(p);
 }
 
