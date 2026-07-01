@@ -1265,7 +1265,7 @@ void Game::ModifyTablesPerRuleset(void)
     modify_race_skill_levels("TIEF", 5, 2);
     modify_race_skills("TIEF", 0, "STEA");
     modify_race_skills("TIEF", 1, "COMB");
-    ModifyItemCapacities(I_TIEFLING,12,0,0,0);
+    ModifyItemCapacities(I_TIEFLING,15,0,0,0);
     ModifyItemWeight(I_TIEFLING, 10);
 
     //
