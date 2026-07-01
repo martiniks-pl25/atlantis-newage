@@ -61,6 +61,9 @@ extern int *allowedTacticians;
 extern int allowedTacticiansSize;
 extern int *allowedMartial;
 extern int allowedMartialSize;
+// Minimum points each faction-type category keeps (0 = no floor; ruleset-set,
+// like the allowed* arrays — NOT a GameDefs struct field).
+extern int factionTypeMin;
 
 enum BattleLogLevel {
 	NORMAL   = 0,	// Standard battle log

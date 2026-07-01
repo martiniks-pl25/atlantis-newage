@@ -813,6 +813,19 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
           << "rules). Here is a chart detailing the limits on factions by Faction Points:\n"
           << enclose("p", false);
 
+        if (factionTypeMin > 0) {
+            int maxRating = Globals->FACTION_POINTS
+                          - factionTypeMin * ((int)FactionTypes->size() - 1);
+            int freePoints = Globals->FACTION_POINTS - factionTypeMin * (int)FactionTypes->size();
+            f << enclose("p", true) << "Every faction begins with " << factionTypeMin
+              << (factionTypeMin == 1 ? " point" : " points")
+              << " already committed to each area, and no area may be raised above "
+              << maxRating << " or fall below " << factionTypeMin << ". You therefore have "
+              << freePoints << " additional " << strings::plural(freePoints, "point", "points")
+              << " to raise a single area.\n"
+              << enclose("p", false);
+        }
+
         f << anchor("tablefactionpoints") << '\n';
         f << enclose("center", true);
         f << enclose("table border=\"1\"", true);
@@ -857,7 +870,13 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
         }
         f << enclose("tr", false);
 
-        for (auto i = 0; i <= Globals->FACTION_POINTS; i++) {
+        // Only ratings in [factionTypeMin, maxRating] are reachable when a floor is set;
+        // factionTypeMin == 0 keeps the full 0..points range for other rulesets.
+        int chartLo = (factionTypeMin > 0) ? factionTypeMin : 0;
+        int chartHi = (factionTypeMin > 0)
+            ? Globals->FACTION_POINTS - factionTypeMin * ((int)FactionTypes->size() - 1)
+            : Globals->FACTION_POINTS;
+        for (auto i = chartLo; i <= chartHi; i++) {
             for (auto &fp : *FactionTypes) {
                 fac.type[fp] = i;
             }
@@ -900,6 +919,17 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
 
         std::ostringstream buffer;
 
+        if (factionTypeMin > 0) {
+            int maxRating = Globals->FACTION_POINTS
+                          - factionTypeMin * ((int)FactionTypes->size() - 1);
+            f << enclose("p", true) << "For example, a faction may leave both areas at "
+              << factionTypeMin << " (balanced), or raise Martial to " << maxRating
+              << " for more taxing and trade regions, or raise Magic to " << maxRating
+              << " to field more mages"
+              << (app_exist ? " and " + Globals->APPRENTICE_NAME + "s" : "") << ".\n"
+              << enclose("p", false);
+        } else {
+
         int count = FactionTypes->size();
         int singleValue = Globals->FACTION_POINTS / count;
         int reminder = Globals->FACTION_POINTS % count;
@@ -940,6 +970,7 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
               << strings::plural(rem, "point", "points") << " unspent.\n"
               << enclose("p", false);
         }
+        } // end of the no-floor (factionTypeMin == 0) generic examples
     }
 
     f << enclose("p", true) << "When a faction starts the game, it is given a one-man unit and "
