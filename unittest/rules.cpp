@@ -38,6 +38,8 @@ static int ma[] = { 0, 10, 25, 40, 60, 90 };
 int *allowedMartial = ma;
 int allowedMartialSize = sizeof(ma) / sizeof(ma[0]);
 
+int factionTypeMin = 0;   // default: no floor (keeps existing test behavior)
+
 static GameDefs g = {
     "UnitTest Atlantis",     // RULESET_NAME
     MAKE_ATL_VER( 5, 0, 0 ), // RULESET_VERSION

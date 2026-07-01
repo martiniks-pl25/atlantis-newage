@@ -120,6 +120,14 @@ int parse_faction_type(parser::string_parser& parser, std::unordered_map<std::st
         token = parser.get_token();
     }
 
+    // Ruleset floor: keep a baseline in every category so no build can zero one out.
+    // With FACTION_POINTS = N_categories + 1 this also caps each category at floor+1.
+    if (factionTypeMin > 0) {
+        for (auto &kv : type) {
+            if (kv.second < factionTypeMin) kv.second = factionTypeMin;
+        }
+    }
+
     int tot = 0;
     for (auto &kv : type) {
         tot += kv.second;

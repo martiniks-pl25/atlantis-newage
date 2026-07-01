@@ -63,6 +63,10 @@ static int ma[] = { 28, 28, 28, 56, 56, 56 };
 int *allowedMartial = ma;
 int allowedMartialSize = sizeof(ma) / sizeof(ma[0]);
 
+// Minimum points each faction-type category keeps (0 = no floor). Trident sets
+// this to 1 so the only reachable builds are 1-1, 2-1 and 1-2.
+int factionTypeMin = 0;
+
 static GameDefs g = {
 	"NewAge",	// RULESET_NAME (renamed from "NewOrigins"; see ReadGame name-compat shim)
 	MAKE_ATL_VER( 1, 1, 0 ),	// RULESET_VERSION (Trident prod = 1.1.0 stable; dev/Arcanum = 1.2.0 beta on neworigins-v8-newage)
