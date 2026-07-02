@@ -229,10 +229,17 @@ ut::suite<"JSON Report"> json_report_suite = []
 
     auto wanted = json_report["markets"]["wanted"].size();
     expect(wanted == 7_ul);
-    auto expected_wanted = json{
-      {"tag", "GRAI"}, {"name", "grain"}, {"plural", "grain"}, {"amount", 84 }, { "price", 29 }
-    };
     auto first_wanted = json_report["markets"]["wanted"][0];
+    // Wanted price is baseprice * (100 + random(50)) / 100 (economy.cpp). The base
+    // price is balance data that may legitimately differ between world branches,
+    // so check the range instead of hardcoding the rolled value.
+    int grain_base = ItemDefs[I_GRAIN].baseprice;
+    int grain_price = first_wanted["price"];
+    expect(grain_price >= grain_base);
+    expect(grain_price <= grain_base * 149 / 100);
+    auto expected_wanted = json{
+      {"tag", "GRAI"}, {"name", "grain"}, {"plural", "grain"}, {"amount", 84 }, { "price", grain_price }
+    };
     expect(first_wanted == expected_wanted);
 
     auto exits = json_report["exits"].size();
