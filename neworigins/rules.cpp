@@ -33,11 +33,11 @@
 // the html file containing the rules to correctly reflect the changes!
 //
 
-static int am[] = { 4, 4, 4, 5, 5, 5 };
+static int am[] = { 4, 4, 5, 5, 5, 5 };
 int *allowedMages = am;
 int allowedMagesSize = sizeof(am) / sizeof(am[0]);
 
-static int aa[] = { 8, 8, 8, 10, 10, 10 };
+static int aa[] = { 8, 8, 10, 10, 10, 10 };
 int *allowedApprentices = aa;
 int allowedApprenticesSize = sizeof(aa) / sizeof(aa[0]);
 
@@ -49,7 +49,7 @@ static int at[] = { 0, 15, 30, 50, 75, 100 };
 int *allowedTrades = at;
 int allowedTradesSize = sizeof(at) / sizeof(at[0]);
 
-static int aq[] = { 8, 8, 8, 16, 16, 16 };
+static int aq[] = { 7, 7, 14, 14, 14, 14 };
 int *allowedQuartermasters = aq;
 int allowedQuartermastersSize = sizeof(aq) / sizeof(aq[0]);
 
@@ -59,13 +59,13 @@ int *allowedTacticians = ag;
 int allowedTacticiansSize = sizeof(ag) / sizeof(ag[0]);
 
 // allowed Martial activity
-static int ma[] = { 28, 28, 28, 56, 56, 56 };
+static int ma[] = { 18, 18, 36, 36, 36, 36 };
 int *allowedMartial = ma;
 int allowedMartialSize = sizeof(ma) / sizeof(ma[0]);
 
-// Minimum points each faction-type category keeps (0 = no floor). Trident sets
-// this to 1 so the only reachable builds are 1-1, 2-1 and 1-2.
-int factionTypeMin = 0;
+// Minimum points each faction-type category keeps. Trident: 1, so with
+// FACTION_POINTS = 3 the only reachable builds are 1-1, 2-1 and 1-2.
+int factionTypeMin = 1;
 
 static GameDefs g = {
 	"NewAge",	// RULESET_NAME (renamed from "NewOrigins"; see ReadGame name-compat shim)
@@ -113,7 +113,7 @@ static GameDefs g = {
 	30,	/* WMON_FREQUENCY */
 	30,	/* LAIR_FREQUENCY */
 
-	5,	/* FACTION_POINTS */
+	3,	/* FACTION_POINTS */
 
 	200,	/* TIMES_REWARD */
 
