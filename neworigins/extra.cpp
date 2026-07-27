@@ -894,6 +894,15 @@ void Game::ModifyTablesPerRuleset(void)
     rulesetSpecificData["crowns_to_win"]    = 3;
     rulesetSpecificData["coronation_turns"] = 5;
 
+    // Pirate map-chance turn ramp + hideout-supply throttle — active on both Arcanum
+    // (dev) and Trident (prod), unlike the coronation flag above. See
+    // docs/PIRATE_MAP_CHANCE_RAMP_PLAN.md.
+    rulesetSpecificData["map_chance_ramp_turns"]     = 60;
+    rulesetSpecificData["map_chance_ramp_bonus"]     = 0.5;
+    rulesetSpecificData["tmap_share_early"]          = 10;
+    rulesetSpecificData["tmap_share_late"]           = 20;
+    rulesetSpecificData["hideout_soft_cap_percent"]  = 7;
+
     EnableItem(I_CAMEL);
     EnableItem(I_MCROSSBOW);
     EnableItem(I_MWAGON);

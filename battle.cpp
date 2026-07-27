@@ -7,7 +7,59 @@
 #include "items.h"
 #include "strings_util.hpp"
 
+#include <algorithm>
+
 using namespace std;
+
+MapChanceRamp compute_map_chance_ramp(
+    int turnNumber, int rampTurns, double rampBonus, int shareEarly, int shareLate)
+{
+    if (rampTurns <= 0) return { 1.0, shareEarly };
+    int clamped = (turnNumber < rampTurns) ? turnNumber : rampTurns;
+    double p = (double)clamped / (double)rampTurns;
+    double multiplier = 1.0 + p * rampBonus;
+    int tmapShare = (int)(shareEarly + (shareLate - shareEarly) * p);
+    return { multiplier, tmapShare };
+}
+
+int apply_hideout_supply_throttle(int tmapShare, int activeHideouts, int softCap, int floorShare)
+{
+    if (softCap <= 0) return tmapShare;
+    double factor = 1.0 - (double)activeHideouts / (double)softCap;
+    if (factor < 0.0) factor = 0.0;
+    int throttled = (int)(tmapShare * factor);
+    return (throttled < floorShare) ? floorShare : throttled;
+}
+
+void Game::UpdateMapChanceRamp()
+{
+    int rampTurns             = rulesetSpecificData.value("map_chance_ramp_turns", 0);
+    double rampBonus          = rulesetSpecificData.value("map_chance_ramp_bonus", 0.0);
+    int shareEarly            = rulesetSpecificData.value("tmap_share_early", 10);
+    int shareLate             = rulesetSpecificData.value("tmap_share_late", 10);
+    int hideoutSoftCapPercent = rulesetSpecificData.value("hideout_soft_cap_percent", 0);
+
+    MapChanceRamp ramp = compute_map_chance_ramp(TurnNumber(), rampTurns, rampBonus, shareEarly, shareLate);
+
+    int hideoutSoftCap = 0;
+    if (hideoutSoftCapPercent > 0) {
+        ARegionArray *da = regions.get_first_region_array_of_type(ARegionArray::LEVEL_DUNGEON);
+        if (da) {
+            int totalCells = dungeon_total_cells(da->x, da->y);
+            hideoutSoftCap = std::max(1, totalCells * hideoutSoftCapPercent / 100);
+        }
+    }
+
+    int activeHideouts = 0;
+    if (hideoutSoftCap > 0) {
+        for (const auto& d : activeDungeons)
+            if (d.type == DungeonType::DUNGEON_PIRATE_HIDEOUT && d.state == DungeonSlotState::ACTIVE)
+                activeHideouts++;
+    }
+
+    cachedMapChanceMultiplier = ramp.multiplier;
+    cachedTmapShare = apply_hideout_supply_throttle(ramp.tmapShare, activeHideouts, hideoutSoftCap, shareEarly);
+}
 
 // Formats the per-round death breakdown for the "loses X" line.
 // Groups deaths by item type, listing contributing units with ×count.
@@ -1148,6 +1200,12 @@ int Game::RunBattle(ARegion * r,Unit * attacker,Unit * target,int ass,
     }
 
     Battle *b = new Battle;
+    if (!(r->level && r->level->levelType == ARegionArray::LEVEL_DUNGEON)) {
+        b->mapChanceMultiplier = cachedMapChanceMultiplier;
+        b->tmapShare = cachedTmapShare;
+    }
+    // Battles inside a dungeon level (a hideout's own rooms) keep Battle's
+    // pre-ramp defaults (1.0/10) unconditionally — see docs/PIRATE_MAP_CHANCE_RAMP_PLAN.md.
     b->WriteSides(r, attacker, target, atts, defs, ass);
 
     battles.push_back(b);

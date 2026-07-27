@@ -1618,6 +1618,8 @@ void Game::PreProcessTurn()
             reg->SetGateStatus(month);
         reg->DefaultOrders();
     }
+
+    UpdateMapChanceRamp();
 }
 
 void Game::ClearOrders(Faction *f)

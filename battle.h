@@ -30,6 +30,24 @@ enum {
     BATTLE_DRAW
 };
 
+// Turn-scaled pirate map-drop tuning (dormant unless configured via rulesetSpecificData;
+// see docs/PIRATE_MAP_CHANCE_RAMP_PLAN.md). Both functions are pure — no RNG, no
+// Game/Battle state — so they are testable in isolation from the combat pipeline.
+struct MapChanceRamp {
+    double multiplier;  // multiplies Army::Lose's pirate_tmap_chance; 1.0 = unchanged
+    int tmapShare;      // 0-100: scheduled % of a successful map roll that becomes TMAP, before supply throttle
+};
+
+MapChanceRamp compute_map_chance_ramp(
+    int turnNumber, int rampTurns, double rampBonus, int shareEarly, int shareLate);
+
+// Suppresses tmapShare toward floorShare as more pirate hideouts are already alive
+// in the world, so the turn ramp above can't be tuned into a hideout-spawn feedback
+// loop. Never drops below floorShare — a hideout must always stay at least as likely
+// as the game's un-ramped baseline. softCap <= 0 disables the throttle (returns
+// tmapShare unchanged).
+int apply_hideout_supply_throttle(int tmapShare, int activeHideouts, int softCap, int floorShare);
+
 class Battle
 {
     public:
@@ -72,6 +90,14 @@ class Battle
         int quest_num = -1;                  // quest->num for awareness lookup; -1 if no quest matched
         std::string quest_rewards;           // event text for factions that already knew the quest
         std::string quest_rewards_unaware;   // event text for factions that did NOT know the quest
+
+        // Turn-ramped, hideout-supply-throttled pirate map-drop tuning, copied each
+        // battle from Game's per-turn cache (Task 4 wires this in Game::RunBattle).
+        // Defaults reproduce pre-ramp behavior exactly, so any direct `new Battle` /
+        // `Battle b;` construction that bypasses RunBattle (simulate.cpp,
+        // test_armor_battle.cpp) is unaffected.
+        double mapChanceMultiplier = 1.0;
+        int tmapShare = 10;
 
     private:
         /**
