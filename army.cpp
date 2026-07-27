@@ -415,6 +415,13 @@ Soldier::Soldier(Unit * u,Object * o,int regtype,int r,int ass)
         }
     }
 
+    // TODO: called once per Soldier, i.e. once per man in this unit's man-loop
+    // (see the per-man `new Soldier(...)` calls in Army::Army, army.cpp ~739).
+    // If this bump crosses a skill-day level threshold (e.g. 295->300 days with
+    // SKILL_PRACTICE_AMOUNT=5), soldiers of the SAME unit constructed later in
+    // the same battle read a higher combat level than soldiers constructed
+    // earlier, i.e. men of one unit can end up fighting one battle at split
+    // skill levels. Not fixed; deprioritized.
     unit->PracticeAttribute("combat");
 
     // Apply armor combat modifiers
@@ -1030,8 +1037,9 @@ void Army::Lose(Battle *b, ItemList& spoils)
         b->AddLine("Upon the Admiral's fall, the victors lift the Crown from the ruin of the cove.");
     }
     if (had_pirates) pirate_tmap_chance += 10;
-    if (pirate_tmap_chance > 0 && rng::get_random(100) < pirate_tmap_chance) {
-        if (rng::get_random(100) < 10) {
+    int scaled_tmap_chance = (int)(pirate_tmap_chance * b->mapChanceMultiplier);
+    if (scaled_tmap_chance > 0 && rng::get_random(100) < scaled_tmap_chance) {
+        if (rng::get_random(100) < b->tmapShare) {
             spoils.SetNum(I_TREASURE_MAP, spoils.GetNum(I_TREASURE_MAP) + 1);
             b->AddLine("Searching the pirate vessel, the victors discover a weathered treasure map hidden below deck.");
         } else {

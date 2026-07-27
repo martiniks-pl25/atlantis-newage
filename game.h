@@ -373,6 +373,12 @@ public:
     std::vector<DungeonInstance> activeDungeons;
     int nextDungeonId = 1;
 
+    // Per-turn cache for the pirate map-chance ramp — computed once in
+    // UpdateMapChanceRamp() (called from PreProcessTurn()), read by every battle
+    // this turn via Game::RunBattle(). See docs/PIRATE_MAP_CHANCE_RAMP_PLAN.md.
+    double cachedMapChanceMultiplier = 1.0;
+    int cachedTmapShare = 10;
+
     // Per-turn claim map for CAST CPIR: fleet owner → best (smallest) BFS distance claimed.
     // Populated and cleared inside RunCastOrders(). Ensures "closest apprentice wins"
     // when multiple BWHI-users cast in the same turn.
@@ -571,6 +577,7 @@ public:
     void GenerateLocalQuestsForMayor(ARegion *city, Unit *mayor);
     std::set<int> ComputeMayorDomain(ARegion *city);
     void ProcessDungeons();       // dungeon.cpp — see docs/DUNGEON_SYSTEM_DESIGN.md
+    void UpdateMapChanceRamp();  // battle.cpp — see docs/PIRATE_MAP_CHANCE_RAMP_PLAN.md
     void try_spawn_dungeon();
     ARegion* find_entrance_spot();
     void generate_dungeon_cell(DungeonInstance &d);

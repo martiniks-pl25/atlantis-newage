@@ -91,6 +91,11 @@ bool is_dungeon_boss_kill_race(int item)
     return false;
 }
 
+int dungeon_total_cells(int levelX, int levelY)
+{
+    return (levelX / dungeon::CELL_SIZE) * (levelY / dungeon::CELL_SIZE);
+}
+
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
@@ -527,7 +532,7 @@ void Game::ProcessDungeons()
     ARegionArray *da = regions.get_first_region_array_of_type(ARegionArray::LEVEL_DUNGEON);
     int max_active = 1;
     if (da) {
-        int total_cells = (da->x / dungeon::CELL_SIZE) * (da->y / dungeon::CELL_SIZE);
+        int total_cells = dungeon_total_cells(da->x, da->y);
         int reserve     = std::max(1, total_cells / dungeon::PIRATE_HIDEOUT_RESERVE_DIV);
         max_active      = std::max(1, total_cells - reserve);
     }

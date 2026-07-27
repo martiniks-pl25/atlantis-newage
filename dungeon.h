@@ -62,6 +62,11 @@ extern const std::vector<DungeonTypeDef> DungeonTypeDefs;
 // Used to grant the guaranteed resource-map spoil when a dungeon boss dies.
 extern bool is_dungeon_boss_kill_race(int item);
 
+// Number of whole CELL_SIZE x CELL_SIZE cells in a dungeon-level grid of the given
+// dimensions. Pure — no engine state — shared by ProcessDungeons()'s AUTO-dungeon cap
+// and the pirate map-chance hideout-supply throttle. See docs/PIRATE_MAP_CHANCE_RAMP_PLAN.md.
+extern int dungeon_total_cells(int levelX, int levelY);
+
 // ---------------------------------------------------------------------------
 // Dungeon lifecycle
 // ---------------------------------------------------------------------------
