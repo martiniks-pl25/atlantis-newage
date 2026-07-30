@@ -5,6 +5,7 @@
 #include <stack>
 #include <iostream>
 #include "string_filters.hpp"
+#include "strings_util.hpp"
 #include "external/nlohmann/json.hpp"
 using json = nlohmann::json;
 
@@ -904,7 +905,9 @@ std::string Unit::battle_report(int observation)
     }
 
     if (!describe.empty()) {
-        temp += "; " + describe;
+        // The trailing '.' below terminates the whole line, so the description must not bring its own.
+        std::string description = strings::strip_sentence_end(describe);
+        if (!description.empty()) temp += "; " + description;
     }
 
     temp += ".";

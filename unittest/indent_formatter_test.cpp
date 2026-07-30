@@ -94,6 +94,40 @@ ut::suite<"Indent Formatter"> indent_formatter_suite = []
     expect(eq(ss.str(), string("t est\n test\n bar\n")));
   };
 
+  "wrap does not start a wrapped line with a report line marker"_test = []
+  {
+    stringstream ss;
+    // breaking at the last space before the wrap point would put "- eeee" at the start of the
+    // wrapped line, where a report parser would read it as a unit line, so break a word earlier.
+    ss << indent::wrap(20, 10) << "aaaa bbbb cccc dddd - eeee ffff\n";
+    expect(eq(ss.str(), string("aaaa bbbb cccc\n  dddd - eeee ffff\n")));
+  };
+
+  "all report line markers are avoided at the start of a wrapped line"_test = []
+  {
+    for (auto marker : { '-', '+', '*', '=', ':', '%', '!' }) {
+      stringstream ss;
+      ss << indent::wrap(20, 10) << "aaaa bbbb cccc dddd " << marker << " eeee ffff\n";
+      expect(eq(ss.str(), string("aaaa bbbb cccc\n  dddd ") + marker + string(" eeee ffff\n")));
+    }
+  };
+
+  "wrap keeps the original break when no earlier one is within lookback"_test = []
+  {
+    stringstream ss;
+    // the previous space is 6 characters back from the wrap point, outside the lookback of 3,
+    // so the marker cannot be avoided without producing an arbitrarily short line.
+    ss << indent::wrap(20, 3) << "aaaa bbbb cccc dddd - eeee ffff\n";
+    expect(eq(ss.str(), string("aaaa bbbb cccc dddd\n  - eeee ffff\n")));
+  };
+
+  "a marker at the start of an unwrapped line is untouched"_test = []
+  {
+    stringstream ss;
+    ss << indent::wrap(20, 10) << indent::incr << "- Unit (1), Faction (2)\n";
+    expect(eq(ss.str(), string("  - Unit (1),\n    Faction (2)\n")));
+  };
+
   "comment prefixes line with semicolon"_test = []
   {
     stringstream ss;
