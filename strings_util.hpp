@@ -37,6 +37,26 @@ namespace strings {
         return count != 1 ? many : one;
     }
 
+    /**
+     * @brief Strips trailing whitespace and sentence-ending periods from a clause.
+     *
+     * Report lines are assembled as a single sentence which the generator terminates itself,
+     * e.g. "Name [1] : Fort, needs 5; description." A description that is already a full
+     * sentence would otherwise produce a doubled period ("... if the guardian within is slain..").
+     *
+     * '!' and '?' are deliberately left alone - they carry meaning a period cannot replace.
+     *
+     * @param text clause about to be embedded in a generated sentence
+     * @return text without trailing spaces, tabs and periods (empty if nothing else remains)
+     * @example "Full treasure trove." -> "Full treasure trove"
+     * @example "A ruin of old..."     -> "A ruin of old"
+     * @example "Really?"              -> "Really?"
+     */
+    inline const std::string strip_sentence_end(const std::string& text) {
+        size_t end = text.find_last_not_of(" \t.");
+        return end == std::string::npos ? "" : text.substr(0, end + 1);
+    }
+
     struct ci_traits : public std::char_traits<char> {
         using Base = std::char_traits<char>;
         using char_type = Base::char_type;

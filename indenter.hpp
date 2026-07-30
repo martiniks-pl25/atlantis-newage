@@ -97,6 +97,7 @@ namespace indent {
           size_t extra = 1;
           // If we didn't find a space, just wrap at the wrap point.
           if (wrap_pos == std::string::npos || (wrap - wrap_pos > lookback)) { wrap_pos = wrap; extra = 0; }
+          else wrap_pos = avoid_marker_line_start(buffer, wrap_pos);
           if (comment_on) orig_buf->sputc(';');
           orig_buf->sputn(buffer.c_str(), wrap_pos);
           orig_buf->sputc('\n');
@@ -128,6 +129,49 @@ namespace indent {
       return orig_buf->pubsync();
     }
   private:
+    /**
+     * @brief Tests whether text at pos starts with a report line marker.
+     *
+     * The report format uses a single character followed by a space at the start of a line to
+     * introduce a new entry: '+' for structures, '-' for other factions' units, '*' for own
+     * units, and '=', ':', '%', '!' for the attitude variants of a unit line.
+     *
+     * @param text buffer being wrapped
+     * @param pos offset at which a wrapped line would begin
+     * @return true if a line starting at pos would be read as a new entry by a report parser
+     */
+    bool starts_line_marker(const std::string& text, size_t pos) const {
+      static const std::string markers = "-+*=:%!";
+      return pos + 1 < text.size() && markers.find(text[pos]) != std::string::npos && text[pos + 1] == ' ';
+    }
+
+    /**
+     * @brief Moves a wrap point back so the wrapped line does not begin with a line marker.
+     *
+     * Prose may legitimately contain " - " (an object description, for instance), and if the
+     * line happens to break right before it, the wrapped continuation is indistinguishable from
+     * a unit line at the same indent, which breaks report parsers. Walk back word by word until
+     * the remainder no longer starts with a marker.
+     *
+     * If no acceptable earlier break exists within the lookback window, the original wrap point
+     * is kept - a badly wrapped line is better than an arbitrarily short one.
+     *
+     * @param text buffer being wrapped
+     * @param wrap_pos offset of the space chosen as the break point
+     * @return the break point to use, at or before wrap_pos
+     * @see starts_line_marker
+     */
+    size_t avoid_marker_line_start(const std::string& text, size_t wrap_pos) const {
+      size_t candidate = wrap_pos;
+      while (starts_line_marker(text, candidate + 1)) {
+        if (candidate == 0) break;
+        size_t prev = text.find_last_of("\n ", candidate - 1);
+        if (prev == std::string::npos || wrap - prev > lookback) break;
+        candidate = prev;
+      }
+      return starts_line_marker(text, candidate + 1) ? wrap_pos : candidate;
+    }
+
     void update_prefix() {
       if (line_indent < 0) line_indent = 0;
       // Just make sure we never get a huge indent.

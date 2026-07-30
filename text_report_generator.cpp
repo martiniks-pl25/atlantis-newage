@@ -347,7 +347,11 @@ void TextReportGenerator::output_unit_summary(ostream& f, const json& unit, bool
         }
     }
 
-    if (unit.contains("description")) f << "; " << to_s(unit["description"]);
+    if (unit.contains("description")) {
+        // The trailing '.' below terminates the whole line, so the description must not bring its own.
+        string description = strings::strip_sentence_end(to_s(unit["description"]));
+        if (!description.empty()) f << "; " << description;
+    }
 	f << ".\n";
 }
 
@@ -391,7 +395,10 @@ void TextReportGenerator::output_structure(ostream& f, const json& structure, bo
                 comma = true;
             }
         }
-        if (structure.contains("description")) f << "; " << to_s(structure["description"]);
+        if (structure.contains("description")) {
+            string description = strings::strip_sentence_end(to_s(structure["description"]));
+            if (!description.empty()) f << "; " << description;
+        }
         f << ".\n";
     } else {
         f << to_s(structure["type"]);
@@ -400,7 +407,10 @@ void TextReportGenerator::output_structure(ostream& f, const json& structure, bo
         if (structure.contains("needs_maintenance")) f << ", needs maintenance";
         if (structure.contains("inner_location")) f << ", contains an inner location";
         if (structure.contains("runes")) f << ", engraved with Runes of Warding";
-        if (structure.contains("description")) f << "; " << to_s(structure["description"]);
+        if (structure.contains("description")) {
+            string description = strings::strip_sentence_end(to_s(structure["description"]));
+            if (!description.empty()) f << "; " << description;
+        }
         if (structure.contains("closed")) f << ", closed to player units";
         if (structure.contains("sacrifice")) {
             int amount = structure["sacrifice"]["amount"];
