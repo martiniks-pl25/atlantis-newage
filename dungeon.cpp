@@ -1107,7 +1107,7 @@ bool Game::spawn_pirate_hideout(ARegion *origin, Unit *u)
     // Notify only the discovering unit (not gazette — competitive advantage).
     u->event("Deciphering the salt-stained charts, " + u->name +
         " locates a hidden pirate stronghold near " + surface_r->short_print() +
-        ". The entrance is concealed in the cliff face — " + king_name +
+        ". The entrance is concealed in the cliff face, and " + king_name +
         " commands within. The pirates will receive word and evacuate soon.",
         "explore");
 
