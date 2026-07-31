@@ -988,27 +988,38 @@ void Unit::DefaultOrders(Object *obj)
                         if (!nb) continue;
                         // Destination must be reachable by ships
                         if (!nb->IsCoastalOrLakeside()) continue;
-                        // Avoid towns/cities with player guards: pirates would be destroyed.
-                        // Villages are always ok; towns/cities with only NPC guards (faction 1) are ok.
-                        auto has_player_guarded_town = [](const ARegion *r) -> bool {
-                            if (!r->town || r->town->TownType() <= TOWN_VILLAGE) return false;
+                        // Avoid settlements where player troops are stationed: pirates
+                        // sailing in would be easy prey, and dying at a garrison turns
+                        // them into a risk-free treasure-map faucet (see army.cpp Lose).
+                        // The avoidance radius scales with tier, because tier predicts how
+                        // much player force is likely present:
+                        //   village - never avoided (too little force to matter)
+                        //   town    - the settlement hex itself
+                        //   city    - the hex plus the ring of land around it
+                        // Only player guards count: NPC guards never attack pirates
+                        // (Faction::defaultattitude is NEUTRAL and nothing sets
+                        // guardfaction hostile to monfaction), so they are no threat.
+                        auto player_guarded = [](const ARegion *r, int min_tier) -> bool {
+                            if (!r->town || r->town->TownType() < min_tier) return false;
                             for (const auto *o2 : r->objects)
                                 for (const auto *u2 : o2->units)
                                     if (u2->guard == GUARD_GUARD && u2->faction->num != 1) return true;
                             return false;
                         };
-                        if (has_player_guarded_town(nb)) continue;
+                        if (player_guarded(nb, TOWN_TOWN)) continue;
                         // R_LAKE has similar_type == R_OCEAN, so this covers lakes too
                         bool nb_is_water = (TerrainDefs[nb->type].similar_type == R_OCEAN);
-                        // Avoid land coastal regions adjacent to a player-guarded town/city.
-                        // Ocean/lake regions are not blocked — pirates can sail through open water freely.
+                        // Land ring: only a city projects force onto the land around it.
+                        // Ocean/lake regions are never blocked - pirates sail open water freely,
+                        // which also guarantees a fleet on land always has an exit (land->land
+                        // moves are forbidden below, so water is its only way out).
                         if (!nb_is_water) {
-                            bool adj_to_guarded = false;
+                            bool adj_to_guarded_city = false;
                             for (int d2 = 0; d2 < NDIRS; d2++) {
                                 ARegion *nb2 = nb->neighbors[d2];
-                                if (nb2 && has_player_guarded_town(nb2)) { adj_to_guarded = true; break; }
+                                if (nb2 && player_guarded(nb2, TOWN_CITY)) { adj_to_guarded_city = true; break; }
                             }
-                            if (adj_to_guarded) continue;
+                            if (adj_to_guarded_city) continue;
                         }
                         // Do1SailOrder rule: land->land moves are forbidden
                         if (!cur_is_ocean && !nb_is_water) continue;

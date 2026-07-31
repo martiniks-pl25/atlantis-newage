@@ -297,4 +297,51 @@ ut::suite<"PirateMovement"> pirate_movement_suite = [] {
         expect(saw_ocean_dir)
             << "ocean region adjacent to player-guarded city must remain accessible (no adjacency block on water)";
     };
+
+    // -----------------------------------------------------------------------
+    // Tier-scaled radius: a player-guarded TOWN_TOWN blocks only its own hex.
+    // Topology is the same as the TOWN_CITY ring test above: (0,2,0) holds the
+    // settlement, (1,1,0) is the plain land ring hex next to it, and SE/SW from
+    // (0,0,0) both lead to (1,1,0) while S leads to the settlement itself.
+    // Expected: the ring hex is reachable, the town hex is not.
+    // -----------------------------------------------------------------------
+    "Pirate fleet may enter the land ring around a player-guarded TOWN_TOWN"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        ARegion *r_ocean = helper.get_region(0, 0, 0);
+        r_ocean->type = R_OCEAN;
+
+        ARegion *r_coastal = helper.get_region(1, 1, 0);
+        r_coastal->type = R_PLAIN;   // no town — the ring hex
+
+        ARegion *r_town = helper.get_region(0, 2, 0);
+        r_town->type = R_PLAIN;
+        r_town->add_town(TOWN_TOWN);
+
+        Faction *player = helper.create_faction("Player");
+        Unit *guard = helper.create_unit(player, r_town);
+        guard->guard = GUARD_GUARD;
+
+        Unit *pirates = helper.create_npc_pirate_fleet(r_ocean, 3);
+
+        bool saw_ring_dir = false;
+        for (int seed = 0; seed < 50; seed++) {
+            rng::seed_random(seed);
+            pirates->ClearOrders();
+            pirates->DefaultOrders(pirates->object);
+            auto *so = dynamic_cast<SailOrder *>(pirates->monthorders);
+            if (!so) continue;
+            for (auto *d : so->dirs) {
+                if (d->dir == D_SOUTHEAST || d->dir == D_SOUTHWEST) saw_ring_dir = true;
+                expect(d->dir != D_SOUTH)
+                    << "pirate must not enter the player-guarded TOWN_TOWN itself (seed="
+                    << seed << ")";
+            }
+        }
+        expect(saw_ring_dir)
+            << "the land ring around a player-guarded TOWN_TOWN must stay reachable "
+               "(only a city projects force onto the land around it)";
+    };
 };
