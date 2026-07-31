@@ -345,3 +345,97 @@ ut::suite<"PirateMovement"> pirate_movement_suite = [] {
                "(only a city projects force onto the land around it)";
     };
 };
+
+// ---------------------------------------------------------------------------
+// The avoidance rule itself, exercised directly rather than through 50 seeds of
+// DefaultOrders. Both movement paths (Unit::DefaultOrders and Game::RunCallPirates)
+// call these two functions and nothing else, so this suite is the single place
+// where the radius is pinned. Defined in npc.cpp, declared in aregion.h.
+// ---------------------------------------------------------------------------
+ut::suite<"PirateAvoidance"> pirate_avoidance_suite = [] {
+    using namespace ut;
+
+    // Puts a player unit on GUARD_GUARD in `r`, so the region counts as guarded.
+    auto guard_it = [](UnitTestHelper &helper, ARegion *r, const std::string& name) {
+        Faction *f = helper.create_faction(name);
+        Unit *u = helper.create_unit(f, r);
+        u->guard = GUARD_GUARD;
+    };
+
+    "hex rule refuses a guarded town and city but never a village"_test = [&] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        ARegion *r_village = helper.get_region(0, 0, 0);
+        ARegion *r_town    = helper.get_region(1, 1, 0);
+        ARegion *r_city    = helper.get_region(0, 2, 0);
+        for (ARegion *r : { r_village, r_town, r_city }) r->type = R_PLAIN;
+        r_village->add_town(TOWN_VILLAGE);
+        r_town->add_town(TOWN_TOWN);
+        r_city->add_town(TOWN_CITY);
+
+        // Unguarded first: nothing is refused regardless of tier.
+        expect(!pirate_avoids_settlement(r_village)) << "unguarded village";
+        expect(!pirate_avoids_settlement(r_town))    << "unguarded town";
+        expect(!pirate_avoids_settlement(r_city))    << "unguarded city";
+
+        guard_it(helper, r_village, "V");
+        guard_it(helper, r_town, "T");
+        guard_it(helper, r_city, "C");
+
+        expect(!pirate_avoids_settlement(r_village))
+            << "a village holds too little force to deter pirates, even when guarded";
+        expect(pirate_avoids_settlement(r_town)) << "a guarded town refuses pirates";
+        expect(pirate_avoids_settlement(r_city)) << "a guarded city refuses pirates";
+    };
+
+    "hex rule ignores NPC guards and a null region"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        ARegion *r_city = helper.get_region(0, 2, 0);
+        r_city->type = R_PLAIN;
+        r_city->add_town(TOWN_CITY);
+
+        Faction *npc = helper.get_faction(1);          // guardfaction
+        Unit *npc_guard = helper.create_unit(npc, r_city);
+        npc_guard->guard = GUARD_GUARD;
+
+        expect(!pirate_avoids_settlement(r_city))
+            << "NPC guards never attack pirates, so they deter nothing";
+        expect(!pirate_avoids_settlement(nullptr)) << "a null region is never refused";
+        expect(!pirate_avoids_city_ring(nullptr))  << "a null region is never refused";
+    };
+
+    "ring rule applies to city only, and never to water"_test = [&] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        ARegion *r_ring = helper.get_region(1, 1, 0);  // adjacent to (0,2,0)
+        ARegion *r_seat = helper.get_region(0, 2, 0);
+        r_ring->type = R_PLAIN;
+        r_seat->type = R_PLAIN;
+        guard_it(helper, r_seat, "Owner");
+
+        r_seat->add_town(TOWN_TOWN);
+        expect(!pirate_avoids_city_ring(r_ring))
+            << "a town does not project force onto the land around it";
+
+        // Promote the same settlement to a city; the ring must close.
+        r_seat->town->hab = 100000;
+        r_seat->town->pop = 100000;
+        r_seat->town->dev = 100;
+        expect(that % r_seat->town->TownType() == TOWN_CITY) << "settlement must now be a city";
+        expect(pirate_avoids_city_ring(r_ring))
+            << "a city closes the ring of land around it";
+
+        // Water next to the very same city is still open — this is what keeps a
+        // fleet on land from ever being trapped.
+        r_ring->type = R_OCEAN;
+        expect(!pirate_avoids_city_ring(r_ring))
+            << "water is never refused at any tier";
+    };
+};

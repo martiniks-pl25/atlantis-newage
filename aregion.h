@@ -121,6 +121,26 @@ enum {
 // lever for large cities, since entertainment costs no faction points).
 int entertainment_dev_divisor(int towntype);
 
+// Pirate movement avoidance (defined in npc.cpp, see docs/PIRATE_FLEET_SYSTEM.md).
+//
+// These model the pirates' own risk assessment, not player defence: a settlement
+// holding player troops is where a pirate fleet becomes easy prey. The radius
+// scales with tier, because tier predicts how much player force is likely there.
+//
+// EVERY pirate movement path must use these two and nothing else - the rule used to
+// be duplicated as a lambda in Unit::DefaultOrders and Game::RunCallPirates, the two
+// copies silently diverged, and summoned fleets obeyed a different radius than
+// wandering ones.
+
+// Hex rule: a player-guarded town or city is refused outright (villages never are).
+bool pirate_avoids_settlement(const ARegion *r);
+
+// Ring rule: a LAND region adjacent to a player-guarded city is refused too.
+// Always false for water at any tier - pirates sail open water freely, which is also
+// what guarantees a fleet sitting on land always has an exit (land->land moves are
+// forbidden, so water is its only way out and it can never be trapped).
+bool pirate_avoids_city_ring(const ARegion *r);
+
 class TownInfo
 {
     public:

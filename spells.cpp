@@ -2026,7 +2026,8 @@ void Game::RunTeleportOrders()
  *
  * Movement rules applied (same as pirate DefaultOrders):
  *   - Destination must be IsCoastalOrLakeside()
- *   - has_player_guarded_town(): TOWN/CITY with player guard — skip (and adjacent land)
+ *   - pirate_avoids_settlement(): a player-guarded town or city — skip
+ *   - pirate_avoids_city_ring(): land next to a player-guarded city — skip
  *   - Coastal-to-coastal hop forbidden (Do1SailOrder rule)
  *   - Stop at coastal land (ship has landed, no further hops that turn)
  *
@@ -2038,14 +2039,6 @@ int Game::RunCallPirates(ARegion *r, Unit *u)
 {
     int level = u->GetSkill(S_CALL_PIRATES);
     int radius = (level + 1) / 2;  // skill 3→2, skill 5→3
-
-    auto has_player_guarded_town = [](const ARegion *rg) -> bool {
-        if (!rg->town || rg->town->TownType() <= TOWN_VILLAGE) return false;
-        for (const auto *o2 : rg->objects)
-            for (const auto *u2 : o2->units)
-                if (u2->guard == GUARD_GUARD && u2->faction->num != 1) return true;
-        return false;
-    };
 
     auto is_ocean = [](const ARegion *rg) -> bool {
         return TerrainDefs[rg->type].similar_type == R_OCEAN;
@@ -2068,18 +2061,12 @@ int Game::RunCallPirates(ARegion *r, Unit *u)
             ARegion *nb = cur->neighbors[dir];
             if (!nb || dist.count(nb)) continue;
             if (!nb->IsCoastalOrLakeside()) continue;
-            if (has_player_guarded_town(nb)) continue;
+            // Shared with Unit::DefaultOrders - see aregion.h. Never inline these again:
+            // the rule used to be duplicated here and the two copies silently diverged.
+            if (pirate_avoids_settlement(nb)) continue;
+            if (pirate_avoids_city_ring(nb)) continue;
 
             bool nb_is_ocean = is_ocean(nb);
-            if (!nb_is_ocean) {
-                bool adj_guarded = false;
-                for (int d2 = 0; d2 < NDIRS; d2++) {
-                    ARegion *nb2 = nb->neighbors[d2];
-                    if (nb2 && has_player_guarded_town(nb2)) { adj_guarded = true; break; }
-                }
-                if (adj_guarded) continue;
-            }
-
             if (!cur_is_ocean && !nb_is_ocean) continue; // coastal→coastal forbidden
 
             dist[nb] = d + 1;
@@ -2118,18 +2105,12 @@ int Game::RunCallPirates(ARegion *r, Unit *u)
                     if (nb_dist >= cur_dist) continue; // must make progress
 
                     if (!nb->IsCoastalOrLakeside()) continue;
-                    if (has_player_guarded_town(nb)) continue;
+                    // Same shared rules as the BFS above - the two phases must filter
+                    // identically, or a fleet gets routed into a cell the map excluded.
+                    if (pirate_avoids_settlement(nb)) continue;
+                    if (pirate_avoids_city_ring(nb)) continue;
 
                     bool nb_is_ocean = is_ocean(nb);
-                    if (!nb_is_ocean) {
-                        bool adj_guarded = false;
-                        for (int d2 = 0; d2 < NDIRS; d2++) {
-                            ARegion *nb2 = nb->neighbors[d2];
-                            if (nb2 && has_player_guarded_town(nb2)) { adj_guarded = true; break; }
-                        }
-                        if (adj_guarded) continue;
-                    }
-
                     if (!cur_is_ocean && !nb_is_ocean) continue; // coastal→coastal forbidden
 
                     if (nb_dist < best_dist) {
