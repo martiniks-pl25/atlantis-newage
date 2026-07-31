@@ -243,6 +243,78 @@ ut::suite<"PirateWhistle"> pirate_whistle_suite = [] {
     };
 
     // -----------------------------------------------------------------------
+    // Parity with Unit::DefaultOrders: the avoidance radius scales with tier, so
+    // the land ring around a guarded TOWN is reachable — only a CITY blocks its ring.
+    // The rule lives in pirate_avoids_settlement / pirate_avoids_city_ring and both
+    // movement paths must agree; this pair of tests pins that agreement.
+    //
+    // Layout: ocean(0,0,0) [caster] — land(1,1,0) [fleet, no town] — (0,2,0) [settlement].
+    // (1,1,0) is adjacent to (0,2,0), so it is the ring hex.
+    // -----------------------------------------------------------------------
+    "Whistle reaches a fleet in the land ring around a player-guarded TOWN_TOWN"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        ARegion *r_caster = helper.get_region(0, 0, 0);
+        r_caster->type = R_OCEAN;
+
+        ARegion *r_ring = helper.get_region(1, 1, 0);
+        r_ring->type = R_PLAIN;      // ring hex, no town of its own
+
+        ARegion *r_town = helper.get_region(0, 2, 0);
+        r_town->type = R_PLAIN;
+        r_town->add_town(TOWN_TOWN);
+
+        Faction *player = helper.create_faction("Player");
+        Unit *guard = helper.create_unit(player, r_town);
+        guard->guard = GUARD_GUARD;
+
+        Unit *caster  = create_whistle_caster(helper, r_caster, 2);
+        Unit *pirates = helper.create_npc_pirate_fleet(r_ring, 5);
+
+        auto *original_so = new SailOrder;
+        pirates->monthorders = original_so;
+
+        helper.activate_spell(S_CALL_PIRATES, { r_caster, caster, nullptr, 0, 0 });
+
+        expect(pirates->monthorders != original_so)
+            << "a town guards only its own hex, so the ring around it must stay reachable "
+               "(CPIR must use the same radius as Unit::DefaultOrders)";
+    };
+
+    "Whistle still avoids the land ring around a player-guarded TOWN_CITY"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        ARegion *r_caster = helper.get_region(0, 0, 0);
+        r_caster->type = R_OCEAN;
+
+        ARegion *r_ring = helper.get_region(1, 1, 0);
+        r_ring->type = R_PLAIN;      // ring hex, no town of its own
+
+        ARegion *r_city = helper.get_region(0, 2, 0);
+        r_city->type = R_PLAIN;
+        r_city->add_town(TOWN_CITY);
+
+        Faction *player = helper.create_faction("Player");
+        Unit *guard = helper.create_unit(player, r_city);
+        guard->guard = GUARD_GUARD;
+
+        Unit *caster  = create_whistle_caster(helper, r_caster, 2);
+        Unit *pirates = helper.create_npc_pirate_fleet(r_ring, 5);
+
+        auto *original_so = new SailOrder;
+        pirates->monthorders = original_so;
+
+        helper.activate_spell(S_CALL_PIRATES, { r_caster, caster, nullptr, 0, 0 });
+
+        expect(pirates->monthorders == original_so)
+            << "a city projects force onto the land around it, so its ring stays refused";
+    };
+
+    // -----------------------------------------------------------------------
     // Non-apprentice without BWHI cannot effectively call pirates:
     // GetSkill(S_CALL_PIRATES) returns 0 → level=0 → BFS has radius 0
     // → no fleet is redirected.

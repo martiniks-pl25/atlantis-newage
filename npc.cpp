@@ -287,6 +287,63 @@ void Game::MakeLMon(Object *pObj)
 }
 
 /**
+ * @brief True if `r` holds a settlement of at least `min_tier` guarded by a player.
+ *
+ * NPC guards are ignored on purpose: they never attack pirates (Faction's default
+ * attitude is NEUTRAL and nothing makes guardfaction hostile to monfaction), so they
+ * pose no threat and deter nothing.
+ *
+ * @param r        region to test; a null region is never guarded
+ * @param min_tier TOWN_TOWN or TOWN_CITY (tiers are ordered, see aregion.h)
+ * @return true if a non-guardfaction unit stands on GUARD_GUARD there
+ * @note The guard faction is identified by number 1. See the known-wart note in
+ *       docs/PIRATE_FLEET_SYSTEM.md - is_npc would be the correct test.
+ */
+static bool player_guarded_at_least(const ARegion *r, int min_tier)
+{
+    if (!r || !r->town || r->town->TownType() < min_tier) return false;
+    for (const auto *o : r->objects)
+        for (const auto *u : o->units)
+            if (u->guard == GUARD_GUARD && u->faction->num != 1) return true;
+    return false;
+}
+
+/**
+ * @brief Hex rule: a player-guarded town or city is refused outright.
+ *
+ * Villages are never refused - they hold too little player force to matter.
+ *
+ * @param r candidate destination region
+ * @return true if a pirate fleet must not enter
+ * @see pirate_avoids_city_ring
+ */
+bool pirate_avoids_settlement(const ARegion *r)
+{
+    return player_guarded_at_least(r, TOWN_TOWN);
+}
+
+/**
+ * @brief Ring rule: a land region next to a player-guarded city is refused too.
+ *
+ * Only a city projects force onto the land around it; a town holds its own hex only.
+ * Water is never refused at any tier, which is also what makes trapping impossible:
+ * land->land moves are forbidden for fleets, so water is the only way off land.
+ *
+ * @param r candidate destination region
+ * @return true if a pirate fleet must not stop here
+ * @see pirate_avoids_settlement
+ */
+bool pirate_avoids_city_ring(const ARegion *r)
+{
+    if (!r) return false;
+    // R_LAKE has similar_type == R_OCEAN, so this covers lakes too.
+    if (TerrainDefs[r->type].similar_type == R_OCEAN) return false;
+    for (int d = 0; d < NDIRS; d++)
+        if (player_guarded_at_least(r->neighbors[d], TOWN_CITY)) return true;
+    return false;
+}
+
+/**
  * @brief Spawns a pirate fleet in an ocean region.
  *
  * 80% regular: Cog + crew of pirates.
