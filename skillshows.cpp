@@ -1466,7 +1466,7 @@ const std::string ShowSkill::Report(Faction *f) const
                 "equal to the highest of the bearer's Manipulation, Pattern, Force "
                 "and Spirit skills. To call the pirates, the "
                 "mage should issue the order CAST Call_Pirates. The summoned fleets "
-                "approach by sea — cast on or near the coast, as only fleets that "
+                "approach by sea. Cast on or near the coast, as only fleets that "
                 "can sail to the caster's region will answer.";
             break;
     }

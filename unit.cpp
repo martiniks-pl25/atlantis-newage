@@ -254,7 +254,7 @@ void Unit::UpdateMonsterDescription()
 
     // Pirate King — unique boss; description reflects the Kraken lore.
     if (items.GetNum(I_PIRATE_KING) > 0) {
-        describe = "The Dread Admiral — a legendary pirate warlord whose soul is bound to a slain Kraken. "
+        describe = "The Dread Admiral, a legendary pirate warlord whose soul is bound to a slain Kraken. "
                    "Commands the hideout from behind a wall of loyal crew. Full treasure trove.";
         return;
     }

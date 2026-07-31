@@ -222,12 +222,19 @@ Location *Game::Do1SailOrder(ARegion *reg, Object *fleet, Unit *cap)
 
         // Canal through-pass cost: charged ONLY when the canal is what enables the
         // move (i.e. the exit would be blocked without it). An ordinary allowed exit
-        // from a canal region — sailing back the way it came, or turning to an
-        // adjacent ocean hex — keeps its normal cost; the canal must not slow down a
+        // from a canal region - sailing back the way it came, or turning to an
+        // adjacent ocean hex - keeps its normal cost; the canal must not slow down a
         // move that was already legal. The extra cost applies only to the straight
         // through-pass the canal makes possible. Stone canal = 2 (half speed),
         // Mystic (rootstone, IT_ADVANCED) canal = 1. cost = max(weather, canal).
+        //
+        // The two bypasses SailThroughCheck() grants before it ever looks at the
+        // isthmus rule must be mirrored here, or the canal charges for a passage it
+        // did not enable: a flying fleet is never blocked (object.cpp, "flying fleets
+        // always can sail through"), and neither is anyone when PREVENT_SAIL_THROUGH
+        // is off. Keep this guard in step with SailThroughCheck().
         if (x->dir != MOVE_PAUSE && newreg &&
+            fleet->flying < 1 && Globals->PREVENT_SAIL_THROUGH &&
             TerrainDefs[reg->type].similar_type != R_OCEAN &&
             TerrainDefs[newreg->type].similar_type == R_OCEAN) {
 
@@ -2454,7 +2461,7 @@ void Game::RunExploreOrders(ARegion *r)
                             u->items.GetNum(I_TREASURE_MAP) - 1);
                     } else if (r->IsCoastal()) {
                         u->event(u->name + " follows the treasure map's bearings but finds"
-                            " no hidden cove this month — the charts still hold. Try again,"
+                            " no hidden cove this month. The charts still hold, so try again,"
                             " perhaps from a different stretch of coast.",
                             "explore");
                     } else {

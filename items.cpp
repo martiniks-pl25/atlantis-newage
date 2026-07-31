@@ -1289,17 +1289,17 @@ std::string item_description(int item, int full)
             break;
         case I_CROWN:
             temp += " A heavy gold crown wrested from a fallen pirate Admiral. Its bearer cannot"
-                " hide — the crown's renown precedes them, and word of who holds it travels far."
+                " hide, for the crown's renown precedes them, and word of who holds it travels far."
                 " Gather three crowns to lay claim to the throne of these lands.";
             break;
         case I_TREASURE_MAP:
             temp += " A weathered pirate navigation chart recovered from a defeated fleet."
-                " Use EXPLORE TMAP to spend a month deciphering it — the unit will attempt"
+                " Use EXPLORE TMAP to spend a month deciphering it, and the unit will attempt"
                 " to locate a hidden pirate hideout carved into coastal cliffs within a few"
                 " days' journey. Carrying a compass (COMP) doubles the chance of success."
                 " The map is consumed on a successful attempt."
                 " On failure, the salt-stained charts may fall apart."
-                " The unit must be near the coast — this map cannot be used deep inland.";
+                " The unit must be near the coast. This map cannot be used deep inland.";
             break;
         case I_RESOURCE_MAP:
             temp += " Ancient resource charts recovered from defeated pirate ships or dungeon"
