@@ -578,6 +578,7 @@ public:
     void UpdateMapChanceRamp();  // battle.cpp — see docs/PIRATE_MAP_CHANCE_RAMP_PLAN.md
     void try_spawn_dungeon();
     ARegion* find_entrance_spot();
+    bool region_has_dungeon_exit(const ARegion *r);
     void generate_dungeon_cell(DungeonInstance &d);
     void populate_dungeon(const DungeonInstance &d);
     ARegion* find_pirate_hideout_spot(ARegion* origin);

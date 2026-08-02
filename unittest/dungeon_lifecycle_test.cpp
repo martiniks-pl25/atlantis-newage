@@ -268,4 +268,146 @@ ut::suite<"DungeonLifecycle"> dungeon_lifecycle_suite = [] {
             << "phase_turn must record the turn DYING started — early-collapse "
                "only fires once phase_turn < TurnNumber() (see Test 5)";
     };
+
+    // -----------------------------------------------------------------------
+    // Test 8: max_lifetime_turns expires while the boss is still alive →
+    //         DYING + entrance removed + surface observers are told why.
+    //         Without the notification the entrance just vanishes from the
+    //         region listing, and a party still inside has no idea that the
+    //         way out sealed itself (live case: Dragon Lair #28, Arcanum
+    //         turn 68, forest (3,23) Dunmere Goldwood).
+    // -----------------------------------------------------------------------
+    "lifetime expiry seals entrance and notifies the surface"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        ARegion *room = helper.get_region(0, 2, 0);
+        ARegion *surf = helper.get_region(1, 1, 0);
+        add_entrance_object(surf, 42);
+
+        // Boss alive — only the lifetime rule can end this dungeon.
+        Faction *mon = helper.get_faction(helper.get_monfaction());
+        Unit *boss = helper.create_unit(mon, room);
+        boss->items.SetNum(I_ETTIN, 3);
+
+        // Observer standing on the surface entrance hex.
+        Faction *player = helper.create_faction("Watchers");
+        helper.create_unit(player, surf);
+
+        int max_life = DungeonTypeDefs[(int)DungeonType::DUNGEON_KOBOLD_WARRENS].max_lifetime_turns;
+        DungeonInstance d =
+            make_dungeon_instance(DungeonSlotState::ACTIVE, 0, surf, room, 42);
+        d.spawn_turn = helper.turn_number() - max_life;  // exactly expired
+        helper.inject_dungeon(d);
+
+        helper.run_process_dungeons();
+
+        expect(helper.get_dungeon(0).state == DungeonSlotState::DYING)
+            << "lifetime expiry must start DYING even with the boss alive";
+        expect(helper.get_dungeon(0).entrance_object_num == -1)
+            << "entrance_object_num must be cleared";
+
+        bool entrance_found = false;
+        for (auto *obj : surf->objects)
+            if (obj->num == 42) { entrance_found = true; break; }
+        expect(!entrance_found) << "entrance object must be removed from surface region";
+
+        bool notified = false;
+        for (const auto &ev : player->events)
+            if (ev.message.find("has decayed and sealed shut") != std::string::npos)
+                notified = true;
+        expect(notified)
+            << "surface observers must be told the entrance sealed itself";
+    };
+
+    // -----------------------------------------------------------------------
+    // Test 9: a new entrance must never open in the surface hex of a dungeon
+    //         that is still DYING. Its inner Exit keeps dropping escaping
+    //         players into that hex, so a fresh entrance there looks exactly
+    //         like the dungeon they just cleared refusing to close (live case:
+    //         Demon Pit #72 opened on top of dying Dragon Lair #28).
+    // -----------------------------------------------------------------------
+    "new entrance avoids the surface hex of a DYING dungeon"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        ARegion *room = helper.get_region(0, 2, 0);
+        ARegion *surf = helper.get_region(1, 1, 0);
+
+        // DYING: entrance already gone, but the Exit still leads to `surf`.
+        helper.inject_dungeon(
+            make_dungeon_instance(DungeonSlotState::DYING, helper.turn_number() - 1,
+                                  surf, room, -1));
+
+        bool picked_dying_hex = false;
+        bool picked_anything  = false;
+        for (int i = 0; i < 100; i++) {
+            ARegion *spot = helper.run_find_entrance_spot();
+            if (!spot) continue;
+            picked_anything = true;
+            if (spot == surf) { picked_dying_hex = true; break; }
+        }
+
+        expect(!picked_dying_hex)
+            << "the surface hex of a DYING dungeon must stay free of new entrances";
+        expect(picked_anything)
+            << "a DYING dungeon must not block the whole map — only its own hex";
+    };
+
+    // -----------------------------------------------------------------------
+    // Test 10: the MIN_DISTANCE spacing rule still applies to ACTIVE dungeons.
+    //          Test 9 must not have weakened it into a bare same-hex check.
+    // -----------------------------------------------------------------------
+    "ACTIVE dungeon still enforces MIN_DISTANCE spacing"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        ARegion *room = helper.get_region(0, 2, 0);
+        ARegion *surf = helper.get_region(1, 1, 0);
+        add_entrance_object(surf, 42);
+
+        helper.inject_dungeon(
+            make_dungeon_instance(DungeonSlotState::ACTIVE, 0, surf, room, 42));
+
+        // The whole test map fits inside MIN_DISTANCE of `surf`, so every
+        // candidate hex must be rejected.
+        for (int i = 0; i < 20; i++)
+            expect(helper.run_find_entrance_spot() == nullptr)
+                << "no spot may be within MIN_DISTANCE of a live entrance";
+    };
+
+    // -----------------------------------------------------------------------
+    // Test 11: pirate hideouts ignore MIN_DISTANCE by design (a cove may sit
+    //          next to another entrance), but they must still refuse a hex
+    //          that some dungeon's Exit still leads into — dying dungeons
+    //          included. Same rule as Test 9, other placement path.
+    // -----------------------------------------------------------------------
+    "pirate hideout avoids a hex that still has a dungeon exit"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        ARegion *origin = helper.get_region(0, 0, 0);  // explorer's hex (has the city)
+        ARegion *sea    = helper.get_region(0, 2, 0);
+        ARegion *room   = helper.get_region(1, 1, 0);
+        ARegion *cove   = helper.get_region(1, 3, 0);
+
+        // Make `cove` the one and only legal spot: coastal, no town, BFS
+        // distance 2 from the explorer (everything else is at distance 0-1).
+        sea->type = R_OCEAN;
+
+        expect(helper.run_find_pirate_hideout_spot(origin) == cove)
+            << "baseline: the coastal hex at distance 2 must be chosen";
+
+        // A dungeon still dying under `cove` — entrance gone, Exit alive.
+        helper.inject_dungeon(
+            make_dungeon_instance(DungeonSlotState::DYING, helper.turn_number() - 1,
+                                  cove, room, -1));
+
+        expect(helper.run_find_pirate_hideout_spot(origin) == nullptr)
+            << "no cove may open while a dungeon Exit still leads into that hex";
+    };
 };
