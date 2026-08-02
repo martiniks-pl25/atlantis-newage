@@ -225,8 +225,6 @@ public:
         std::vector<int> items;
     };
     void deliver_balance_patch(const PatchNotification& p);
-    void migrate_tmap_to_rmap();
-    bool pending_rmap_migration = false;
 
     // JLT
     // Functions to allow enabling/disabling parts of the data tables

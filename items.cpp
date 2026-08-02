@@ -1297,9 +1297,10 @@ std::string item_description(int item, int full)
                 " Use EXPLORE TMAP to spend a month deciphering it, and the unit will attempt"
                 " to locate a hidden pirate hideout carved into coastal cliffs within a few"
                 " days' journey. Carrying a compass (COMP) doubles the chance of success."
-                " The map is consumed on a successful attempt."
+                " The map is consumed only when a hideout is actually placed; if the charts are"
+                " read but no site can be found, the map is kept for another attempt."
                 " On failure, the salt-stained charts may fall apart."
-                " The unit must be near the coast. This map cannot be used deep inland.";
+                " This map can only be used on the surface.";
             break;
         case I_RESOURCE_MAP:
             temp += " Ancient resource charts recovered from defeated pirate ships or dungeon"

@@ -4213,24 +4213,25 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
     f << enclose("h4", true) << "EXPLORE TMAP\n" << enclose("h4", false);
     f << enclose("p", true)
       << "Spend the month studying a map item to gain a lasting benefit. "
-      << "The map is consumed when the order executes. Any unit may use this order; "
-      << "no skill is required.\n"
+      << "Any unit may use this order; no skill is required.\n"
       << enclose("p", false);
     f << enclose("p", true) << enclose("b", true) << "EXPLORE RMAP" << enclose("b", false)
       << " — Study an ancient resource map (RMAP). "
       << "The unit examines the charts and discovers new resource deposits in the current region, "
       << "permanently increasing the production of one terrain-appropriate resource "
       << "(or existing food supply) by 1-2 units. "
-      << "The effect persists indefinitely and survives subsequent turns.\n"
+      << "The effect persists indefinitely and survives subsequent turns. "
+      << "The map is consumed when the order executes, even if the region has nothing to chart.\n"
       << enclose("p", false);
     f << enclose("p", true) << enclose("b", true) << "EXPLORE TMAP" << enclose("b", false)
       << " — Decipher a treasure map (TMAP). "
       << "The unit spends the month following the charts to locate a hidden pirate hideout"
       << " carved into coastal cliffs within a few hexes of the current region."
       << " Carrying a compass (COMP) doubles the chance of success."
-      << " The map is consumed on a successful attempt."
+      << " The map is consumed only when a hideout is actually placed; if the charts are read"
+      << " but no site can be found, the map is kept for another attempt."
       << " On failure, the salt-stained charts may fall apart."
-      << " The unit must be near the coast — this order has no effect deep inland.\n"
+      << " This order can only be used on the surface.\n"
       << enclose("p", false);
     f << enclose("p", true) << "Examples:\n" << enclose("p", false);
     f << example_start("Study a resource map to boost production in the current region.")

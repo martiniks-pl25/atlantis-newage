@@ -1233,12 +1233,6 @@ void Game::PostProcessTurn()
         }
     }
     UpdateQuestAwareness();
-
-    if (pending_rmap_migration) {
-        migrate_tmap_to_rmap();
-        deliver_balance_patch({ 3, {}, { I_RESOURCE_MAP } });
-        pending_rmap_migration = false;
-    }
 }
 
 void Game::AutoNameBuildings()
