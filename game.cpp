@@ -2091,32 +2091,6 @@ bool Game::upgrade_patch_level(int current_version)
     return true;
 }
 
-// Convert every I_TREASURE_MAP held by any unit in the world to I_RESOURCE_MAP.
-// Also migrates faction knowledge: factions that knew TMAP now know RMAP.
-void Game::migrate_tmap_to_rmap()
-{
-    for (auto *r : regions) {
-        for (auto *obj : r->objects) {
-            for (auto *u : obj->units) {
-                int n = u->items.GetNum(I_TREASURE_MAP);
-                if (n <= 0) continue;
-                u->items.SetNum(I_TREASURE_MAP, 0);
-                u->items.SetNum(I_RESOURCE_MAP, u->items.GetNum(I_RESOURCE_MAP) + n);
-            }
-        }
-    }
-    // Migrate faction item-knowledge so DiscoverItem in deliver_balance_patch works.
-    for (auto *fac : factions) {
-        int known = fac->items.GetNum(I_TREASURE_MAP);
-        if (known <= 0) continue;
-        fac->items.SetNum(I_TREASURE_MAP, 0);
-        // Mark RMAP as discovered (full = 2) so the faction gets the new description.
-        if (fac->items.GetNum(I_RESOURCE_MAP) == 0)
-            fac->items.SetNum(I_RESOURCE_MAP, 2);
-    }
-    logger::write("Patch 3: TMAP → RMAP conversion complete.");
-}
-
 void Game::deliver_balance_patch(const PatchNotification& p)
 {
     for (auto fac : factions) {
