@@ -119,6 +119,23 @@ static std::vector<std::pair<ARegion*,int>> coord_neighbors_with_dir(ARegionArra
 
 
 // ---------------------------------------------------------------------------
+// Game::region_has_dungeon_exit
+// True if `r` is the surface region of ANY live dungeon slot, whatever its
+// state. A DYING/COLLAPSING dungeon has no entrance object left, but its inner
+// Exit keeps dropping escaping players into this exact hex — so a second
+// entrance opening here reads as "the dungeon I just cleared never closed".
+// Shared by both placement paths: auto dungeons (find_entrance_spot) and
+// pirate hideouts (find_pirate_hideout_spot), which otherwise ignore spacing.
+// ---------------------------------------------------------------------------
+bool Game::region_has_dungeon_exit(const ARegion *r)
+{
+    if (!r) return false;
+    for (const auto &d : activeDungeons)
+        if (d.surface_region_num == r->num) return true;
+    return false;
+}
+
+// ---------------------------------------------------------------------------
 // Game::find_entrance_spot
 // Returns a surface region suitable for a new dungeon entrance, or nullptr.
 // ---------------------------------------------------------------------------
@@ -135,10 +152,13 @@ ARegion* Game::find_entrance_spot()
         if (!r) continue;
         if (r->type == R_OCEAN || r->type == R_LAKE) continue;
         if (r->town) continue;
+        if (region_has_dungeon_exit(r)) continue;  // incl. DYING — its Exit still leads here
 
         bool too_close = false;
         for (const auto &d : activeDungeons) {
-            if (d.entrance_object_num < 0) continue;  // DYING — entrance gone
+            // No visible entrance left to space this one away from; the hex
+            // itself was already ruled out above.
+            if (d.entrance_object_num < 0) continue;
             ARegion *existing = regions.GetRegion(d.surface_region_num);
             if (!existing) continue;
             if (regions.find_distance_between_regions(r, existing) < dungeon::MIN_DISTANCE) {
@@ -612,6 +632,21 @@ void Game::ProcessDungeons()
                 f->dungeon_type_name = td_life.name;
                 f->region_name       = sr ? sr->name : "unknown";
                 this->events->AddFact(f);
+
+                // Notify surface observers, exactly as the boss-death branch
+                // does. Without this an expired entrance simply vanishes from
+                // the region listing with no explanation, and players inside
+                // cannot tell why their way out sealed itself.
+                if (sr) {
+                    std::string msg = std::string("The entrance to the ")
+                        + td_life.name
+                        + " in " + sr->name
+                        + " has decayed and sealed shut.";
+                    for (auto *fac : factions) {
+                        if (sr->Present(fac) || GetFarsight(sr->farsees, fac))
+                            fac->event(msg, "dungeon", sr);
+                    }
+                }
             }
             logger::write("Dungeon #" + std::to_string(d.id) + " lifetime expired — DYING.");
             continue;
@@ -927,6 +962,9 @@ ARegion* Game::find_pirate_hideout_spot(ARegion* origin)
     // rule that regular dungeons use — a hidden cove may sit right next to another
     // dungeon. This guarantees a usable spot exists even on a saturated map, so a
     // successfully deciphered treasure map almost always yields a hideout.
+    // The one exception is the hex itself: while any dungeon — including a DYING
+    // one whose entrance is already gone — still has an Exit leading into that
+    // region, a cove must not open there (see Game::region_has_dungeon_exit).
     std::vector<ARegion*> candidates;
     for (auto &[rnum, d] : dist) {
         if (d < 2) continue;
@@ -935,6 +973,7 @@ ARegion* Game::find_pirate_hideout_spot(ARegion* origin)
         if (r->type == R_OCEAN || r->type == R_LAKE) continue;
         if (!r->IsCoastal()) continue;
         if (r->town) continue;
+        if (region_has_dungeon_exit(r)) continue;
         candidates.push_back(r);
     }
 

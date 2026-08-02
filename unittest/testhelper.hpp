@@ -182,6 +182,12 @@ public:
     size_t dungeon_count() { return game.activeDungeons.size(); }
     DungeonInstance get_dungeon(size_t idx) { return game.activeDungeons[idx]; }
     bool dungeons_empty() { return game.activeDungeons.empty(); }
+    // Pick a surface region for a new dungeon entrance (placement rules only).
+    ARegion *run_find_entrance_spot() { return game.find_entrance_spot(); }
+    // Pick a coastal spot for a pirate hideout reached from `origin`.
+    ARegion *run_find_pirate_hideout_spot(ARegion *origin) {
+        return game.find_pirate_hideout_spot(origin);
+    }
     int turn_number() { return game.TurnNumber(); }
     // Build the gazette regalia block (crowns + capitals) for assertion in tests.
     json build_regalia_json() { return game.BuildRegaliaJson(); }
