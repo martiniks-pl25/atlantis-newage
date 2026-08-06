@@ -95,6 +95,10 @@ Location *GetUnit(std::list<Location *>& locs, int unitid);
 int AGetName(int town, ARegion *r);
 const std::string& AGetNameString(int name);
 
+// Name every ARegion starts life with; world generation is expected to replace
+// it on every region. ARegionList::NameStatistics() reports any that survive.
+inline constexpr const char *UNNAMED_REGION = "Region";
+
 class Farsight
 {
     public:
@@ -187,6 +191,7 @@ class ARegion
 
         void ZeroNeighbors();
         void set_name(const std::string& newname);
+        void assign_generated_name(int levelType);
 
         void Writeout(std::ostream& f);
         void Readin(std::istream& f, std::list<Faction *>& factions);
@@ -543,6 +548,7 @@ class ARegionList
 
         void TownStatistics();
         void ResourcesStatistics();
+        void NameStatistics();
 
         void CalcDensities();
         int GetLevelXScale(int level);

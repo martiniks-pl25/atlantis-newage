@@ -285,9 +285,10 @@ void ARegion::SetupPop()
     }
 
     // Lakes and BARREN-flagged terrains (oceans, deadwater, barrens, dungeon) must
-    // never host settlements. Surface parametric generator already filters these in
-    // economy() (aregion.cpp), but underworld/underdeep go through FinalSetup → Setup →
-    // SetupPop, so the check must live here too.
+    // never host settlements. Each generation path filters them itself - economy()
+    // in aregion.cpp for the parametric surface, economy_underground() in
+    // neworigins/map.cpp for underworld/underdeep - and this check backs up any
+    // path that still reaches settlements through SetupPop().
     bool town_eligible_terrain = (type != R_LAKE) &&
         !(TerrainDefs[type].flags & TerrainType::BARREN);
 
