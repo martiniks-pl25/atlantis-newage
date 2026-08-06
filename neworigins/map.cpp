@@ -1882,6 +1882,20 @@ void ARegionList::create_underworld_ring_level(int level, int xSize, int ySize, 
 // minDist = 2d3+4 → range [6..10], mean 8 (vs surface 2d2+2 → [4..6], mean 5).
 static void economy_underground(ARegionArray* arr, const int w, const int h)
 {
+    // Name every hex before anything sets it up. FinalSetup() used to do this for
+    // the underground levels; when b902200 replaced that call with this function
+    // the naming was dropped and the seed that GrowTerrain()/AssignTypes() parked
+    // in reg->wages was silently discarded, leaving every hex called "Region".
+    // The invalid-type guard mirrors FinalSetup().
+    for (int x = 0; x < w; x++) {
+        for (int y = 0; y < h; y++) {
+            ARegion* reg = arr->GetRegion(x, y);
+            if (!reg) continue;
+            if (reg->type == R_NUM || reg->type < 0 || reg->type >= (int)TerrainDefs.size()) continue;
+            reg->assign_generated_name(arr->levelType);
+        }
+    }
+
     logger::write("Setting underground settlements");
 
     auto village_min_dist = []() { return rng::make_roll(2, 3) + 4; };
@@ -2911,30 +2925,7 @@ void ARegionList::FinalSetup(ARegionArray *pArr)
                 continue;
             }
 
-            int similar = TerrainDefs[reg->type].similar_type;
-
-            if ((similar == R_OCEAN) && (reg->type != R_LAKE)) {
-                if (pArr->levelType == ARegionArray::LEVEL_UNDERWORLD) {
-                    reg->set_name("The Undersea");
-                }
-                else if (pArr->levelType == ARegionArray::LEVEL_UNDERDEEP) {
-                    reg->set_name("The Deep Undersea");
-                }
-                else {
-                    std::string ocean_name = Globals->WORLD_NAME;
-                    ocean_name += " Ocean";
-                    reg->set_name(ocean_name);
-                }
-            } else if (similar == R_BARREN) {
-                reg->set_name("The Barrens");
-            } else {
-                if (reg->wages == -1)
-                    reg->set_name("The Void");
-                else if (reg->wages != -2)
-                    reg->set_name(AGetNameString(reg->wages));
-                else
-                    reg->wages = -1;
-            }
+            reg->assign_generated_name(pArr->levelType);
 
             reg->Setup();
         }

@@ -82,7 +82,7 @@ void TownInfo::Writeout(std::ostream& f)
 
 ARegion::ARegion()
 {
-    name = "Region";
+    name = UNNAMED_REGION;
     xloc = 0;
     yloc = 0;
     buildingseq = 1;
@@ -122,6 +122,47 @@ void ARegion::ZeroNeighbors()
 void ARegion::set_name(const std::string& newname)
 {
     name = newname;
+}
+
+/**
+ * @brief Assigns a region's name during world creation
+ *
+ * Converts the name seed left in `wages` by the terrain phase into the region's
+ * display name. GrowTerrain()/AssignTypes() park an AGetName() index there and
+ * propagate it to neighbours, which is what makes adjacent hexes share a name.
+ * Water and barren hexes ignore the seed and take a fixed, level-dependent name.
+ *
+ * Seed conventions in `wages`:
+ *   >= 0 : index into the ruleset name table (AGetNameString)
+ *     -1 : never seeded -> "The Void"
+ *     -2 : keep whatever name the region already has; the sentinel is cleared
+ *          to -1 so the economy setup never reads it as a wage value
+ *
+ * @param levelType one of ARegionArray::LEVEL_*, selects the ocean name
+ * @note Must run before SetupEconomy(), which reads `wages`.
+ * @see ARegionList::FinalSetup(), economy_underground() in neworigins/map.cpp
+ */
+void ARegion::assign_generated_name(int levelType)
+{
+    int similar = TerrainDefs[type].similar_type;
+
+    if ((similar == R_OCEAN) && (type != R_LAKE)) {
+        if (levelType == ARegionArray::LEVEL_UNDERWORLD) {
+            set_name("The Undersea");
+        } else if (levelType == ARegionArray::LEVEL_UNDERDEEP) {
+            set_name("The Deep Undersea");
+        } else {
+            std::string ocean_name = Globals->WORLD_NAME;
+            ocean_name += " Ocean";
+            set_name(ocean_name);
+        }
+    } else if (similar == R_BARREN) {
+        set_name("The Barrens");
+    } else {
+        if (wages == -1) set_name("The Void");
+        else if (wages != -2) set_name(AGetNameString(wages));
+        else wages = -1;
+    }
 }
 
 int ARegion::produces_item(int item)
@@ -2123,6 +2164,40 @@ void ARegionList::TownStatistics()
     logger::write("Villages: " + std::to_string(villages) + " (" + std::to_string(perv) + "%)");
     logger::write("Towns   : " + std::to_string(towns) + " (" + std::to_string(pert) + "%)");
     logger::write("Cities  : " + std::to_string(cities) + " (" + std::to_string(perc) + "%)");
+    logger::write("");
+}
+
+/**
+ * @brief Reports regions left with the default name after world creation
+ *
+ * A level whose generation path forgets to name its regions produces hexes that
+ * print as "Region" in every player report for the life of the world, and names
+ * cannot be repaired afterwards because they are baked into game.out. Run at the
+ * end of world creation so the mistake shows up in gen.log immediately.
+ *
+ * @note Reports only; generation is not aborted.
+ * @see ARegion::assign_generated_name()
+ */
+void ARegionList::NameStatistics()
+{
+    std::vector<int> unnamed(numLevels > 0 ? numLevels : 1, 0);
+
+    for (const auto reg : regions) {
+        if (reg->name != UNNAMED_REGION) continue;
+        if (reg->zloc >= 0 && reg->zloc < (int)unnamed.size()) unnamed[reg->zloc]++;
+    }
+
+    int total = 0;
+    for (size_t level = 0; level < unnamed.size(); level++) {
+        if (unnamed[level] == 0) continue;
+        total += unnamed[level];
+        logger::write(
+            "ERROR: level " + std::to_string(level) + " left " + std::to_string(unnamed[level]) +
+            " region(s) unnamed - this level's generation path skips region naming"
+        );
+    }
+
+    if (total == 0) logger::write("Region names: every region named");
     logger::write("");
 }
 
