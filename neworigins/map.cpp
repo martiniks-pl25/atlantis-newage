@@ -1903,14 +1903,23 @@ static void economy_underground(ARegionArray* arr, const int w, const int h)
     std::unordered_set<ARegion*> visited;
     int minDist = village_min_dist();
 
+    // Sampling accounting - see the equivalent block in economy() (aregion.cpp).
+    // The underground is mostly maze wall and water, so the rejection count here
+    // is the number that explains a sparse result.
+    int offered = 0, rejected_terrain = 0, placed = 0;
+
     getPoints(w, h, minDist, 64,
-        [&arr, &visited, &minDist, &village_min_dist](graphs::Location2D p) {
+        [&arr, &visited, &minDist, &village_min_dist,
+         &offered, &rejected_terrain, &placed](graphs::Location2D p) {
+            offered++;
+
             ARegion* reg = arr->GetRegion(p.x, p.y);
-            if (!reg) return minDist;
+            if (!reg) { rejected_terrain++; return minDist; }
 
             TerrainType* terrain = &(TerrainDefs[reg->type]);
             if (reg->type == R_OCEAN || reg->type == R_LAKE ||
                 (terrain->flags & TerrainType::BARREN)) {
+                rejected_terrain++;
                 return minDist;
             }
 
@@ -1928,6 +1937,7 @@ static void economy_underground(ARegionArray* arr, const int w, const int h)
             });
 
             visited.insert(reg);
+            placed++;
             logger::write("Underground village " + name);
 
             minDist = village_min_dist();
@@ -1935,6 +1945,12 @@ static void economy_underground(ARegionArray* arr, const int w, const int h)
         },
         [](graphs::Location2D p) { return true; },
         2);  // 2 seeds — sufficient for the smaller underground maps
+
+    logger::write(
+        "Underground village sampling: " + std::to_string(offered) + " points offered, " +
+        std::to_string(rejected_terrain) + " rejected on terrain, " +
+        std::to_string(placed) + " villages placed"
+    );
 
     logger::write("Setting up other underground regions");
 
@@ -2749,7 +2765,16 @@ void ARegionList::MakeUWMaze(ARegionArray *pArr)
             if (!reg) continue;
             if (reg->type == R_BARREN) continue;
 
-            for (int i=D_NORTH; i<= NDIRS; i++) {
+            // neighbors has NDIRS elements, so the last valid direction is
+            // NDIRS-1. The bound used to be <=, and the extra iteration read and
+            // then wrote reg->neighbors[NDIRS] - the eight bytes immediately after
+            // the array, which are the head pointer of the objects list declared
+            // right behind it. On an empty list that pointer is the sentinel's
+            // self-reference, so it is never null, the `if (n)` guard below passed
+            // and a slice of the region's own memory was used as an ARegion. The
+            // resulting stray writes corrupted a different field on every run,
+            // which is why the underground levels crashed in random places.
+            for (int i=D_NORTH; i < NDIRS; i++) {
                 int count = 0;
                 for (int j=D_NORTH; j< NDIRS; j++)
                     if (reg->neighbors[j]) count++;

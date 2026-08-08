@@ -1,9 +1,11 @@
 #include "game.h"
 #include "gamedata.h"
 #include "namegen.h"
+#include "quests.h"
 #include "rng.hpp"
 #include <numeric>
 #include <limits>
+#include <map>
 
 void Game::CreateCityMons()
 {
@@ -743,4 +745,108 @@ void Game::PirateSeizeEmptyShips()
             }
         }
     }
+}
+
+/**
+ * @brief Generation-time tuning report on what the monster passes produced
+ *
+ * Runs after CreateWMons/CreateLMons/CreateVMons, so every monster exists.
+ *
+ * Pirates are reported per level on purpose: the underworld and underdeep carry
+ * ocean hexes, and ocean is where pirate fleets spawn, so a share of the pirate
+ * content sits where players do not go early. On a world built around fighting
+ * pirates that split has to be visible.
+ *
+ * @note Runs only from Game::NewGame(), guarded by GENERATION_TUNING_STATS.
+ * @see Game::MakePirateFleet(), Game::MakePirateLair()
+ */
+void Game::MonsterStatistics()
+{
+    if constexpr (!GENERATION_TUNING_STATS) return;
+
+    struct LevelTally {
+        int fleets = 0, elite_fleets = 0, afloat = 0;
+        int lairs = 0, lair_pirates = 0, lair_bosuns = 0;
+        std::map<int, int> monsters_by_item;
+    };
+    std::map<int, LevelTally> by_level;
+
+    for (const auto reg : regions) {
+        LevelTally &t = by_level[reg->zloc];
+
+        for (const auto obj : reg->objects) {
+            bool is_fleet = obj->IsFleet();
+            bool is_pirate_lair = (obj->type >= 0 && obj->type < (int)ObjectDefs.size() &&
+                                   ObjectDefs[obj->type].monster == I_PIRATES);
+
+            int pirates = 0, captains = 0, bosuns = 0;
+            for (const auto u : obj->units) {
+                if (u->faction->num != monfaction) continue;
+                for (auto i : u->items)
+                    if (ItemDefs[i->type].type & IT_MONSTER)
+                        t.monsters_by_item[i->type] += i->num;
+                pirates  += u->items.GetNum(I_PIRATES);
+                captains += u->items.GetNum(I_PIRATE_CAPTAIN);
+                bosuns   += u->items.GetNum(I_PIRATE_BOSUN);
+            }
+
+            if (is_fleet && (pirates || captains)) {
+                t.fleets++;
+                t.afloat += pirates;
+                if (captains > 0) t.elite_fleets++;
+            } else if (is_pirate_lair && pirates) {
+                t.lairs++;
+                t.lair_pirates += pirates;
+                if (bosuns > 0) t.lair_bosuns++;
+            }
+        }
+    }
+
+    int boss_hunts = 0;
+    for (auto q = quests.begin(); q != quests.end(); ++q)
+        if ((*q)->subtype == Quest::GLOBAL_BOSS_HUNT) boss_hunts++;
+
+    // A world with no monsters has nothing to report, and an all-zero block is
+    // just noise - worlds built by the test harness are exactly that case.
+    bool anything = (boss_hunts > 0);
+    for (const auto &[level, t] : by_level)
+        if (t.fleets || t.lairs || !t.monsters_by_item.empty()) { anything = true; break; }
+    if (!anything) return;
+
+    logger::write("");
+    logger::write("=== TUNING: monsters at world creation ===");
+
+    int all_fleets = 0, all_elite = 0, all_afloat = 0;
+    for (const auto &[level, t] : by_level) {
+        if (t.fleets == 0 && t.lairs == 0 && t.monsters_by_item.empty()) continue;
+
+        all_fleets += t.fleets;
+        all_elite  += t.elite_fleets;
+        all_afloat += t.afloat;
+
+        logger::write("-- level " + std::to_string(level) + " --");
+        logger::write(
+            "  pirate fleets: " + std::to_string(t.fleets) +
+            ", elite: " + std::to_string(t.elite_fleets) +
+            ", pirates afloat: " + std::to_string(t.afloat) +
+            ", average crew: " + std::to_string(rounded_div(t.afloat, t.fleets))
+        );
+        logger::write(
+            "  pirate lairs: " + std::to_string(t.lairs) +
+            ", with bosun: " + std::to_string(t.lair_bosuns) +
+            ", pirates in lairs: " + std::to_string(t.lair_pirates)
+        );
+        for (const auto &[item, count] : t.monsters_by_item)
+            logger::write("    " + std::string(ItemDefs[item].name) + ": " + std::to_string(count));
+    }
+
+    logger::write("-- all levels --");
+    logger::write(
+        "  pirate fleets: " + std::to_string(all_fleets) +
+        ", elite: " + std::to_string(all_elite) +
+        " (" + std::to_string(percent_rounded(all_elite, all_fleets)) + "%)" +
+        ", pirates afloat: " + std::to_string(all_afloat)
+    );
+    logger::write("  global boss-hunt quests: " + std::to_string(boss_hunts));
+    logger::write("");
 }

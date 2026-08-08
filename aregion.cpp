@@ -2157,13 +2157,17 @@ void ARegionList::TownStatistics()
         }
     }
     int tot = villages + towns + cities;
-    int perv = villages * 100 / tot;
-    int pert = towns * 100 / tot;
-    int perc = cities * 100 / tot;
+
+    // A generated map can legitimately end up with no settlements at all: on a small,
+    // mostly ocean surface every Poisson sample can be rejected on terrain. Dividing
+    // the shares by that count killed world creation outright with SIGFPE, so the
+    // report has to survive the case it exists to make visible.
     logger::write("Settlements: " + std::to_string(tot));
-    logger::write("Villages: " + std::to_string(villages) + " (" + std::to_string(perv) + "%)");
-    logger::write("Towns   : " + std::to_string(towns) + " (" + std::to_string(pert) + "%)");
-    logger::write("Cities  : " + std::to_string(cities) + " (" + std::to_string(perc) + "%)");
+    logger::write("Villages: " + std::to_string(villages) + " (" + std::to_string(percent_rounded(villages, tot)) + "%)");
+    logger::write("Towns   : " + std::to_string(towns) + " (" + std::to_string(percent_rounded(towns, tot)) + "%)");
+    logger::write("Cities  : " + std::to_string(cities) + " (" + std::to_string(percent_rounded(cities, tot)) + "%)");
+    if (tot == 0)
+        logger::write("WARNING: this world has no settlements on any level and is not playable.");
     logger::write("");
 }
 
@@ -2198,6 +2202,331 @@ void ARegionList::NameStatistics()
     }
 
     if (total == 0) logger::write("Region names: every region named");
+    logger::write("");
+}
+
+/**
+ * @brief Connected land components of one level, with their settlements
+ *
+ * Flood-fills across hexes that are neither water nor barren. A large landmass
+ * carrying no settlement is a slice of the map that is effectively out of play,
+ * which no other statistic reveals.
+ *
+ * @note Part of the generation tuning report; see GENERATION_TUNING_STATS.
+ */
+void ARegionList::report_landmasses(ARegionArray *arr, int level)
+{
+    auto is_land = [](ARegion *r) {
+        if (!r) return false;
+        if (TerrainDefs[r->type].similar_type == R_OCEAN) return false;
+        if (r->type == R_BARREN) return false;
+        return true;
+    };
+
+    std::unordered_set<ARegion *> seen;
+    std::vector<std::pair<int, int>> masses;  // size, settlement count
+    int total_land = 0, biggest = 0, biggest_empty = 0;
+
+    for (int x = 0; x < arr->x; x++) {
+        for (int y = 0; y < arr->y; y++) {
+            ARegion *start = arr->GetRegion(x, y);
+            if (!is_land(start) || seen.count(start)) continue;
+
+            int size = 0, settlements = 0;
+            std::vector<ARegion *> stack = { start };
+            seen.insert(start);
+            while (!stack.empty()) {
+                ARegion *cur = stack.back();
+                stack.pop_back();
+                size++;
+                if (cur->town) settlements++;
+                for (int d = 0; d < NDIRS; d++) {
+                    ARegion *n = cur->neighbors[d];
+                    if (!is_land(n) || seen.count(n)) continue;
+                    seen.insert(n);
+                    stack.push_back(n);
+                }
+            }
+
+            total_land += size;
+            if (size > biggest) biggest = size;
+            if (settlements == 0 && size > biggest_empty) biggest_empty = size;
+            masses.push_back({ size, settlements });
+        }
+    }
+
+    if (masses.empty()) return;
+
+    std::sort(masses.begin(), masses.end(), std::greater<>());
+
+    logger::write(
+        "landmasses: " + std::to_string(masses.size()) +
+        ", land hexes " + std::to_string(total_land) +
+        ", largest " + std::to_string(biggest) +
+        " (" + std::to_string(percent_rounded(biggest, total_land)) + "% of land)"
+    );
+
+    int shown = 0;
+    for (const auto &[size, settlements] : masses) {
+        if (shown++ >= 8) break;
+        logger::write(
+            "  landmass " + std::to_string(size) + " hexes, " +
+            std::to_string(settlements) + " settlement(s)" +
+            (settlements == 0 && size >= 10 ? "   <-- no settlement" : "")
+        );
+    }
+    if (biggest_empty >= 10)
+        logger::write("  largest landmass with no settlement: " + std::to_string(biggest_empty) + " hexes");
+}
+
+/**
+ * @brief Moves to the nearest other settlement, over the level's real links
+ *
+ * Breadth-first over ARegion::neighbors, which is the graph units actually walk.
+ * GetPlanarDistance() cannot be used here: it measures a straight line across the
+ * grid, and MakeUWMaze() severs neighbour links underground - on a 48x48 world the
+ * underworld keeps 3.75 of 6 sides open and the underdeep 3.14, so a planar
+ * distance there understates the walk by a third and reorders the settlements.
+ * On the surface, where almost nothing is severed, both metrics agree.
+ *
+ * @param from     settlement to measure from
+ * @param settled  every settled hex on the level, including from
+ * @return moves to the nearest other settlement, or -1 if none is reachable
+ * @note Part of the generation tuning report; see GENERATION_TUNING_STATS.
+ */
+static int hops_to_nearest_settlement(ARegion *from, const std::unordered_set<ARegion *> &settled)
+{
+    std::unordered_set<ARegion *> seen = { from };
+    std::queue<std::pair<ARegion *, int>> queue;
+    queue.push({ from, 0 });
+
+    while (!queue.empty()) {
+        auto [cur, dist] = queue.front();
+        queue.pop();
+
+        if (cur != from && settled.count(cur)) return dist;
+
+        for (int d = 0; d < NDIRS; d++) {
+            ARegion *n = cur->neighbors[d];
+            if (!n || seen.count(n)) continue;
+            seen.insert(n);
+            queue.push({ n, dist + 1 });
+        }
+    }
+
+    return -1;
+}
+
+/**
+ * @brief Generation-time tuning report for one map level
+ *
+ * Terrain against settlements, landmasses and settlement spacing for any level.
+ * Villages are counted apart from towns and cities because the gateway entry
+ * ladder only ever lands a player in a village.
+ *
+ * The starting-location section - how many settlements meet every requirement,
+ * what the failing ones lack, and how much land each can work within two moves -
+ * is printed for the surface alone. Nothing leads downward out of the nexus, so
+ * an underground settlement is never an entry point and measuring it against the
+ * entry rule reports a failure that means nothing.
+ *
+ * @note Part of the generation tuning report; see GENERATION_TUNING_STATS.
+ * @see ARegionList::MapStatistics()
+ */
+void ARegionList::report_level(ARegionArray *arr, int level)
+{
+    std::vector<ARegion *> here;
+    for (const auto reg : regions)
+        if (reg->zloc == level) here.push_back(reg);
+    if (here.empty()) return;
+
+    // The surface is created with an empty name on purpose (world.cpp), so it is
+    // the one level that has to be named here rather than read off the array.
+    std::string level_name =
+        arr->levelType == ARegionArray::LEVEL_SURFACE ? "surface" :
+        arr->strName.empty() ? ("level " + std::to_string(level)) : arr->strName;
+    logger::write("=== TUNING: " + level_name + " (level " + std::to_string(level) + ") ===");
+    logger::write("terrain      hexes  village  town  city");
+
+    int land = 0, water = 0;
+    for (int type = 0; type < R_NUM; type++) {
+        int hexes = 0, villages = 0, towns = 0, cities = 0;
+        for (const auto reg : here) {
+            if (reg->type != type) continue;
+            hexes++;
+            if (!reg->town) continue;
+            switch (reg->town->TownType()) {
+                case TOWN_VILLAGE: villages++; break;
+                case TOWN_TOWN:    towns++;    break;
+                case TOWN_CITY:    cities++;   break;
+            }
+        }
+        if (hexes == 0) continue;
+
+        if (TerrainDefs[type].similar_type == R_OCEAN) water += hexes; else land += hexes;
+
+        std::string line = TerrainDefs[type].name;
+        line.resize(12, ' ');
+        line += " " + std::to_string(hexes) + "  " + std::to_string(villages) +
+                "  " + std::to_string(towns) + "  " + std::to_string(cities);
+
+        // Only the surface carries gateways, so only there does a terrain without
+        // a village break the entry ladder.
+        bool gateway_terrain = (arr->levelType == ARegionArray::LEVEL_SURFACE &&
+                                type >= R_PLAIN && type <= R_TUNDRA);
+        if (gateway_terrain && villages == 0) line += "   <-- NO VILLAGE (gateway terrain)";
+
+        logger::write(line);
+    }
+
+    logger::write("land hexes: " + std::to_string(land) + ", water hexes: " + std::to_string(water));
+
+    report_landmasses(arr, level);
+
+    std::vector<ARegion *> settled;
+    for (const auto reg : here) if (reg->town) settled.push_back(reg);
+
+    std::unordered_set<ARegion *> settled_set(settled.begin(), settled.end());
+    std::vector<int> nearest;
+    for (const auto a : settled) {
+        int d = hops_to_nearest_settlement(a, settled_set);
+        if (d >= 0) nearest.push_back(d);
+    }
+
+    DistanceSummary spacing = summarise_distances(nearest);
+    if (spacing.count == 0) {
+        logger::write("settlement spacing: n/a (" + std::to_string(settled.size()) + " settlement(s))");
+    } else {
+        logger::write(
+            "settlement spacing in moves: count " + std::to_string(spacing.count) +
+            ", min " + std::to_string(spacing.min) +
+            ", median " + std::to_string(spacing.median) +
+            ", mean " + std::to_string(spacing.mean_tenths / 10) + "." +
+                        std::to_string(spacing.mean_tenths % 10) +
+            ", max " + std::to_string(spacing.max)
+        );
+    }
+
+    // Starting requirements are a surface question: the nexus has no exit
+    // downward, so the entry ladder only ever lands a player on the surface.
+    // Underground settlements are reached on foot, from a base that already
+    // exists, and measuring them against the entry rule says nothing.
+    if (arr->levelType != ARegionArray::LEVEL_SURFACE || settled.empty()) {
+        logger::write("");
+        return;
+    }
+
+    int complete = 0;
+    std::vector<int> reaches;
+    std::vector<std::string> shortfalls;
+    for (const auto reg : settled) {
+        StartRequirements req = arr->start_requirements_at(reg);
+        reaches.push_back(req.reach);
+        if (req.all()) { complete++; continue; }
+
+        std::string missing;
+        if (!req.wood)     missing += " wood";
+        if (!req.iron)     missing += " iron";
+        if (!req.stone)    missing += " stone";
+        if (!req.food)     missing += " food";
+        if (!req.mounts)   missing += " mounts";
+        if (!req.landmass) missing += " landmass";
+        shortfalls.push_back(
+            "  " + reg->town->name + " (" + std::string(TerrainDefs[reg->type].name) +
+            ", reach " + std::to_string(req.reach) + "):" + missing
+        );
+    }
+
+    logger::write(
+        "settlements meeting every starting requirement: " +
+        std::to_string(complete) + " of " + std::to_string(settled.size())
+    );
+    for (const auto &line : shortfalls) logger::write(line);
+
+    // How much land a settlement can work within the two moves the requirement
+    // check itself walks. A low minimum is the signature of a settlement pinned
+    // against the coast, which no placement quota can rescue - such a hex has to
+    // be kept out of the entry pool instead.
+    DistanceSummary reach = summarise_distances(reaches);
+    logger::write(
+        "hexes within two moves: min " + std::to_string(reach.min) +
+        ", median " + std::to_string(reach.median) +
+        ", mean " + std::to_string(reach.mean_tenths / 10) + "." +
+                    std::to_string(reach.mean_tenths % 10) +
+        ", max " + std::to_string(reach.max)
+    );
+
+    logger::write("");
+}
+
+/**
+ * @brief Generation-time tuning report on the finished map
+ *
+ * Walks every playable level, then appends the surface-only sections: how the
+ * requested generation parameters actually came out, and the starting-location
+ * candidate pool the gateway entry ladder draws from.
+ *
+ * The requested-versus-delivered section exists because Densities: sums every
+ * level into one histogram, so the surface water share is not visible anywhere,
+ * and because the water percentage is applied to the noise grid, which is twice
+ * the resolution of the hex grid (mapgen.cpp) - the delivered share is expected
+ * to differ from the requested one, and this says by how much.
+ *
+ * @note Runs only from Game::CreateWorld(), guarded by GENERATION_TUNING_STATS.
+ */
+void ARegionList::MapStatistics()
+{
+    if constexpr (!GENERATION_TUNING_STATS) return;
+
+    for (int level = 0; level < numLevels; level++) {
+        ARegionArray *arr = pRegionArrays[level];
+        if (!arr) continue;
+        // The nexus is a single hex; the dungeon level is entirely barren until
+        // dungeons spawn during play. Neither says anything at creation time.
+        if (arr->levelType == ARegionArray::LEVEL_NEXUS) continue;
+        if (arr->levelType == ARegionArray::LEVEL_DUNGEON) continue;
+
+        report_level(arr, level);
+    }
+
+    ARegionArray *surface = GetRegionArray(ARegionArray::LEVEL_SURFACE);
+    if (!surface) return;
+
+    int total = 0, water = 0, mountain = 0, hill = 0;
+    for (const auto reg : regions) {
+        if (reg->zloc != ARegionArray::LEVEL_SURFACE) continue;
+        total++;
+        if (TerrainDefs[reg->type].similar_type == R_OCEAN) water++;
+        if (reg->type == R_MOUNTAIN || reg->type == R_VOLCANO) mountain++;
+        if (reg->type == R_HILL) hill++;
+    }
+
+    logger::write("=== TUNING: requested vs delivered (surface) ===");
+    logger::write("water:    " + std::to_string(percent_rounded(water, total)) + "% of all surface hexes");
+    logger::write("mountain: " + std::to_string(percent_rounded(mountain, total)) + "% of all surface hexes");
+    logger::write("hill:     " + std::to_string(percent_rounded(hill, total)) + "% of all surface hexes");
+    logger::write(
+        "hills as a share of high ground: " +
+        std::to_string(percent_rounded(hill, mountain + hill)) + "%"
+    );
+    logger::write("Compare against the Water / Mountains / Hills values in the generator prompt.");
+    logger::write("");
+
+    logger::write("=== TUNING: starting-location candidates per gateway terrain ===");
+    logger::write("terrain      candidates  of which villages");
+
+    for (int type = R_PLAIN; type <= R_TUNDRA; type++) {
+        auto cands = surface->get_starting_region_candidates(type, true);
+        int with_village = 0;
+        for (const auto reg : cands)
+            if (reg->town && reg->town->TownType() == TOWN_VILLAGE) with_village++;
+
+        std::string line = TerrainDefs[type].name;
+        line.resize(12, ' ');
+        line += " " + std::to_string(cands.size()) + "  " + std::to_string(with_village);
+        if (with_village == 0) line += "   <-- entry ladder Block A cannot be satisfied";
+        logger::write(line);
+    }
     logger::write("");
 }
 
@@ -2558,10 +2887,53 @@ std::vector<ARegion *> ARegionArray::get_starting_region_candidates(int terrain)
     return get_starting_region_candidates(terrain, true);
 }
 
-std::vector<ARegion *> ARegionArray::get_starting_region_candidates(int terrain, bool require_resources) {
+/**
+ * @brief Which starting-location requirements a hex satisfies within two moves
+ *
+ * Walks outward two moves over non-ocean hexes and records which of the required
+ * resource groups are reachable, plus whether the surrounding landmass is big
+ * enough to be worth starting on at all.
+ *
+ * Split out of get_starting_region_candidates() so the gateway candidate filter
+ * and the generation statistics share one definition of the rule instead of
+ * keeping two copies that can drift apart.
+ *
+ * @param reg hex to test
+ * @return per-group result; StartRequirements::all() is the filter's own verdict
+ * @see ARegionArray::get_starting_region_candidates()
+ */
+StartRequirements ARegionArray::start_requirements_at(ARegion *reg)
+{
+    StartRequirements req;
+
     ARegionGraph graph = ARegionGraph(this);
     graph.setInclusion([](ARegion *current, ARegion *next) { return next->type != R_OCEAN; });
 
+    graphs::Location2D loc = { reg->xloc, reg->yloc };
+    auto result = graphs::breadthFirstSearch(graph, loc, 2);
+
+    // A hex on a sliver of land is no place to start, however well stocked.
+    req.reach = (int)result.size();
+    req.landmass = (req.reach >= 10);
+
+    bool grain = false, livestock = false, horse = false, camel = false;
+    for (const auto &kv : result) {
+        ARegion *tReg = graph.get(kv.first);
+        if (tReg->produces_item(I_WOOD))      req.wood  = true;
+        if (tReg->produces_item(I_IRON))      req.iron  = true;
+        if (tReg->produces_item(I_STONE))     req.stone = true;
+        if (tReg->produces_item(I_GRAIN))     grain     = true;
+        if (tReg->produces_item(I_LIVESTOCK)) livestock = true;
+        if (tReg->produces_item(I_HORSE))     horse     = true;
+        if (tReg->produces_item(I_CAMEL))     camel     = true;
+    }
+    req.food   = grain || livestock;
+    req.mounts = horse || camel;
+
+    return req;
+}
+
+std::vector<ARegion *> ARegionArray::get_starting_region_candidates(int terrain, bool require_resources) {
     std::vector<ARegion *> candidates;
     for (int x2 = 0; x2 < x; x2++) {
         for (int y2 = 0; y2 < y; y2++) {
@@ -2569,44 +2941,54 @@ std::vector<ARegion *> ARegionArray::get_starting_region_candidates(int terrain,
             if (!reg) continue;
             if (reg->type != terrain) continue;
 
-            graphs::Location2D loc = { reg->xloc, reg->yloc };
-            auto result = graphs::breadthFirstSearch(graph, loc, 2);
-            // if hex is part of a landmass smaller than 10 hexes within 2 moves, skip it
-            if (result.size() < 10) continue;
-
-            if (require_resources) {
-                // Check for the required items within 2 hexes
-                std::map<int, bool> requiredItems = {
-                    {I_WOOD, false},
-                    {I_IRON, false},
-                    {I_STONE, false},
-                    {I_GRAIN, false},
-                    {I_LIVESTOCK, false},
-                    {I_HORSE, false},
-                    {I_CAMEL, false}
-                };
-                for(const auto &kv : result) {
-                    ARegion *tReg = graph.get(kv.first);
-                    if (tReg->produces_item(I_WOOD)) requiredItems[I_WOOD] = true;
-                    if (tReg->produces_item(I_IRON)) requiredItems[I_IRON] = true;
-                    if (tReg->produces_item(I_STONE)) requiredItems[I_STONE] = true;
-                    if (tReg->produces_item(I_GRAIN)) requiredItems[I_GRAIN] = true;
-                    if (tReg->produces_item(I_LIVESTOCK)) requiredItems[I_LIVESTOCK] = true;
-                    if (tReg->produces_item(I_HORSE)) requiredItems[I_HORSE] = true;
-                    if (tReg->produces_item(I_CAMEL)) requiredItems[I_CAMEL] = true;
-                }
-                if (requiredItems[I_WOOD] == false) continue;
-                if (requiredItems[I_IRON] == false) continue;
-                if (requiredItems[I_STONE] == false) continue;
-                if (requiredItems[I_GRAIN] == false && requiredItems[I_LIVESTOCK] == false) continue;
-                if (requiredItems[I_HORSE] == false && requiredItems[I_CAMEL] == false) continue;
-            }
+            StartRequirements req = start_requirements_at(reg);
+            if (!req.landmass) continue;
+            if (require_resources && !req.all()) continue;
 
             candidates.push_back(reg);
         }
     }
 
     return candidates;
+}
+
+/**
+ * @brief Reduces a set of distances to min, median, mean and max
+ *
+ * @param distances by value; sorted in place
+ * @return summary with mean_tenths = mean x 10, so callers print one decimal
+ *         without floating point. An empty input gives all zeroes.
+ */
+DistanceSummary summarise_distances(std::vector<int> distances)
+{
+    DistanceSummary s;
+    if (distances.empty()) return s;
+
+    std::sort(distances.begin(), distances.end());
+
+    s.count  = (int)distances.size();
+    s.min    = distances.front();
+    s.max    = distances.back();
+    s.median = distances[distances.size() / 2];
+
+    int total = 0;
+    for (int d : distances) total += d;
+    s.mean_tenths = rounded_div(total * 10, s.count);
+
+    return s;
+}
+
+int rounded_div(int numerator, int denominator)
+{
+    if (denominator == 0) return 0;
+    if ((numerator < 0) != (denominator < 0))
+        return (numerator - denominator / 2) / denominator;
+    return (numerator + denominator / 2) / denominator;
+}
+
+int percent_rounded(int part, int whole)
+{
+    return rounded_div(part * 100, whole);
 }
 
 void ARegionArray::set_name(const std::string& name)
@@ -3745,19 +4127,31 @@ void economy(ARegionArray* arr, const int w, const int h) {
     std::vector<ARegion*> village_list;
 
     std::unordered_set<ARegion*> visited;
+    // Sampling accounting. getPoints only calls this back for points that already
+    // passed its own distance and grid checks, so `offered` counts offers, not raw
+    // attempts. It separates "the disc saturated and there is no room left" from
+    // "most offers landed in water and were thrown away" - two very different
+    // reasons to end up with few villages, with two different fixes.
+    int offered = 0, rejected_terrain = 0, placed = 0;
+
     getPoints(w, h, minDist, 64,
-        [&arr, &visited, &size, &minDist, &village_list, &village_min_dist](graphs::Location2D p) {
+        [&arr, &visited, &size, &minDist, &village_list, &village_min_dist,
+         &offered, &rejected_terrain, &placed](graphs::Location2D p) {
+            offered++;
+
             auto reg = arr->GetRegion(p.x, p.y);
             if (reg == NULL) {
                 // this means we have a point outside the map bounds :(
                 // todo: fix point boundary
                 logger::write("NO REGION FOUND!!!!");
+                rejected_terrain++;
                 return minDist;
             }
 
             TerrainType* terrain = &(TerrainDefs[reg->type]);
             if (reg->type == R_OCEAN || reg->type == R_VOLCANO || reg->type == R_LAKE ||
                 terrain->flags & TerrainType::BARREN) {
+                rejected_terrain++;
                 return minDist;
             }
 
@@ -3776,6 +4170,7 @@ void economy(ARegionArray* arr, const int w, const int h) {
             });
 
             visited.insert(reg);
+            placed++;
             if (size == TOWN_VILLAGE) village_list.push_back(reg);
             std::string sizeName = size == TOWN_VILLAGE ? "Village" : size == TOWN_TOWN ? "Town" : "City";
             logger::write(sizeName + " " + name);
@@ -3787,6 +4182,12 @@ void economy(ARegionArray* arr, const int w, const int h) {
         },
         [](graphs::Location2D p) { return true; },
         MULTI_SEED_COUNT);
+
+    logger::write(
+        "Village sampling: " + std::to_string(offered) + " points offered, " +
+        std::to_string(rejected_terrain) + " rejected on terrain, " +
+        std::to_string(placed) + " settlements placed"
+    );
 
     logger::write("Setting up other regions");
 
@@ -4220,14 +4621,15 @@ void ARegionList::AddHistoricalBuildings(ARegionArray* arr, const int w, const i
         size_t sz = cities.size();
         int distances[sz][sz];
 
+        // Every cell must start at 0: the fill loop below only visits j > i, so
+        // the diagonal and the lower triangle were previously read uninitialised
+        // by phase 4.
+        for (size_t i = 0; i < sz; i++)
+            for (size_t j = 0; j < sz; j++)
+                distances[i][j] = 0;
+
         for (size_t i = 0; i < sz; i++) {
             for (size_t j = i + 1; j < sz; j++) {
-                // Skip diagonal (city to itself)
-                if (i == j) {
-                    distances[i][j] = 0;
-                    continue;
-                }
-
                 auto start = cities[i];
                 auto end = cities[j];
 
@@ -4239,22 +4641,28 @@ void ARegionList::AddHistoricalBuildings(ARegionArray* arr, const int w, const i
                 std::unordered_map<graphs::Location2D, double> costSoFar;
                 graphs::dijkstraSearch(graph, startLoc, endLoc, cameFrom, costSoFar);
 
-                // Count hexes in shortest path by backtracking from end to start
+                // Count hexes in shortest path by backtracking from end to start.
+                // Two cities on different landmasses have no path at all - ocean and
+                // volcano are excluded from the graph - so dijkstra never records the
+                // end hex. Reading it with operator[] used to insert a default {0,0}
+                // and return it, which walked to {0,0}, mapped {0,0} to itself and
+                // span forever with no output. Look the predecessor up instead.
                 int dist = 0;
+                bool reachable = true;
                 while (endLoc != startLoc) {
+                    auto it = cameFrom.find(endLoc);
+                    if (it == cameFrom.end()) {
+                        reachable = false;
+                        break;
+                    }
+                    endLoc = it->second;
                     dist++;
-                    endLoc = cameFrom[endLoc];
                 }
+                if (!reachable) dist = 0;
 
-                // Store distance in symmetric matrix
-                if (dist) {
-                    distances[i][j] = dist;
-                    distances[j][i] = dist;
-                }
-                else {
-                    distances[i][j] = 0;
-                    distances[j][i] = 0;
-                }
+                // Store distance in symmetric matrix. 0 means "do not connect".
+                distances[i][j] = dist;
+                distances[j][i] = dist;
             }
         }
 

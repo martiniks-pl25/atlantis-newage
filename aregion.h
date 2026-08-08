@@ -99,6 +99,44 @@ const std::string& AGetNameString(int name);
 // it on every region. ARegionList::NameStatistics() reports any that survive.
 inline constexpr const char *UNNAMED_REGION = "Region";
 
+// Generation-time tuning statistics. Set to false - or delete the two report
+// functions and their call sites - once map tuning is finished. Everything it
+// guards runs only inside `new`, never during turn processing.
+inline constexpr bool GENERATION_TUNING_STATS = true;
+
+// Which of the starting-location requirement groups a hex satisfies within two
+// moves. Shared by the gateway candidate filter and the generation statistics so
+// the rule exists in exactly one place.
+struct StartRequirements {
+    bool wood     = false;
+    bool iron     = false;
+    bool stone    = false;
+    bool food     = false;  // grain OR livestock
+    bool mounts   = false;  // horse OR camel
+    bool landmass = false;  // >= 10 non-ocean hexes reachable within 2 moves
+    int  reach    = 0;      // non-ocean hexes reachable within 2 moves, the landmass rule's input
+
+    bool all() const { return wood && iron && stone && food && mounts && landmass; }
+};
+
+// Integer division that rounds to nearest instead of truncating. The tuning
+// report is read to two significant figures, where a truncated 17.8 -> 17 or
+// 98.9% -> 98% is enough to send a parameter search the wrong way.
+int rounded_div(int numerator, int denominator);
+int percent_rounded(int part, int whole);
+
+// Summary of a set of distances in whole hexes. mean_tenths is the mean times ten,
+// so a report can print one decimal without floating point.
+struct DistanceSummary {
+    int count = 0;
+    int min = 0;
+    int max = 0;
+    int median = 0;
+    int mean_tenths = 0;
+};
+
+DistanceSummary summarise_distances(std::vector<int> distances);
+
 class Farsight
 {
     public:
@@ -409,6 +447,7 @@ class ARegionArray
 
         std::vector<ARegion *> get_starting_region_candidates(int terrain);
         std::vector<ARegion *> get_starting_region_candidates(int terrain, bool require_resources);
+        StartRequirements start_requirements_at(ARegion *reg);
 
         int x;
         int y;
@@ -549,6 +588,11 @@ class ARegionList
         void TownStatistics();
         void ResourcesStatistics();
         void NameStatistics();
+
+        // Generation-time tuning report; see GENERATION_TUNING_STATS.
+        void MapStatistics();
+        void report_level(ARegionArray *arr, int level);
+        void report_landmasses(ARegionArray *arr, int level);
 
         void CalcDensities();
         int GetLevelXScale(int level);
