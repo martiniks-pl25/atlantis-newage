@@ -670,6 +670,8 @@ void Game::CreateWorld()
     regions.ResourcesStatistics();
 
     regions.NameStatistics();
+
+    regions.MapStatistics();
 }
 
 int ARegionList::GetRegType( ARegion *pReg )

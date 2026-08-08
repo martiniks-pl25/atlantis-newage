@@ -478,8 +478,13 @@ void ARegion::SetupCityMarket()
     int cap;
     int offset = 0;
     int citymax = Globals->CITY_POP;
+
     auto localrace = find_race(ItemDefs[race].abr);
     if (!localrace) localrace = find_race("SELF");
+    // Both lookups can miss if a ruleset renames or removes the fallback race, and
+    // the dereference below would then be undefined behaviour rather than a crash
+    // anyone could diagnose. A market-less town is recoverable; that is not.
+    if (!localrace) return;
     auto locals = localrace->get();
     /* compose array of possible supply & demand items */
     int supply[NITEMS];

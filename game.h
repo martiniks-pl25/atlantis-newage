@@ -192,6 +192,9 @@ private:
     int MakePirateFleet(ARegion *pReg);
     void MakePirateLair(Object *pObj);
 
+    // Generation-time tuning report; see GENERATION_TUNING_STATS.
+    void MonsterStatistics();
+
     void WriteSurfaceMap(std::ostream& f, ARegionArray *pArr, int type);
     void WriteUnderworldMap(std::ostream& f, ARegionArray *pArr, int type);
     char GetRChar(ARegion *r);

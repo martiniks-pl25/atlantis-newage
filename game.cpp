@@ -369,6 +369,8 @@ int Game::NewGame()
     if (Globals->LAIR_MONSTERS_EXIST)
         CreateVMons();
 
+    MonsterStatistics();
+
     /*
     if (Globals->PLAYER_ECONOMY) {
         Equilibrate();
