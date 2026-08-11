@@ -286,15 +286,15 @@ void ARegion::Setup()
     if (Globals->LAIR_MONSTERS_EXIST) LairCheck();
 }
 
-void ARegion::ManualSetup(const RegionSetup& settings) {
+void ARegion::setup_terrain(const RegionSetup& settings) {
     SetupProds(settings.prodWeight);
 
     habitat = settings.habitat;
 
     SetupHabitat(settings.terrain);
+}
 
-    if (settings.addSettlement) add_town(settings.settlementSize, settings.settlementName);
-
+void ARegion::finish_setup(const RegionSetup& settings) {
     SetupEconomy();
 
     objects.push_back(new Object(this));
@@ -306,6 +306,14 @@ void ARegion::ManualSetup(const RegionSetup& settings) {
             MakeLair(lair);
         }
     }
+}
+
+void ARegion::ManualSetup(const RegionSetup& settings) {
+    setup_terrain(settings);
+
+    if (settings.addSettlement) add_town(settings.settlementSize, settings.settlementName);
+
+    finish_setup(settings);
 }
 
 int ARegion::TraceConnectedRoad(int dir, int sum, std::list<ARegion *>& con, int range, int dev)
@@ -2325,7 +2333,7 @@ static int hops_to_nearest_settlement(ARegion *from, const std::unordered_set<AR
  * ladder only ever lands a player in a village.
  *
  * The starting-location section - how many settlements meet every requirement,
- * what the failing ones lack, and how much land each can work within two moves -
+ * what the failing ones lack, and how much land each can work within three moves -
  * is printed for the surface alone. Nothing leads downward out of the nexus, so
  * an underground settlement is never an entry point and measuring it against the
  * entry rule reports a failure that means nothing.
@@ -2443,13 +2451,13 @@ void ARegionList::report_level(ARegionArray *arr, int level)
     );
     for (const auto &line : shortfalls) logger::write(line);
 
-    // How much land a settlement can work within the two moves the requirement
+    // How much land a settlement can work within the three moves the requirement
     // check itself walks. A low minimum is the signature of a settlement pinned
     // against the coast, which no placement quota can rescue - such a hex has to
     // be kept out of the entry pool instead.
     DistanceSummary reach = summarise_distances(reaches);
     logger::write(
-        "hexes within two moves: min " + std::to_string(reach.min) +
+        "hexes within three moves: min " + std::to_string(reach.min) +
         ", median " + std::to_string(reach.median) +
         ", mean " + std::to_string(reach.mean_tenths / 10) + "." +
                     std::to_string(reach.mean_tenths % 10) +
@@ -2888,11 +2896,18 @@ std::vector<ARegion *> ARegionArray::get_starting_region_candidates(int terrain)
 }
 
 /**
- * @brief Which starting-location requirements a hex satisfies within two moves
+ * @brief Which starting-location requirements a hex satisfies within three moves
  *
- * Walks outward two moves over non-ocean hexes and records which of the required
+ * Walks outward three moves over non-ocean hexes and records which of the required
  * resource groups are reachable, plus whether the surrounding landmass is big
  * enough to be worth starting on at all.
+ *
+ * The search is called with maxDistance 2 but reaches three moves: the BFS overload
+ * skips a node only when its distance is already GREATER than the limit, so nodes at
+ * distance 2 are still expanded and their neighbours recorded. Kept deliberately as
+ * of 2026-08-09 - the candidate pools this produces are what the gateway system is
+ * tuned against, and tightening the bound would move where players land on worlds
+ * that already exist. Do not "fix" it without re-measuring.
  *
  * Split out of get_starting_region_candidates() so the gateway candidate filter
  * and the generation statistics share one definition of the rule instead of
@@ -2976,6 +2991,146 @@ DistanceSummary summarise_distances(std::vector<int> distances)
     s.mean_tenths = rounded_div(total * 10, s.count);
 
     return s;
+}
+
+/**
+ * @brief Is a candidate site far enough from every settlement already placed?
+ *
+ * The spacing is rolled fresh for each placement, so the caller passes the roll in.
+ * No caller rolls below 4: at 3 one player could sit between two settlements and
+ * take both in a single move, since a hex adjacent to two of them exists only at
+ * distance 2.
+ *
+ * @param distances hex-step distances to every settlement already placed
+ * @param min_spacing the floor; an empty distance list always passes
+ */
+bool far_enough(const std::vector<int>& distances, int min_spacing)
+{
+    for (int d : distances) if (d < min_spacing) return false;
+    return true;
+}
+
+/**
+ * @brief Place settlements by walking the terrains round-robin, scarcest first.
+ *
+ * Shared by the surface (`economy()`) and the underground (`economy_underground()`
+ * in neworigins/map.cpp). Terrain drives the loop rather than the map as a whole:
+ * sampling the map blindly leaves whole terrains empty, which on the surface breaks
+ * the gateway that terrain owns, and underground leaves a level with nothing on it.
+ *
+ * Scarcest first is by candidate count, not by area — mountain has fewer usable
+ * sites than tundra despite covering more ground. Whoever has the least choice picks
+ * while there is still choice to be had.
+ *
+ * Two stages, differing only in what a failed roll costs. During the first
+ * `guaranteed_rounds` a terrain that finds no room simply rolls again next round —
+ * a second chance, not a concession, since the distance itself is never lowered.
+ * Afterwards a miss retires the terrain for good, and that is what ends the process:
+ * as the level fills, high rolls fail more often and terrains fall away one by one.
+ *
+ * `ceiling` bounds the free stage alone. Cutting a guaranteed round short would cost
+ * a terrain its settlements outright, so the guaranteed rounds always run in full
+ * and the floor is therefore the number of terrains with candidates.
+ *
+ * @param candidates eligible hexes grouped by terrain; the caller has already applied
+ *                   whatever policy it has (the surface filters by entry requirements,
+ *                   the underground by nothing)
+ * @param w          map width, for `cylDistance` — the metric the whole generator uses.
+ *                   `GetPlanarDistance` would be wrong here as well as slow: on an
+ *                   icosahedral world it runs a search rather than arithmetic
+ * @param spacing_roll rolled fresh for every placement; nothing ever lowers the result
+ * @param guaranteed_rounds rounds in which a miss costs a round rather than the terrain
+ * @param ceiling    hard cap on the free stage; 0 = none
+ * @see far_enough(), economy()
+ */
+SettlementPlacement place_settlements_round_robin(
+    const std::unordered_map<int, std::vector<ARegion*>>& candidates,
+    const int w,
+    const std::function<int()>& spacing_roll,
+    int guaranteed_rounds,
+    int ceiling)
+{
+    SettlementPlacement out;
+
+    for (const auto& [terrain, hexes] : candidates)
+        if (!hexes.empty()) out.order.push_back(terrain);
+
+    std::sort(out.order.begin(), out.order.end(), [&](int a, int b) {
+        size_t na = candidates.at(a).size();
+        size_t nb = candidates.at(b).size();
+        if (na != nb) return na < nb;
+        return a < b;   // stable, so a map with ties still generates repeatably
+    });
+
+    std::unordered_set<ARegion*> taken;
+    std::vector<bool> active(out.order.size(), true);
+    int active_terrains = (int) out.order.size();
+
+    auto far_from_chosen = [&](ARegion* reg, int spacing) {
+        std::vector<int> dists;
+        graphs::Location2D a = { reg->xloc, reg->yloc };
+        for (const auto other : out.chosen) {
+            graphs::Location2D b = { other->xloc, other->yloc };
+            dists.push_back(cylDistance(a, b, w));
+        }
+        return far_enough(dists, spacing);
+    };
+
+    while (active_terrains > 0) {
+        bool guaranteed = (out.rounds < guaranteed_rounds);
+        out.rounds++;
+
+        for (size_t i = 0; i < out.order.size(); i++) {
+            if (!active[i]) continue;
+
+            if (!guaranteed && ceiling > 0 && (int) out.chosen.size() >= ceiling) {
+                active[i] = false;
+                active_terrains--;
+                continue;
+            }
+
+            int terrain = out.order[i];
+            int spacing = spacing_roll();
+
+            std::vector<ARegion*> eligible;
+            for (const auto reg : candidates.at(terrain)) {
+                if (taken.count(reg)) continue;
+                if (!far_from_chosen(reg, spacing)) continue;
+                eligible.push_back(reg);
+            }
+
+            if (eligible.empty()) {
+                if (!guaranteed) {
+                    active[i] = false;
+                    active_terrains--;
+                }
+                continue;
+            }
+
+            ARegion* pick = eligible[rng::get_random(eligible.size())];
+            out.chosen.push_back(pick);
+            taken.insert(pick);
+            out.placed_by_terrain[terrain]++;
+        }
+    }
+
+    return out;
+}
+
+/**
+ * @brief One-line summary of what a placement pass did, for the generation log.
+ */
+std::string describe_placement(const SettlementPlacement& p, int ceiling)
+{
+    std::string line;
+    for (int terrain : p.order)
+        line += " " + std::string(TerrainDefs[terrain].name) + "=" +
+                std::to_string(p.placed_by_terrain.count(terrain)
+                               ? p.placed_by_terrain.at(terrain) : 0);
+    line += " | total " + std::to_string(p.chosen.size()) +
+            ", rounds " + std::to_string(p.rounds);
+    if (ceiling > 0) line += ", ceiling " + std::to_string(ceiling);
+    return line;
 }
 
 int rounded_div(int numerator, int denominator)
@@ -4071,7 +4226,36 @@ void giveNames(
     }
 }
 
-void economy(ARegionArray* arr, const int w, const int h) {
+/**
+ * @brief Places every surface settlement, in four phases
+ *
+ * Phase 0 rolls products and population for the whole surface. Nothing can be
+ * decided before that: the starting-location check reads the products of hexes up
+ * to three moves away, and until a hex has been through setup_terrain() it has
+ * none. Reading the terrain tables instead is not an option - food is a per-region
+ * roll between grain, livestock and fish, and mounts carry a chance below 100.
+ *
+ * Phase 1 collects the hexes that satisfy the gateway entry requirements. Every
+ * settlement must be a viable start, not only the ones a player happens to land in,
+ * because the entry ladder falls back to any village. About 86% of land qualifies.
+ *
+ * Phase 2 places settlements by walking the terrains round-robin, scarcest first,
+ * rolling a fresh [4..6] spacing for each one and picking at random among the hexes
+ * that clear it. Terrain drives the loop because the gateway system is organised by
+ * terrain - one gateway each, and a terrain with no village makes its gateway
+ * meaningless. Sampling the map as a whole cannot promise that: measured over ten
+ * 48x48 seeds it left 1.6 of the 8 terrains empty. This replaces the former Poisson
+ * pass, which had become vestigial once a terrain quota ran ahead of it.
+ *
+ * Phase 3 turns the chosen sites into towns and finishes every region, after which
+ * a share of the villages is upgraded to cities and the trade goods are dealt out.
+ *
+ * @param arr the surface level
+ * @return false if a gateway terrain ended with too few villages to be a usable
+ *         start, meaning the caller should discard this world and generate another
+ * @see ARegion::setup_terrain(), ARegion::finish_setup(), far_enough()
+ */
+bool economy(ARegionArray* arr, const int w, const int h) {
     std::unordered_map<int, int> histogram;
     for (int x = 0; x < w; x++) {
         for (int y = 0; y < h; y++) {
@@ -4092,20 +4276,53 @@ void economy(ARegionArray* arr, const int w, const int h) {
     // that applies it — change here when tuning density or city ratio.
     // -----------------------------------------------------------------------
 
-    // Number of Poisson-disc seed anchors. 1 = legacy single-seed behavior;
-    // higher values seed a sqrt(N) x sqrt(N) grid so the sampling frontier
-    // reaches all map quadrants even when minDist is large. 4 (2x2) is
-    // enough for maps up to ~128x96; bump to 9 for much larger maps.
-    constexpr int  MULTI_SEED_COUNT = 4;
+    // Spacing between any two settlements, rolled fresh for every placement:
+    // 2d2+2 -> [4..6], peaking at 5. The spread is what keeps the map from looking
+    // laid out on a grid.
+    //
+    // Nothing anywhere lowers this roll. Four is the floor on purpose: at 3 a
+    // single player can sit between two settlements and take both in one move,
+    // and 3 is also the closest a player may found one (CREATE VILLAGE, see
+    // monthorders.cpp). Rolling [3..6] instead was measured and rejected - a 3
+    // lands somewhere almost every time, so terrains never retired and 48x48 ran
+    // to 29-43 settlements against a baseline of 19-24.
+    auto settlement_spacing = []() { return rng::make_roll(2, 2) + 2; };
 
-    // Minimum-distance roll for villages in VILLAGES_ONLY mode.
-    // 2d2+2 -> range [4..6], mean 5, bell-shaped (peak at 5).
-    // Picked over a wider range (e.g. 4..8) to minimize the "ripple" caused
-    // by the globally-dynamic minDist in getPoints: a wide range occasionally
-    // spikes to a large value and locks out dense regions behind it.
-    // Floor 4 was the target requested to sparsen settlements vs. the
-    // legacy 2d2 (range 2..4).
-    auto village_min_dist = []() { return rng::make_roll(2, 2) + 2; };
+    // Rounds during which a terrain that rolls badly gets another chance next
+    // round instead of retiring. Four of them aim for four settlements per gateway
+    // terrain, which is what leaves SETTLEMENTS_KEPT standing once the city upgrade
+    // has taken its share. Raise for a denser world, lower for a sparser one.
+    constexpr int    GUARANTEED_ROUNDS = 4;
+
+    // Entry-capable settlements a terrain must end with. One lone site is a
+    // bottleneck rather than a start: every player choosing that terrain arrives in
+    // the same hex. Enforced twice, by the city upgrade below and by the verdict at
+    // the end, both through gateway_ok() so the two cannot drift apart.
+    constexpr int    SETTLEMENTS_KEPT  = 3;
+
+    // Size each placed settlement starts at, and what counts as an entry point.
+    //
+    // VILLAGES_ONLY is the ruleset's switch for "world generation makes villages
+    // only". It is honoured here, and the two rules above follow it rather than
+    // assuming villages:
+    //
+    //   set   -> place villages; a gateway terrain needs SETTLEMENTS_KEPT villages
+    //   clear -> place mixed sizes; any settlement of the terrain counts
+    //
+    // Both readings are defensible against the entry ladder, which is tiered: its
+    // phases 1-3 accept villages only, but phase 4 takes towns and cities
+    // (monthorders.cpp, "Phase 4: TOWN or CITY"). What the villages buy is start
+    // QUALITY rather than a working start - phases 1-3 apply the resource filter and
+    // want the hex empty or nearly so, while phase 4 has no filter and tolerates up
+    // to three players. So with VILLAGES_ONLY clear the world still plays; players
+    // simply land in busier, unvetted places more often.
+    auto settlement_size = []() {
+        return Globals->VILLAGES_ONLY ? TOWN_VILLAGE : rng::get_random(NTOWNS);
+    };
+    auto gateway_ok = [](ARegion* reg) {
+        if (!reg->town) return false;
+        return !Globals->VILLAGES_ONLY || reg->town->TownType() == TOWN_VILLAGE;
+    };
 
     // Fraction of villages to upgrade to cities after initial placement.
     // 0.12 sits in the middle of the requested 10-15% band; adjust here
@@ -4119,93 +4336,139 @@ void economy(ARegionArray* arr, const int w, const int h) {
     constexpr int    CITY_DIST_MIN    = 8;
     constexpr int    CITY_DIST_MAX    = 20;
 
-    int size = Globals->VILLAGES_ONLY ? TOWN_VILLAGE : rng::get_random(NTOWNS);
-    int minDist = Globals->VILLAGES_ONLY ? village_min_dist() : size + rng::make_roll(2, 2);
-
     // Track villages created in this pass so we can later pick a spread-out
     // subset and upgrade them to cities.
     std::vector<ARegion*> village_list;
 
-    std::unordered_set<ARegion*> visited;
-    // Sampling accounting. getPoints only calls this back for points that already
-    // passed its own distance and grid checks, so `offered` counts offers, not raw
-    // attempts. It separates "the disc saturated and there is no room left" from
-    // "most offers landed in water and were thrown away" - two very different
-    // reasons to end up with few villages, with two different fixes.
-    int offered = 0, rejected_terrain = 0, placed = 0;
-
-    getPoints(w, h, minDist, 64,
-        [&arr, &visited, &size, &minDist, &village_list, &village_min_dist,
-         &offered, &rejected_terrain, &placed](graphs::Location2D p) {
-            offered++;
-
-            auto reg = arr->GetRegion(p.x, p.y);
-            if (reg == NULL) {
-                // this means we have a point outside the map bounds :(
-                // todo: fix point boundary
-                logger::write("NO REGION FOUND!!!!");
-                rejected_terrain++;
-                return minDist;
-            }
+    // -----------------------------------------------------------------------
+    // PHASE 0. Roll products and population for the whole surface.
+    //
+    // start_requirements_at() reads the products of hexes up to three moves out,
+    // so nothing can be judged until every hex has been through setup_terrain().
+    // Settlement and non-settlement hexes were always set up identically here
+    // (habitat = terrain->pop + 1, prodWeight = 1), which is what makes this a
+    // split rather than a behaviour change.
+    // -----------------------------------------------------------------------
+    for (int x = 0; x < w; x++) {
+        for (int y = 0; y < h; y++) {
+            if ((x + y) % 2) continue;
+            ARegion* reg = arr->GetRegion(x, y);
+            if (!reg) continue;
 
             TerrainType* terrain = &(TerrainDefs[reg->type]);
-            if (reg->type == R_OCEAN || reg->type == R_VOLCANO || reg->type == R_LAKE ||
-                terrain->flags & TerrainType::BARREN) {
-                rejected_terrain++;
-                return minDist;
-            }
-
-            Ethnicity etnos = getRegionEtnos(reg);
-
-            std::string name = getEthnicName(etnos);
-
-            reg->ManualSetup({
+            reg->setup_terrain({
                 .terrain = terrain,
                 .habitat = terrain->pop + 1,
                 .prodWeight = 1,
                 .addLair = false,
-                .addSettlement = true,
-                .settlementName = name,
-                .settlementSize = size
+                .addSettlement = false,
+                .settlementName = std::string(),
+                .settlementSize = 0
             });
+        }
+    }
 
-            visited.insert(reg);
-            placed++;
-            if (size == TOWN_VILLAGE) village_list.push_back(reg);
-            std::string sizeName = size == TOWN_VILLAGE ? "Village" : size == TOWN_TOWN ? "Town" : "City";
-            logger::write(sizeName + " " + name);
+    // Sites picked in phase 2, and the size each is to become. Nothing is a town
+    // yet - phase 3 does that, once every site is known.
+    std::unordered_map<ARegion*, int> chosen_size;
 
-            size = Globals->VILLAGES_ONLY ? TOWN_VILLAGE : rng::get_random(NTOWNS);
-            minDist = Globals->VILLAGES_ONLY ? village_min_dist() : size + rng::make_roll(2, 2);
-
-            return minDist;
-        },
-        [](graphs::Location2D p) { return true; },
-        MULTI_SEED_COUNT);
-
-    logger::write(
-        "Village sampling: " + std::to_string(offered) + " points offered, " +
-        std::to_string(rejected_terrain) + " rejected on terrain, " +
-        std::to_string(placed) + " settlements placed"
-    );
-
-    logger::write("Setting up other regions");
+    // -----------------------------------------------------------------------
+    // PHASE 1. Which hexes could hold a settlement at all.
+    //
+    // Every settlement has to be a viable entry point, not only the ones a player
+    // happens to land in: the gateway ladder falls back to any village, and one
+    // without wood or iron within reach is a dead start. So the requirement check
+    // is applied here, once, and everything downstream draws from what it leaves.
+    // Roughly 86% of land passes - the check reaches three moves - so this is a
+    // filter rather than a bottleneck.
+    // -----------------------------------------------------------------------
+    std::unordered_map<int, std::vector<ARegion*>> suitable;
+    int land_scanned = 0, land_suitable = 0;
 
     for (int x = 0; x < w; x++) {
         for (int y = 0; y < h; y++) {
-            if ((x + y) % 2) {
-                continue;
-            }
-
+            if ((x + y) % 2) continue;
             ARegion* reg = arr->GetRegion(x, y);
-            if (visited.find(reg) != visited.end()) {
-                continue;
-            }
+            if (!reg) continue;
+            // R_PLAIN..R_TUNDRA is exactly the settleable surface land; ocean,
+            // lake and volcano fall outside it.
+            if (reg->type < R_PLAIN || reg->type > R_TUNDRA) continue;
+            if (TerrainDefs[reg->type].flags & TerrainType::BARREN) continue;
+
+            land_scanned++;
+            if (!arr->start_requirements_at(reg).all()) continue;
+
+            land_suitable++;
+            suitable[reg->type].push_back(reg);
+        }
+    }
+
+    logger::write("Settlement sites: " + std::to_string(land_suitable) + " of " +
+                  std::to_string(land_scanned) + " land hexes meet the entry requirements");
+
+    // -----------------------------------------------------------------------
+    // PHASE 2. Round-robin placement, scarcest terrain first.
+    //
+    // There is one gateway per terrain R_PLAIN..R_TUNDRA and the entry ladder only
+    // ever lands a player in a village, so a terrain with no village makes its
+    // gateway meaningless. Sampling the map as a whole cannot promise that -
+    // measured over ten 48x48 seeds it left 1.6 of the 8 terrains empty - so the
+    // terrain is what the loop iterates, and each gets a village in the first round.
+    //
+    // The rules of the walk itself live with place_settlements_round_robin()
+    // (this file); what the surface contributes is the candidate set above, the
+    // spacing roll and the ceiling.
+    // -----------------------------------------------------------------------
+    const int cap = Globals->MAX_SURFACE_SETTLEMENTS;   // 0 = none
+
+    SettlementPlacement placement = place_settlements_round_robin(
+        suitable, w, settlement_spacing, GUARANTEED_ROUNDS, cap);
+
+    {
+        // The walk's own ordering, so the log cannot drift from what it did.
+        std::string line = "Placement order (scarcest first):";
+        for (int terrain : placement.order)
+            line += " " + std::string(TerrainDefs[terrain].name) + "=" +
+                    std::to_string(suitable[terrain].size());
+        logger::write(line);
+    }
+
+    for (const auto reg : placement.chosen) chosen_size[reg] = settlement_size();
+
+    logger::write("Settlements placed:" + describe_placement(placement, cap) +
+                  " (" + std::to_string(GUARANTEED_ROUNDS) + " guaranteed)");
+    // -----------------------------------------------------------------------
+    // PHASE 3. Turn the chosen sites into towns, then finish every region.
+    // -----------------------------------------------------------------------
+    logger::write("Setting up regions");
+
+    for (int x = 0; x < w; x++) {
+        for (int y = 0; y < h; y++) {
+            if ((x + y) % 2) continue;
+            ARegion* reg = arr->GetRegion(x, y);
+            if (!reg) continue;
 
             TerrainType* terrain = &(TerrainDefs[reg->type]);
-            bool addLair = rng::get_random(100) < terrain->lairChance;
+            auto it = chosen_size.find(reg);
+            bool is_settlement = (it != chosen_size.end());
 
-            reg->ManualSetup({
+            if (is_settlement) {
+                int town_size = it->second;
+                Ethnicity etnos = getRegionEtnos(reg);
+                std::string name = getEthnicName(etnos);
+
+                reg->add_town(town_size, name);
+                if (town_size == TOWN_VILLAGE) village_list.push_back(reg);
+
+                std::string sizeName = town_size == TOWN_VILLAGE ? "Village"
+                                     : town_size == TOWN_TOWN    ? "Town" : "City";
+                logger::write(sizeName + " " + name);
+            }
+
+            // A lair inside a settlement would be removed by add_town anyway.
+            bool addLair = !is_settlement && rng::get_random(100) < terrain->lairChance;
+
+            reg->finish_setup({
                 .terrain = terrain,
                 .habitat = terrain->pop + 1,
                 .prodWeight = 1,
@@ -4262,17 +4525,38 @@ void economy(ARegionArray* arr, const int w, const int h) {
             std::swap(shuffled[i], shuffled[j]);
         }
 
+        // Entry points remaining per terrain. Promoting one away would undo the
+        // placement rounds and leave that gateway crowded, so cities come only from
+        // terrains with more than SETTLEMENTS_KEPT to spare - in practice the
+        // plentiful ones, which is also where a city belongs.
+        //
+        // Counted through gateway_ok, so with VILLAGES_ONLY clear a promotion costs
+        // the terrain nothing (a city is an entry point too) and this guard stands
+        // down of its own accord.
+        std::unordered_map<int, int> entries_left;
+        for (int x = 0; x < w; x++) {
+            for (int y = 0; y < h; y++) {
+                if ((x + y) % 2) continue;
+                ARegion* reg = arr->GetRegion(x, y);
+                if (reg && gateway_ok(reg)) entries_left[reg->type]++;
+            }
+        }
+
         std::vector<ARegion*> cities;
         auto try_pick = [&](int dist) {
             for (auto* v : shuffled) {
                 if (std::find(cities.begin(), cities.end(), v) != cities.end()) continue;
+                if (Globals->VILLAGES_ONLY && entries_left[v->type] <= SETTLEMENTS_KEPT) continue;
                 bool ok = true;
                 for (auto* c : cities) {
                     graphs::Location2D a = { v->xloc, v->yloc };
                     graphs::Location2D b = { c->xloc, c->yloc };
                     if (cylDistance(a, b, w) < dist) { ok = false; break; }
                 }
-                if (ok) cities.push_back(v);
+                if (ok) {
+                    cities.push_back(v);
+                    entries_left[v->type]--;
+                }
                 if ((int) cities.size() >= target_cities) break;
             }
         };
@@ -4370,6 +4654,74 @@ void economy(ARegionArray* arr, const int w, const int h) {
             t->SetupTradeMarkets(city_buy, city_sell);
         }
     }
+
+    // -----------------------------------------------------------------------
+    // Verdict.
+    //
+    // Counted off the finished map rather than off the placement tallies, so it
+    // reflects whatever the city upgrade left behind.
+    //
+    // The bar is SETTLEMENTS_KEPT counted through gateway_ok, the same pair the city
+    // upgrade respects, so the two cannot disagree about what a usable gateway looks
+    // like. With VILLAGES_ONLY set that means villages; with it clear, any settlement
+    // of the terrain counts, because the entry ladder reaches towns and cities too.
+    //
+    // Below the bar a terrain is not a thin start but a crowded one - every player
+    // who picks it arrives in the same hex or two - and there is nothing to repair
+    // after the fact: the terrain was too scarce on this map to hold its settlements
+    // four apart. A world that fails is thrown away rather than shipped, and `new`
+    // exits non-zero so a caller can simply roll again:
+    //   until ./neworigins new; do :; done
+    //
+    // Measured over ten seeds each with VILLAGES_ONLY set, 64x48 clears this every
+    // time; 48x48 fails it on two to four worlds in ten, mountain and tundra being
+    // the terrains that run out of room first.
+    // -----------------------------------------------------------------------
+    std::unordered_map<int, int> final_entries;
+    for (int x = 0; x < w; x++) {
+        for (int y = 0; y < h; y++) {
+            if ((x + y) % 2) continue;
+            ARegion* reg = arr->GetRegion(x, y);
+            if (reg && gateway_ok(reg)) final_entries[reg->type]++;
+        }
+    }
+
+    bool playable = true;
+    std::string verdict = Globals->VILLAGES_ONLY
+        ? std::string("Gateway villages:")
+        : std::string("Gateway settlements:");
+    std::string absent;
+
+    for (int terrain = R_PLAIN; terrain <= R_TUNDRA; terrain++) {
+        if (TerrainDefs[terrain].flags & TerrainType::BARREN) continue;
+
+        // A terrain the climate never produced is a refusal, not an exemption: the
+        // Nexus builds one gateway per terrain unconditionally (SetACNeighbors,
+        // neworigins/map.cpp - the loop runs R_PLAIN..R_TUNDRA with no way to switch
+        // an individual gateway off), so a missing terrain means a gateway leading
+        // nowhere. That code already refuses such a world, but with a bare exit(1)
+        // in the middle of generation; failing here instead makes the refusal clean
+        // and says why in one line.
+        if (histogram[terrain] == 0) absent += " " + std::string(TerrainDefs[terrain].name);
+
+        int n = final_entries[terrain];
+        verdict += " " + std::string(TerrainDefs[terrain].name) + "=" + std::to_string(n);
+        if (n < SETTLEMENTS_KEPT) playable = false;
+    }
+    logger::write(verdict);
+
+    if (!absent.empty())
+        logger::write("REJECTED: these gateway terrains do not occur on this map at all:" +
+                      absent + " - their gateways would lead nowhere. If a reroll keeps "
+                      "producing this, the climate parameters cannot make that terrain.");
+
+    if (!playable)
+        logger::write("REJECTED: a gateway terrain has fewer than " +
+                      std::to_string(SETTLEMENTS_KEPT) +
+                      (Globals->VILLAGES_ONLY ? " villages" : " settlements") +
+                      " - regenerate this world.");
+
+    return playable;
 }
 
 void addAncientStructure(ARegion* reg, int type, double damage, std::optional<std::string> name = std::nullopt) {
@@ -4837,7 +5189,9 @@ void ARegionList::create_natural_surface_level(Map* map) {
     giveNames(arr, waterBodies, rivers, w, h);
     assertAllRegionsHaveName(w, h, arr);
 
-    economy(arr, w, h);
+    // Game::CreateWorld() is a ruleset entry point with a void signature, so the
+    // verdict rides on the list rather than up the call chain; NewGame() reads it.
+    settlements_ok = economy(arr, w, h);
 
     AddHistoricalBuildings(arr, w, h, map);
 }

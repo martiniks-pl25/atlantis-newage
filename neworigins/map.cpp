@@ -1898,59 +1898,124 @@ static void economy_underground(ARegionArray* arr, const int w, const int h)
 
     logger::write("Setting underground settlements");
 
-    auto village_min_dist = []() { return rng::make_roll(2, 3) + 4; };
+    // -----------------------------------------------------------------------
+    // Underground settlements are not starting locations - the gateway ladder
+    // searches `regions.GetRegionArray(anchor->zloc)`, the level the gateway itself
+    // points at, which is always the surface. So no entry-requirement check applies
+    // here. What these are is footholds: add_town() gives each a market and clears
+    // the hex of lairs, and CreateCityMons() garrisons it like any other town.
+    //
+    // The Poisson sampler this replaced was blind to terrain and starved on small
+    // levels: measured over ten worlds it left the underdeep with no settlement at
+    // all in five of them, logging "0 points offered", and gave one world's 313
+    // hexes of cavern a single village.
+    //
+    // Only two terrains per level can hold anything. Tunnels and chasm carry
+    // TerrainType::BARREN (gamedata.cpp), so the candidate scan drops them - which
+    // also means the settleable ground is well short of what MapStatistics prints as
+    // "land hexes": about 385 of 570 on a 64x48 underworld.
+    //
+    // Density is set per level, counted over settleable ground rather than all of it
+    // since a barren hex can host nobody. The divisors are calibrated on a 48x48
+    // world, where the underworld holds 237-376 settleable hexes and the underdeep
+    // 61-96: 27 gives 8-13 towns below and 22 gives 2-4 cities in the deep.
+    //
+    // The deep gets the tighter divisor on purpose. It is small enough that a strict
+    // area rule leaves it with two settlements on a poor seed, which for a level that
+    // costs a campaign to reach is not worth the trip - hence MIN_SETTLEMENTS as well.
+    //
+    // Spacing has to permit the density rather than fight it: on open ground a
+    // settlement owning N hexes sits at radius r where 1 + 3r^2 + 3r = N, so N = 27
+    // wants a neighbour distance near 5. That is the surface roll, and it carries the
+    // same floor for the same reason - at 3 one player sits between two settlements
+    // and takes both in a single move. The [6..10] roll this replaced could not reach
+    // the target at all: at an average of 8 each settlement owns 61 hexes.
+    //
+    // Note the roll is checked with cylDistance, which is pure coordinate arithmetic
+    // and knows nothing of the maze MakeUWMaze carves - whereas the spacing figure in
+    // the tuning log is a breadth-first walk over neighbours, i.e. the real travelled
+    // distance. Underground the two disagree, and measurably so: a [5..7] roll
+    // reported 5-8 minimum and a median of 6-9, while on the walled-in surface the
+    // two metrics agree.
+    //
+    // That mismatch is safe in the direction that matters. A severed link can only
+    // lengthen a path, never shorten it, so "at least 4 apart by coordinates" implies
+    // "at least 4 apart on foot". What it does mean is that the disc formula above
+    // understates how much room each settlement really takes down here, so the
+    // ceiling rather than the spacing is what ends up binding - which is why the
+    // divisors are calibrated against measured counts and not against the formula.
+    //
+    // Tier is fixed by depth rather than rolled. The underworld is where a player
+    // can realistically take a settlement in the field, the underdeep is meant to
+    // cost a campaign: CreateCityMon scales the garrison by (TownType + 1) and its
+    // skill by (TownType + 2), and only a city fields the fire mage.
+    // -----------------------------------------------------------------------
+    constexpr int UNDERWORLD_HEXES_PER = 27;
+    constexpr int UNDERDEEP_HEXES_PER  = 22;
+    constexpr int MIN_SETTLEMENTS      = 3;
+    constexpr int GUARANTEED_ROUNDS    = 1;
+
+    auto settlement_spacing = []() { return rng::make_roll(2, 2) + 2; };   // [4..6]
+
+    bool underdeep = (arr->levelType == ARegionArray::LEVEL_UNDERDEEP);
+    int  town_size = underdeep ? TOWN_CITY : TOWN_TOWN;
+    int  hexes_per = underdeep ? UNDERDEEP_HEXES_PER : UNDERWORLD_HEXES_PER;
+
+    std::unordered_map<int, std::vector<ARegion*>> candidates;
+    int land = 0;
+
+    for (int x = 0; x < w; x++) {
+        for (int y = 0; y < h; y++) {
+            if ((x + y) % 2) continue;
+            ARegion* reg = arr->GetRegion(x, y);
+            if (!reg) continue;
+            if (reg->type == R_OCEAN || reg->type == R_LAKE) continue;
+            if (TerrainDefs[reg->type].flags & TerrainType::BARREN) continue;
+
+            land++;
+            candidates[reg->type].push_back(reg);
+        }
+    }
+
+    int ceiling = std::max(MIN_SETTLEMENTS, land / hexes_per);
+
+    SettlementPlacement placement = place_settlements_round_robin(
+        candidates, w, settlement_spacing, GUARANTEED_ROUNDS, ceiling);
+
+    {
+        std::string line = "Underground sites: " + std::to_string(land) +
+                           " settleable hexes, ceiling " + std::to_string(ceiling) +
+                           " at one per " + std::to_string(hexes_per) + " |";
+        for (int terrain : placement.order)
+            line += " " + std::string(TerrainDefs[terrain].name) + "=" +
+                    std::to_string(candidates[terrain].size());
+        logger::write(line);
+    }
 
     std::unordered_set<ARegion*> visited;
-    int minDist = village_min_dist();
 
-    // Sampling accounting - see the equivalent block in economy() (aregion.cpp).
-    // The underground is mostly maze wall and water, so the rejection count here
-    // is the number that explains a sparse result.
-    int offered = 0, rejected_terrain = 0, placed = 0;
+    for (const auto reg : placement.chosen) {
+        TerrainType* terrain = &(TerrainDefs[reg->type]);
+        Ethnicity etnos = getRegionEtnos(reg);
+        std::string name = getEthnicName(etnos);
 
-    getPoints(w, h, minDist, 64,
-        [&arr, &visited, &minDist, &village_min_dist,
-         &offered, &rejected_terrain, &placed](graphs::Location2D p) {
-            offered++;
+        reg->ManualSetup({
+            .terrain = terrain,
+            .habitat = terrain->pop + 1,
+            .prodWeight = 1,
+            .addLair = false,
+            .addSettlement = true,
+            .settlementName = name,
+            .settlementSize = town_size
+        });
 
-            ARegion* reg = arr->GetRegion(p.x, p.y);
-            if (!reg) { rejected_terrain++; return minDist; }
+        visited.insert(reg);
+        logger::write(std::string(underdeep ? "Underdeep city " : "Underworld town ") + name);
+    }
 
-            TerrainType* terrain = &(TerrainDefs[reg->type]);
-            if (reg->type == R_OCEAN || reg->type == R_LAKE ||
-                (terrain->flags & TerrainType::BARREN)) {
-                rejected_terrain++;
-                return minDist;
-            }
-
-            Ethnicity etnos = getRegionEtnos(reg);
-            std::string name = getEthnicName(etnos);
-
-            reg->ManualSetup({
-                .terrain = terrain,
-                .habitat = terrain->pop + 1,
-                .prodWeight = 1,
-                .addLair = false,
-                .addSettlement = true,
-                .settlementName = name,
-                .settlementSize = TOWN_VILLAGE
-            });
-
-            visited.insert(reg);
-            placed++;
-            logger::write("Underground village " + name);
-
-            minDist = village_min_dist();
-            return minDist;
-        },
-        [](graphs::Location2D p) { return true; },
-        2);  // 2 seeds — sufficient for the smaller underground maps
-
-    logger::write(
-        "Underground village sampling: " + std::to_string(offered) + " points offered, " +
-        std::to_string(rejected_terrain) + " rejected on terrain, " +
-        std::to_string(placed) + " villages placed"
-    );
+    logger::write(std::string(underdeep ? "Underdeep" : "Underworld") + " settlements placed:" +
+                  describe_placement(placement, ceiling) +
+                  " (" + std::to_string(GUARANTEED_ROUNDS) + " guaranteed)");
 
     logger::write("Setting up other underground regions");
 
@@ -3018,7 +3083,8 @@ void ARegionList::MakeShaftLinks(int levelFrom, int levelTo, int odds)
  * @param minDistanceStair Minimum distance from existing shafts (stairwell prevention).
  * @param seeds Number of Poisson seeds. When >1 uses dynamic spacing 2d2+2 (like village placement).
  */
-void ARegionList::CreateSmartShafts(int levelFrom, int levelTo, int minDistanceSame, int minDistanceStair, int seeds) {
+void ARegionList::CreateSmartShafts(int levelFrom, int levelTo, int minDistanceSame,
+                                    int minDistanceStair, int seeds, bool cap_by_destination) {
     ARegionArray* pFrom = pRegionArrays[levelFrom];
     ARegionArray* pTo = pRegionArrays[levelTo];
 
@@ -3026,10 +3092,21 @@ void ARegionList::CreateSmartShafts(int levelFrom, int levelTo, int minDistanceS
 
     logger::write("Generating smart shafts between L" + std::to_string(levelFrom) + " and L" + std::to_string(levelTo));
 
-    // Calculate max shafts based on the size of the upper level.
-    // Scales with map area: 1 shaft per 25 regions.
-    int totalRegions = (pFrom->x * pFrom->y) / 2;
-    int maxShafts = std::max(2, totalRegions / 25);
+    // Max shafts: one per 25 regions.
+    //
+    // Which level that is counted over is a real choice, not a detail. The surface
+    // link is about ENTRANCE density - the roll is deliberately the same 2d2+2 the
+    // villages use, so the surface ends up with about as many shafts as settlements
+    // (measured 35-43 against 34-47 on 64x48). Counting that over the underworld
+    // instead would cap it at 30 and break the correspondence.
+    //
+    // The underground links are the opposite: what matters is how permeable the
+    // level BELOW is. The underdeep is 192 regions, so the source rule would aim 30
+    // shafts at it - one per six hexes, a sieve. Hence cap_by_destination.
+    int srcRegions = (pFrom->x * pFrom->y) / 2;
+    int dstRegions = (pTo->x * pTo->y) / 2;
+    int countOver = cap_by_destination ? std::min(srcRegions, dstRegions) : srcRegions;
+    int maxShafts = std::max(2, countOver / 25);
 
     // We tell getPoints to ONLY consider land regions as valid candidates.
     // Exclude ocean, volcano, lake, and towns.
@@ -3053,7 +3130,21 @@ void ARegionList::CreateSmartShafts(int levelFrom, int levelTo, int minDistanceS
 
     rng::shuffle(candidates);
 
+    // Does this region already hold a shaft leading to `level`? Resolved through
+    // the object's inner region rather than by object type, because that is the
+    // only place the destination level is recorded.
+    auto has_shaft_to_level = [this](ARegion* r, int level) {
+        for (const auto o : r->objects) {
+            if (o->inner < 0 || o->inner >= (int) regions.size()) continue;
+            ARegion* other = GetRegion(o->inner);
+            if (other && other->zloc == level) return true;
+        }
+        return false;
+    };
+
     int shaftsCreated = 0;
+    int rejected_ocean = 0, rejected_barren = 0, rejected_missing = 0, rejected_stair = 0;
+
     for (const auto& pos : candidates) {
         if (shaftsCreated >= maxShafts) break;
 
@@ -3062,28 +3153,64 @@ void ARegionList::CreateSmartShafts(int levelFrom, int levelTo, int minDistanceS
         // src is guaranteed to be land by the filter above, but safety check is fine
         if (!src) continue;
 
-        // 3. STAIRWELL CHECK prevention: Check if any shaft (up or down) exists within minDistanceStair.
+        // 3. STAIRWELL CHECK: do not cluster two ways down to the SAME level.
+        //
+        // This used to ask HasShaft(), which is true of any object with an inner
+        // link - including the up-shafts the previous pass had just planted on this
+        // very level. With the surface link raised to 35-43 shafts, and this search
+        // reaching three moves (breadthFirstSearch skips only when distance >
+        // maxDistance, so a radius-3 disc, up to 37 hexes), those up-shafts covered
+        // nearly all 768 underworld hexes and the way down was choked off: Arcanum
+        // had 14 surface shafts and 10 down, the current generator 35-43 and 3-8.
+        //
+        // A shaft to the surface is a different thing from a shaft to the deep and
+        // must not block one; a hex serving as both is if anything a natural hub.
         bool tooCloseToExisting = false;
         if (minDistanceStair > 0) {
             auto nearby = breadthFirstSearch(src, minDistanceStair);
             for (auto& entry : nearby) {
-                if (entry.first->HasShaft()) {
+                if (has_shaft_to_level(entry.first, levelTo)) {
                     tooCloseToExisting = true;
                     break;
                 }
             }
         }
-        if (tooCloseToExisting) continue;
+        if (tooCloseToExisting) { rejected_stair++; continue; }
 
         // 4. DESTINATION CHECK
+        //
+        // The mapping is proportional, so a shaft lands beneath its own entrance:
+        // north stays north, west stays west.
+        //
+        // Regions only exist where (x + y) is even, so the scaled y may need a
+        // nudge. That nudge used to be "(targetY + 1) % pTo->y", which on the last
+        // row wrapped to row 0 - the opposite pole. Confirmed in the live Arcanum
+        // world at turn 75: of 24 shafts, underworld (16,22) opened into underdeep
+        // (8,0) instead of y~11, because 22*12/24 = 11, 8+11 is odd, and (11+1)%12
+        // is 0. The surface link escaped only by geography - a wrap there needs an
+        // entrance in row 46-47, which polar submersion leaves as ocean. Step back
+        // instead of round, so the nudge always stays local.
         int targetX = pos.x * pTo->x / pFrom->x;
         int targetY = pos.y * pTo->y / pFrom->y;
-        if ((targetX + targetY) % 2 != 0) targetY = (targetY + 1) % pTo->y;
+        if ((targetX + targetY) % 2 != 0)
+            targetY = (targetY + 1 < pTo->y) ? targetY + 1 : targetY - 1;
 
         ARegion* dst = pTo->GetRegion(targetX, targetY);
 
-        // If the scaled destination is Ocean, we skip this candidate.
-        if (!dst || dst->type == R_OCEAN || dst->type == R_BARREN) continue;
+        // A candidate whose scaled destination is unusable is dropped rather than
+        // nudged aside - moving it would break the "beneath its own entrance"
+        // property. Counted, because the shortfall against maxShafts is large and
+        // nothing in the log said where it came from.
+        //
+        // Note this tests R_BARREN, the terrain id of the dungeon void, NOT the
+        // TerrainType::BARREN flag. Chasm and tunnels carry that flag but are
+        // ordinary terrain ids, so a shaft may open into a chasm - and on the
+        // underdeep, which has no R_BARREN regions at all, this branch never fires.
+        // The source filter is asymmetric with this one in both directions: isLand
+        // above also rejects volcano, lake and towns, none of which is checked here.
+        if (!dst) { rejected_missing++; continue; }
+        if (dst->type == R_OCEAN)  { rejected_ocean++;  continue; }
+        if (dst->type == R_BARREN) { rejected_barren++; continue; }
 
         // Create the O_SHAFT object on the upper level.
         Object* down = new Object(src);
@@ -3104,7 +3231,14 @@ void ARegionList::CreateSmartShafts(int levelFrom, int levelTo, int minDistanceS
         shaftsCreated++;
     }
 
-    logger::write("Smart Shafts Created: " + std::to_string(shaftsCreated));
+    logger::write(
+        "Smart Shafts Created: " + std::to_string(shaftsCreated) +
+        " of max " + std::to_string(maxShafts) +
+        " | candidates " + std::to_string(candidates.size()) +
+        ", rejected: stairwell " + std::to_string(rejected_stair) +
+        ", ocean " + std::to_string(rejected_ocean) +
+        ", barren " + std::to_string(rejected_barren) +
+        ", no region " + std::to_string(rejected_missing));
 }
 
 /**
