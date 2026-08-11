@@ -958,19 +958,25 @@ void Game::GetSides(
             for(const auto o : r2->objects) {
                 // Can't get building bonus in another region without EXTENDED_FORT_DEFENCE
                 if (i>=0 && !Globals->EXTENDED_FORT_DEFENCE) {
-                    o->capacity = 0;
+                    o->shelter_left = 0;
+                    o->shelter_type = o->type;
                     o->shipno = o->ships.size();
                     continue;
                 }
 
-                /* Set building capacity */
+                /* How many men this structure shelters, and under whose defence */
                 if (o->incomplete < 1 && o->IsBuilding()) {
-                    o->capacity = ObjectDefs[o->type].protect;
+                    o->shelter_left = ObjectDefs[o->type].protect;
+                    o->shelter_type = o->type;
                     o->shipno = 0;
                     // AddLine("Fortification bonus added for ", o->name);
                     // AddLine("");
                 } else if (o->IsFleet()) {
-                    o->capacity = 0;
+                    // Left at zero on purpose: the ship that shelters is chosen
+                    // per soldier in Soldier::Soldier (army.cpp), which picks the
+                    // best-defended ship still unused.
+                    o->shelter_left = 0;
+                    o->shelter_type = o->type;
                     o->shipno = 0;
                 }
             }

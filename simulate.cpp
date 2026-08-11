@@ -379,8 +379,11 @@ int Game::SimulateBattle(const std::string& inputFile) {
             Object* group_obj;
             if (group.building_type != -1) {
                 Object* bobj = new Object(&dummy_reg);
-                bobj->type     = group.building_type;
-                bobj->capacity = ObjectDefs[group.building_type].protect;
+                bobj->type         = group.building_type;
+                // Mirrors what Battle::GetSides does for a real fortification:
+                // shelter places, and whose defence those men get.
+                bobj->shelter_left = ObjectDefs[group.building_type].protect;
+                bobj->shelter_type = group.building_type;
                 battle_objs.push_back(bobj);
                 group_obj = bobj;
             } else {
