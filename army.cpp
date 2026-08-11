@@ -213,7 +213,7 @@ Soldier::Soldier(Unit * u,Object * o,int regtype,int r,int ass)
     battleItems.clear();
 
     /* Special case to allow protection from ships */
-    if (o->IsFleet() && o->capacity < 1 && static_cast<size_t>(o->shipno) < o->ships.size()) {
+    if (o->IsFleet() && o->shelter_left < 1 && static_cast<size_t>(o->shipno) < o->ships.size()) {
         int objectno;
 
         auto calc_def = [](Item *i) {
@@ -239,30 +239,33 @@ Soldier::Soldier(Unit * u,Object * o,int regtype,int r,int ass)
             if (o->shipno == i) {
                 objectno = lookup_object(ItemDefs[ship->type].name);
                 if (objectno >= 0 && ObjectDefs[objectno].protect > 0) {
-                    o->capacity = ObjectDefs[objectno].protect * ship->num;
-                    o->type = objectno;
+                    // shelter_type, not o->type: the fleet must still report and
+                    // behave as a fleet once the battle is over.
+                    o->shelter_left = ObjectDefs[objectno].protect * ship->num;
+                    o->shelter_type = objectno;
                 }
                 o->shipno++;
             }
             i++;
-            if (o->capacity > 0) break;
+            if (o->shelter_left > 0) break;
         }
     }
     /* Building bonus */
-    if (o->capacity) {
-        building = o->type;
+    if (o->shelter_left && o->shelter_type >= 0) {
+        building = o->shelter_type;
         //should the runes spell be a base or a bonus?
         for (int i=0; i<NUM_ATTACK_TYPES; i++) {
             if (Globals->ADVANCED_FORTS) {
-                protection[i] += ObjectDefs[o->type].defenceArray[i];
+                protection[i] += ObjectDefs[o->shelter_type].defenceArray[i];
             } else
-                dskill[i] += ObjectDefs[o->type].defenceArray[i];
+                dskill[i] += ObjectDefs[o->shelter_type].defenceArray[i];
         }
         if (o->runes) {
             dskill[ATTACK_ENERGY] = std::max(dskill[ATTACK_ENERGY], o->runes);
             dskill[ATTACK_SPIRIT] = std::max(dskill[ATTACK_SPIRIT], o->runes);
         }
-        o->capacity--;
+        // One shelter place taken by this man.
+        o->shelter_left--;
     }
 
     /* Is this a monster? */

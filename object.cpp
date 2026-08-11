@@ -52,6 +52,8 @@ Object::Object(ARegion *reg)
     name = "Dummy";
     incomplete = 0;
     capacity = 0;
+    shelter_left = 0;
+    shelter_type = -1;
     mages = 0;
     inner = -1;
     runes = 0;

@@ -138,6 +138,9 @@ class Object
         int num;
         int type;
         int incomplete;
+        // Sailing capacity of a fleet: the sum of its ships' swim (or fly)
+        // values, recomputed by FleetCapacity(). Meaningless for buildings.
+        // Not serialized - rebuilt from the ships on load.
         int capacity;
         int flying;
         int load;
@@ -145,6 +148,17 @@ class Object
         int prevdir;
         int mages;
         int shipno;
+
+        // Combat scratch, meaningful only while a battle is being resolved. A
+        // fortification or ship shelters a limited number of men: shelter_left
+        // counts the places still free, shelter_type is the ObjectDefs entry
+        // whose defenceArray those men receive.
+        //
+        // Deliberately separate from capacity and type: a fleet needs both of
+        // those intact after the battle - its sailing capacity, and the fact
+        // that it is a fleet rather than one of its ships.
+        int shelter_left;
+        int shelter_type;
         int movepoints;
         int destroyed;  // how much points was destroyed so far this turn
         safe::list<Unit *> units;
