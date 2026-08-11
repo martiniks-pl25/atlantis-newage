@@ -25,7 +25,9 @@ using json = nlohmann::json;
 #include <list>
 #include <set>
 #include <unordered_set>
+#include <unordered_map>
 #include <functional>
+#include <string>
 
 /* Weather Types */
 enum {
@@ -113,8 +115,8 @@ struct StartRequirements {
     bool stone    = false;
     bool food     = false;  // grain OR livestock
     bool mounts   = false;  // horse OR camel
-    bool landmass = false;  // >= 10 non-ocean hexes reachable within 2 moves
-    int  reach    = 0;      // non-ocean hexes reachable within 2 moves, the landmass rule's input
+    bool landmass = false;  // >= 10 non-ocean hexes reachable within 3 moves
+    int  reach    = 0;      // non-ocean hexes reachable within 3 moves, the landmass rule's input
 
     bool all() const { return wood && iron && stone && food && mounts && landmass; }
 };
@@ -136,6 +138,40 @@ struct DistanceSummary {
 };
 
 DistanceSummary summarise_distances(std::vector<int> distances);
+
+// Hex-step distance on a cylinder: the plain distance, or the distance around
+// either edge, whichever is shortest. This is the metric the whole generator uses
+// for spacing. GetPlanarDistance() is not interchangeable with it - on an
+// icosahedral world that one runs a search rather than arithmetic.
+int cylDistance(graphs::Location2D a, graphs::Location2D b, int w);
+
+// True when every distance is at least min_spacing. Settlements closer than that
+// let one player sit between two of them and take both in a single move, so no
+// placement pass may put them nearer.
+bool far_enough(const std::vector<int>& distances, int min_spacing);
+
+// What one round-robin placement pass produced. `order` is the terrains it walked,
+// scarcest first; `chosen` is in placement order and carries no size yet - the
+// caller decides what each site becomes.
+struct SettlementPlacement {
+    std::vector<ARegion*> chosen;
+    std::vector<int> order;
+    std::unordered_map<int, int> placed_by_terrain;
+    int rounds = 0;
+};
+
+// Round-robin settlement placement, shared by the surface and the underground.
+// The caller supplies the candidates (having applied its own eligibility policy),
+// the spacing roll, how many opening rounds forgive a miss, and an optional ceiling
+// on the free stage. See the definition in aregion.cpp for the full rules.
+SettlementPlacement place_settlements_round_robin(
+    const std::unordered_map<int, std::vector<ARegion*>>& candidates,
+    const int w,
+    const std::function<int()>& spacing_roll,
+    int guaranteed_rounds,
+    int ceiling);
+
+std::string describe_placement(const SettlementPlacement& p, int ceiling);
 
 class Farsight
 {
@@ -226,6 +262,14 @@ class ARegion
 
         void Setup();
         void ManualSetup(const RegionSetup& settings);
+
+        // ManualSetup in two halves, so world generation can roll products for the
+        // whole map before choosing settlement sites: the starting-location check
+        // reads products of hexes up to three moves away, and those do not exist
+        // until their own setup has run. ManualSetup is exactly these two with
+        // add_town in between; callers that do not need the split keep using it.
+        void setup_terrain(const RegionSetup& settings);
+        void finish_setup(const RegionSetup& settings);
 
         void ZeroNeighbors();
         void set_name(const std::string& newname);
@@ -551,6 +595,14 @@ class ARegionList
         void create_nexus_level(int level, int xSize, int ySize, const std::string& name);
         void create_surface_level(int level, int xSize, int ySize, const std::string& name);
         void create_natural_surface_level(Map* map);
+
+        // Set by create_natural_surface_level(): false when the surface came out
+        // with a gateway terrain too short of villages to start players in, so the
+        // world is not worth playing and Game::NewGame() throws it away. Stays true
+        // on levels that never run the surface generator, so it is safe to read
+        // unconditionally.
+        bool settlements_ok = true;
+
         void create_island_ring_level(int level, int xSize, int ySize, const std::string& name);
         void create_island_level(int level, int nPlayers, const std::string& name);
         void create_underworld_level(int level, int xSize, int ySize, const std::string& name);
@@ -560,7 +612,13 @@ class ARegionList
         void expand_levels(int newNumLevels);
         void add_dungeon_level_to_existing_world(int xSize, int ySize);
 
-        void CreateSmartShafts(int levelFrom, int levelTo, int minDistanceSame, int minDistanceStair, int seeds = 1);
+        // cap_by_destination: derive maxShafts from the smaller of the two levels
+        // rather than the source. Wanted for underground transitions, where what
+        // matters is how permeable the level below is; wrong for the surface link,
+        // whose shaft count is deliberately tied to its own settlement density.
+        void CreateSmartShafts(int levelFrom, int levelTo, int minDistanceSame,
+                               int minDistanceStair, int seeds = 1,
+                               bool cap_by_destination = false);
         void CreateLairsAtShafts(int level);
 
         void MakeShaftLinks(int levelFrom, int levelTo, int odds);

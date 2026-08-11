@@ -723,6 +723,47 @@ players to expand and play comfortably (note: this is just a very rough
 sketch and things can vary considerably on the play style chosen by your
 players and other rules you may or may not have enforced in your game).
 
+#### NewOrigins: generating a world, and choosing its size
+
+NewOrigins refuses a world it considers unplayable, so `new` may exit non-zero.
+Generate in a loop and let it roll again until one passes:
+
+```bash
+until ./neworigins new; do :; done
+```
+
+A refused world is discarded before `game.out` is written, so nothing is left
+half-finished for the next attempt to trip over.
+
+The refusal fires when a gateway terrain ended with fewer than **3 villages**. All
+eight terrains carry a Nexus gateway and the entry ladder only ever lands a player
+in a village, so a terrain short of them is a bottleneck: everyone who picks it
+arrives in the same hex or two.
+
+**What that means for size.** Settlement density is fixed by spacing, not by the
+map, at roughly one settlement per 20 land hexes. A larger map therefore does not
+give a *sparser* world, only a bigger one — pick the size from how many players you
+expect. Measured over ten worlds each, water at 40%:
+
+| Size | Surface land | Settlements | Villages per terrain | Refusal rate |
+|---|---|---|---|---|
+| 48×48 | ~610 | 27-38 | 3-6 | 2-4 in 10 |
+| 64×48 | ~825 | 37-47 | 3-8 | none observed |
+
+Below the surface, on top of that: the underworld gets 10-13 towns on 48×48 and 14-18
+on 64×48, the underdeep 4-5 cities and 5-7. Those are garrisoned harder by design —
+a town fields twice the guards of a village and a city three times, at two skill levels
+higher — so they are prizes to take rather than places to start.
+
+The number that actually limits players is the **per-terrain** count, not the total:
+a terrain with 3 villages seats 3 players in an empty village each, and the next
+player to pick it shares one. So 48×48 comfortably seats around two dozen players
+spread over the eight terrains, 64×48 around a third more.
+
+64×48 is the better default. It never needed a second roll in testing, its terrain
+mix is markedly more even, and it occasionally reaches four villages on every
+terrain at once — which 48×48 never did.
+
 Underworld levels, while not being available to players immediately at
 start, also have an effect on the total number of regions available for
 play. They are set by the gamedefs UNDERWORLD_LEVELS (the number of

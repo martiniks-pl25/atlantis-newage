@@ -4,6 +4,9 @@
 #include "aregion.h"
 #include "testhelper.hpp"
 
+#include <climits>
+#include <memory>
+
 namespace ut = boost::ut;
 
 // Give a region a production entry, which is what produces_item() reads.
@@ -19,7 +22,7 @@ static void give(ARegion *r, int item)
 
 // Strip every region of its natural production.
 //
-// The harness world is four hexes across and start_requirements_at() searches two
+// The harness world is four hexes across and start_requirements_at() searches three
 // moves out, so its forest and mountains would supply wood, iron and stone to any
 // hex under test. Without a clean slate these tests would pass no matter what the
 // implementation did.
@@ -103,7 +106,7 @@ ut::suite<"StartRequirements"> start_requirements_suite = [] {
         expect(!req.stone);
     };
 
-    // The landmass rule wants at least 10 non-ocean hexes within two moves. The
+    // The landmass rule wants at least 10 non-ocean hexes within three moves. The
     // harness world is far smaller, so this pins the rule rather than the map:
     // a hex on a sliver of land is never a valid start, however well stocked.
     "a tiny landmass never satisfies the requirements"_test = [] {
@@ -200,5 +203,177 @@ ut::suite<"DistanceSummary"> distance_summary_suite = [] {
         DistanceSummary s = summarise_distances({ 4 });
         expect(eq(s.count, 1));
         expect(eq(s.mean_tenths, 40));
+    };
+};
+
+// The spacing floor both settlement passes share. Distances are supplied, so the
+// rule is testable without building a map.
+ut::suite<"SettlementSpacing"> settlement_spacing_suite = [] {
+    using namespace ut;
+
+    "a site at exactly the minimum is accepted"_test = [] {
+        expect(far_enough({ 4, 7, 9 }, 4));
+    };
+
+    "one step too close is refused"_test = [] {
+        expect(!far_enough({ 3, 7, 9 }, 4));
+    };
+
+    // The first settlement placed has nothing to be far from.
+    "an empty distance list always passes"_test = [] {
+        expect(far_enough({}, 4));
+    };
+
+    // Four is the working floor everywhere; the rule itself takes whatever it is given.
+    "the floor is the caller's, not the function's"_test = [] {
+        expect(!far_enough({ 3 }, 4));
+        expect(far_enough({ 3 }, 3));
+    };
+};
+
+// -------------------------------------------------------------------------------
+// Round-robin placement, shared by the surface and the underground.
+//
+// Bare ARegion objects are enough: the walk reads xloc, yloc and the terrain key it
+// was filed under, nothing else. Building them by hand rather than generating a
+// world is what makes the rules testable at all - the underground pass used to live
+// in neworigins/map.cpp, which the test binary never links.
+// -------------------------------------------------------------------------------
+namespace {
+    constexpr int TEST_MAP_WIDTH = 400;   // wide enough that nothing wraps into anything
+
+    struct RegionPool {
+        std::vector<std::unique_ptr<ARegion>> owned;
+        std::unordered_map<int, std::vector<ARegion*>> by_terrain;
+
+        // Sites are laid out along one row, `step` apart, so "far" and "close" are
+        // unambiguous without reasoning about the hex metric.
+        void add(int terrain, int count, int first_x, int step) {
+            for (int i = 0; i < count; i++) {
+                auto reg = std::make_unique<ARegion>();
+                reg->type = terrain;
+                reg->xloc = first_x + i * step;
+                reg->yloc = 0;
+                by_terrain[terrain].push_back(reg.get());
+                owned.push_back(std::move(reg));
+            }
+        }
+    };
+
+    auto fixed_roll(int n) { return [n]() { return n; }; }
+
+    int closest_pair(const std::vector<ARegion*>& regs) {
+        int best = INT_MAX;
+        for (size_t i = 0; i < regs.size(); i++)
+            for (size_t j = i + 1; j < regs.size(); j++)
+                best = std::min(best, cylDistance({ regs[i]->xloc, regs[i]->yloc },
+                                                  { regs[j]->xloc, regs[j]->yloc },
+                                                  TEST_MAP_WIDTH));
+        return regs.size() < 2 ? INT_MAX : best;
+    }
+}
+
+ut::suite<"RoundRobinPlacement"> round_robin_suite = [] {
+    using namespace ut;
+
+    // The guarantee the whole design exists for: on the surface an empty terrain
+    // means a gateway that leads nowhere, underground it means a barren level.
+    "every terrain with candidates gets a settlement"_test = [] {
+        RegionPool pool;
+        pool.add(R_PLAIN,    4, 0,   40);
+        pool.add(R_FOREST,   4, 200, 40);
+        pool.add(R_MOUNTAIN, 4, 400, 40);
+
+        auto result = place_settlements_round_robin(
+            pool.by_terrain, TEST_MAP_WIDTH, fixed_roll(5), 1, 0);
+
+        // The map only ever gains a terrain when a settlement is placed on it, so
+        // presence is the guarantee. .at() would throw and take the binary with it.
+        expect(result.placed_by_terrain.count(R_PLAIN) == 1_ul);
+        expect(result.placed_by_terrain.count(R_FOREST) == 1_ul);
+        expect(result.placed_by_terrain.count(R_MOUNTAIN) == 1_ul);
+    };
+
+    // Whoever has the least choice picks while there is still choice to be had.
+    "the scarcest terrain is walked first"_test = [] {
+        RegionPool pool;
+        pool.add(R_PLAIN,    5, 0,   40);
+        pool.add(R_FOREST,   1, 200, 40);
+        pool.add(R_MOUNTAIN, 3, 400, 40);
+
+        auto result = place_settlements_round_robin(
+            pool.by_terrain, TEST_MAP_WIDTH, fixed_roll(5), 1, 0);
+
+        expect(result.order.size() == 3_ul);
+        expect(result.order[0] == R_FOREST);
+        expect(result.order[1] == R_MOUNTAIN);
+        expect(result.order[2] == R_PLAIN);
+    };
+
+    // The ceiling is a density knob, not a correctness one: it must never be the
+    // reason a terrain ends up empty.
+    "a ceiling below the terrain count does not cut the guaranteed round"_test = [] {
+        RegionPool pool;
+        pool.add(R_PLAIN,    3, 0,   40);
+        pool.add(R_FOREST,   3, 200, 40);
+        pool.add(R_MOUNTAIN, 3, 400, 40);
+
+        auto result = place_settlements_round_robin(
+            pool.by_terrain, TEST_MAP_WIDTH, fixed_roll(5), 1, 1);
+
+        expect(result.chosen.size() == 3_ul);
+    };
+
+    "the ceiling stops the free stage"_test = [] {
+        RegionPool pool;
+        pool.add(R_PLAIN,  10, 0,   40);
+        pool.add(R_FOREST, 10, 500, 40);
+
+        auto capped = place_settlements_round_robin(
+            pool.by_terrain, TEST_MAP_WIDTH, fixed_roll(5), 1, 6);
+        auto uncapped = place_settlements_round_robin(
+            pool.by_terrain, TEST_MAP_WIDTH, fixed_roll(5), 1, 0);
+
+        expect(capped.chosen.size() <= 6_ul);
+        expect(uncapped.chosen.size() > capped.chosen.size());
+    };
+
+    // Nothing anywhere lowers the roll, guaranteed rounds included.
+    "no two settlements land closer than the roll"_test = [] {
+        RegionPool pool;
+        // Deliberately dense: adjacent sites one step apart, so a pass that ignored
+        // spacing would fill the row.
+        pool.add(R_PLAIN,  20, 0,   2);
+        pool.add(R_FOREST, 20, 100, 2);
+
+        auto result = place_settlements_round_robin(
+            pool.by_terrain, TEST_MAP_WIDTH, fixed_roll(6), 4, 0);
+
+        expect(closest_pair(result.chosen) >= 6_i);
+    };
+
+    // A terrain boxed in by its neighbours must retire rather than spin forever.
+    // Plain is scarcest so it picks first, and forest's single hex sits right beside
+    // the one it takes - so forest can never place, and the walk still has to end.
+    "a terrain with no room left retires instead of looping"_test = [] {
+        RegionPool pool;
+        pool.add(R_PLAIN,  1, 0, 40);
+        pool.add(R_FOREST, 1, 2, 40);
+
+        auto result = place_settlements_round_robin(
+            pool.by_terrain, TEST_MAP_WIDTH, fixed_roll(8), 0, 0);
+
+        expect(result.order[0] == R_PLAIN);
+        expect(result.chosen.size() == 1_ul);
+        expect(result.placed_by_terrain.count(R_FOREST) == 0_ul);
+    };
+
+    "an empty candidate set yields nothing and terminates"_test = [] {
+        std::unordered_map<int, std::vector<ARegion*>> none;
+        auto result = place_settlements_round_robin(
+            none, TEST_MAP_WIDTH, fixed_roll(5), 4, 0);
+
+        expect(result.chosen.empty());
+        expect(result.order.empty());
     };
 };

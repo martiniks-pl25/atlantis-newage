@@ -383,6 +383,14 @@ public:
 	// suggested: 0-5
 	int LESS_ARCTIC_TOWNS;
 
+	// Hard ceiling on how many settlements the surface generator may place.
+	// 0 = no ceiling, which is the default: the generator normally stops on its
+	// own as terrains run out of room. Set it only to cap a map that would
+	// otherwise come out denser than a game wants. It bounds the free placement
+	// stage alone - the guaranteed rounds that give every gateway terrain its
+	// villages are never cut short, so this can thin a map but not break it.
+	int MAX_SURFACE_SETTLEMENTS;
+
 	// Percent of surface level covered with ocean.
 	int OCEAN;
 
@@ -727,6 +735,21 @@ public:
 
 	// If 1, all settlements start as villages during world generation
 	// (does not prevent growth during gameplay via trading/production)
+	//
+	// On the parametric surface (generator=2) this also decides what counts as a
+	// gateway entry point: set = villages only, and the terrain floor plus the
+	// world-refusal verdict both count villages; clear = mixed sizes, and any
+	// settlement of the terrain counts, because the entry ladder reaches towns and
+	// cities on its phase 4.
+	//
+	// The underground levels ignore it: the underworld places towns and the
+	// underdeep cities because depth is what scales their garrisons, and nothing
+	// starts down there.
+	//
+	// Elsewhere it reaches only DetermineTownSize(), i.e. the two argument-less
+	// add_town() overloads: the legacy SetupPop path, SetupEditRegion and the GM
+	// edit command. CREATE VILLAGE does not consult it - that one calls
+	// add_town(TOWN_VILLAGE, name) directly (monthorders.cpp).
 	int VILLAGES_ONLY;
 
 	// Whether you need to be a war faction to have tact-5 leaders

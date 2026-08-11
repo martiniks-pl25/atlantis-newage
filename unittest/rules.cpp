@@ -149,6 +149,7 @@ static GameDefs g = {
     0,  // TOWN_SPREAD
     1,  // TOWNS_NOT_ADJACENT
     0,  // LESS_ARCTIC_TOWNS
+    0,  // MAX_SURFACE_SETTLEMENTS
     60, // OCEAN
     16, // CONTINENT_SIZE
     0,  // TERRAIN_GRANULARITY

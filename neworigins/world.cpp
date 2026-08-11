@@ -567,7 +567,10 @@ void Game::CreateWorld()
     // 1. Connection: Surface (L1) -> Top Underworld (L2)
     if (Globals->UNDERWORLD_LEVELS > 0) {
         // Entrance on Surface: dynamic spacing 2d2+2 (mean 5), 4 seeds, no stairwell check.
-        // Matches village placement density (~40-55 shafts on 64×48).
+        // Deliberately the same roll the villages use, so the surface carries about
+        // one shaft per settlement: measured 35-43 shafts against 34-47 settlements
+        // on 64x48. The count is set by that roll, not by maxShafts (61), which never
+        // binds here - so do NOT cap this call by the destination level.
         regions.CreateSmartShafts(1, 2, 5, 0, 4);
         regions.CreateLairsAtShafts(1);  // Create lairs at shaft entrances on Surface
     }
@@ -575,8 +578,9 @@ void Game::CreateWorld()
     // 2. Connections between multiple Underworld levels (L2 -> L3, etc.)
     if (Globals->UNDERWORLD_LEVELS > 1) {
         for (int i = 2; i < Globals->UNDERWORLD_LEVELS + 1; i++) {
-            // Dynamic 2d2+2 spacing, 2 seeds, stairwell prevention 4.
-            regions.CreateSmartShafts(i, i + 1, 5, 4, 2);
+            // Dynamic 2d2+2 spacing, 2 seeds, stairwell prevention 4, capped by
+            // the level below - see the surface call above for why only these are.
+            regions.CreateSmartShafts(i, i + 1, 5, 4, 2, true);
             regions.CreateLairsAtShafts(i);  // Create lairs at shaft entrances
         }
     }
@@ -585,8 +589,10 @@ void Game::CreateWorld()
     if (Globals->UNDERWORLD_LEVELS > 0 && Globals->UNDERDEEP_LEVELS > 0) {
         int bottomUW = Globals->UNDERWORLD_LEVELS + 1;
         int topUD = bottomUW + 1;
-        // Dynamic 2d2+2 spacing, 2 seeds, stairwell prevention 2.
-        regions.CreateSmartShafts(bottomUW, topUD, 4, 2, 2);
+        // Dynamic 2d2+2 spacing, 2 seeds, stairwell prevention 2, capped by the
+        // underdeep's own size: on 64x48 that is 192 regions, so ~7 shafts rather
+        // than the 30 the underworld's size would ask for.
+        regions.CreateSmartShafts(bottomUW, topUD, 4, 2, 2, true);
         regions.CreateLairsAtShafts(bottomUW);  // Create lairs at transition level
     }
 
@@ -595,8 +601,8 @@ void Game::CreateWorld()
         int firstUD = Globals->UNDERWORLD_LEVELS + 2;
         int lastUD = Globals->UNDERWORLD_LEVELS + Globals->UNDERDEEP_LEVELS + 1;
         for (int i = firstUD; i < lastUD; i++) {
-            // Dynamic 2d2+2 spacing, 2 seeds, stairwell prevention 2.
-            regions.CreateSmartShafts(i, i + 1, 4, 2, 2);
+            // Dynamic 2d2+2 spacing, 2 seeds, stairwell prevention 2, capped below.
+            regions.CreateSmartShafts(i, i + 1, 4, 2, 2, true);
             regions.CreateLairsAtShafts(i);  // Create lairs at shaft entrances
         }
     }

@@ -1394,6 +1394,24 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainCoastRace(R_CHASM, 2, I_ORC);
     ModifyTerrainEconomy(R_CHASM, 250, 11, 10, 2);
 
+    // Chasm is inhabited in this ruleset - population 250, wages 11, the same band
+    // as grotto and deepforest above - but gamedata.cpp still hands it
+    // TerrainType::BARREN, which across the engine means "no settlements here":
+    // CREATE VILLAGE refuses it (monthorders.cpp), SetupPop skips it (economy.cpp)
+    // and both generators drop it from their candidate lists. The two statements
+    // contradicted each other, and the flag was winning.
+    //
+    // That cost the underdeep about a third of its usable ground: on 64x48 only
+    // grotto and deepforest qualified, 72-109 hexes of 192, which is why the level
+    // came out with 3-4 cities no matter how large the world was. Live Arcanum,
+    // generated before economy_underground() existed, has 8 of its 18 underdeep
+    // settlements on chasm and two of them have grown into towns - so a settled
+    // chasm is proven, not a guess.
+    //
+    // Clearing just the one bit rather than assigning a flag word keeps whatever
+    // else the terrain carries (SHOW_RULES) intact.
+    ModifyTerrainFlags(R_CHASM, TerrainDefs[R_CHASM].flags & ~TerrainType::BARREN);
+
     ClearTerrainRaces(R_GROTTO);
     ModifyTerrainRace(R_GROTTO, 0, I_UNDERDWARF);
     ModifyTerrainRace(R_GROTTO, 1, I_ORC);

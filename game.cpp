@@ -357,6 +357,12 @@ int Game::NewGame()
     init_random_seed();
 
     CreateWorld();
+
+    // A surface that left a gateway terrain short of villages cannot be repaired
+    // after the fact - the terrain simply had no room. Refuse it here so `new` exits
+    // non-zero and the caller can generate another world.
+    if (!regions.settlements_ok) return false;
+
     CreateNPCFactions();
 
     if (Globals->CITY_MONSTERS_EXIST)
