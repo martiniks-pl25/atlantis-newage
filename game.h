@@ -711,6 +711,19 @@ public:
     void CreateShip(ARegion *, Unit *, int);
     void RunSailOrders();
     void RunMovementOrders();
+
+    // Nexus entry: one allocation per movement phase, feeding the O_GATEWAY branch of
+    // DoAMoveOrder. See docs/plans/2026-08-11-nexus-entry-allocation.md.
+    struct NexusEntryResult {
+        ARegion *dest = nullptr;
+        int level = 0;          // rung that placed the unit, 1..9
+        int own_terrain = -1;
+        int town_type = -1;     // TOWN_VILLAGE / TOWN_TOWN / TOWN_CITY of the destination
+        int others = 0;         // other player units sharing the hex once the batch is seated
+    };
+    void allocate_nexus_entry();
+    std::map<int, NexusEntryResult> nexus_entry_results;   // keyed by Unit::num
+
     Location *Do1SailOrder(ARegion *, Object *, Unit *);
     void ClearCastEffects();
     void RunCastOrders();

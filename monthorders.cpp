@@ -1,4 +1,6 @@
+#include <algorithm>
 #include <random>
+#include <set>
 #include <stdlib.h>
 
 #include "events.h"
@@ -6,10 +8,176 @@
 #include "gamedata.h"
 #include "logger.hpp"
 #include "namegen.h"
+#include "nexus_entry.h"
 #include "quests.h"
 #include "rng.hpp"
 
 using namespace std;
+
+// ---------------------------------------------------------------------------
+// Nexus entry helpers: the four readings of a settlement the ladder needs - player units
+// present, men in them, monsters present, and whether a player unit of more than two men
+// lives there.
+// ---------------------------------------------------------------------------
+
+// A unit belongs to a player if it is neither a town guard nor a monster.
+static bool is_player_unit(const Unit *u, int guardfac, int monfac)
+{
+    return u->faction->num != guardfac && u->faction->num != monfac;
+}
+
+static int count_player_units(ARegion *r, int guardfac, int monfac)
+{
+    int cnt = 0;
+    for (const auto o : r->objects)
+        for (const auto u : o->units)
+            if (is_player_unit(u, guardfac, monfac)) cnt++;
+    return cnt;
+}
+
+// Total men of the player units, which is what the terminal rung of the ladder ranks on.
+static int count_player_men(ARegion *r, int guardfac, int monfac)
+{
+    int men = 0;
+    for (const auto o : r->objects)
+        for (const auto u : o->units)
+            if (is_player_unit(u, guardfac, monfac)) men += u->GetMen();
+    return men;
+}
+
+static bool has_monsters(ARegion *r, int monfac)
+{
+    for (const auto o : r->objects)
+        for (const auto u : o->units)
+            if (u->faction->num == monfac) return true;
+    return false;
+}
+
+// A player unit of more than two men is somebody who has started to grow; a newcomer is
+// kept out of their hex, which is a separate question from how crowded it is.
+static bool has_established_faction(ARegion *r, int guardfac, int monfac)
+{
+    for (const auto o : r->objects)
+        for (const auto u : o->units)
+            if (is_player_unit(u, guardfac, monfac) && u->GetMen() > 2) return true;
+    return false;
+}
+
+/**
+ * @brief Allocates the gateway entrants of one movement phase across the settlement ladder.
+ *
+ * Collects every unit that is standing inside an O_GATEWAY with MOVE_IN at the front of
+ * its move order, builds the settlement table of the level the gateways lead to, and runs
+ * nexus_entry::allocate() over the batch. DoAMoveOrder then only reads the answer.
+ *
+ * Runs once per movement phase, so a batch is the units entering on that phase: a unit
+ * reaches its gateway on whichever phase its earlier steps leave it, and `MOVE 1 IN` is
+ * allocated on phase 0 while `MOVE P P P 1 IN` joins the phase 3 batch.
+ *
+ * A unit qualifies on its state, not on the text of its order: inside an O_GATEWAY, month
+ * order O_MOVE or O_ADVANCE, `MOVE_IN` at the front of `dirs`, and not `nomove`. A unit in
+ * a gateway with no move order is not collected.
+ *
+ * @note Only the Nexus level is walked; O_GATEWAY objects exist nowhere else.
+ * @see nexus_entry::allocate(), docs/plans/2026-08-11-nexus-entry-allocation.md
+ */
+void Game::allocate_nexus_entry()
+{
+    nexus_entry_results.clear();
+
+    // Returns null when the ruleset has no nexus at all, and in the test harness.
+    ARegionArray *nexus = regions.get_first_region_array_of_type(ARegionArray::LEVEL_NEXUS);
+    if (!nexus) return;
+
+    std::vector<nexus_entry::Entrant> entrants;
+    std::vector<int> entrant_ids;
+    std::vector<int> gateway_terrains;
+    ARegionArray *entry_level = nullptr;
+
+    for (int nx = 0; nx < nexus->x; nx++) {
+        for (int ny = 0; ny < nexus->y; ny++) {
+            ARegion *nex = nexus->GetRegion(nx, ny);
+            if (!nex) continue;
+
+            for (const auto o : nex->objects) {
+                if (o->type != O_GATEWAY) continue;
+
+                ARegion *anchor = regions.GetRegion(o->inner);
+                if (!anchor) continue;
+                if (!entry_level) entry_level = regions.GetRegionArray(anchor->zloc);
+
+                // Gateway order is the terrain order they were built in, identical in
+                // every nexus hex, so one shared list indexes them all.
+                auto known = std::find(gateway_terrains.begin(), gateway_terrains.end(), anchor->type);
+                int gateway_index = static_cast<int>(known - gateway_terrains.begin());
+                if (known == gateway_terrains.end()) gateway_terrains.push_back(anchor->type);
+
+                for (const auto u : o->units) {
+                    if (u->nomove || !u->monthorders) continue;
+                    if (u->monthorders->type != O_MOVE && u->monthorders->type != O_ADVANCE) continue;
+
+                    MoveOrder *mo = dynamic_cast<MoveOrder *>(u->monthorders);
+                    if (!mo || mo->dirs.empty()) continue;
+                    if (mo->dirs.front()->dir != MOVE_IN) continue;
+
+                    nexus_entry::Entrant e;
+                    e.id = u->num;
+                    e.gateway = gateway_index;
+                    e.men = u->GetMen();
+                    entrants.push_back(e);
+                    entrant_ids.push_back(u->num);
+                }
+            }
+        }
+    }
+
+    if (entrants.empty() || !entry_level) return;
+
+    std::vector<nexus_entry::Settlement> settlements;
+    std::vector<ARegion *> settlement_regions;
+
+    for (const int terrain : gateway_terrains) {
+        auto all = entry_level->get_starting_region_candidates(terrain, false);
+        auto filtered = entry_level->get_starting_region_candidates(terrain, true);
+        std::set<ARegion *> passes_filter(filtered.begin(), filtered.end());
+
+        for (const auto r : all) {
+            if (!r->town) continue;
+
+            nexus_entry::Settlement s;
+            s.terrain = terrain;
+            s.town_type = r->town->TownType();
+            s.occupants = count_player_units(r, guardfaction, monfaction);
+            s.men = count_player_men(r, guardfaction, monfaction);
+            s.resources = passes_filter.count(r) > 0;
+            s.blocked = has_monsters(r, monfaction) ||
+                        has_established_faction(r, guardfaction, monfaction);
+
+            settlements.push_back(s);
+            settlement_regions.push_back(r);
+        }
+    }
+
+    auto placements = nexus_entry::allocate(entrants, settlements, gateway_terrains);
+
+    // Occupancy once the whole batch is seated: what was there before, plus the entrants
+    // placed here on this phase, less the entrant being told about it.
+    std::vector<int> seated(settlements.size(), 0);
+    for (const auto& p : placements)
+        if (p.settlement >= 0) seated[p.settlement]++;
+
+    for (const auto& p : placements) {
+        if (p.entrant < 0 || p.settlement < 0) continue;
+
+        NexusEntryResult res;
+        res.dest = settlement_regions[p.settlement];
+        res.level = p.level;
+        res.own_terrain = gateway_terrains[entrants[p.entrant].gateway];
+        res.town_type = settlements[p.settlement].town_type;
+        res.others = settlements[p.settlement].occupants + seated[p.settlement] - 1;
+        nexus_entry_results[entrant_ids[p.entrant]] = res;
+    }
+}
 
 void Game::RunMovementOrders()
 {
@@ -25,6 +193,9 @@ void Game::RunMovementOrders()
                 for (const auto u : o->units) { DoMoveEnter(u, r); }
             }
         }
+        // After DoMoveEnter, so a unit that stepped into its gateway this phase is in the
+        // batch; before the move sweep, which only reads the result.
+        allocate_nexus_entry();
         for (const auto r : regions) {
             for (const auto o : r->objects) {
                 error = 1;
@@ -1940,185 +2111,50 @@ Location *Game::DoAMoveOrder(Unit *unit, ARegion *region, Object *obj)
 
         newreg = regions.GetRegion(obj->inner);
         if (obj->type == O_GATEWAY) {
-            // Gateways exist in the nexus and move the unit to a region of the target terrain type.
-            // See docs/GATEWAY_ENTRY_SYSTEM.md for full algorithm description.
-            //
-            // Block A — own terrain (chosen gateway), phases 1 and 2, with filter then without:
-            //   1  : VILLAGE, no player units,              resource filter ON
-            //   2  : VILLAGE, guard + 1-2 small units,     resource filter ON
-            //   1a : VILLAGE, no player units,              resource filter OFF
-            //   2a : VILLAGE, guard + 1-2 small units,     resource filter OFF
-            // Block B — other 7 terrain types (cycling), same phases 1, 2, 1a, 2a
-            // Phases 3/3a — all terrains (own first), any village players, filter ON then OFF
-            // Phase 4 — TOWN or CITY, ≤3 players, all gateways, no filter
-            // Phase 5 — empty non-town hex, own terrain, no filter
-            // Phase 6 — any region of own terrain, ultimate fallback
-            // Monsters (monfaction) disqualify a region in phases 1-5.
+            // Gateways exist in the nexus and move the unit to a region of the target
+            // terrain type. The ladder that chooses which one is described in
+            // docs/GATEWAY_ENTRY_SYSTEM.md and implemented in nexus_entry.cpp; it is
+            // walked for a whole movement phase's entrants at once, not per unit here.
 
-            ARegion *anchor = newreg;
-            ARegionArray *level = regions.GetRegionArray(anchor->zloc);
-            int own_terrain = anchor->type;
-
-            // Collect all gateways in the nexus and find index of the entered one
-            std::vector<Object *> gateways;
-            for (const auto g : region->objects)
-                if (g->type == O_GATEWAY) gateways.push_back(g);
-            int startIdx = 0;
-            for (int i = 0; i < (int)gateways.size(); i++)
-                if (gateways[i] == obj) { startIdx = i; break; }
-
-            // Count non-guard, non-monster player units in a region
-            auto count_players = [&](ARegion *r) -> int {
-                int cnt = 0;
-                for (const auto ro : r->objects)
-                    for (const auto u : ro->units)
-                        if (u->faction->num != guardfaction && u->faction->num != monfaction)
-                            cnt++;
-                return cnt;
-            };
-
-            // True if any monster units are present in the region
-            auto has_monsters = [&](ARegion *r) -> bool {
-                for (const auto ro : r->objects)
-                    for (const auto u : ro->units)
-                        if (u->faction->num == monfaction) return true;
-                return false;
-            };
-
-            // Phase 2 eligibility: 1-2 non-guard non-monster units, each with ≤2 men
-            auto is_phase2 = [&](ARegion *r) -> bool {
-                int cnt = 0;
-                for (const auto ro : r->objects) {
-                    for (const auto u : ro->units) {
-                        if (u->faction->num == guardfaction || u->faction->num == monfaction) continue;
-                        if (u->GetMen() > 2) return false;
-                        if (++cnt >= 3) return false;
-                    }
-                }
-                return cnt > 0;
-            };
-
-            // Find matching villages of a given terrain type
-            // vphase: 1=empty, 2=small players, 3=any players
-            auto find_villages = [&](int terrain, int vphase, bool use_filter) -> std::vector<ARegion *> {
-                auto cands = level->get_starting_region_candidates(terrain, use_filter);
-                std::vector<ARegion *> matching;
-                for (const auto r : cands) {
-                    if (!r->town || r->town->TownType() != TOWN_VILLAGE) continue;
-                    if (has_monsters(r)) continue;
-                    int np = count_players(r);
-                    if (vphase == 1 && np == 0) matching.push_back(r);
-                    else if (vphase == 2 && is_phase2(r)) matching.push_back(r);
-                    else if (vphase == 3 && np > 0) matching.push_back(r);
-                }
-                return matching;
-            };
-
-            ARegion *found = nullptr;
-            int found_phase = 0; // 1=Block A, 2=Block B, 3=Phase3, 4=Town, 5=Empty hex, 6=Fallback
-
-            // Block A: own terrain, phases 1 and 2 (with filter, then without)
-            for (int vphase = 1; vphase <= 2 && !found; vphase++) {
-                for (int use_filter = 1; use_filter >= 0 && !found; use_filter--) {
-                    auto matching = find_villages(own_terrain, vphase, use_filter == 1);
-                    if (!matching.empty()) {
-                        found = matching[rng::get_random(matching.size())];
-                        found_phase = 1;
-                    }
-                }
+            // The destination was decided at the head of this movement phase, for every
+            // unit entering a gateway on it at once - see Game::allocate_nexus_entry()
+            // and docs/plans/2026-08-11-nexus-entry-allocation.md.
+            if (nexus_entry_results.find(unit->num) == nexus_entry_results.end() ||
+                !nexus_entry_results[unit->num].dest) {
+                unit->error("MOVE: There is nowhere left in the world to enter.");
+                goto done_moving;
             }
 
-            // Block B: other terrain types, phases 1 and 2 (with filter, then without)
-            for (int vphase = 1; vphase <= 2 && !found; vphase++) {
-                for (int use_filter = 1; use_filter >= 0 && !found; use_filter--) {
-                    for (int gi = 1; gi < (int)gateways.size() && !found; gi++) {
-                        int idx = (startIdx + gi) % (int)gateways.size();
-                        ARegion *gw_anchor = regions.GetRegion(gateways[idx]->inner);
-                        auto matching = find_villages(gw_anchor->type, vphase, use_filter == 1);
-                        if (!matching.empty()) {
-                            found = matching[rng::get_random(matching.size())];
-                            found_phase = 2;
-                        }
-                    }
-                }
-            }
+            newreg = nexus_entry_results[unit->num].dest;
 
-            // Phases 3/3a: all terrain types, any village with players (own first, then others)
-            for (int use_filter = 1; use_filter >= 0 && !found; use_filter--) {
-                auto matching = find_villages(own_terrain, 3, use_filter == 1);
-                if (!matching.empty()) {
-                    found = matching[rng::get_random(matching.size())];
-                    found_phase = 3;
-                    break;
-                }
-                for (int gi = 1; gi < (int)gateways.size() && !found; gi++) {
-                    int idx = (startIdx + gi) % (int)gateways.size();
-                    ARegion *gw_anchor = regions.GetRegion(gateways[idx]->inner);
-                    matching = find_villages(gw_anchor->type, 3, use_filter == 1);
-                    if (!matching.empty()) {
-                        found = matching[rng::get_random(matching.size())];
-                        found_phase = 3;
-                    }
-                }
-            }
+            // One event per entrant, always. The opening sentence names the settlement,
+            // its tier and its terrain; a sentence is appended for each of: a terrain
+            // other than the gateway's, a tier above village, and other players in the
+            // hex. Every clause is read from the destination, not from the rung.
+            {
+                const NexusEntryResult &entry = nexus_entry_results[unit->num];
+                string tier = "settlement";
+                if (entry.town_type == TOWN_VILLAGE) tier = "village";
+                else if (entry.town_type == TOWN_TOWN) tier = "town";
+                else if (entry.town_type == TOWN_CITY) tier = "city";
 
-            // Phase 4: TOWN or CITY, guard + ≤3 players, no monsters, all gateways, no filter
-            if (!found) {
-                for (int gi = 0; gi < (int)gateways.size() && !found; gi++) {
-                    int idx = (startIdx + gi) % (int)gateways.size();
-                    ARegion *gw_anchor = regions.GetRegion(gateways[idx]->inner);
-                    auto cands = level->get_starting_region_candidates(gw_anchor->type, false);
-                    std::vector<ARegion *> matching;
-                    for (const auto r : cands) {
-                        if (!r->town || r->town->TownType() == TOWN_VILLAGE) continue;
-                        if (has_monsters(r)) continue;
-                        if (count_players(r) <= 3) matching.push_back(r);
-                    }
-                    if (!matching.empty()) {
-                        found = matching[rng::get_random(matching.size())];
-                        found_phase = 4;
-                    }
-                }
-            }
+                string where = newreg->town ? newreg->town->name : newreg->name;
+                string msg = "You have entered the world at " + where +
+                    ", a " + tier + " in the " + string(TerrainDefs[newreg->type].name) + ".";
 
-            // Phase 5: empty non-town hex, no monsters, own terrain only, no filter
-            if (!found) {
-                auto cands = level->get_starting_region_candidates(own_terrain, false);
-                std::vector<ARegion *> matching;
-                for (const auto r : cands) {
-                    if (r->town) continue;
-                    if (has_monsters(r)) continue;
-                    if (count_players(r) == 0) matching.push_back(r);
+                if (entry.own_terrain >= 0 && newreg->type != entry.own_terrain) {
+                    msg += " All " + string(TerrainDefs[entry.own_terrain].name) +
+                        " settlements were occupied, so you were sent to the " +
+                        string(TerrainDefs[newreg->type].name) + " instead.";
                 }
-                if (!matching.empty()) {
-                    found = matching[rng::get_random(matching.size())];
-                    found_phase = 5;
+                if (entry.town_type != TOWN_VILLAGE) {
+                    msg += " This is a " + tier + ", and its guard is stronger than a village's.";
                 }
-            }
+                if (entry.others > 0) {
+                    msg += " Other factions are here already.";
+                }
 
-            // Phase 6: any region of own terrain, ultimate fallback, no filter
-            if (!found) {
-                auto cands = level->get_starting_region_candidates(own_terrain, false);
-                if (!cands.empty()) {
-                    found = cands[rng::get_random(cands.size())];
-                    found_phase = 6;
-                }
-            }
-
-            if (found) {
-                newreg = found;
-                string terrain_name = TerrainDefs[own_terrain].name;
-                if (found_phase == 2) {
-                    string dest_terrain = TerrainDefs[found->type].name;
-                    unit->event("Warning: all " + terrain_name + " villages are occupied. "
-                        "You were redirected to a " + dest_terrain + " village instead.", "move");
-                } else if (found_phase == 3) {
-                    unit->event("Warning: all empty " + terrain_name + " villages are occupied. "
-                        "You share this village with existing players.", "move");
-                } else if (found_phase >= 4) {
-                    unit->event("Warning: all " + terrain_name + " villages are occupied. "
-                        "You were placed in a non-village region.", "move");
-                }
+                unit->event(msg, "move");
             }
         }
     } else if (x->dir == MOVE_PAUSE) {
