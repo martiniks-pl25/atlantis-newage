@@ -240,7 +240,7 @@ void Game::Do1Assassinate(ARegion *r, Object *o, Unit *u)
         return;
     }
 
-    if (tar->type == U_GUARD || tar->type == U_WMON || tar->type == U_GUARDMAGE) {
+    if (tar->is_npc_unit()) {
         u->error("ASSASSINATE: Can only assassinate other player's units.");
         return;
     }
@@ -307,7 +307,7 @@ void Game::Do1Steal(ARegion *r, Object *o, Unit *u)
         return;
     }
 
-    if (tar->type == U_GUARD || tar->type == U_WMON || tar->type == U_GUARDMAGE) {
+    if (tar->is_npc_unit()) {
         u->error("STEAL: Can only steal from other player's units.");
         return;
     }
