@@ -4,6 +4,7 @@
 #include "object.h"
 #include "gamedata.h"
 #include "string_parser.hpp"
+#include "string_filters.hpp"
 #include "strings_util.hpp"
 #include <ranges>
 #include <cmath>
@@ -1315,7 +1316,10 @@ std::string item_description(int item, int full)
 
     auto pS = FindSkill(ItemDefs[item].grantSkill);
     if (pS && pS->get().flags & SkillType::CAST) {
-        temp += " This item allows its possessor to CAST the " + pS->get().name + " spell as if their skill in " +
+        // Spell names are printed in the form the player has to type: CAST takes a single token, so a
+        // multi-word name only parses with the spaces written as underscores (or the whole name quoted).
+        std::string cast_name = pS->get().name | filter::canonicalize;
+        temp += " This item allows its possessor to CAST the " + cast_name + " spell as if their skill in " +
             pS->get().name + " was ";
         if (ItemDefs[item].minGrant < ItemDefs[item].maxGrant) {
             int count, found;
@@ -1354,6 +1358,8 @@ std::string item_description(int item, int full)
                 ItemDefs[item].minGrant < ItemDefs[item].maxGrant) {
             temp += " A skill level of at least " + std::to_string(ItemDefs[item].minGrant) + " will always be granted.";
         }
+        temp += " To use it, issue the order CAST " + cast_name +
+            "; the skill description lists any arguments the spell takes.";
     }
 
     if (ItemDefs[item].type & IT_BATTLE) {
