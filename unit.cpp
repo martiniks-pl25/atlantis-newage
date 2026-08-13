@@ -1939,11 +1939,32 @@ void Unit::AdjustSkills()
     }
 }
 
+/**
+ * @brief Returns true for units the engine runs itself rather than a player.
+ *
+ * Covers wandering monsters and the entire civic establishment of a
+ * settlement: the rank and file of the garrison, its mages, its commander
+ * and the mayor. Such units sit outside player-versus-player mechanics —
+ * they pay no upkeep, and STEAL and ASSASSINATE refuse to target them, so
+ * the only way to reach them is an open ATTACK.
+ *
+ * Keep this the single place that enumerates the NPC unit types; the
+ * previous per-call-site lists drifted apart as new types were added.
+ *
+ * @return true for U_WMON, U_GUARD, U_GUARDMAGE, U_GUARDCOMMANDER, U_MAYOR
+ * @see Game::Do1Steal, Game::Do1Assassinate, Unit::MaintCost
+ */
+bool Unit::is_npc_unit() const
+{
+    return type == U_WMON || type == U_GUARD || type == U_GUARDMAGE ||
+        type == U_GUARDCOMMANDER || type == U_MAYOR;
+}
+
 int Unit::MaintCost(ARegionList& regions, ARegion *current_region)
 {
     int retval = 0;
     int i;
-    if (type == U_WMON || type == U_GUARD || type == U_GUARDMAGE) return 0;
+    if (is_npc_unit()) return 0;
 
     int leaders = GetLeaders();
     if (leaders < 0) leaders = 0;

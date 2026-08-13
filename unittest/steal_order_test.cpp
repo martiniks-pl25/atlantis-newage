@@ -4,6 +4,8 @@
 #include "orders.h"
 #include "testhelper.hpp"
 
+#include <vector>
+
 namespace ut = boost::ut;
 
 // Set a STEAL order directly on a unit (bypasses parser).
@@ -18,6 +20,40 @@ static void set_steal_order(Unit *thief, Unit *target, int item) {
     so->item = item;
     thief->stealthorders = so;
 }
+
+// Set an ASSASSINATE order directly on a unit (bypasses parser).
+static void set_assassinate_order(Unit *assassin, Unit *target) {
+    delete assassin->stealthorders;
+    AssassinateOrder *ao = new AssassinateOrder();
+    UnitId *uid = new UnitId();
+    uid->unitnum = target->num;
+    uid->alias = 0;
+    uid->faction = 0;
+    ao->target = uid;
+    assassin->stealthorders = ao;
+}
+
+// Every unit type the engine runs itself. STEAL and ASSASSINATE must reject
+// all of them; the only way to reach such a unit is an open ATTACK.
+//
+// Constant-initialized on purpose: a boost.ut suite body runs during static
+// initialization, so a container with dynamic initialization is not reliably
+// constructed by the time the tests read it.
+struct NpcUnitType {
+    int type;
+    const char *label;
+};
+
+static constexpr NpcUnitType npc_unit_types[] = {
+    { U_WMON,           "wandering monster" },
+    { U_GUARD,          "city guard"        },
+    { U_GUARDMAGE,      "guard mage"        },
+    { U_GUARDCOMMANDER, "guard commander"   },
+    { U_MAYOR,          "mayor"             },
+};
+
+static constexpr size_t npc_unit_type_count =
+    sizeof(npc_unit_types) / sizeof(npc_unit_types[0]);
 
 // Returns stealth days accumulated on a unit (0 = no practice given).
 static int stealth_days(Unit *u) {
@@ -233,5 +269,91 @@ ut::suite<"StealOrder"> steal_order_suite = [] {
         expect(fac_a->events.size() >= 1_ul) << "caught event expected";
         expect(stealth_days(thief) == 0_i) << "no XP without prior stealth knowledge";
         expect(target->items.GetNum(I_SILVER) == 100_i) << "silver must not be taken";
+    };
+
+    // ------------------------------------------------------------------
+    // Case 7: steal from an NPC unit — error for every NPC type, no XP.
+    // One thief per NPC type, all in the same region: the type gate runs
+    // before the stealth roll, so every thief is fully visible here and
+    // still gets an error rather than being caught.
+    // ------------------------------------------------------------------
+    "Steal from NPC units is rejected for every NPC type"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        Faction *fac_a = helper.create_faction("Faction A");
+        Faction *fac_b = helper.create_faction("Faction B");
+
+        ARegion *r = helper.get_region(0, 0, 0);
+        kill_starting_unit(helper, fac_a);
+        kill_starting_unit(helper, fac_b);
+        helper.clear_npc_units_in_region(r);
+
+        // Thieves are created before their targets, so RunStealthOrders walks
+        // them in this order and errors line up with npc_unit_types.
+        std::vector<Unit *> thieves, targets;
+        for (const auto &entry : npc_unit_types) {
+            Unit *thief = helper.create_unit(fac_a, r);
+            Unit *target = helper.create_unit(fac_b, r);
+            target->type = entry.type;
+            target->items.SetNum(I_SILVER, 100);
+            target->reveal = REVEAL_FACTION;
+            set_steal_order(thief, target, I_SILVER);
+            thieves.push_back(thief);
+            targets.push_back(target);
+        }
+
+        helper.run_steal_orders();
+
+        expect(fac_a->errors.size() == 5_ul) << "one error per NPC type expected";
+        for (size_t i = 0; i < npc_unit_type_count; i++) {
+            const char *label = npc_unit_types[i].label;
+            if (i < fac_a->errors.size())
+                expect(fac_a->errors[i].message == "STEAL: Can only steal from other player's units.")
+                    << "wrong error for " << label;
+            expect(stealth_days(thieves[i]) == 0_i) << "no XP should be awarded for " << label;
+            expect(targets[i]->items.GetNum(I_SILVER) == 100_i) << "silver must not be taken from " << label;
+        }
+    };
+
+    // ------------------------------------------------------------------
+    // Case 8: assassinate an NPC unit — error for every NPC type, no battle.
+    // ------------------------------------------------------------------
+    "Assassinate NPC units is rejected for every NPC type"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        Faction *fac_a = helper.create_faction("Faction A");
+        Faction *fac_b = helper.create_faction("Faction B");
+
+        ARegion *r = helper.get_region(0, 0, 0);
+        kill_starting_unit(helper, fac_a);
+        kill_starting_unit(helper, fac_b);
+        helper.clear_npc_units_in_region(r);
+
+        std::vector<Unit *> assassins, targets;
+        for (const auto &entry : npc_unit_types) {
+            Unit *assassin = helper.create_unit(fac_a, r);
+            Unit *target = helper.create_unit(fac_b, r);
+            target->type = entry.type;
+            target->reveal = REVEAL_FACTION;
+            set_assassinate_order(assassin, target);
+            assassins.push_back(assassin);
+            targets.push_back(target);
+        }
+
+        helper.run_steal_orders();
+
+        expect(fac_a->errors.size() == 5_ul) << "one error per NPC type expected";
+        for (size_t i = 0; i < npc_unit_type_count; i++) {
+            const char *label = npc_unit_types[i].label;
+            if (i < fac_a->errors.size())
+                expect(fac_a->errors[i].message == "ASSASSINATE: Can only assassinate other player's units.")
+                    << "wrong error for " << label;
+            expect(targets[i]->IsAlive() == 1_i) << label << " must survive";
+            expect(stealth_days(assassins[i]) == 0_i) << "no XP should be awarded for " << label;
+        }
     };
 };
