@@ -291,6 +291,12 @@ static bool is_dungeon_slot_quest(const Quest& q) {
 }
 
 void Game::GenerateLocalQuestsForMayor(ARegion *city, Unit *mayor) {
+    // Only an invested mayor speaks for the town. The cornucopia is his seal of
+    // office, handed over by AdjustCityMon the turn after he takes the hall, so a
+    // mayor who has just replaced a killed predecessor issues nothing until the
+    // town has formally installed him.
+    if (mayor->items.GetNum(I_CORNUCOPIA) == 0) return;
+
     // Count active LOCAL quests per slot type for this mayor.
     int active = 0, dungeon_active = 0, hunt_active = 0, infra_active = 0;
     for (const auto& q : quests) {

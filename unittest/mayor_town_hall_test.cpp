@@ -421,6 +421,7 @@ ut::suite<"Mayor Town Hall"> mayor_town_hall_suite = [] {
         helper.spawn_mayor(r, hall);
         Unit *mayor = find_mayor(r);
         if (!mayor) return;
+        mayor->items.SetNum(I_CORNUCOPIA, 1);   // seal of office; quest generation requires it
 
         helper.run_generate_quests_for_mayor(r, mayor);
         int mayor_num = mayor->num;

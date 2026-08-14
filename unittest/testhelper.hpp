@@ -123,6 +123,8 @@ public:
     void run_adjust_city_mons(ARegion *r) { game.AdjustCityMons(r); }
     // Spawn a mayor in the given region (test bootstrap; no guards needed)
     void spawn_mayor(ARegion *r, Object *target = nullptr) { game.CreateMayor(r, target); }
+    // Spawn a guard commander in the given region (test bootstrap)
+    void spawn_guard_commander(ARegion *r) { game.CreateGuardCommander(r); }
     // Get guardfaction id (faction 1)
     int get_guardfaction() { return game.guardfaction; }
     // Quest system helpers

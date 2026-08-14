@@ -1225,23 +1225,25 @@ int Game::RunBattle(ARegion * r,Unit * attacker,Unit * target,int ass,
     // Capture guard info BEFORE battle - guards may die during combat
     bool hadCityGuards = r->HasCityGuards() && !ass;
     Unit* guardForRep = hadCityGuards ? r->GetCityGuard() : nullptr;
+    // Every civic NPC belongs to the guard faction, so this covers the guards, their
+    // mages, the commander and the mayor without a list that can drift. Attacking one
+    // is grounds enough on its own: a mayor left without a garrison is not free to kill.
+    bool civicTarget = !ass && guardfaction && target->faction->num == guardfaction;
 
     result = b->Run(events, r, attacker, atts, target, defs,ass);
 
     // Track guard reputation (after battle completes)
     // Note: guardForRep captured before battle because guards may die during combat
-    if (hadCityGuards && guardForRep) {
-        bool penalize = false;
+    if (civicTarget || (hadCityGuards && guardForRep)) {
+        // Attacking a civic NPC needs no surviving witness.
+        bool penalize = civicTarget;
 
-        // Check if attacked city guards or civic NPCs directly
-        if (target->type == U_GUARD || target->type == U_GUARDMAGE ||
-            target->type == U_GUARDCOMMANDER || target->type == U_MAYOR) {
-            penalize = true;
-        }
-        // Check if attacked player defended by guards (not monster)
-        else if (target->faction->num > 0 &&
-                 target->faction->num != monfaction &&
-                 guardForRep->GetAttitude(r, target) >= AttitudeType::NEUTRAL) {
+        // Otherwise the penalty is for attacking a player the guards stand behind,
+        // which does take a live guard to read an attitude from (never a monster).
+        if (!penalize &&
+            target->faction->num > 0 &&
+            target->faction->num != monfaction &&
+            guardForRep->GetAttitude(r, target) >= AttitudeType::NEUTRAL) {
             penalize = true;
         }
 
