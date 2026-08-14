@@ -1700,15 +1700,21 @@ int ARegion::IsGuarded()
 }
 
 /**
- * @brief Checks if region has city guards (U_GUARD or U_GUARDMAGE)
+ * @brief Checks if region has city guards (U_GUARD, U_GUARDMAGE or U_GUARDCOMMANDER)
+ *
+ * The mayor is deliberately left out: they hold GUARD_AVOID and do not fight for
+ * anyone but their own faction, so a town holding nothing but a mayor is not a
+ * town defended by guards.
  *
  * @return 1 if at least one alive city guard unit exists, 0 otherwise
+ * @see ARegion::GetCityGuard, Game::RunBattle for the reputation penalty
  */
 int ARegion::HasCityGuards()
 {
     for (const auto o : objects) {
         for (const auto u : o->units) {
-            if ((u->type == U_GUARD || u->type == U_GUARDMAGE) && u->IsAlive()) {
+            if ((u->type == U_GUARD || u->type == U_GUARDMAGE || u->type == U_GUARDCOMMANDER) &&
+                u->IsAlive()) {
                 return 1;
             }
         }
@@ -1727,7 +1733,8 @@ Unit* ARegion::GetCityGuard()
 {
     for (const auto o : objects) {
         for (const auto u : o->units) {
-            if ((u->type == U_GUARD || u->type == U_GUARDMAGE) && u->IsAlive()) {
+            if ((u->type == U_GUARD || u->type == U_GUARDMAGE || u->type == U_GUARDCOMMANDER) &&
+                u->IsAlive()) {
                 return u;
             }
         }

@@ -29,7 +29,9 @@ Object *find_town_hall(ARegion *r) {
     return nullptr;
 }
 
-// Spawn a completed Town Hall and move a fresh mayor into it.
+// Spawn a completed Town Hall and move a fresh mayor into it, invested with his
+// seal of office - CreateMayor spawns him bare and AdjustCityMon hands the
+// cornucopia over a turn later, which quest generation requires.
 // Returns {hall, mayor}.
 pair<Object*, Unit*> setup_hall_with_mayor(UnitTestHelper& helper, ARegion *r) {
     helper.create_building(r, nullptr, O_TOWN_HALL);
@@ -37,6 +39,7 @@ pair<Object*, Unit*> setup_hall_with_mayor(UnitTestHelper& helper, ARegion *r) {
     if (hall) hall->incomplete = 0;
     helper.spawn_mayor(r, hall);
     Unit *mayor = find_mayor_in_hall(r);
+    if (mayor) mayor->items.SetNum(I_CORNUCOPIA, 1);
     return {hall, mayor};
 }
 
@@ -342,5 +345,42 @@ ut::suite<"QuestGeneration"> quest_generation_suite = [] {
             expect(q->expires_turn == turn_before + LOCAL_QUEST_TTL)
                 << "expires_turn must equal created_turn + LOCAL_QUEST_TTL";
         }
+    };
+
+    // -----------------------------------------------------------------------
+    // Test 11: only an invested mayor speaks for the town.
+    //
+    // CreateMayor seats him bare and AdjustCityMon hands over the cornucopia a
+    // turn later (covered by the Mayor Town Hall suite), so a mayor who has just
+    // replaced a killed predecessor holds no authority for one turn.
+    // -----------------------------------------------------------------------
+    "a mayor without his seal of office issues no quests"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        ARegion *r = helper.get_region(0, 0, 0);
+        helper.create_building(r, nullptr, O_TOWN_HALL);
+        Object *hall = find_town_hall(r);
+        if (hall) hall->incomplete = 0;
+        helper.spawn_mayor(r, hall);
+
+        Unit *mayor = find_mayor_in_hall(r);
+        expect(mayor != nullptr) << "mayor must exist";
+        if (!mayor) return;
+        expect(mayor->items.GetNum(I_CORNUCOPIA) == 0_i) << "a fresh mayor is seated bare";
+
+        // A candidate is available, so silence can only come from the gate.
+        helper.create_monster(r, I_WOLF, 5);
+
+        helper.run_generate_quests_for_mayor(r, mayor);
+        expect(count_mayor_quests(mayor->num) == 0_i)
+            << "an uninvested mayor must issue nothing";
+
+        // Investiture opens the office.
+        mayor->items.SetNum(I_CORNUCOPIA, 1);
+        helper.run_generate_quests_for_mayor(r, mayor);
+        expect(count_mayor_quests(mayor->num) > 0_i)
+            << "once invested, the mayor issues quests again";
     };
 };
