@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <iterator>
 #include <list>
+#include <vector>
 
 // Targeting weight by physical size (index = size-1, so size 1..5).
 // Determines how likely a soldier of that size is to be targeted in combat.
@@ -994,8 +995,21 @@ void Army::Lose(Battle *b, ItemList& spoils)
     // Mixed units (e.g. kobolds + trolls) get separate pools per monster type
     // so each type selects from its own spoil category (IT_NORMAL vs IT_ADVANCED).
     std::map<std::pair<Unit*, int>, std::set<int>> unit_chosen_types;
-    int pirate_tmap_chance = 0;
-    bool had_pirates = false;
+    // Map loot accrues per pirate vessel: each hull in the battle rolls on its own,
+    // so clearing a squadron in one fight pays what clearing it hull by hull would.
+    struct PirateVessel {
+        Object *fleet;
+        int chance;
+        bool had_crew;
+    };
+    std::vector<PirateVessel> vessels;
+    // Kept in first-appearance order rather than in a pointer-keyed map: the roll
+    // sequence has to be reproducible from turn to turn, and pointer order is not.
+    auto vessel_for = [&vessels](Object *fleet) -> PirateVessel & {
+        for (auto &v : vessels) if (v.fleet == fleet) return v;
+        vessels.push_back({fleet, 0, false});
+        return vessels.back();
+    };
     bool killed_dungeon_boss = false;
     bool killed_admiral = false;
     for (int i=0; i<count; i++) {
@@ -1008,6 +1022,12 @@ void Army::Lose(Battle *b, ItemList& spoils)
             // A non-pirate dungeon boss grants one guaranteed resource map at kill
             // time (like pirate compasses/whistles), independent of spawn-time state.
             // Gated on LEVEL_DUNGEON so wild ettins/dragons on the surface don't qualify.
+            //
+            // The flag is deliberately one per battle rather than a per-soldier count:
+            // a boss unit holds several figures of its boss race (DungeonTypeDefs
+            // boss_mobs - 2-5 ettins, 2-5 liches, 1-2 dragons), each of which is its
+            // own Soldier here. Counting them would pay up to five maps for the single
+            // boss a dungeon ever spawns.
             if (s->unit->type==U_WMON && is_dungeon_boss_kill_race(s->race) &&
                 s->unit->object && s->unit->object->region &&
                 s->unit->object->region->level &&
@@ -1016,13 +1036,13 @@ void Army::Lose(Battle *b, ItemList& spoils)
             // Pirate special loot must be collected before Dead() zeroes item counts
             if (s->race == I_PIRATE_CAPTAIN) {
                 spoils.SetNum(I_COMPASS, spoils.GetNum(I_COMPASS) + 1);
-                pirate_tmap_chance += 20;
+                vessel_for(s->unit->object).chance += 20;
             } else if (s->race == I_PIRATE_BOSUN) {
                 if (rng::get_random(100) < 50)
                     spoils.SetNum(I_BOSUN_WHISTLE, spoils.GetNum(I_BOSUN_WHISTLE) + 1);
-                pirate_tmap_chance += 20;
+                vessel_for(s->unit->object).chance += 20;
             } else if (s->race == I_PIRATES) {
-                had_pirates = true;
+                vessel_for(s->unit->object).had_crew = true;
             } else if (s->race == I_PIRATE_KING) {
                 // The Admiral drops the Crown at kill time (Trident victory token).
                 spoils.SetNum(I_CROWN, spoils.GetNum(I_CROWN) + 1);
@@ -1039,16 +1059,31 @@ void Army::Lose(Battle *b, ItemList& spoils)
     if (killed_admiral) {
         b->AddLine("Upon the Admiral's fall, the victors lift the Crown from the ruin of the cove.");
     }
-    if (had_pirates) pirate_tmap_chance += 10;
-    int scaled_tmap_chance = (int)(pirate_tmap_chance * b->mapChanceMultiplier);
-    if (scaled_tmap_chance > 0 && rng::get_random(100) < scaled_tmap_chance) {
+    int tmaps = 0, rmaps = 0;
+    for (auto &v : vessels) {
+        int chance = v.chance + (v.had_crew ? 10 : 0);
+        int scaled = (int)(chance * b->mapChanceMultiplier);
+        if (scaled <= 0 || rng::get_random(100) >= scaled) continue;
         if (rng::get_random(100) < b->tmapShare) {
             spoils.SetNum(I_TREASURE_MAP, spoils.GetNum(I_TREASURE_MAP) + 1);
-            b->AddLine("Searching the pirate vessel, the victors discover a weathered treasure map hidden below deck.");
+            tmaps++;
         } else {
             spoils.SetNum(I_RESOURCE_MAP, spoils.GetNum(I_RESOURCE_MAP) + 1);
-            b->AddLine("Searching the pirate vessel, the victors discover ancient resource charts hidden among the cargo.");
+            rmaps++;
         }
+    }
+    if (tmaps > 0 || rmaps > 0) {
+        std::string found;
+        if (tmaps > 0)
+            found = (tmaps == 1) ? "a weathered treasure map"
+                                 : std::to_string(tmaps) + " weathered treasure maps";
+        if (rmaps > 0) {
+            if (!found.empty()) found += " and ";
+            found += (rmaps == 1) ? "a set of ancient resource charts"
+                                  : std::to_string(rmaps) + " sets of ancient resource charts";
+        }
+        b->AddLine("Searching the wrecked pirate " + std::string(vessels.size() == 1 ? "vessel" : "vessels") +
+            ", the victors recover " + found + ".");
     }
 }
 
