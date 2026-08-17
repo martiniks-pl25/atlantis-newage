@@ -924,6 +924,15 @@ void Game::GetSides(
     // when HOSTILE/UNFRIENDLY guards Forbid an advancing player.
     const bool targetIsGuard = (tar->type == U_GUARD || tar->type == U_GUARDMAGE);
 
+    // Monster crews aboard ships fight as one squadron: attacking any hull in the
+    // region brings in every other monster-crewed hull there. Loose monsters get
+    // this for free by sharing the region's dummy object, but each ship is an
+    // object of its own, so without this a pirate watched the vessel alongside go
+    // down unless the attacker happened to be observant enough to identify their
+    // faction (see the CanAttack clause below).
+    const bool targetIsMonsterFleet =
+        (tar->type == U_WMON && tar->object && tar->object->IsFleet());
+
     if (ass) {
         /* Assassination attempt */
         Location * l = new Location;
@@ -1046,7 +1055,9 @@ void Game::GetSides(
                                         // attacker is already engaging the fleet directly.
                                         if (u == tar ||
                                             (u->faction == tar->faction && i == -1 && CanAttack(r, afacs,u)) ||
-                                            (u->faction == tar->faction && o == tar->object)) {
+                                            (u->faction == tar->faction && o == tar->object) ||
+                                            (u->faction == tar->faction && i == -1 && targetIsMonsterFleet &&
+                                             u->type == U_WMON && o->IsFleet())) {
                                             add = ADD_DEFENSE;
                                         }
                                     } else {

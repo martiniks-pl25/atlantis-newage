@@ -10,6 +10,73 @@
 
 namespace ut = boost::ut;
 
+// Sums an item across every unit belonging to `f` in the region.
+static int count_faction_item(ARegion *r, Faction *f, int item)
+{
+    int total = 0;
+    for (auto obj : r->objects)
+        for (auto u : obj->units)
+            if (u->faction == f) total += u->items.GetNum(item);
+    return total;
+}
+
+// Counts monsters of the given race still standing, ignoring the player's own units.
+static int count_surviving_race(ARegion *r, Faction *player, int race)
+{
+    int total = 0;
+    for (auto obj : r->objects)
+        for (auto u : obj->units)
+            if (u->faction != player) total += u->items.GetNum(race);
+    return total;
+}
+
+// Pushes the map-chance ramp so far past 100 that every vessel roll succeeds and
+// every success yields a TMAP. Lets a test count how many rolls were made without
+// seeding a specific RNG draw.
+static void force_guaranteed_tmap(UnitTestHelper &helper)
+{
+    json data;
+    data["map_chance_ramp_turns"] = 1;
+    data["map_chance_ramp_bonus"] = 100.0;
+    data["tmap_share_early"] = 100;
+    data["tmap_share_late"] = 100;
+    helper.set_ruleset_specific_data(data);
+    helper.game_object().year = 1;
+    helper.game_object().month = 0;  // TurnNumber() == 1, rampTurns == 1 -> full ramp at once
+    helper.game_object().UpdateMapChanceRamp();
+}
+
+// An attacker strong enough to wipe several pirate fleets in one battle.
+// `observation` above the pirates' stealth of 1 makes Faction::CanSee() return 2,
+// which is what CanAttack() - and therefore the old GetSides() path - demanded.
+static Unit *create_pirate_hunter(UnitTestHelper &helper, ARegion *r, int observation = 0)
+{
+    Faction *player = helper.create_faction("Player");
+    Unit *u = helper.create_unit(player, r);
+    u->items.SetNum(I_LEADERS, 500);
+    // Armed well past what the fight needs: a squadron of several hulls otherwise
+    // routs while its FLAG_BEHIND officers are still standing, and a test that
+    // counts loot from dead captains would be measuring the rout, not the loot.
+    u->items.SetNum(I_MSWORD, 500);
+    helper.set_skill_level(u, S_COMBAT, 5);
+    if (observation > 0) helper.set_skill_level(u, S_OBSERVATION, observation);
+    return u;
+}
+
+// Adds a fleet crewed by `crew` pirates; returns the crew unit (its object is the fleet).
+static Unit *add_plain_fleet(UnitTestHelper &helper, ARegion *r, int crew)
+{
+    return helper.create_npc_pirate_fleet(r, crew);
+}
+
+// Adds a fleet crewed by `crew` pirates and led by a captain.
+static Unit *add_captained_fleet(UnitTestHelper &helper, ARegion *r, int crew)
+{
+    Unit *pirates = helper.create_npc_pirate_fleet(r, crew);
+    helper.create_npc_pirate_captain(r, pirates->object);
+    return pirates;
+}
+
 ut::suite<"PirateMapChanceRamp"> pirate_map_chance_ramp_suite = [] {
     using namespace ut;
 
@@ -303,5 +370,161 @@ ut::suite<"PirateMapChanceRamp"> pirate_map_chance_ramp_suite = [] {
 
         expect(total_tmap == 1_i) << "extreme ramp must guarantee exactly one TMAP";
         expect(total_rmap == 0_i) << "shareLate=100 must never produce an RMAP";
+    };
+
+    // -----------------------------------------------------------------------
+    // Map loot is rolled per pirate vessel, not per battle.
+    //
+    // Clearing several fleets in one fight must pay exactly what clearing them
+    // in separate fights would: the player who concentrates takes on more risk,
+    // not less reward.
+    //
+    // Every test below runs under force_guaranteed_tmap(), so the number of
+    // TMAPs recovered equals the number of rolls Army::Lose() actually made.
+    // -----------------------------------------------------------------------
+
+    "wandering monsters in a region all join one another's battle"_test = [] {
+        // Control for the rule the fleet cases are measured against. Loose monsters
+        // sit in the region's dummy object, so GetSides()'s `o == tar->object`
+        // clause matches for every one of them and they join unconditionally -
+        // no visibility check involved. Ships are what break the pattern: each
+        // hull is an object of its own.
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        ARegion *r = helper.get_region(0, 2, 0);
+        Unit *first = helper.create_pirate_unit(r, 5);
+        helper.create_pirate_unit(r, 5);
+
+        Unit *attacker = create_pirate_hunter(helper, r);
+        Faction *player = attacker->faction;
+
+        expect(helper.run_battle(r, attacker, first) == BATTLE_WON);
+
+        expect(count_surviving_race(r, player, I_PIRATES) == 0_i)
+            << "a loose monster stack sat out a battle in its own region";
+    };
+
+    "two pirate fleets in one region are drawn into a single battle"_test = [] {
+        // The premise the map tests rest on, and the red test for the GetSides()
+        // squadron rule: the attacker here cannot identify the pirates' faction
+        // (observation 0 vs stealth 1), so before that rule the second hull stayed
+        // out and only the targeted ship went down.
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        ARegion *r = helper.get_region(0, 2, 0);
+        Unit *first = add_captained_fleet(helper, r, 1);
+        add_captained_fleet(helper, r, 1);
+
+        Unit *attacker = create_pirate_hunter(helper, r);
+        Faction *player = attacker->faction;
+
+        int result = helper.run_battle(r, attacker, first);
+        expect(result == BATTLE_WON);
+
+        expect(count_surviving_race(r, player, I_PIRATE_CAPTAIN) == 0_i)
+            << "a captain survived: that fleet never joined the battle";
+        expect(count_faction_item(r, player, I_COMPASS) == 2_i)
+            << "one compass per dead captain";
+    };
+
+    "an attacker who can identify the pirates pulls both fleets in as well"_test = [] {
+        // The other half of the truth table: with observation 2 against stealth 1
+        // CanAttack() already held, so this case joined even before the squadron
+        // rule. It must keep working afterwards - the rule adds a path, it does
+        // not replace the old one.
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        ARegion *r = helper.get_region(0, 2, 0);
+        Unit *first = add_captained_fleet(helper, r, 1);
+        add_captained_fleet(helper, r, 1);
+
+        Unit *attacker = create_pirate_hunter(helper, r, /*observation=*/2);
+        Faction *player = attacker->faction;
+
+        expect(helper.run_battle(r, attacker, first) == BATTLE_WON);
+
+        expect(count_surviving_race(r, player, I_PIRATE_CAPTAIN) == 0_i)
+            << "an observant attacker must still engage the whole squadron";
+        expect(count_faction_item(r, player, I_COMPASS) == 2_i)
+            << "one compass per dead captain";
+    };
+
+    "each captained fleet in a battle rolls for a map of its own"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+        force_guaranteed_tmap(helper);
+
+        ARegion *r = helper.get_region(0, 2, 0);
+        Unit *first = add_captained_fleet(helper, r, 1);
+        add_captained_fleet(helper, r, 1);
+
+        Unit *attacker = create_pirate_hunter(helper, r);
+        Faction *player = attacker->faction;
+
+        expect(helper.run_battle(r, attacker, first) == BATTLE_WON);
+
+        expect(count_surviving_race(r, player, I_PIRATE_CAPTAIN) == 0_i)
+            << "both hulls must actually go down before their loot is counted";
+        expect(count_faction_item(r, player, I_TREASURE_MAP) == 2_i)
+            << "two vessels sunk must mean two rolls, not one capped roll";
+    };
+
+    "the rank-and-file crew bonus is counted per vessel, not once per battle"_test = [] {
+        // Two fleets with no officers aboard: the +10 crew bonus has to apply to
+        // each hull separately, otherwise the second ship is worth nothing.
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+        force_guaranteed_tmap(helper);
+
+        ARegion *r = helper.get_region(0, 2, 0);
+        Unit *first = add_plain_fleet(helper, r, 1);
+        add_plain_fleet(helper, r, 1);
+
+        Unit *attacker = create_pirate_hunter(helper, r);
+        Faction *player = attacker->faction;
+
+        expect(helper.run_battle(r, attacker, first) == BATTLE_WON);
+
+        expect(count_surviving_race(r, player, I_PIRATES) == 0_i)
+            << "both hulls must actually go down before their loot is counted";
+        expect(count_faction_item(r, player, I_TREASURE_MAP) == 2_i)
+            << "each hull carries its own crew bonus";
+    };
+
+    "a summoned swarm pays per vessel"_test = [] {
+        // The CALL PIRATES scenario: a caster drags every nearby fleet into one
+        // fight. Four hulls sunk must pay what four separate fights would.
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+        force_guaranteed_tmap(helper);
+
+        ARegion *r = helper.get_region(0, 2, 0);
+        Unit *first = add_captained_fleet(helper, r, 1);
+        add_captained_fleet(helper, r, 1);
+        add_plain_fleet(helper, r, 1);
+        add_plain_fleet(helper, r, 1);
+
+        Unit *attacker = create_pirate_hunter(helper, r);
+        Faction *player = attacker->faction;
+
+        expect(helper.run_battle(r, attacker, first) == BATTLE_WON);
+
+        expect(count_surviving_race(r, player, I_PIRATE_CAPTAIN) == 0_i)
+            << "the squadron routed with officers still standing: loot count is meaningless";
+        expect(count_surviving_race(r, player, I_PIRATES) == 0_i)
+            << "the squadron routed with crew still standing: loot count is meaningless";
+        expect(count_faction_item(r, player, I_TREASURE_MAP) == 4_i)
+            << "four vessels sunk must mean four rolls";
+        expect(count_faction_item(r, player, I_COMPASS) == 2_i)
+            << "compasses already accrue per captain and must stay that way";
     };
 };
