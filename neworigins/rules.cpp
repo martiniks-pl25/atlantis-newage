@@ -69,8 +69,8 @@ int factionTypeMin = 1;
 
 // Leader recruitment supply (declared in gamedefs.h; kept out of the GameDefs
 // positional initializer below so retuning cannot shift that list).
-int LEADERS_PER_MARKET_UNIT = 900;
-int WILDERNESS_LEADER_CHANCE = 35;
+int LEADERS_PER_MARKET_UNIT = 1000;
+int WILDERNESS_LEADER_CHANCE = 25;
 
 static GameDefs g = {
 	"NewAge",	// RULESET_NAME (renamed from "NewOrigins"; see ReadGame name-compat shim)
@@ -85,7 +85,7 @@ static GameDefs g = {
 
 	10,	/* STUDENTS_PER_TEACHER */
 	10,	/* MAINTENANCE_COST */
-	50,	/* LEADER_COST */
+	90,	/* LEADER_COST */
 
 	0,	/* MAINTENANCE_MULTIPLIER */
 	GameDefs::MULT_NONE,	/* MULTIPLIER_USE */
@@ -93,7 +93,7 @@ static GameDefs g = {
 	33,	/* STARVE_PERCENT */
 	GameDefs::STARVE_NONE,	/* SKILL_STARVATION */
 
-	20000,	/* START_MONEY */
+	12000,	/* START_MONEY */
 	5,	/* WORK_FRACTION */
 	20,	/* ENTERTAIN_FRACTION */
 	30,	/* ENTERTAIN_INCOME */

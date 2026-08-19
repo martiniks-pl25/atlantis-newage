@@ -1129,7 +1129,7 @@ void Game::ModifyTablesPerRuleset(void)
     DisableItem(I_OGREMAN);
     DisableItem(I_GNOLL);
 
-    ModifyItemBasePrice(I_LEADERS, 700);
+    ModifyItemBasePrice(I_LEADERS, 800);
 
     EnableItem(I_MAN);
     ModifyItemBasePrice(I_MAN, 40);
