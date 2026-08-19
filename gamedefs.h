@@ -64,6 +64,13 @@ extern int allowedMartialSize;
 // Minimum points each faction-type category keeps (0 = no floor; ruleset-set,
 // like the allowed* arrays — NOT a GameDefs struct field).
 extern int factionTypeMin;
+// Leader recruitment supply, also ruleset-set rather than GameDefs fields, so a
+// world can retune them without shifting that struct's positional initializer:
+//   LEADERS_PER_MARKET_UNIT  - one leader on offer per this many people in the region
+//   WILDERNESS_LEADER_CHANCE - percent chance leaders are offered at all this turn in a
+//                              region without a settlement (settlements always supply)
+extern int LEADERS_PER_MARKET_UNIT;
+extern int WILDERNESS_LEADER_CHANCE;
 
 enum BattleLogLevel {
 	NORMAL   = 0,	// Standard battle log
@@ -83,9 +90,9 @@ enum DestroyBehavior {
 	PER_SKILL  = 2	// use building skill as a basis how much can be destroyed. The formula is: destroy power = max(1, BUILDING skill level)
 };
 
-// Market population ratios (used in Market::post_turn and AddMenMarket/AddLeadersMarket)
+// Market population ratio for common recruits (used in Market::post_turn and
+// AddMenMarket). The leader equivalents are ruleset-set - see the externs above.
 constexpr int MEN_PER_MARKET_UNIT = 25;
-constexpr int LEADERS_PER_MARKET_UNIT = 900;
 
 class GameDefs {
 public:

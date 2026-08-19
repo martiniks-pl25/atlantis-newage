@@ -85,11 +85,11 @@ void ARegion::AddMenMarket() {
  * @brief Creates recruitment market for leaders
  *
  * Creates a M_BUY market for leaders with quantity based on population.
- * Formula: amount = Population() / LEADERS_PER_MARKET_UNIT  (1 per 900 pop)
+ * Formula: amount = Population() / LEADERS_PER_MARKET_UNIT (ruleset-set, see rules.cpp)
  *
  * In regions WITHOUT a settlement the market is created with the calculated
- * amount, but PostTurn() (and UpdateEditRegion()) will apply a 35% wilderness
- * chance roll afterward — on a failed roll amount is set to 0 for that turn.
+ * amount, but PostTurn() (and UpdateEditRegion()) will apply the
+ * WILDERNESS_LEADER_CHANCE roll afterward — on a failed roll amount is set to 0 for that turn.
  * Regions WITH a settlement are not subject to the roll (leaders always available).
  *
  * @note Skips if LEADERS_EXIST is disabled or terrain has NO_LEADERS flag
@@ -1039,9 +1039,8 @@ void ARegion::UpdateEditRegion()
     AddMenMarket();
     AddLeadersMarket();
 
-    // Wilderness leader availability: same 35% roll as in PostTurn()
+    // Wilderness leader availability: same roll as in PostTurn()
     if (!town && Globals->LEADERS_EXIST) {
-        constexpr int WILDERNESS_LEADER_CHANCE = 35; // % chance leaders are available this turn
         if (rng::get_random(100) >= WILDERNESS_LEADER_CHANCE) {
             for (auto& m : markets)
                 if (ItemDefs[m->item].type & IT_LEADER)
@@ -1525,8 +1524,14 @@ void ARegion::Pillage()
         int popdensity = Globals->CITY_POP / 2000;
         AdjustPop(- damage * rng::get_random(popdensity) - rng::get_random(5 * popdensity));
     }
-    /* Stabilise at minimal development levels */
-    while (Wages() < Globals->MAINTENANCE_COST / 20) development += rng::get_random(5);
+
+    // No development floor is applied here. A region cannot be pillaged below
+    // the gate in Game::RunPillageRegion (Wages() must exceed
+    // 10 * MAINTENANCE_COST), and ARegion::PostTurn() grows development back
+    // toward the untouched maxdevelopment, so the region recovers on its own.
+    // A floor at the gate's own threshold would be actively harmful: it would
+    // keep the region permanently pillageable, letting an enemy suppress it
+    // every turn for a token amount of silver.
 }
 
 
@@ -1892,13 +1897,13 @@ void ARegion::Migrate()
  * - Starting city markets (if city was captured)
  * - Wages and entertainment income
  * - All market quantities/prices via Market::post_turn()
- * - Wilderness leader chance (35% roll for regions without a settlement)
+ * - Wilderness leader chance (WILDERNESS_LEADER_CHANCE roll, regions without a settlement)
  * - Production resources
  * - Unit PostTurn processing
  *
  * @note This is where Market::post_turn() recalculates recruitment markets
- * @note After market update, regions without a settlement apply a 35% roll
- *       for leader availability (WILDERNESS_LEADER_CHANCE local constant)
+ * @note After market update, regions without a settlement apply the
+ *       WILDERNESS_LEADER_CHANCE roll for leader availability
  * @see Market::post_turn(), UpdateProducts(), SetIncome(), AddLeadersMarket()
  */
 void ARegion::PostTurn()
@@ -1976,10 +1981,10 @@ void ARegion::PostTurn()
     }
 
     // Wilderness leader availability: in regions without a settlement, leaders are
-    // not permanently present — they appear with 35% probability per turn
-    // (wandering leaders "passing through"). In settlements supply is stable.
+    // not permanently present — they appear with WILDERNESS_LEADER_CHANCE
+    // probability per turn (wandering leaders "passing through").
+    // In settlements supply is stable.
     if (!town && Globals->LEADERS_EXIST) {
-        constexpr int WILDERNESS_LEADER_CHANCE = 35; // % chance leaders are available this turn
         if (rng::get_random(100) >= WILDERNESS_LEADER_CHANCE) {
             for (auto& m : markets)
                 if (ItemDefs[m->item].type & IT_LEADER)

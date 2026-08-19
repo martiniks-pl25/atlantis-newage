@@ -191,6 +191,9 @@ public:
         return game.find_pirate_hideout_spot(origin);
     }
     int turn_number() { return game.TurnNumber(); }
+    // Resolve PILLAGE for one region: eligibility gate, loot split, economy damage.
+    void run_pillage_region(ARegion *r) { game.RunPillageRegion(r); }
+    int count_pillagers(ARegion *r) { return game.CountPillagers(r); }
     // Build the gazette regalia block (crowns + capitals) for assertion in tests.
     json build_regalia_json() { return game.BuildRegaliaJson(); }
     // Run the Trident coronation victory check; returns the winning faction or null.
