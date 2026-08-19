@@ -39,6 +39,8 @@ int *allowedMartial = ma;
 int allowedMartialSize = sizeof(ma) / sizeof(ma[0]);
 
 int factionTypeMin = 0;   // default: no floor (keeps existing test behavior)
+int LEADERS_PER_MARKET_UNIT = 900;
+int WILDERNESS_LEADER_CHANCE = 35;
 
 static GameDefs g = {
     "UnitTest Atlantis",     // RULESET_NAME

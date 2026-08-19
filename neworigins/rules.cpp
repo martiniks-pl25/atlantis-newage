@@ -67,6 +67,11 @@ int allowedMartialSize = sizeof(ma) / sizeof(ma[0]);
 // FACTION_POINTS = 3 the only reachable builds are 1-1, 2-1 and 1-2.
 int factionTypeMin = 1;
 
+// Leader recruitment supply (declared in gamedefs.h; kept out of the GameDefs
+// positional initializer below so retuning cannot shift that list).
+int LEADERS_PER_MARKET_UNIT = 900;
+int WILDERNESS_LEADER_CHANCE = 35;
+
 static GameDefs g = {
 	"NewAge",	// RULESET_NAME (renamed from "NewOrigins"; see ReadGame name-compat shim)
 	MAKE_ATL_VER( 1, 1, 0 ),	// RULESET_VERSION (Trident prod = 1.1.0 stable; dev/Arcanum = 1.2.0 beta on neworigins-v8-newage)
