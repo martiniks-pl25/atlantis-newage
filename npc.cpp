@@ -348,8 +348,8 @@ bool pirate_avoids_city_ring(const ARegion *r)
 /**
  * @brief Spawns a pirate fleet in an ocean region.
  *
- * 80% regular: Cog + crew of pirates.
- * 20% elite:   Galley  + crew (×3 pirates) + 1 captain + 1 bosun (both FLAG_BEHIND).
+ * Regular: Cog + crew of pirates.
+ * Elite:   Galley  + crew (×3 pirates) + 1 captain + 1 bosun (both FLAG_BEHIND).
  *
  * The fleet object is named via getPirateShipName(); boss units get personal names
  * via getPirateName(). Rank prefixes are added in GetMonsterDisplayName().
@@ -404,7 +404,7 @@ int Game::MakePirateFleet(ARegion *pReg)
             std::to_string(pira_count) + " pirates + captain '" + cap->name +
             "' + bosun '" + bos->name + "'");
 
-        // 35% chance to create a HUNT_PIRATE quest for this captain at spawn
+        // Create a HUNT_PIRATE quest for this captain (unconditional).
         TryCreatePirateHuntQuest(cap);
     } else {
         logger::write("MakePirateFleet: fleet '" + fleet->name + "' at (" +

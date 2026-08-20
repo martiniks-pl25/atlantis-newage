@@ -997,6 +997,7 @@ void Army::Lose(Battle *b, ItemList& spoils)
     std::map<std::pair<Unit*, int>, std::set<int>> unit_chosen_types;
     // Map loot accrues per pirate vessel: each hull in the battle rolls on its own,
     // so clearing a squadron in one fight pays what clearing it hull by hull would.
+    // Only hulls that lost a grown pirate (free == 0) enter the list at all.
     struct PirateVessel {
         Object *fleet;
         int chance;
@@ -1033,20 +1034,31 @@ void Army::Lose(Battle *b, ItemList& spoils)
                 s->unit->object->region->level &&
                 s->unit->object->region->level->levelType == ARegionArray::LEVEL_DUNGEON)
                 killed_dungeon_boss = true;
-            // Pirate special loot must be collected before Dead() zeroes item counts
+            // Pirate special loot must be collected before Dead() zeroes item counts.
+            // Compass, whistle and the vessel's map roll are all gated on free == 0,
+            // the same maturity ladder GetMonSpoils uses for ordinary loot and the one
+            // the report already shows the player ("No spoils." through "Full treasure
+            // trove."). A crew that has not come of age carries nothing worth taking,
+            // and because the gate sits outside vessel_for(), its hull is never even
+            // registered - so it rolls for no map either.
             if (s->race == I_PIRATE_CAPTAIN) {
-                spoils.SetNum(I_COMPASS, spoils.GetNum(I_COMPASS) + 1);
-                vessel_for(s->unit->object).chance += 20;
+                if (s->unit->free == 0) {
+                    spoils.SetNum(I_COMPASS, spoils.GetNum(I_COMPASS) + 1);
+                    vessel_for(s->unit->object).chance += 20;
+                }
             } else if (s->race == I_PIRATE_BOSUN) {
-                if (rng::get_random(100) < 50)
-                    spoils.SetNum(I_BOSUN_WHISTLE, spoils.GetNum(I_BOSUN_WHISTLE) + 1);
-                vessel_for(s->unit->object).chance += 20;
-            } else if (s->race == I_PIRATES) {
-                vessel_for(s->unit->object).had_crew = true;
+                if (s->unit->free == 0) {
+                    if (rng::get_random(100) < 50)
+                        spoils.SetNum(I_BOSUN_WHISTLE, spoils.GetNum(I_BOSUN_WHISTLE) + 1);
+                    vessel_for(s->unit->object).chance += 20;
+                }
             } else if (s->race == I_PIRATE_KING) {
                 // The Admiral drops the Crown at kill time (Trident victory token).
+                // Hideout mobs are spawned at free == 0, so no maturity gate applies.
                 spoils.SetNum(I_CROWN, spoils.GetNum(I_CROWN) + 1);
                 killed_admiral = true;
+            } else if (s->race == I_PIRATES) {
+                if (s->unit->free == 0) vessel_for(s->unit->object).had_crew = true;
             }
             s->Dead();
         }
