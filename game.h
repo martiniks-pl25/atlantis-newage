@@ -615,9 +615,9 @@ public:
     std::vector<std::string> pirate_context_regular;
     // Pirates seize empty ships docked in the same non-ocean region
     void PirateSeizeEmptyShips();
-    // Try to create a HUNT_PIRATE quest for the given captain (35% spawn-time chance)
+    // Create a HUNT_PIRATE quest for the given captain (unconditional).
     void TryCreatePirateHuntQuest(Unit *cap);
-    // Each turn: fill open HUNT_PIRATE quest slots from uncovered captains (50% chance/slot)
+    // Each turn: fill open HUNT_PIRATE quest slots from uncovered captains (unconditional).
     void EnsureElitePirateQuests();
 
     //
