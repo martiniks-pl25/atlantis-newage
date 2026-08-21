@@ -603,11 +603,27 @@ Unit *Game::MakeManUnit(Faction *fac, int mantype, int num, int level, int weapo
 
 void Game::PirateRecruitLandCrew()
 {
+    // Ruleset tuning, read once for the whole pass. The defaults keep an
+    // unconfigured ruleset sane: the intake ceiling then sits exactly on the
+    // ship's sailor requirement, and a kept hand costs the region one person,
+    // the same as a player's recruiter does.
+    int intake_up = std::max(1, rulesetSpecificData.value("pirate_recruit_intake_up", 1));
+    int intake_down = std::max(1, rulesetSpecificData.value("pirate_recruit_intake_down", 1));
+    int pop_cost = std::max(1, rulesetSpecificData.value("pirate_recruit_pop_cost", 1));
+
     for (const auto r : regions) {
+        if (TerrainDefs[r->type].similar_type == R_OCEAN) continue;
+        if (TerrainDefs[r->type].similar_type == R_LAKE) continue;
+
+        // What the hex gives up in a month is what a recruiter could hire out of
+        // it: one market unit per MEN_PER_MARKET_UNIT people. Every hull docked
+        // here draws on that one pool, so a stack of ships cannot multiply what a
+        // village loses.
+        int allowance = r->Population() / MEN_PER_MARKET_UNIT;
+        if (allowance < pop_cost) continue;
+
         for (const auto obj : r->objects) {
             if (!obj->IsFleet()) continue;
-            if (TerrainDefs[r->type].similar_type == R_OCEAN) continue;
-            if (TerrainDefs[r->type].similar_type == R_LAKE) continue;
 
             for (const auto u : obj->units) {
                 if (!u->faction->is_npc) continue;
@@ -620,26 +636,47 @@ void Game::PirateRecruitLandCrew()
                 if (current >= cap) {
                     logger::write("PirateRecruitLandCrew: fleet \"" + obj->name + "\""
                         + " at " + r->short_print()
-                        + " — at cap (" + std::to_string(current) + "/" + std::to_string(cap)
+                        + " - at cap (" + std::to_string(current) + "/" + std::to_string(cap)
                         + "), no recruitment");
                     continue;
                 }
 
-                int pct = 10 + rng::get_random(11);  // 10–20%
-                int gained = std::max(1, current * pct / 100);
-                // Do not exceed cap
-                gained = std::min(gained, cap - current);
+                // What the crew itself goes looking for.
+                int pct = 15 + rng::get_random(11);  // 15-25%
+                int demand = std::max(1, current * pct / 100);
+
+                // What the deck can absorb: a ship signs on about as many hands a
+                // month as it needs to sail her, give or take the ruleset's spread.
+                int ceiling = std::max(1, obj->GetFleetSize()
+                    + rng::get_random(intake_up) - rng::get_random(intake_down));
+
+                // The hex pool is counted in people; a kept hand costs pop_cost of them.
+                int supply = allowance / pop_cost;
+
+                int gained = std::min(std::min(demand, cap - current),
+                                      std::min(ceiling, supply));
+                if (gained < 1) continue;
+
+                int taken = gained * pop_cost;
+                allowance -= taken;
+                r->Recruit(taken);   // the call a player's men purchase goes through
                 u->items.SetNum(I_PIRATES, current + gained);
 
                 logger::write("PirateRecruitLandCrew: fleet \"" + obj->name + "\""
                     + " at " + r->short_print()
-                    + " — recruited " + std::to_string(gained) + " pirates"
-                    + " (" + std::to_string(pct) + "%, was " + std::to_string(current)
+                    + " - pressed " + std::to_string(gained) + " pirates"
+                    + " (" + std::to_string(pct) + "%, demand " + std::to_string(demand)
+                    + ", ceiling " + std::to_string(ceiling)
+                    + ", cost " + std::to_string(taken) + " people"
+                    + ", hex left " + std::to_string(allowance)
+                    + ", was " + std::to_string(current)
                     + ", now " + std::to_string(current + gained) + ")");
 
-                // Notify factions present in the region
+                // Notify factions present in the region. The press gang carries off
+                // more people than it keeps; the rest never come home either.
                 std::string msg = "Pirates from " + obj->name + " recruited " + std::to_string(gained)
-                    + " new crew members while docked in " + r->short_print() + ".";
+                    + " new crew members out of " + std::to_string(taken)
+                    + " willing hands while docked in " + r->short_print() + ".";
                 std::set<Faction *> presentFactions = r->PresentFactions();
                 for (const auto f : presentFactions) {
                     f->event(msg, "monster", r, u);
@@ -653,7 +690,10 @@ void Game::PirateRecruitLandCrew()
                     pirate_context_elite.push_back(ctx);
                 else
                     pirate_context_regular.push_back(ctx);
+
+                if (allowance < pop_cost) break;
             }
+            if (allowance < pop_cost) break;
         }
     }
 }
