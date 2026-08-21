@@ -1,8 +1,40 @@
 GAME ?= neworigins
 
-CPLUS = g++
-CC = gcc
-CFLAGS = -g -I. -I.. -Wall -Werror -std=c++20
+# ccache, when installed, makes a repeated cold build (branch switch, all-clean)
+# nearly free. Absent, it expands to nothing and the build works unchanged.
+CCACHE := $(shell command -v ccache 2>/dev/null)
+CPLUS = $(CCACHE) g++
+CC = $(CCACHE) gcc
+
+# Linker, best available first. mold and gold both beat the default bfd on a
+# binary this size; gold is deprecated upstream, so mold wins when present.
+MOLD := $(shell command -v mold 2>/dev/null)
+GOLD := $(shell command -v ld.gold 2>/dev/null)
+LINKER ?= $(if $(MOLD),mold,$(if $(GOLD),gold,bfd))
+
+# Debug info. -gsplit-dwarf leaves the DWARF in .dwo files beside each object
+# instead of copying it into the linked binary, so the link stays small and
+# fast while gdb still sees locals and types. `make DEBUG=-g0` for none.
+DEBUG ?= -g -gsplit-dwarf
+
+CFLAGS = $(DEBUG) -I. -I.. -Wall -Werror -std=c++20 -MMD -MP -fuse-ld=$(LINKER)
+
+JOBS ?= $(shell nproc 2>/dev/null || echo 4)
+# Parallelize by default; use `make JOBS=1` for a fully serial build
+# (`make -j1` only serializes the top-level make, not the sub-makes).
+# A sub-make must inherit the parent's jobserver instead of forcing its own -j:
+# the parent's -j/--jobserver-auth live in the environment, not in the
+# $(MAKEFLAGS) variable at parse time, so the test has to read the environment.
+ifeq (,$(findstring jobserver,$(shell echo "$$MAKEFLAGS")))
+MAKEFLAGS += -j$(JOBS)
+endif
+
+# Objects depend on the flags themselves, not only on the Makefile: a command
+# line such as `make DEBUG=-g0` must rebuild whatever those flags apply to,
+# otherwise half the binary keeps the previous ones. Rewritten at parse time
+# only when CFLAGS actually change, so it does not churn.
+FLAGS_STAMP := obj/.cflags
+$(shell mkdir -p obj; [ "$$(cat $(FLAGS_STAMP) 2>/dev/null)" = "$(CFLAGS)" ] || printf '%s' "$(CFLAGS)" > $(FLAGS_STAMP))
 
 RULESET_OBJECTS = extra.o map.o monsters.o rules.o world.o quest_setup.o
 
@@ -19,18 +51,38 @@ UNITTEST_OBJECTS = $(patsubst unittest/%.cpp,unittest/obj/%.o,$(UNITTEST_SRC))
 
 OBJECTS =  $(patsubst %.o,obj/%.o,$(ENGINE_OBJECTS)) $(patsubst %.o,$(GAME)/obj/%.o,$(RULESET_OBJECTS))
 
+# Header dependency files emitted by -MMD -MP: make recompiles exactly the
+# objects affected by any .cpp or .h change. Objects also depend on Makefile,
+# so the first build after this change regenerates every object (and its .d);
+# after that, incremental builds never need `all-clean`.
+-include $(wildcard obj/*.d $(GAME)/obj/*.d unittest/obj/*.d)
+
+# Rules from the included .d files would otherwise claim the default goal.
+.DEFAULT_GOAL := $(GAME)-m
+
 $(GAME)-m: objdir $(OBJECTS)
 	$(CPLUS) $(CFLAGS) -o $(GAME)/$(GAME) $(OBJECTS)
 
-all: neworigins unittest
+# obj/ is shared between GAME=neworigins and GAME=unittest, so the two submakes
+# must run sequentially: in parallel they would compile the same engine objects.
+all:
+	$(MAKE) neworigins
+	$(MAKE) unittest
 
 neworigins: FORCE
 	$(MAKE) GAME=neworigins
 
+# For a real game variant this force-rebuilds $(GAME)/$(GAME); skip it for
+# GAME=unittest, where it would collide with the unittest/unittest target below.
+ifneq ($(GAME),unittest)
 $(GAME)/$(GAME): FORCE
 	$(MAKE) GAME=$(GAME)
+endif
 
-all-clean: neworigins-clean unittest-clean
+# Same shared-obj/ reason: run the two cleans sequentially, not in parallel.
+all-clean:
+	$(MAKE) neworigins-clean
+	$(MAKE) unittest-clean
 
 neworigins-clean:
 	$(MAKE) GAME=neworigins clean
@@ -58,8 +110,14 @@ rules: $(GAME)/$(GAME)
 unittest:
 	$(MAKE) GAME=unittest unittest-build
 
-unittest-build: unittest-objdir $(filter-out obj/main.o,$(OBJECTS)) $(UNITTEST_OBJECTS)
-	$(CPLUS) $(CFLAGS) -o unittest/unittest $(filter-out obj/main.o,$(OBJECTS)) $(UNITTEST_OBJECTS)
+.PHONY: test-fast
+test-fast: unittest
+	./unittest/unittest
+
+unittest-build: unittest/unittest
+
+unittest/unittest: $(filter-out obj/main.o,$(OBJECTS)) $(UNITTEST_OBJECTS)
+	$(CPLUS) $(CFLAGS) -o $@ $^
 
 # Battle test executable
 .PHONY: test_armor_battle
@@ -79,14 +137,14 @@ objdir:
 	if [ ! -d $(GAME)/obj ]; then mkdir $(GAME)/obj; fi
 
 
-$(patsubst %.o,$(GAME)/obj/%.o,$(RULESET_OBJECTS)): $(GAME)/obj/%.o: $(GAME)/%.cpp
+$(patsubst %.o,$(GAME)/obj/%.o,$(RULESET_OBJECTS)): $(GAME)/obj/%.o: $(GAME)/%.cpp Makefile $(FLAGS_STAMP) | objdir
 	$(CPLUS) $(CFLAGS) -c -o $@ $<
 
-$(patsubst %.o,obj/%.o,$(ENGINE_OBJECTS)): obj/%.o: %.cpp
+$(patsubst %.o,obj/%.o,$(ENGINE_OBJECTS)): obj/%.o: %.cpp Makefile $(FLAGS_STAMP) | objdir
 	$(CPLUS) $(CFLAGS) -c -o $@ $<
 
 # If the boost.hpp file is updated, we need to rebuild the unit test files that include it.
-$(UNITTEST_OBJECTS): unittest/obj/%.o: unittest/%.cpp external/boost/ut.hpp
+$(UNITTEST_OBJECTS): unittest/obj/%.o: unittest/%.cpp external/boost/ut.hpp Makefile $(FLAGS_STAMP) | unittest-objdir
 	$(CPLUS) $(CFLAGS) -c -o $@ $<
 
 # Some utility tasks to keep the external header libraries up to date if needed.
