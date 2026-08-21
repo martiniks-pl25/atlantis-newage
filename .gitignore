@@ -62,3 +62,4 @@ tags
 *.log
 test_output.txt
 test_armor_battle
+test_armor_battle.d
