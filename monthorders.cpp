@@ -376,6 +376,17 @@ Location *Game::Do1SailOrder(ARegion *reg, Object *fleet, Unit *cap)
         stop = 1;
     } else {
         auto x = o->dirs.front();
+
+        // Trivial portage waives the isthmus rule across turns. The stored heading is
+        // dropped here, at the fleet's first real step, rather than at load time, so a
+        // fleet that lay still keeps its bearing for the pirate course cone. Must run
+        // before the canal cost block below, which reads prevdir: waiving later would
+        // charge for a passage that was already legal.
+        if (x->dir != MOVE_PAUSE && !o->portage_waived) {
+            o->portage_waived = true;
+            if (Globals->ALLOW_TRIVIAL_PORTAGE) fleet->SetPrevDir(-1);
+        }
+
         if (x->dir == MOVE_PAUSE) {
             newreg = reg;
         } else {

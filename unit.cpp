@@ -2,7 +2,9 @@
 #include "aregion.h"
 #include "gamedata.h"
 #include "rng.hpp"
+#include <algorithm>
 #include <stack>
+#include <vector>
 #include <iostream>
 #include "string_filters.hpp"
 #include "strings_util.hpp"
@@ -974,6 +976,15 @@ void Unit::DefaultOrders(Object *obj)
                 ARegion *cur = obj->region;
                 auto *so = new SailOrder;
 
+                // Course inertia: prevdir stores the direction back to where the fleet
+                // came from, so the heading is its opposite. -1 = no course yet. A
+                // docked fleet keeps the bearing it arrived on, so leaving port continues
+                // the voyage; from a land hex the reversal is the water hex it came from,
+                // which the cone drops while another exit is open.
+                int forward_dir = -1;
+                if (obj->prevdir >= 0)
+                    forward_dir = (obj->prevdir + 3) % NDIRS;
+
                 for (int step = 0; step < num_steps; step++) {
                     // R_LAKE has similar_type == R_OCEAN, so cur_is_ocean covers both
                     bool cur_is_ocean = (TerrainDefs[cur->type].similar_type == R_OCEAN);
@@ -1004,12 +1015,33 @@ void Unit::DefaultOrders(Object *obj)
                     // Only MOVE_PAUSE remains — nowhere to sail
                     if (valid.size() == 1) break;
 
+                    // Forward cone: the heading gains 2 extra tokens, each side 1, and
+                    // the reversal is dropped — but only while somewhere else is open,
+                    // so a dead end still lets the fleet turn around.
+                    if (forward_dir >= 0) {
+                        auto is_valid = [&valid](int d) {
+                            return std::find(valid.begin(), valid.end(), d) != valid.end();
+                        };
+                        int side1 = (forward_dir + 1) % NDIRS;
+                        int side2 = (forward_dir + NDIRS - 1) % NDIRS;
+                        bool has_fwd_or_side = is_valid(forward_dir) || is_valid(side1) || is_valid(side2);
+                        if (has_fwd_or_side) std::erase(valid, (forward_dir + 3) % NDIRS);
+                        if (is_valid(forward_dir)) {
+                            valid.push_back(forward_dir);
+                            valid.push_back(forward_dir);
+                        }
+                        if (is_valid(side1)) valid.push_back(side1);
+                        if (is_valid(side2)) valid.push_back(side2);
+                    }
+
                     int dir = valid[rng::get_random(valid.size())];
                     auto *md = new MoveDir;
                     md->dir = dir;
                     so->dirs.push_back(md);
 
                     if (dir != MOVE_PAUSE) {
+                        // Inertia compounds inside the turn; a pause keeps the old course
+                        forward_dir = dir;
                         cur = cur->neighbors[dir];
                         // Landed on a land region (coastal/lakeside) — stop here, don't leave same turn
                         bool landed_water = (TerrainDefs[cur->type].similar_type == R_OCEAN ||
