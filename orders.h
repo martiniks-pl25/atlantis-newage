@@ -226,6 +226,9 @@ class SailOrder : public Order {
     ~SailOrder() override;
 
     std::list<MoveDir *> dirs;
+    // Trivial-portage waiver, applied once at the first real step of the turn and
+    // never serialized: a fleet that only paused keeps its heading.
+    bool portage_waived = false;
 };
 
 class FindOrder : public Order {

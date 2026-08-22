@@ -84,7 +84,9 @@ void Object::Writeout(std::ostream& f)
     f << name << '\n';
     f << (describe.empty() ? "none" : describe) << '\n';
     f << inner << '\n';
-    f << (Globals->PREVENT_SAIL_THROUGH && !Globals->ALLOW_TRIVIAL_PORTAGE ? prevdir : -1) << '\n';
+    // Stored unconditionally: the heading is data, the trivial-portage waiver is a
+    // movement-time rule applied at the fleet's first real step (see Do1SailOrder).
+    f << prevdir << '\n';
     f << runes << '\n';
     f << units.size() << '\n';
     for(const auto u : units) u->Writeout(f);
@@ -113,9 +115,6 @@ void Object::Readin(std::istream& f, std::list<Faction *>& facs)
     f >> prevdir;
     f >> runes;
 
-    // Now, fix up a save file if ALLOW_TRIVIAL_PORTAGE is allowed, just
-    // in case it wasn't when the save file was made.
-    if (Globals->ALLOW_TRIVIAL_PORTAGE) prevdir = -1;
     int i;
     f >> i;
     for (int j = 0; j < i; j++) {
