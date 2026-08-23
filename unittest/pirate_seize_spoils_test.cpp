@@ -9,22 +9,17 @@
 
 namespace ut = boost::ut;
 
-// Cover for the seize -> battle -> spoils chain and for the maturity gate that
-// governs it. Pirate special loot (compass, whistle, map roll) is paid only by
-// units at free == 0, the same ladder GetMonSpoils uses for ordinary loot; a hull
-// crewed entirely by younger pirates never even registers as a vessel.
+// Cover for the seize -> battle -> spoils chain and for the structural faucet
+// closure that the merge buys. Pirate special loot (compass, whistle, map roll)
+// is paid per vessel: Army::Lose() rolls once per fleet OBJECT (vessel_for on
+// the object), so a pirate fleet that has absorbed several abandoned ships is
+// still exactly one hull and still yields exactly one map roll. The merge never
+// mints a second object, which is what keeps PirateSeizeEmptyShips() from
+// multiplying the map faucet (design 8.4).
 //
-// That gate is what keeps PirateSeizeEmptyShips() from minting map rolls: a prize
-// crew is created at free = MONSTER_SPOILS_RECOVERY and needs that many turns
-// before it is worth sinking. The two halves are tested separately elsewhere
-// (pirate_seize_test.cpp, pirate_map_chance_ramp_test.cpp).
-//
-// NOTE: the test ruleset sets MONSTER_SPOILS_RECOVERY = 0 (unittest/rules.cpp),
-// i.e. every monster it spawns is already grown. So "green" is written here as the
-// literal GREEN below rather than as Globals->MONSTER_SPOILS_RECOVERY, and the tests
-// that need a green prize crew age it by hand after the seizure. What ties the two
-// together - that a prize is crewed at whatever the ruleset calls fresh - is asserted
-// separately, and holds under either ruleset.
+// The general maturity gate - a unit's `free` field - is asserted on the
+// fleet's own crew below and is unchanged by the merge; the ramp itself is
+// tested in pirate_map_chance_ramp_test.cpp.
 
 // Sums an item across every unit belonging to `f` in the region.
 static int count_faction_item(ARegion *r, Faction *f, int item)
@@ -57,14 +52,6 @@ static int count_pirate_hulls(ARegion *r)
         }
     }
     return hulls;
-}
-
-// The crew unit of a fleet object, or nullptr if the hull is empty.
-static Unit *crew_of(Object *fleet)
-{
-    for (auto u : fleet->units)
-        if (u->items.GetNum(I_PIRATES) > 0) return u;
-    return nullptr;
 }
 
 // Pushes the map-chance ramp so far past 100 that every vessel roll succeeds and
@@ -191,105 +178,26 @@ ut::suite<"PirateSeizeSpoils"> pirate_seize_spoils_suite = [] {
     };
 
     // -----------------------------------------------------------------------
-    // Seize, then sink on the same turn: PirateSeizeEmptyShips() crews the prize
-    // at free = MONSTER_SPOILS_RECOVERY, so the new hull pays nothing yet and the
-    // squadron is worth exactly what the one grown fleet was worth.
-    //
-    // This is the regression for the hull-count faucet: without the maturity gate
-    // the count below is 2, and every empty ship a player leaves ashore would add
-    // another roll.
+    // Design 8.4: a fleet that absorbs three ships in one turn is still ONE
+    // fleet object, so one battle yields exactly one map roll under a guaranteed
+    // ramp. Before the merge each seizure minted its own prize object and the
+    // count below would be 4 with four rolls on the faucet.
     // -----------------------------------------------------------------------
-    "a hull seized this turn pays nothing yet"_test = [] {
+    "a fleet that seizes three ships in one turn stays one hull and pays one map roll"_test = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
         force_guaranteed_tmap(helper);
+
+        // Keep the crew "crowded" at 1% and raise the per-turn cap so a single
+        // turn absorbs all three hulls; the ramp keys above are untouched.
+        helper.game_object().rulesetSpecificData["pirate_seize_fill_pct"] = 1;
+        helper.game_object().rulesetSpecificData["pirate_seize_max_per_turn"] = 3;
 
         ARegion *r = helper.get_region(0, 2, 0);
         r->type = R_PLAIN;  // seizure only happens off the water
 
-        // 24 crew: split is max(2, 10-15% of 24) = 2-3, topped up to the minimum
-        // boarding crew of 4.
-        Unit *pirates = helper.create_npc_pirate_fleet(r, 24);
-        pirates->free = 0;
-        Object *prize = helper.create_empty_fleet(r, I_COG);
-
-        helper.run_pirate_seize_empty_ships();
-
-        Unit *prize_crew = crew_of(prize);
-        expect(prize_crew != nullptr) << "the empty ship must have been boarded";
-        expect(prize_crew->items.GetNum(I_PIRATES) == 4_i)
-            << "boarding crew is the 4-man minimum at this donor size";
-        expect(prize_crew->free == Globals->MONSTER_SPOILS_RECOVERY)
-            << "a prize crew must start at whatever the ruleset calls freshly spawned";
-        expect(count_pirate_hulls(r) == 2_i)
-            << "one fleet plus one prize must read as two hulls";
-
-        // Under the shipped ruleset that assignment already means green; under the
-        // test ruleset it does not, so state the intended condition explicitly.
-        prize_crew->free = GREEN;
-
-        Unit *attacker = create_pirate_hunter(helper, r);
-        Faction *player = attacker->faction;
-
-        expect(helper.run_battle(r, attacker, pirates) == BATTLE_WON);
-
-        expect(count_surviving_race(r, player, I_PIRATES) == 0_i)
-            << "both hulls must go down: the prize is part of the squadron";
-        expect(count_faction_item(r, player, I_TREASURE_MAP) == 1_i)
-            << "only the grown fleet rolls; the prize crew is still green";
-    };
-
-    // -----------------------------------------------------------------------
-    // ... and once that prize crew has come of age it is a vessel like any other.
-    // -----------------------------------------------------------------------
-    "a prize crew that has come of age rolls like any other hull"_test = [] {
-        UnitTestHelper helper;
-        helper.initialize_game();
-        helper.setup_turn();
-        force_guaranteed_tmap(helper);
-
-        ARegion *r = helper.get_region(0, 2, 0);
-        r->type = R_PLAIN;
-
-        Unit *pirates = helper.create_npc_pirate_fleet(r, 24);
-        pirates->free = 0;
-        Object *prize = helper.create_empty_fleet(r, I_COG);
-
-        helper.run_pirate_seize_empty_ships();
-
-        Unit *prize_crew = crew_of(prize);
-        expect(prize_crew != nullptr) << "the empty ship must have been boarded";
-        prize_crew->free = 0;  // three turns of PostTurn later
-
-        Unit *attacker = create_pirate_hunter(helper, r);
-        Faction *player = attacker->faction;
-
-        expect(helper.run_battle(r, attacker, pirates) == BATTLE_WON);
-
-        expect(count_surviving_race(r, player, I_PIRATES) == 0_i)
-            << "the whole squadron must go down before loot is counted";
-        expect(count_faction_item(r, player, I_TREASURE_MAP) == 2_i)
-            << "a grown prize hull rolls separately from the fleet that took it";
-    };
-
-    // -----------------------------------------------------------------------
-    // Scale check on the faucet: three empty ships taken in one turn still pay
-    // one roll, not four. Sink the same squadron three turns later and it pays
-    // four - which is correct, because by then the prizes are real pirate ships.
-    // -----------------------------------------------------------------------
-    "three ships seized in one turn still pay a single roll"_test = [] {
-        UnitTestHelper helper;
-        helper.initialize_game();
-        helper.setup_turn();
-        force_guaranteed_tmap(helper);
-
-        ARegion *r = helper.get_region(0, 2, 0);
-        r->type = R_PLAIN;
-
-        // 30 crew survives three seizures and stays above the donor floor of 20:
-        // 30 -> 26-27 -> 22-25 -> 19-23, each prize crewed by the 4-man minimum.
-        Unit *pirates = helper.create_npc_pirate_fleet(r, 30);
+        Unit *pirates = helper.create_npc_pirate_fleet(r, 40);
         pirates->free = 0;
         helper.create_empty_fleet(r, I_COG, "Ship A");
         helper.create_empty_fleet(r, I_COG, "Ship B");
@@ -297,15 +205,10 @@ ut::suite<"PirateSeizeSpoils"> pirate_seize_spoils_suite = [] {
 
         helper.run_pirate_seize_empty_ships();
 
-        expect(count_pirate_hulls(r) == 4_i)
-            << "three prizes plus the fleet that took them";
-
-        // Every boarding crew is fresh off the donor; see the note at the top of the
-        // file for why the test ruleset needs this spelled out.
-        for (auto obj : r->objects) {
-            Unit *crew = crew_of(obj);
-            if (crew && crew != pirates) crew->free = GREEN;
-        }
+        expect(count_pirate_hulls(r) == 1_i)
+            << "three merged prizes plus the fleet must read as one hull";
+        expect(pirates->object->GetNumShips(I_COG) == 4_i)
+            << "the fleet must have absorbed all three hulls";
 
         Unit *attacker = create_pirate_hunter(helper, r);
         Faction *player = attacker->faction;
@@ -313,8 +216,8 @@ ut::suite<"PirateSeizeSpoils"> pirate_seize_spoils_suite = [] {
         expect(helper.run_battle(r, attacker, pirates) == BATTLE_WON);
 
         expect(count_surviving_race(r, player, I_PIRATES) == 0_i)
-            << "the whole squadron must go down before loot is counted";
+            << "the hull must go down before its loot is counted";
         expect(count_faction_item(r, player, I_TREASURE_MAP) == 1_i)
-            << "empty ships left ashore must not multiply the map faucet";
+            << "one fleet object means one map roll, however many ships it absorbed";
     };
 };

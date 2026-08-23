@@ -1254,14 +1254,9 @@ void Unit::DefaultOrders(Object *obj)
                         Unit *owner = pobj->GetOwner();
                         if (!owner || !owner->faction->is_npc) continue;
 
-                        // Check if the fleet has a pirate captain aboard
-                        bool has_captain = false;
-                        for (const auto u : pobj->units) {
-                            if (u->items.GetNum(I_PIRATE_CAPTAIN) > 0) {
-                                has_captain = true;
-                                break;
-                            }
-                        }
+                        // Elite fleets (a named captain aboard) weigh more to a
+                        // kraken than a plain crew - see fleet_has_captain (aregion.h).
+                        bool has_captain = fleet_has_captain(pobj);
 
                         if (has_captain) {
                             // Elite fleet: strongly attracts the kraken

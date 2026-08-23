@@ -903,16 +903,33 @@ void Game::ModifyTablesPerRuleset(void)
     rulesetSpecificData["tmap_share_late"]           = 20;
     rulesetSpecificData["hideout_soft_cap_percent"]  = 7;
 
-    // Pirate press-gang tuning - how a docked fleet takes on crew, read once per
-    // turn in Game::PirateRecruitLandCrew().
+    // Pirate press-gang tuning - how a fleet takes on crew, read once per turn
+    // in Game::PirateRecruitLandCrew().
     //   intake_up / intake_down - the per-turn intake ceiling is
     //       Object::GetFleetSize() + rng(up) - rng(down), so at 4 and 2 a cog that
     //       needs six hands signs on five to nine, six to eight most months
     //   pop_cost                - people the region loses per hand actually kept;
     //       1 costs a region exactly what a player's recruiter costs it
-    rulesetSpecificData["pirate_recruit_intake_up"]   = 4;
-    rulesetSpecificData["pirate_recruit_intake_down"] = 2;
-    rulesetSpecificData["pirate_recruit_pop_cost"]    = 2;
+    //   offshore_pct            - percent of the land intake an offshore fleet gets
+    //       (0 disables offshore recruitment entirely - no separate boolean)
+    rulesetSpecificData["pirate_recruit_intake_up"]    = 4;
+    rulesetSpecificData["pirate_recruit_intake_down"]  = 2;
+    rulesetSpecificData["pirate_recruit_pop_cost"]     = 2;
+    rulesetSpecificData["pirate_recruit_offshore_pct"] = 50;
+
+    // Pirate ship seizure tuning - how a docked fleet absorbs abandoned ships,
+    // read once per turn in Game::PirateSeizeEmptyShips(). The land pass uses the
+    // first four; pirate_seize_offshore is consumed by the offshore follow-up.
+    //   min_crew     - crew required before the fleet boards anything
+    //   fill_pct     - "crowded" threshold, percent of the hull's crew capacity
+    //   max_per_turn - ships merged per pirate fleet per turn
+    //   allow_slower - 1 = also take ships slower than the fleet (e.g. a Raft)
+    //   offshore     - 1 = let a fleet in the water seize from land neighbours
+    rulesetSpecificData["pirate_seize_min_crew"]     = 20;
+    rulesetSpecificData["pirate_seize_fill_pct"]     = 50;
+    rulesetSpecificData["pirate_seize_max_per_turn"] = 1;
+    rulesetSpecificData["pirate_seize_allow_slower"] = 0;
+    rulesetSpecificData["pirate_seize_offshore"]     = 1;
 
     EnableItem(I_CAMEL);
     EnableItem(I_MCROSSBOW);

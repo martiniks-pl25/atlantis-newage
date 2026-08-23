@@ -72,6 +72,9 @@ ut::suite<"PirateRecruit"> pirate_recruit_suite = [] {
 
         ARegion *r = helper.get_region(0, 0, 0);
         r->type = R_OCEAN;
+        // Open water: with no land neighbour to work, an offshore fleet has
+        // nobody to press-gang - the coast is the source, not the water hex.
+        for (int d = 0; d < NDIRS; d++) r->neighbors[d] = nullptr;
 
         Unit *pirates = helper.create_npc_pirate_fleet(r, 10);
         int before = pirates->items.GetNum(I_PIRATES);
@@ -93,6 +96,9 @@ ut::suite<"PirateRecruit"> pirate_recruit_suite = [] {
 
         ARegion *r = helper.get_region(0, 0, 0);
         r->type = R_LAKE;
+        // Open water: with no land neighbour to work, an offshore fleet has
+        // nobody to press-gang - the coast is the source, not the water hex.
+        for (int d = 0; d < NDIRS; d++) r->neighbors[d] = nullptr;
 
         Unit *pirates = helper.create_npc_pirate_fleet(r, 10);
         int before = pirates->items.GetNum(I_PIRATES);
@@ -393,6 +399,356 @@ ut::suite<"PirateRecruit"> pirate_recruit_suite = [] {
         expect(gained > 0) << "must have pressed somebody";
         expect(lost == gained * 2 * Globals->RECRUIT_POP_LOSS_PERCENT / 100)
             << "the hex loses two people for every hand the pirates keep";
+
+        Globals->DYNAMIC_POPULATION = saved;
+    };
+
+    // -----------------------------------------------------------------------
+    // Elite recognition: the gazette line must come from the fleet object, not
+    // the crew unit - an elite fleet keeps its captain in his own unit aboard
+    // the fleet, so the crew unit can never report the fleet's elite status.
+    // -----------------------------------------------------------------------
+    "An elite fleet's recruitment names the fleet, not a generic pirate fleet"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        ARegion *r = helper.get_region(0, 0, 0);
+        r->type = R_PLAIN;
+        r->population = 1000;   // pirates press-gang out of the region's people
+
+        Unit *pirates = helper.create_npc_pirate_fleet(r, 10);
+        Object *fleet  = pirates->object;
+        helper.create_npc_pirate_captain(r, fleet);
+
+        helper.run_pirate_recruit_land_crew();
+
+        auto &elite = helper.game_object().pirate_context_elite;
+        expect(elite.size() == 1_ul)
+            << "an elite fleet must write exactly one elite gazette line";
+        expect(elite.front().find(fleet->name) != std::string::npos)
+            << "the elite line must name the fleet";
+        expect(helper.game_object().pirate_context_regular.empty())
+            << "an elite fleet must not write a generic gazette line";
+    };
+
+    "A plain fleet's recruitment reads the generic pirate fleet"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        ARegion *r = helper.get_region(0, 0, 0);
+        r->type = R_PLAIN;
+        r->population = 1000;   // pirates press-gang out of the region's people
+
+        helper.create_npc_pirate_fleet(r, 10);
+
+        helper.run_pirate_recruit_land_crew();
+
+        auto &regular = helper.game_object().pirate_context_regular;
+        expect(regular.size() == 1_ul)
+            << "a plain fleet must write exactly one generic gazette line";
+        expect(regular.front().find("A pirate fleet") != std::string::npos)
+            << "the regular line must read 'A pirate fleet'";
+        expect(helper.game_object().pirate_context_elite.empty())
+            << "a plain fleet must not write an elite gazette line";
+    };
+
+    // -----------------------------------------------------------------------
+    // Offshore recruitment: a fleet standing in the water works the richest
+    // land neighbour and takes half of what a docked fleet would get there.
+    // The tests pin the ruleset tuning (pop_cost 2, intake spread 1/1, offshore
+    // 50%) and pick populations whose supply (allowance / pop_cost) sits below
+    // both the crew's demand (15-25% of 40 = 6-10) and the Cog's ceiling
+    // (GetFleetSize() = 6 at the 1/1 spread), so supply is the binding term and
+    // the intake is a fixed value without pinning RNG.
+    // -----------------------------------------------------------------------
+    "offshore intake is the halved land intake for the same fleet and population"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        // Pin the tuning the played rulesets ship (neworigins/extra.cpp) so the
+        // unittest defaults don't leak in: pop_cost 2, intake spread 1/1, and the
+        // offshore half. At 1/1 the ceiling is exactly GetFleetSize() (rng(1) is
+        // always 0), and supply below demand and ceiling keeps the intake fixed.
+        json tune;
+        tune["pirate_recruit_pop_cost"] = 2;
+        tune["pirate_recruit_intake_up"] = 1;
+        tune["pirate_recruit_intake_down"] = 1;
+        tune["pirate_recruit_offshore_pct"] = 50;
+        helper.set_ruleset_specific_data(tune);
+
+        ARegion *ocean = helper.get_region(1, 3, 0);
+        ocean->type = R_OCEAN;
+        for (int d = 0; d < NDIRS; d++) ocean->neighbors[d] = nullptr;
+
+        ARegion *coast = helper.get_region(1, 1, 0);
+        coast->type = R_PLAIN;
+        coast->population = 100;   // allowance 4, supply 2 at pop_cost 2
+        if (coast->town) coast->town->pop = 0;
+        ocean->neighbors[D_NORTH] = coast;
+
+        ARegion *land = helper.get_region(0, 2, 0);
+        land->type = R_PLAIN;
+        land->population = 100;    // the same pool for the docked fleet
+        if (land->town) land->town->pop = 0;
+
+        Unit *docked   = helper.create_npc_pirate_fleet(land, 40);
+        Unit *offshore = helper.create_npc_pirate_fleet(ocean, 40);
+
+        helper.run_pirate_recruit_land_crew();
+
+        int docked_gained   = docked->items.GetNum(I_PIRATES) - 40;
+        int offshore_gained = offshore->items.GetNum(I_PIRATES) - 40;
+        expect(docked_gained == 2) << "the docked fleet takes the full supply of two";
+        expect(offshore_gained == 1) << "the offshore fleet takes half the docked intake";
+    };
+
+    // -----------------------------------------------------------------------
+    // Half of one hand is nobody: an intake of 1 on land halves to 0 offshore.
+    // -----------------------------------------------------------------------
+    "an intake of one hand on land yields nothing offshore"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        json tune;
+        tune["pirate_recruit_pop_cost"] = 2;
+        tune["pirate_recruit_intake_up"] = 1;
+        tune["pirate_recruit_intake_down"] = 1;
+        tune["pirate_recruit_offshore_pct"] = 50;
+        helper.set_ruleset_specific_data(tune);
+
+        ARegion *ocean = helper.get_region(1, 3, 0);
+        ocean->type = R_OCEAN;
+        for (int d = 0; d < NDIRS; d++) ocean->neighbors[d] = nullptr;
+
+        ARegion *coast = helper.get_region(1, 1, 0);
+        coast->type = R_PLAIN;
+        coast->population = 50;    // allowance 2, supply 1 at pop_cost 2
+        if (coast->town) coast->town->pop = 0;
+        ocean->neighbors[D_NORTH] = coast;
+
+        ARegion *land = helper.get_region(0, 2, 0);
+        land->type = R_PLAIN;
+        land->population = 50;     // the same pool for the docked fleet
+        if (land->town) land->town->pop = 0;
+
+        Unit *docked   = helper.create_npc_pirate_fleet(land, 40);
+        Unit *offshore = helper.create_npc_pirate_fleet(ocean, 40);
+
+        helper.run_pirate_recruit_land_crew();
+
+        int docked_gained   = docked->items.GetNum(I_PIRATES) - 40;
+        int offshore_gained = offshore->items.GetNum(I_PIRATES) - 40;
+        expect(docked_gained == 1) << "the docked fleet signs on the one hand available";
+        expect(offshore_gained == 0) << "half of one hand is nobody";
+    };
+
+    // -----------------------------------------------------------------------
+    // The argmax: of several land neighbours, the one with the most allowance
+    // left is worked; the others keep their people.
+    // -----------------------------------------------------------------------
+    "with two coasts the richer one is chosen"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        int saved = Globals->DYNAMIC_POPULATION;
+        Globals->DYNAMIC_POPULATION = 1;
+
+        json tune;
+        tune["pirate_recruit_pop_cost"] = 2;
+        tune["pirate_recruit_intake_up"] = 1;
+        tune["pirate_recruit_intake_down"] = 1;
+        tune["pirate_recruit_offshore_pct"] = 50;
+        helper.set_ruleset_specific_data(tune);
+
+        ARegion *ocean = helper.get_region(1, 3, 0);
+        ocean->type = R_OCEAN;
+        for (int d = 0; d < NDIRS; d++) ocean->neighbors[d] = nullptr;
+
+        ARegion *rich = helper.get_region(0, 2, 0);
+        rich->type = R_PLAIN;
+        rich->population = 250;    // allowance 10 = supply 5 at pop_cost 2
+        if (rich->town) rich->town->pop = 0;
+        ocean->neighbors[D_NORTH] = rich;
+
+        ARegion *poor = helper.get_region(1, 1, 0);
+        poor->type = R_PLAIN;
+        poor->population = 100;    // allowance 4
+        if (poor->town) poor->town->pop = 0;
+        ocean->neighbors[D_SOUTH] = poor;
+
+        Unit *offshore = helper.create_npc_pirate_fleet(ocean, 40);
+        int rich_before = rich->population;
+
+        helper.run_pirate_recruit_land_crew();
+
+        expect(offshore->items.GetNum(I_PIRATES) > 40) << "the fleet must recruit somebody";
+        expect(rich->population < rich_before) << "the richer coast loses people";
+        expect(poor->population == 100) << "the poorer coast is left alone";
+
+        Globals->DYNAMIC_POPULATION = saved;
+    };
+
+    // -----------------------------------------------------------------------
+    // Stacking is allowed: two offshore fleets draw from one coast in one turn,
+    // each seeing the pool the previous one left.
+    // -----------------------------------------------------------------------
+    "two offshore fleets on one coast share the same pool"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        int saved = Globals->DYNAMIC_POPULATION;
+        Globals->DYNAMIC_POPULATION = 1;
+
+        json tune;
+        tune["pirate_recruit_pop_cost"] = 2;
+        tune["pirate_recruit_intake_up"] = 1;
+        tune["pirate_recruit_intake_down"] = 1;
+        tune["pirate_recruit_offshore_pct"] = 50;
+        helper.set_ruleset_specific_data(tune);
+
+        ARegion *ocean = helper.get_region(1, 3, 0);
+        ocean->type = R_OCEAN;
+        for (int d = 0; d < NDIRS; d++) ocean->neighbors[d] = nullptr;
+
+        ARegion *coast = helper.get_region(0, 2, 0);
+        coast->type = R_PLAIN;
+        coast->population = 250;   // allowance 10 = supply 5 at pop_cost 2
+        if (coast->town) coast->town->pop = 0;
+        ocean->neighbors[D_NORTH] = coast;
+
+        Unit *first  = helper.create_npc_pirate_fleet(ocean, 40);
+        Unit *second = helper.create_npc_pirate_fleet(ocean, 40);
+        int coast_before = coast->population;
+
+        helper.run_pirate_recruit_land_crew();
+
+        // Supply is the binding term in both passes: the first fleet sees supply
+        // 5 (below the 6-10 demand and the 6 ceiling), keeps 5*50/100 = 2 and
+        // spends 4 people; the second sees 6 people left = supply 3, keeps
+        // 3*50/100 = 1 and spends 2. The coast loses 4 + 2 = 6 people in all.
+        int first_gained  = first->items.GetNum(I_PIRATES) - 40;
+        int second_gained = second->items.GetNum(I_PIRATES) - 40;
+        expect(first_gained == 2) << "the first fleet keeps half of the supply of five";
+        expect(second_gained == 1) << "the second fleet sees the pool the first left";
+        expect(coast_before - coast->population == 6)
+            << "the coast loses two people for each of the three hands kept";
+
+        Globals->DYNAMIC_POPULATION = saved;
+    };
+
+    // -----------------------------------------------------------------------
+    // Order of service: a fleet that took the risk of landing is served before
+    // one that stands offshore.
+    // -----------------------------------------------------------------------
+    "a docked fleet is served before an offshore fleet on the same hex"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        json tune;
+        tune["pirate_recruit_pop_cost"] = 2;
+        tune["pirate_recruit_intake_up"] = 1;
+        tune["pirate_recruit_intake_down"] = 1;
+        tune["pirate_recruit_offshore_pct"] = 50;
+        helper.set_ruleset_specific_data(tune);
+
+        ARegion *coast = helper.get_region(0, 2, 0);
+        coast->type = R_PLAIN;
+        coast->population = 100;   // allowance 4, supply 2
+        if (coast->town) coast->town->pop = 0;
+
+        ARegion *ocean = helper.get_region(1, 3, 0);
+        ocean->type = R_OCEAN;
+        for (int d = 0; d < NDIRS; d++) ocean->neighbors[d] = nullptr;
+        ocean->neighbors[D_NORTH] = coast;
+
+        Unit *docked   = helper.create_npc_pirate_fleet(coast, 40);
+        Unit *offshore = helper.create_npc_pirate_fleet(ocean, 40);
+
+        helper.run_pirate_recruit_land_crew();
+
+        int docked_gained   = docked->items.GetNum(I_PIRATES) - 40;
+        int offshore_gained = offshore->items.GetNum(I_PIRATES) - 40;
+        expect(docked_gained == 2) << "the docked fleet takes the full supply of two";
+        expect(offshore_gained == 0) << "the offshore fleet finds the pool already gone";
+    };
+
+    // -----------------------------------------------------------------------
+    // Zero disables offshore recruitment entirely - there is no separate boolean.
+    // -----------------------------------------------------------------------
+    "pirate_recruit_offshore_pct of zero disables offshore recruitment"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        json tune;
+        tune["pirate_recruit_offshore_pct"] = 0;
+        helper.set_ruleset_specific_data(tune);
+
+        ARegion *ocean = helper.get_region(1, 3, 0);
+        ocean->type = R_OCEAN;
+        for (int d = 0; d < NDIRS; d++) ocean->neighbors[d] = nullptr;
+
+        ARegion *coast = helper.get_region(0, 2, 0);
+        coast->type = R_PLAIN;
+        coast->population = 1000;
+        ocean->neighbors[D_NORTH] = coast;
+
+        Unit *offshore = helper.create_npc_pirate_fleet(ocean, 40);
+
+        helper.run_pirate_recruit_land_crew();
+
+        expect(offshore->items.GetNum(I_PIRATES) == 40_i)
+            << "a zero offshore percentage must disable offshore recruitment";
+    };
+
+    // -----------------------------------------------------------------------
+    // Equal coasts break ties deterministically to the lowest direction index.
+    // -----------------------------------------------------------------------
+    "equal coasts break ties to the lowest direction index"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        int saved = Globals->DYNAMIC_POPULATION;
+        Globals->DYNAMIC_POPULATION = 1;
+
+        json tune;
+        tune["pirate_recruit_pop_cost"] = 2;
+        tune["pirate_recruit_intake_up"] = 1;
+        tune["pirate_recruit_intake_down"] = 1;
+        tune["pirate_recruit_offshore_pct"] = 50;
+        helper.set_ruleset_specific_data(tune);
+
+        ARegion *ocean = helper.get_region(1, 3, 0);
+        ocean->type = R_OCEAN;
+        for (int d = 0; d < NDIRS; d++) ocean->neighbors[d] = nullptr;
+
+        ARegion *north = helper.get_region(0, 2, 0);
+        north->type = R_PLAIN;
+        north->population = 100;   // allowance 4, equal to the other coast
+        if (north->town) north->town->pop = 0;
+        ocean->neighbors[D_NORTH] = north;
+
+        ARegion *south = helper.get_region(1, 1, 0);
+        south->type = R_PLAIN;
+        south->population = 100;   // allowance 4, equal to the other coast
+        if (south->town) south->town->pop = 0;
+        ocean->neighbors[D_SOUTH] = south;
+
+        helper.create_npc_pirate_fleet(ocean, 40);
+        int north_before = north->population;
+
+        helper.run_pirate_recruit_land_crew();
+
+        expect(north->population < north_before) << "the tie goes to the lowest direction index";
+        expect(south->population == 100) << "the other equal coast is left alone";
 
         Globals->DYNAMIC_POPULATION = saved;
     };

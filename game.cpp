@@ -2217,7 +2217,7 @@ void Game::PirateRaidBuildings(ARegion *r, Unit *u)
 
     // Collect for AI gazette context (pirate_context in times.json).
     // Elite fleets have a named captain (I_PIRATE_CAPTAIN); regular fleets do not.
-    bool is_elite = u->items.GetNum(I_PIRATE_CAPTAIN) > 0;
+    bool is_elite = fleet_has_captain(u->object);
     std::string ctx = (is_elite ? u->object->name : "A pirate fleet")
         + " raided buildings in " + r->name + ".";
     if (is_elite)

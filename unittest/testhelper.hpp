@@ -5,6 +5,7 @@
 #include "../game.h"
 
 #include <algorithm>
+#include <initializer_list>
 #include <iostream>
 #include <sstream>
 
@@ -93,6 +94,8 @@ public:
     void run_pirate_seize_empty_ships();
     // Create an empty fleet (no units) in region with the given ship type and name
     Object *create_empty_fleet(ARegion *region, int ship_type, const std::string& fleet_name = "Ship");
+    // Create an empty fleet (no units) holding several ship types at once
+    Object *create_empty_fleet_multi(ARegion *region, std::initializer_list<int> ship_types, const std::string& fleet_name = "Ship");
     // Run a battle between attacker and target; returns BATTLE_WON/BATTLE_LOST/BATTLE_IMPOSSIBLE
     int run_battle(ARegion *r, Unit *attacker, Unit *target);
     // Create an NPC pirate fleet (O_FLEET + galleon + pirate unit) in region; returns the pirate unit

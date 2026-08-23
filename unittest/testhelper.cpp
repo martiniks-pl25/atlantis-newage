@@ -150,6 +150,16 @@ Object *UnitTestHelper::create_empty_fleet(ARegion *region, int ship_type, const
     return fleet;
 }
 
+Object *UnitTestHelper::create_empty_fleet_multi(ARegion *region, std::initializer_list<int> ship_types, const std::string& fleet_name) {
+    Object *fleet = new Object(region);
+    fleet->type = O_FLEET;
+    fleet->num = game.shipseq++;
+    fleet->set_name(fleet_name);
+    for (int t : ship_types) fleet->AddShip(t);
+    region->objects.push_back(fleet);
+    return fleet;
+}
+
 int UnitTestHelper::run_battle(ARegion *r, Unit *attacker, Unit *target) {
     return game.RunBattle(r, attacker, target);
 }
