@@ -601,6 +601,23 @@ Unit *Game::MakeManUnit(Faction *fac, int mantype, int num, int level, int weapo
 }
 
 
+/**
+ * @brief True when any unit aboard the fleet object holds the captain item.
+ *
+ * An elite pirate fleet keeps its captain (I_PIRATE_CAPTAIN) in a unit of his
+ * own aboard the fleet object, not in the crew unit, so the crew unit can never
+ * answer this question - the whole fleet object must be asked.
+ *
+ * @param fleet the fleet object whose units are checked
+ * @return true if some unit aboard holds I_PIRATE_CAPTAIN
+ */
+bool fleet_has_captain(Object *fleet)
+{
+    for (const auto u : fleet->units)
+        if (u->items.GetNum(I_PIRATE_CAPTAIN) > 0) return true;
+    return false;
+}
+
 void Game::PirateRecruitLandCrew()
 {
     // Ruleset tuning, read once for the whole pass. The defaults keep an
@@ -610,178 +627,355 @@ void Game::PirateRecruitLandCrew()
     int intake_up = std::max(1, rulesetSpecificData.value("pirate_recruit_intake_up", 1));
     int intake_down = std::max(1, rulesetSpecificData.value("pirate_recruit_intake_down", 1));
     int pop_cost = std::max(1, rulesetSpecificData.value("pirate_recruit_pop_cost", 1));
+    int offshore_pct = std::max(0, rulesetSpecificData.value("pirate_recruit_offshore_pct", 50));
 
+    // Stage 1: what each land hex gives up in a month is what a recruiter could
+    // hire out of it: one market unit per MEN_PER_MARKET_UNIT people. Built up
+    // front, keyed by region, so the docked and offshore passes drain the same
+    // per-hex pool - a stack of ships cannot multiply what a village loses.
+    std::map<ARegion *, int> allowance;
     for (const auto r : regions) {
         if (TerrainDefs[r->type].similar_type == R_OCEAN) continue;
         if (TerrainDefs[r->type].similar_type == R_LAKE) continue;
+        allowance[r] = r->Population() / MEN_PER_MARKET_UNIT;
+    }
 
-        // What the hex gives up in a month is what a recruiter could hire out of
-        // it: one market unit per MEN_PER_MARKET_UNIT people. Every hull docked
-        // here draws on that one pool, so a stack of ships cannot multiply what a
-        // village loses.
-        int allowance = r->Population() / MEN_PER_MARKET_UNIT;
-        if (allowance < pop_cost) continue;
+    // Signs one hull's crew on out of `target`'s pool. `offshore` halves the
+    // intake and drops a single hand, so offshore work is a mature fleet's
+    // bonus. The crew still comes off the land, hence the function's name.
+    auto press = [&](Object *obj, Unit *u, ARegion *target, int &pool, bool offshore) {
+        int current = u->items.GetNum(I_PIRATES);
+        if (current <= 0) return;
+
+        int pirate_w = ItemDefs[I_PIRATES].weight;
+        int cap = (pirate_w > 0) ? obj->capacity / pirate_w : 0;
+        if (cap <= 0) return;
+        if (current >= cap) {
+            logger::write("PirateRecruitLandCrew: fleet \"" + obj->name + "\""
+                + " at " + obj->region->short_print()
+                + " - at cap (" + std::to_string(current) + "/" + std::to_string(cap)
+                + "), no recruitment");
+            return;
+        }
+
+        // What the crew itself goes looking for.
+        int pct = 15 + rng::get_random(11);  // 15-25%
+        int demand = std::max(1, current * pct / 100);
+
+        // What the deck can absorb: a ship signs on about as many hands a
+        // month as it needs to sail her, give or take the ruleset's spread.
+        int ceiling = std::max(1, obj->GetFleetSize()
+            + rng::get_random(intake_up) - rng::get_random(intake_down));
+
+        // The hex pool is counted in people; a kept hand costs pop_cost of them.
+        int supply = pool / pop_cost;
+
+        int gained = std::min(std::min(demand, cap - current),
+                              std::min(ceiling, supply));
+        if (gained < 1) return;
+
+        if (offshore) {
+            gained = gained * offshore_pct / 100;
+            if (gained < 1) return;
+        }
+
+        int taken = gained * pop_cost;
+        pool -= taken;
+        target->Recruit(taken);   // the call a player's men purchase goes through
+        u->items.SetNum(I_PIRATES, current + gained);
+
+        logger::write("PirateRecruitLandCrew: fleet \"" + obj->name + "\""
+            + " at " + obj->region->short_print()
+            + " - pressed " + std::to_string(gained) + " pirates"
+            + (offshore ? std::string(" off the coast of ") + target->name : std::string())
+            + " (" + std::to_string(pct) + "%, demand " + std::to_string(demand)
+            + ", ceiling " + std::to_string(ceiling)
+            + ", cost " + std::to_string(taken) + " people"
+            + ", hex left " + std::to_string(pool)
+            + ", was " + std::to_string(current)
+            + ", now " + std::to_string(current + gained) + ")");
+
+        // Notify factions present in the target hex. The press gang carries off
+        // more people than it keeps; the rest never come home either.
+        std::string msg = "Pirates from " + obj->name + " recruited " + std::to_string(gained)
+            + " new crew members out of " + std::to_string(taken)
+            + " willing hands "
+            + (offshore ? std::string("off the coast of ") + target->name + "."
+                        : std::string("while docked in ") + target->short_print() + ".");
+        std::set<Faction *> presentFactions = target->PresentFactions();
+        for (const auto f : presentFactions) {
+            f->event(msg, "monster", target, u);
+        }
+
+        // Collect for AI gazette context (pirate_context in times.json).
+        bool is_elite = fleet_has_captain(obj);
+        std::string ctx = (is_elite ? obj->name : "A pirate fleet")
+            + " recruited crew "
+            + (offshore ? std::string("off the coast of ") + target->name
+                        : std::string("in ") + target->name)
+            + ".";
+        if (is_elite)
+            pirate_context_elite.push_back(ctx);
+        else
+            pirate_context_regular.push_back(ctx);
+    };
+
+    // Stage 2: docked fleets, exactly as before. A fleet that took the risk of
+    // landing is served before one that stands offshore.
+    for (const auto r : regions) {
+        if (TerrainDefs[r->type].similar_type == R_OCEAN) continue;
+        if (TerrainDefs[r->type].similar_type == R_LAKE) continue;
 
         for (const auto obj : r->objects) {
             if (!obj->IsFleet()) continue;
 
             for (const auto u : obj->units) {
                 if (!u->faction->is_npc) continue;
-                int current = u->items.GetNum(I_PIRATES);
-                if (current <= 0) continue;
-
-                int pirate_w = ItemDefs[I_PIRATES].weight;
-                int cap = (pirate_w > 0) ? obj->capacity / pirate_w : 0;
-                if (cap <= 0) continue;
-                if (current >= cap) {
-                    logger::write("PirateRecruitLandCrew: fleet \"" + obj->name + "\""
-                        + " at " + r->short_print()
-                        + " - at cap (" + std::to_string(current) + "/" + std::to_string(cap)
-                        + "), no recruitment");
-                    continue;
-                }
-
-                // What the crew itself goes looking for.
-                int pct = 15 + rng::get_random(11);  // 15-25%
-                int demand = std::max(1, current * pct / 100);
-
-                // What the deck can absorb: a ship signs on about as many hands a
-                // month as it needs to sail her, give or take the ruleset's spread.
-                int ceiling = std::max(1, obj->GetFleetSize()
-                    + rng::get_random(intake_up) - rng::get_random(intake_down));
-
-                // The hex pool is counted in people; a kept hand costs pop_cost of them.
-                int supply = allowance / pop_cost;
-
-                int gained = std::min(std::min(demand, cap - current),
-                                      std::min(ceiling, supply));
-                if (gained < 1) continue;
-
-                int taken = gained * pop_cost;
-                allowance -= taken;
-                r->Recruit(taken);   // the call a player's men purchase goes through
-                u->items.SetNum(I_PIRATES, current + gained);
-
-                logger::write("PirateRecruitLandCrew: fleet \"" + obj->name + "\""
-                    + " at " + r->short_print()
-                    + " - pressed " + std::to_string(gained) + " pirates"
-                    + " (" + std::to_string(pct) + "%, demand " + std::to_string(demand)
-                    + ", ceiling " + std::to_string(ceiling)
-                    + ", cost " + std::to_string(taken) + " people"
-                    + ", hex left " + std::to_string(allowance)
-                    + ", was " + std::to_string(current)
-                    + ", now " + std::to_string(current + gained) + ")");
-
-                // Notify factions present in the region. The press gang carries off
-                // more people than it keeps; the rest never come home either.
-                std::string msg = "Pirates from " + obj->name + " recruited " + std::to_string(gained)
-                    + " new crew members out of " + std::to_string(taken)
-                    + " willing hands while docked in " + r->short_print() + ".";
-                std::set<Faction *> presentFactions = r->PresentFactions();
-                for (const auto f : presentFactions) {
-                    f->event(msg, "monster", r, u);
-                }
-
-                // Collect for AI gazette context (pirate_context in times.json).
-                bool is_elite = u->items.GetNum(I_PIRATE_CAPTAIN) > 0;
-                std::string ctx = (is_elite ? obj->name : "A pirate fleet")
-                    + " recruited crew in " + r->name + ".";
-                if (is_elite)
-                    pirate_context_elite.push_back(ctx);
-                else
-                    pirate_context_regular.push_back(ctx);
-
-                if (allowance < pop_cost) break;
+                if (u->items.GetNum(I_PIRATES) <= 0) continue;
+                press(obj, u, r, allowance[r], false);
+                if (allowance[r] < pop_cost) break;
             }
-            if (allowance < pop_cost) break;
+            if (allowance[r] < pop_cost) break;
+        }
+    }
+
+    // Stage 3: offshore fleets. Each water fleet works the land neighbour with
+    // the greatest remaining allowance (ties: lowest direction index); a fleet
+    // with no land neighbour does nothing. offshore_pct == 0 skips this stage.
+    if (offshore_pct > 0) {
+        for (const auto r : regions) {
+            if (TerrainDefs[r->type].similar_type != R_OCEAN
+                && TerrainDefs[r->type].similar_type != R_LAKE) continue;
+
+            for (const auto obj : r->objects) {
+                if (!obj->IsFleet()) continue;
+
+                for (const auto u : obj->units) {
+                    if (!u->faction->is_npc) continue;
+                    if (u->items.GetNum(I_PIRATES) <= 0) continue;
+
+                    ARegion *best = nullptr;
+                    int best_allowance = -1;
+                    for (int d = 0; d < NDIRS; d++) {
+                        ARegion *nb = r->neighbors[d];
+                        if (!nb) continue;
+                        if (TerrainDefs[nb->type].similar_type == R_OCEAN) continue;
+                        if (TerrainDefs[nb->type].similar_type == R_LAKE) continue;
+                        int a = allowance[nb];
+                        if (a > best_allowance) {
+                            best_allowance = a;
+                            best = nb;
+                        }
+                    }
+                    if (!best) continue;
+
+                    press(obj, u, best, allowance[best], true);
+                }
+            }
         }
     }
 }
 
 /**
- * @brief Pirates seize empty ships docked in the same non-ocean region.
+ * @brief Pirates merge abandoned ships into their own fleets.
  *
- * For each empty fleet (no units) in a land/lake-adjacent region,
- * finds a pirate fleet with >= 20 crew and splits 10–15% (min 1) of
- * pirates into the captured vessel. If the seized ship bears a generic
- * name (matching an IT_SHIP item name, "Ship", or "Fleet"), it is
- * renamed via getPirateShipName().
+ * For each pirate fleet docked in a non-ocean, non-lake region, looks for
+ * empty fleets (no units) in the same region and merges one eligible ship
+ * per turn into the pirate's own fleet object - no crew split, no prize
+ * crew, no rename. A ship is eligible when it is a sea ship (IT_SHIP,
+ * fly == 0, swim > 0) and, unless allow_slower, not slower than the fleet
+ * (the same min-speed rule the NPC branch of Do1SailOrder uses). An
+ * armoured hull bypasses the fill gate for a fleet that has none; otherwise
+ * a crowded fleet takes the biggest hull. A source emptied by the merge is
+ * deleted.
  *
  * Called once per turn after PirateRecruitLandCrew(), before movement.
  */
 void Game::PirateSeizeEmptyShips()
 {
-    const int MIN_PIRATES = 20;
+    // Ruleset tuning, read once for the whole pass. min_crew, fill_pct and
+    // max_per_turn floor at 0, so a ruleset that sets max_per_turn to 0
+    // disables seizure entirely - the per-turn loop never runs. allow_slower
+    // and offshore are read raw: any nonzero value enables them.
+    int min_crew = std::max(0, rulesetSpecificData.value("pirate_seize_min_crew", 20));
+    int fill_pct = std::max(0, rulesetSpecificData.value("pirate_seize_fill_pct", 50));
+    int max_per_turn = std::max(0, rulesetSpecificData.value("pirate_seize_max_per_turn", 1));
+    int allow_slower = rulesetSpecificData.value("pirate_seize_allow_slower", 0);
+    int offshore_enabled = rulesetSpecificData.value("pirate_seize_offshore", 1);
 
+    // A ship type's hull protection (ObjectDefs protect), guarded against a
+    // negative lookup: an unknown item simply shelters nobody.
+    auto ship_protect = [](int t) -> int {
+        int obid = lookup_object(ItemDefs[t].name);
+        return (obid >= 0) ? ObjectDefs[obid].protect : 0;
+    };
+
+    // One pirate fleet absorbs up to max_per_turn eligible ships out of the
+    // given empty fleets, ranking them by the armour exception first and the
+    // fill gate second. `offshore` changes only the message: the event goes to
+    // the factions in the land hex the ship was taken from, off the coast.
+    auto seize_into = [&](Object *pobj, std::vector<Object *> &empty_fleets, bool offshore) {
+        // The pirate fleet's crew: the first NPC unit aboard with enough hands.
+        Unit *pirate_unit = nullptr;
+        for (const auto u : pobj->units) {
+            if (!u->faction->is_npc) continue;
+            if (u->items.GetNum(I_PIRATES) >= min_crew) { pirate_unit = u; break; }
+        }
+        if (!pirate_unit) return;
+
+        for (int taken = 0; taken < max_per_turn; taken++) {
+            // Fleet state, recomputed each iteration: a merge changes the hull
+            // count and therefore both the speed floor and the crew capacity.
+            int fleet_min_speed = Globals->MAX_SPEED;
+            int fleet_max_protect = 0;
+            for (int item = 0; item < NITEMS; item++) {
+                if (pobj->GetNumShips(item) <= 0) continue;
+                if (ItemDefs[item].speed < fleet_min_speed)
+                    fleet_min_speed = ItemDefs[item].speed;
+                int p = ship_protect(item);
+                if (p > fleet_max_protect) fleet_max_protect = p;
+            }
+
+            int crew = pirate_unit->items.GetNum(I_PIRATES);
+            int pirate_w = ItemDefs[I_PIRATES].weight;
+            int crew_cap = (pirate_w > 0) ? pobj->capacity / pirate_w : 0;
+            bool crowded = crew * 100 >= fill_pct * crew_cap;
+
+            // One pass over the candidates, keeping the best armoured hull and
+            // the best hull by size; the mode below picks which one is taken.
+            Object *armor_src = nullptr, *size_src = nullptr;
+            int armor_type = -1, size_type = -1;
+            for (const auto src : empty_fleets) {
+                if (!src) continue;  // emptied and deleted earlier this turn
+                for (const auto ship : src->ships) {
+                    int t = ship->type;
+                    if (ship->num <= 0) continue;
+                    if (!(ItemDefs[t].type & IT_SHIP)) continue;
+                    if (ItemDefs[t].fly != 0 || ItemDefs[t].swim <= 0) continue;
+                    if (!allow_slower && ItemDefs[t].speed < fleet_min_speed) continue;
+
+                    int p = ship_protect(t);
+                    if (p > 0) {
+                        if (armor_type < 0
+                            || p > ship_protect(armor_type)
+                            || (p == ship_protect(armor_type)
+                                && ItemDefs[t].swim > ItemDefs[armor_type].swim)) {
+                            armor_type = t;
+                            armor_src = src;
+                        }
+                    }
+                    if (size_type < 0
+                        || ItemDefs[t].swim > ItemDefs[size_type].swim
+                        || (ItemDefs[t].swim == ItemDefs[size_type].swim
+                            && (ItemDefs[t].speed > ItemDefs[size_type].speed
+                                || (ItemDefs[t].speed == ItemDefs[size_type].speed
+                                    && ItemDefs[t].weight < ItemDefs[size_type].weight)))) {
+                        size_type = t;
+                        size_src = src;
+                    }
+                }
+            }
+
+            Object *best_src = nullptr;
+            int best_type = -1;
+            if (fleet_max_protect == 0 && armor_type >= 0) {
+                best_src = armor_src;  // armour exception bypasses the fill gate
+                best_type = armor_type;
+            } else if (crowded && size_type >= 0) {
+                best_src = size_src;   // crowded: take the biggest hull
+                best_type = size_type;
+            } else {
+                break;  // nothing eligible this turn
+            }
+
+            // Merge the ship into the pirate's own fleet, exactly the ship
+            // transfer pattern: decrement the source, increment the fleet, and
+            // delete the source once it is emptied. The fleet object stays where
+            // it is - docked on land, or standing in the water.
+            std::string src_name = best_src->name;
+            ARegion *src_region = best_src->region;
+            best_src->SetNumShips(best_type, best_src->GetNumShips(best_type) - 1);
+            pobj->SetNumShips(best_type, pobj->GetNumShips(best_type) + 1);
+
+            logger::write("PirateSeizeEmptyShips: \"" + pobj->name + "\""
+                + " at " + pobj->region->short_print()
+                + " merged an abandoned " + ItemDefs[best_type].name
+                + " from \"" + src_name + "\" into its fleet"
+                + " - crew " + std::to_string(crew)
+                + ", capacity now " + std::to_string(pobj->capacity));
+
+            if (best_src->GetFleetSize() == 0) {
+                src_region->objects.remove(best_src);
+                for (auto &e : empty_fleets) if (e == best_src) e = nullptr;
+                delete best_src;
+            }
+
+            // Notify factions present in the hex the ship was taken from, then
+            // collect the same line for the AI gazette context.
+            bool is_elite = fleet_has_captain(pobj);
+            std::string msg = (is_elite ? pobj->name : "A pirate fleet")
+                + " seized an abandoned " + ItemDefs[best_type].name
+                + (offshore ? " off the coast of " + src_region->name + "."
+                            : " in " + src_region->name + ".");
+            for (const auto f : src_region->PresentFactions()) {
+                f->event(msg, "monster", src_region, pirate_unit);
+            }
+            if (is_elite)
+                pirate_context_elite.push_back(msg);
+            else
+                pirate_context_regular.push_back(msg);
+        }
+    };
+
+    // Land pass: a docked fleet merges out of empty fleets in its own region.
     for (const auto r : regions) {
         if (TerrainDefs[r->type].similar_type == R_OCEAN) continue;
         if (TerrainDefs[r->type].similar_type == R_LAKE) continue;
 
-        // Collect empty fleets in this region
-        std::vector<Object *> empty_fleets;
-        for (const auto obj : r->objects) {
-            if (!obj->IsFleet()) continue;
-            if (!obj->units.empty()) continue;
-            empty_fleets.push_back(obj);
-        }
-        if (empty_fleets.empty()) continue;
+        for (const auto pobj : r->objects) {
+            if (!pobj->IsFleet()) continue;
 
-        // For each empty fleet, find one pirate fleet with enough crew
-        for (const auto target : empty_fleets) {
+            // Candidate sources are collected up front: a source deleted when it
+            // empties mid-loop must never be dereferenced again (design edge 13).
+            std::vector<Object *> empty_fleets;
+            for (const auto obj : r->objects) {
+                if (!obj->IsFleet()) continue;
+                if (!obj->units.empty()) continue;
+                empty_fleets.push_back(obj);
+            }
+            if (empty_fleets.empty()) continue;
+
+            seize_into(pobj, empty_fleets, false);
+        }
+    }
+
+    // Offshore pass: a fleet in the water scans every land neighbour for empty
+    // fleets and takes the single best ship across all of them. Avoidance is
+    // deliberately not consulted - an offshore raid on a guarded coast is a
+    // choice, and the counterplay is active, not passive.
+    if (offshore_enabled) {
+        for (const auto r : regions) {
+            if (TerrainDefs[r->type].similar_type != R_OCEAN
+                && TerrainDefs[r->type].similar_type != R_LAKE) continue;
+
             for (const auto pobj : r->objects) {
                 if (!pobj->IsFleet()) continue;
 
-                Unit *pirate_unit = nullptr;
-                for (const auto u : pobj->units) {
-                    if (!u->faction->is_npc) continue;
-                    int n = u->items.GetNum(I_PIRATES);
-                    if (n >= MIN_PIRATES) { pirate_unit = u; break; }
+                std::vector<Object *> empty_fleets;
+                for (int d = 0; d < NDIRS; d++) {
+                    ARegion *nb = r->neighbors[d];
+                    if (!nb) continue;
+                    if (TerrainDefs[nb->type].similar_type == R_OCEAN) continue;
+                    if (TerrainDefs[nb->type].similar_type == R_LAKE) continue;
+                    for (const auto obj : nb->objects) {
+                        if (!obj->IsFleet()) continue;
+                        if (!obj->units.empty()) continue;
+                        empty_fleets.push_back(obj);
+                    }
                 }
-                if (!pirate_unit) continue;
+                if (empty_fleets.empty()) continue;
 
-                int current = pirate_unit->items.GetNum(I_PIRATES);
-                int pct = 10 + rng::get_random(6);  // 10–15%
-                // At least 2 taken from original fleet
-                int split = std::max(2, current * pct / 100);
-                // Recruits bring the boarding crew up to 4 minimum
-                int bonus = std::max(0, 4 - split);
-                int total = split + bonus;
-
-                pirate_unit->items.SetNum(I_PIRATES, current - split);
-
-                // Spawn new crew as owner of the seized fleet
-                Faction *monfac = GetFaction(factions, monfaction);
-                Unit *crew = GetNewUnit(monfac, 0);
-                crew->MakeWMon("Pirates", I_PIRATES, total);
-                crew->free = Globals->MONSTER_SPOILS_RECOVERY;
-                crew->MoveUnit(target);
-                crew->UpdateMonsterDescription();
-
-                // Rename if generic ship/fleet name (default names players rarely keep)
-                static const std::initializer_list<std::string_view> kGenericPrefixes = {
-                    "Ship", "Fleet", "Raft", "Longship", "Cog",
-                    "Galleon", "Galley", "Clipper", "Skyship", "Balloon"
-                };
-                bool generic = false;
-                for (auto p : kGenericPrefixes) {
-                    if (target->name.starts_with(p)) { generic = true; break; }
-                }
-
-                std::string old_name = target->name;
-                if (generic) target->set_name(getPirateShipName());
-
-                logger::write("PirateSeizeEmptyShips: \"" + pobj->name + "\""
-                    + " at " + r->short_print()
-                    + " seized \"" + old_name + "\""
-                    + (generic ? " → \"" + target->name + "\"" : "")
-                    + " — boarding crew " + std::to_string(total)
-                    + " (" + std::to_string(split) + " split"
-                    + (bonus > 0 ? "+" + std::to_string(bonus) + " recruits" : "")
-                    + ", " + std::to_string(pct) + "%"
-                    + ", was " + std::to_string(current)
-                    + ", remaining " + std::to_string(current - split) + ")");
-
-                break;  // one pirate fleet per empty ship
+                seize_into(pobj, empty_fleets, true);
             }
         }
     }

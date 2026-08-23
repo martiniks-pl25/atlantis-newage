@@ -219,6 +219,10 @@ bool pirate_avoids_settlement(const ARegion *r);
 // forbidden, so water is its only way out and it can never be trapped).
 bool pirate_avoids_city_ring(const ARegion *r);
 
+// Elite recognition: an elite fleet keeps its captain in a unit of his own aboard
+// the fleet, so a site that names a pirate fleet must ask this and nothing else.
+bool fleet_has_captain(Object *fleet);
+
 class TownInfo
 {
     public:

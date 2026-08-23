@@ -232,4 +232,55 @@ ut::suite<"PirateRaid"> pirate_raid_suite = [] {
 
         expect(inn->incomplete > initial) << "inn should be damaged";
     };
+
+    // ---------------------------------------------------------------
+    // Elite recognition: the gazette line must come from the fleet object, not
+    // the crew unit - an elite fleet keeps its captain in his own unit aboard
+    // the fleet, so the crew unit can never report the fleet's elite status.
+    // ---------------------------------------------------------------
+    "An elite fleet's raid names the fleet, not a generic pirate fleet"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        ARegion *r = helper.get_region(0, 0, 0);
+        r->type = R_PLAIN;
+
+        Unit *pirates = helper.create_npc_pirate_fleet(r, 40);
+        Object *fleet  = pirates->object;
+        helper.create_npc_pirate_captain(r, fleet);
+        make_empty_building(r, O_FARM);
+
+        helper.run_pirate_raid(r, pirates);
+
+        auto &elite = helper.game_object().pirate_context_elite;
+        expect(elite.size() == 1_ul)
+            << "an elite fleet must write exactly one elite gazette line";
+        expect(elite.front().find(fleet->name) != std::string::npos)
+            << "the elite line must name the fleet";
+        expect(helper.game_object().pirate_context_regular.empty())
+            << "an elite fleet must not write a generic gazette line";
+    };
+
+    "A plain fleet's raid reads the generic pirate fleet"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        ARegion *r = helper.get_region(0, 0, 0);
+        r->type = R_PLAIN;
+
+        Unit *pirates = helper.create_npc_pirate_fleet(r, 40);
+        make_empty_building(r, O_FARM);
+
+        helper.run_pirate_raid(r, pirates);
+
+        auto &regular = helper.game_object().pirate_context_regular;
+        expect(regular.size() == 1_ul)
+            << "a plain fleet must write exactly one generic gazette line";
+        expect(regular.front().find("A pirate fleet") != std::string::npos)
+            << "the regular line must read 'A pirate fleet'";
+        expect(helper.game_object().pirate_context_elite.empty())
+            << "a plain fleet must not write an elite gazette line";
+    };
 };
