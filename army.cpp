@@ -995,20 +995,23 @@ void Army::Lose(Battle *b, ItemList& spoils)
     // Mixed units (e.g. kobolds + trolls) get separate pools per monster type
     // so each type selects from its own spoil category (IT_NORMAL vs IT_ADVANCED).
     std::map<std::pair<Unit*, int>, std::set<int>> unit_chosen_types;
-    // Map loot accrues per pirate vessel: each hull in the battle rolls on its own,
-    // so clearing a squadron in one fight pays what clearing it hull by hull would.
-    // Only hulls that lost a grown pirate (free == 0) enter the list at all.
+    // Map loot accrues per vessel entry: each hull or dungeon room in the battle
+    // rolls on its own, so clearing a squadron in one fight pays what clearing it
+    // entry by entry would. Only entries that lost a grown figure (free == 0)
+    // enter the list at all; the Admiral always counts, spawned at free == 0.
     struct PirateVessel {
-        Object *fleet;
-        int chance;
-        bool had_crew;
+        Object *vessel;
+        bool had_captain;  // a mature captain died on this vessel entry
+        bool had_bosun;    // a mature bosun died on this vessel entry (role pays once)
+        bool had_admiral;  // the Admiral died on this vessel entry (role pays once)
+        bool had_crew;     // a mature rank-and-file pirate died on this vessel entry
     };
     std::vector<PirateVessel> vessels;
     // Kept in first-appearance order rather than in a pointer-keyed map: the roll
     // sequence has to be reproducible from turn to turn, and pointer order is not.
-    auto vessel_for = [&vessels](Object *fleet) -> PirateVessel & {
-        for (auto &v : vessels) if (v.fleet == fleet) return v;
-        vessels.push_back({fleet, 0, false});
+    auto vessel_for = [&vessels](Object *vessel) -> PirateVessel & {
+        for (auto &v : vessels) if (v.vessel == vessel) return v;
+        vessels.push_back({vessel, false, false, false, false});
         return vessels.back();
     };
     bool killed_dungeon_boss = false;
@@ -1042,20 +1045,27 @@ void Army::Lose(Battle *b, ItemList& spoils)
             // and because the gate sits outside vessel_for(), its hull is never even
             // registered - so it rolls for no map either.
             if (s->race == I_PIRATE_CAPTAIN) {
+                // The fleet just lost its leader: it cannot earn another captain
+                // until the cooldown expires (see Game::PromotePirateFleets). Not
+                // gated on free == 0 - a dead captain is a dead captain.
+                if (s->unit->object && s->unit->object->IsFleet())
+                    s->unit->object->pirate_promote_timer = b->pirate_promote_cooldown;
                 if (s->unit->free == 0) {
                     spoils.SetNum(I_COMPASS, spoils.GetNum(I_COMPASS) + 1);
-                    vessel_for(s->unit->object).chance += 20;
+                    vessel_for(s->unit->object).had_captain = true;
                 }
             } else if (s->race == I_PIRATE_BOSUN) {
                 if (s->unit->free == 0) {
                     if (rng::get_random(100) < 50)
                         spoils.SetNum(I_BOSUN_WHISTLE, spoils.GetNum(I_BOSUN_WHISTLE) + 1);
-                    vessel_for(s->unit->object).chance += 20;
+                    vessel_for(s->unit->object).had_bosun = true;
                 }
             } else if (s->race == I_PIRATE_KING) {
-                // The Admiral drops the Crown at kill time (Trident victory token).
-                // Hideout mobs are spawned at free == 0, so no maturity gate applies.
+                // The Admiral drops the Crown at kill time (Trident victory token)
+                // and pays his vessel entry the admiral role. Hideout mobs are
+                // spawned at free == 0, so no maturity gate applies to either.
                 spoils.SetNum(I_CROWN, spoils.GetNum(I_CROWN) + 1);
+                vessel_for(s->unit->object).had_admiral = true;
                 killed_admiral = true;
             } else if (s->race == I_PIRATES) {
                 if (s->unit->free == 0) vessel_for(s->unit->object).had_crew = true;
@@ -1073,7 +1083,10 @@ void Army::Lose(Battle *b, ItemList& spoils)
     }
     int tmaps = 0, rmaps = 0;
     for (auto &v : vessels) {
-        int chance = v.chance + (v.had_crew ? 10 : 0);
+        // Each officer role pays its vessel entry once, however many of that role
+        // died there - captain, bosun and admiral alike, in a fleet hull or a
+        // dungeon room. The whistle roll above stays per bosun.
+        int chance = pirate_vessel_map_chance(v.had_captain, v.had_bosun, v.had_admiral, v.had_crew);
         int scaled = (int)(chance * b->mapChanceMultiplier);
         if (scaled <= 0 || rng::get_random(100) >= scaled) continue;
         if (rng::get_random(100) < b->tmapShare) {

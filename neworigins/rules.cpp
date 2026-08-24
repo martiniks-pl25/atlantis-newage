@@ -67,6 +67,12 @@ int allowedMartialSize = sizeof(ma) / sizeof(ma[0]);
 // FACTION_POINTS = 3 the only reachable builds are 1-1, 2-1 and 1-2.
 int factionTypeMin = 1;
 
+// Pirate fleet wandering route length: weight per step count, index + 1 = steps.
+// {30, 40, 30} = 30% one step, 40% two steps, 30% three steps.
+static int psw[] = { 30, 40, 30 };
+int *pirateStepWeights = psw;
+int pirateStepWeightsSize = sizeof(psw) / sizeof(psw[0]);
+
 // Leader recruitment supply (declared in gamedefs.h; kept out of the GameDefs
 // positional initializer below so retuning cannot shift that list).
 int LEADERS_PER_MARKET_UNIT = 1000;

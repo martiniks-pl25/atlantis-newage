@@ -64,6 +64,11 @@ extern int allowedMartialSize;
 // Minimum points each faction-type category keeps (0 = no floor; ruleset-set,
 // like the allowed* arrays — NOT a GameDefs struct field).
 extern int factionTypeMin;
+// Pirate fleet wandering route length: a weight table where index + 1 is the
+// number of steps, ruleset-set like the allowed* arrays — NOT a GameDefs struct
+// field. An empty or zero-sum table falls back to a compiled-in default.
+extern int *pirateStepWeights;
+extern int pirateStepWeightsSize;
 // Leader recruitment supply, also ruleset-set rather than GameDefs fields, so a
 // world can retune them without shifting that struct's positional initializer:
 //   LEADERS_PER_MARKET_UNIT  - one leader on offer per this many people in the region

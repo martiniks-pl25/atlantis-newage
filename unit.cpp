@@ -969,9 +969,29 @@ void Unit::DefaultOrders(Object *obj)
         // NPC pirate fleets: owner gets a SailOrder, non-owners get nothing (carried by fleet)
         if (obj->IsFleet() && faction->is_npc) {
             if (obj->GetOwner() == this) {
-                // Roll number of steps: 50% = 1, 40% = 2, 10% = 3
-                int roll = rng::get_random(100);
-                int num_steps = (roll < 50) ? 1 : (roll < 90) ? 2 : 3;
+                // Route length comes from the ruleset's weight table (a ruleset
+                // global, not a GameDefs field): index + 1 is the number of
+                // steps, and the table's length is the maximum route length. Roll
+                // by cumulative weight; an empty or zero-sum table falls back to
+                // the compiled-in distribution so a misconfigured ruleset never
+                // produces an empty route.
+                int step_total = 0;
+                if (pirateStepWeights && pirateStepWeightsSize > 0) {
+                    for (int i = 0; i < pirateStepWeightsSize; i++)
+                        step_total += pirateStepWeights[i];
+                }
+                int num_steps = 1;
+                if (step_total > 0) {
+                    int roll = rng::get_random(step_total);
+                    int cum = 0;
+                    for (int i = 0; i < pirateStepWeightsSize; i++) {
+                        cum += pirateStepWeights[i];
+                        if (roll < cum) { num_steps = i + 1; break; }
+                    }
+                } else {
+                    int roll = rng::get_random(100);
+                    num_steps = (roll < 50) ? 1 : (roll < 90) ? 2 : 3;
+                }
 
                 ARegion *cur = obj->region;
                 auto *so = new SailOrder;

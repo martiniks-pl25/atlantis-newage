@@ -221,3 +221,95 @@ ut::suite<"PirateSeizeSpoils"> pirate_seize_spoils_suite = [] {
             << "one fleet object means one map roll, however many ships it absorbed";
     };
 };
+
+// The map-roll chance formula, extracted as a pure helper so the role rule is
+// testable without a battle: each officer role pays its vessel entry once.
+// Captain, bosun and admiral contribute +20 each at most once however many of
+// that role died there; the crew contributes +10 once. This applies to a fleet
+// hull and a dungeon room alike.
+ut::suite<"PirateVesselMapChance"> pirate_vessel_map_chance_suite = [] {
+    using namespace ut;
+
+    "each officer role pays once per vessel entry"_test = [] {
+        // Born elite: captain + bosun + crew - the common case, unchanged.
+        expect(pirate_vessel_map_chance(true, true, false, true) == 50_i)
+            << "captain 20 + bosun 20 + crew 10";
+        // A hull where several bosuns died: the bosun role still pays once.
+        expect(pirate_vessel_map_chance(false, true, false, true) == 30_i)
+            << "two bosuns give the same chance as one bosun";
+        expect(pirate_vessel_map_chance(false, true, false, true) < 50_i)
+            << "strictly less than a per-officer sum (two bosuns + crew would be 50)";
+        // A dungeon room: several bosuns and several captains, plus the Admiral.
+        expect(pirate_vessel_map_chance(true, true, false, true) == 50_i)
+            << "several bosuns and several captains pay 20 + 20 + 10";
+        expect(pirate_vessel_map_chance(true, true, true, true) == 70_i)
+            << "plus another 20 when the Admiral dies there";
+        expect(pirate_vessel_map_chance(true, true, true, true) < 130_i)
+            << "strictly less than a per-officer sum (3 bosuns + 2 captains + admiral would be 130)";
+    };
+
+    // A fleet hull with one captain and two bosuns is still one vessel entry:
+    // one compass, one map roll. The two bosuns roll their whistle independently
+    // but add nothing to the vessel chance beyond the single bosun role.
+    "a captain and two bosuns on one hull still pay one vessel roll"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+        force_guaranteed_tmap(helper);
+
+        ARegion *r = helper.get_region(0, 2, 0);
+        Unit *pirates = helper.create_npc_pirate_fleet(r, 12);
+        pirates->free = 0;
+        Unit *captain = helper.create_npc_pirate_captain(r, pirates->object);
+        captain->free = 0;
+        Unit *bos1 = helper.create_npc_pirate_bosun(r, pirates->object);
+        bos1->free = 0;
+        Unit *bos2 = helper.create_npc_pirate_bosun(r, pirates->object);
+        bos2->free = 0;
+
+        Unit *attacker = create_pirate_hunter(helper, r);
+        Faction *player = attacker->faction;
+
+        expect(helper.run_battle(r, attacker, pirates) == BATTLE_WON);
+
+        expect(count_surviving_race(r, player, I_PIRATES) == 0_i)
+            << "the hull must go down before its loot is counted";
+        expect(count_faction_item(r, player, I_COMPASS) == 1_i)
+            << "one compass from the one captain";
+        expect(count_faction_item(r, player, I_TREASURE_MAP) == 1_i)
+            << "one hull means one map roll, however many officers died on it";
+    };
+
+    // A hideout boss room - crew, two captains, three bosuns, the Admiral - is
+    // one vessel entry (the room's object): one crown, one compass per captain,
+    // and one map roll, however many officers died in it.
+    "a hideout room with several of each role pays one vessel entry"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+        force_guaranteed_tmap(helper);
+
+        ARegion *r = helper.get_region(0, 2, 0);
+        helper.create_monster(r, I_PIRATES, 80);
+        helper.create_monster(r, I_PIRATE_CAPTAIN, 1);
+        helper.create_monster(r, I_PIRATE_CAPTAIN, 1);
+        helper.create_monster(r, I_PIRATE_BOSUN, 1);
+        helper.create_monster(r, I_PIRATE_BOSUN, 1);
+        helper.create_monster(r, I_PIRATE_BOSUN, 1);
+        Unit *admiral = helper.create_monster(r, I_PIRATE_KING, 1);
+
+        Unit *attacker = create_pirate_hunter(helper, r);
+        Faction *player = attacker->faction;
+
+        expect(helper.run_battle(r, attacker, admiral) == BATTLE_WON);
+
+        expect(count_surviving_race(r, player, I_PIRATES) == 0_i)
+            << "the room must go down before its loot is counted";
+        expect(count_faction_item(r, player, I_CROWN) == 1_i)
+            << "the Admiral drops one crown";
+        expect(count_faction_item(r, player, I_COMPASS) == 2_i)
+            << "one compass per captain";
+        expect(count_faction_item(r, player, I_TREASURE_MAP) == 1_i)
+            << "one room means one map roll, however many officers died in it";
+    };
+};

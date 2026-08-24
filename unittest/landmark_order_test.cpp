@@ -69,4 +69,15 @@ ut::suite<"Landmark Order"> landmark_order_suite = []
     expect(eq(compareLandmarks(landmark1, landmark2), true));
     expect(eq(compareLandmarks(landmark2, landmark1), false));
   };
+
+  "When distance, weight, x, and y are equal, landmarks prefer lower z"_test = [landmark1, landmark2]() mutable
+  {
+    landmark2.distance = 1;
+    landmark2.weight = 1;
+    landmark2.x = 1;
+    landmark2.y = 1;
+    landmark2.z = 2;
+    expect(eq(compareLandmarks(landmark1, landmark2), true));
+    expect(eq(compareLandmarks(landmark2, landmark1), false));
+  };
 };

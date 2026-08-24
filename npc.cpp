@@ -6,6 +6,7 @@
 #include <numeric>
 #include <limits>
 #include <map>
+#include <set>
 
 void Game::CreateCityMons()
 {
@@ -361,7 +362,12 @@ int Game::MakePirateFleet(ARegion *pReg)
 {
     auto pmon = find_monster(ItemDefs[I_PIRATES].abr, false)->get();
     Faction *monfac = GetFaction(factions, monfaction);
-    bool elite = (rng::get_random(10) == 0);  // 10% chance of elite pirate captain
+    // Born-elite share, clamped to [0,100]: 0 spawns no elite fleets, 100 makes
+    // every spawned fleet elite. Fallback 10 keeps rulesets without the key and
+    // the unittest build behaving exactly as today.
+    int elite_pct = std::max(0, std::min(100,
+        rulesetSpecificData.value("pirate_elite_spawn_pct", 10)));
+    bool elite = (rng::get_random(100) < elite_pct);
 
     int pira_count = (pmon.number + rng::get_random(pmon.number) + 1) / 2;
     if (elite) pira_count *= 3;
@@ -979,6 +985,358 @@ void Game::PirateSeizeEmptyShips()
             }
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// Pirate promotion. A fleet matures by converting crew bodies into officers
+// (bosun, then captain) and, when two captainless fleets meet in one region,
+// by merging under a freshly promoted captain. Officers are their own units;
+// the fleet's single I_PIRATES-holding unit is "the crew" and stays one unit.
+// ---------------------------------------------------------------------------
+
+// Effective crew: the bodies aboard a fleet object, officers included. Using
+// this (not the crew count alone) is what keeps a promotion from dropping a
+// fleet back under its own threshold.
+static int pirate_fleet_effective_crew(Object *fleet)
+{
+    int crew = 0;
+    for (const auto u : fleet->units) {
+        crew += u->items.GetNum(I_PIRATES);
+        crew += u->items.GetNum(I_PIRATE_BOSUN);
+        crew += u->items.GetNum(I_PIRATE_CAPTAIN);
+    }
+    return crew;
+}
+
+// The one unit aboard a pirate fleet that holds I_PIRATES.
+static Unit *pirate_fleet_crew_unit(Object *fleet)
+{
+    for (const auto u : fleet->units)
+        if (u->faction->is_npc && u->items.GetNum(I_PIRATES) > 0) return u;
+    return nullptr;
+}
+
+static bool pirate_fleet_has_bosun(Object *fleet)
+{
+    for (const auto u : fleet->units)
+        if (u->items.GetNum(I_PIRATE_BOSUN) > 0) return true;
+    return false;
+}
+
+/**
+ * @brief Matures pirate fleets: earns bosuns, earns captains, and merges pairs.
+ *
+ * Runs once per turn in PostProcessTurn(), after GrowWMons() and before
+ * EnsureElitePirateQuests(). Three triggers, evaluated in this order:
+ *
+ *   1. Bosun  - a fleet with no bosun and effective crew at the bosun bar rolls
+ *               per-fleet-per-turn to promote one crew member into a bosun.
+ *   2. Captain - a fleet that has a bosun, effective crew at the captain bar,
+ *               no captain, room under the captain cap, and an expired cooldown
+ *               promotes one crew member into a captain (and mints its quest).
+ *   3. Rendezvous - two captainless fleets in one region, both at the bosun
+ *               bar, at least one carrying a bosun, merge under a new captain;
+ *               at most one merge per region per turn.
+ *
+ * A fleet takes part in at most one promotion event per turn: a fleet that
+ * earned a bosun this turn does not evaluate the captain trigger, and a fleet
+ * that earned a bosun or captain is not eligible for the rendezvous, so a
+ * fleet advances at most one rank per turn.
+ *
+ * The captain ceiling scales with the world's water: water_hexes * per_mille /
+ * 1000, floored at 1, computed once per turn. Most of it is reserved for the
+ * surface: non-surface levels (underworld, underdeep, dungeon) may hold at most
+ * the remainder, so deep fleets cannot spend the world's slots on content
+ * players rarely reach. Surface regions are visited before deep ones. The
+ * `Object::pirate_promote_timer` field blocks trigger 2 and the rendezvous
+ * after a captain dies (set in Army::Lose, ticked at the end of this pass).
+ *
+ * @note Officers spawn at the crew unit's own `free`, FLAG_BEHIND, named via
+ *       getPirateName() - the same way MakePirateFleet builds a born captain.
+ */
+void Game::PromotePirateFleets()
+{
+    // Ruleset tuning, read once for the whole pass. The defaults keep an
+    // unconfigured ruleset sane: the bosun bar sits on a Cog's full crew, the
+    // captain bar on a Galley's, and the cap follows 1% of the world's water.
+    int bosun_crew = std::max(1, rulesetSpecificData.value("pirate_promote_bosun_crew", 75));
+    int bosun_chance = std::max(0, rulesetSpecificData.value("pirate_promote_bosun_chance", 30));
+    int captain_crew = std::max(1, rulesetSpecificData.value("pirate_promote_captain_crew", 120));
+    int captain_per_mille = std::max(0, rulesetSpecificData.value("pirate_elite_captain_per_mille", 10));
+    int merge_enabled = rulesetSpecificData.value("pirate_promote_merge", 1);
+    int surface_share = std::max(0, std::min(100,
+        rulesetSpecificData.value("pirate_elite_captain_surface_share_pct", 67)));
+
+    // Whether a region lies below the surface: underworld, underdeep and dungeon
+    // levels all count as deep. The deep gets its own sub-ceiling of the captain
+    // budget; the surface keeps the whole ceiling when the deep is empty.
+    auto is_deep = [](const ARegion *r) -> bool {
+        return !(r->level && r->level->levelType == ARegionArray::LEVEL_SURFACE);
+    };
+
+    // Once per turn: the sea-hex count (the captain ceiling scales with how much
+    // water the world has, not with a drifting fleet count) and the standing
+    // captain counts - total and deep - maintained as the pass grants captains.
+    int water_hexes = 0;
+    int captains = 0;
+    int deep_captains = 0;
+    for (const auto r : regions) {
+        if (TerrainDefs[r->type].similar_type == R_OCEAN
+            || TerrainDefs[r->type].similar_type == R_LAKE) water_hexes++;
+        bool deep = is_deep(r);
+        for (const auto o : r->objects)
+            for (const auto u : o->units)
+                if (u->faction->num == monfaction && u->items.GetNum(I_PIRATE_CAPTAIN) > 0) {
+                    captains++;
+                    if (deep) deep_captains++;
+                }
+    }
+    int captain_cap = std::max(1, water_hexes * captain_per_mille / 1000);
+    // Most of the ceiling is reserved for the surface: the deep may hold at most
+    // the remainder, so deep fleets cannot spend the world's captain slots on
+    // content players rarely reach.
+    int deep_max = captain_cap * (100 - surface_share) / 100;
+
+    logger::write("PromotePirateFleets: " + std::to_string(water_hexes) + " water hexes, "
+        + "captain ceiling " + std::to_string(captain_cap)
+        + " (deep " + std::to_string(deep_max) + "), living captains "
+        + std::to_string(captains - deep_captains) + " surface / "
+        + std::to_string(deep_captains) + " deep");
+
+    // Closing-line tallies: what the pass did, and how many fleets each captain
+    // gate turned away. Counted where the gates already `continue` - no extra
+    // passes over the world.
+    int bosuns_promoted = 0;
+    int captains_promoted = 0;
+    int merges = 0;
+    int refused_one_promo = 0;
+    int refused_cooldown = 0;
+    int refused_cap = 0;
+    int refused_deep = 0;
+
+    Faction *monfac = GetFaction(factions, monfaction);
+
+    // One promotion event per fleet per turn. A fleet that earns a bosun this
+    // turn does not evaluate the captain trigger, a fleet that earns a captain
+    // is not eligible for the rendezvous, and a fleet that takes part in a
+    // rendezvous earns nothing else. Local to the pass - this state must not
+    // outlive the turn, so no Object field carries it.
+    std::set<Object *> promoted;
+
+    // Converts one crew member into an officer: I_PIRATES -1 on the crew, a new
+    // unit of the officer race at the crew's own maturity. Bodies are conserved.
+    auto promote_officer = [&](Object *fleet, Unit *crew, int officer_race) -> Unit * {
+        crew->items.SetNum(I_PIRATES, crew->items.GetNum(I_PIRATES) - 1);
+        Unit *officer = GetNewUnit(monfac, 0);
+        officer->MakeWMon(getPirateName().c_str(), officer_race, 1);
+        officer->SetFlag(FLAG_BEHIND, 1);
+        officer->free = crew->free;
+        officer->MoveUnit(fleet);
+        officer->UpdateMonsterDescription();
+        return officer;
+    };
+
+    // Surface regions are processed before deep ones: when a single captain slot
+    // remains and fleets on both levels qualify, the surface takes it.
+    std::vector<ARegion *> ordered;
+    for (const auto r : regions) if (!is_deep(r)) ordered.push_back(r);
+    for (const auto r : regions) if (is_deep(r)) ordered.push_back(r);
+
+    // Pass 1: bosun and captain, per fleet, in the same region->object order
+    // recruitment and seizure use, so a turn's RNG sequence stays reproducible.
+    for (const auto r : ordered) {
+        bool deep = is_deep(r);
+        for (const auto obj : r->objects) {
+            if (!obj->IsFleet()) continue;
+            Unit *crew = pirate_fleet_crew_unit(obj);
+            if (!crew) continue;
+
+            bool has_bosun = pirate_fleet_has_bosun(obj);
+            bool has_captain = fleet_has_captain(obj);
+            int eff = pirate_fleet_effective_crew(obj);
+
+            // Trigger 1: bosun. Earning one marks the fleet as having promoted
+            // this turn, so trigger 2 below will not fire for it.
+            if (!has_bosun && eff >= bosun_crew && rng::get_random(100) < bosun_chance) {
+                promote_officer(obj, crew, I_PIRATE_BOSUN);
+                has_bosun = true;
+                promoted.insert(obj);
+                bosuns_promoted++;
+                logger::write("PromotePirateFleets: fleet \"" + obj->name + "\""
+                    + " at " + r->short_print()
+                    + " - earned a bosun, bodies " + std::to_string(eff)
+                    + " -> " + std::to_string(pirate_fleet_effective_crew(obj))
+                    + ", crew " + std::to_string(crew->items.GetNum(I_PIRATES)));
+
+                bool elite = fleet_has_captain(obj);
+                std::string msg = "Pirates from " + obj->name + " earned a bosun in " + r->name + ".";
+                for (const auto f : r->PresentFactions())
+                    f->event(msg, "monster", r, crew);
+                std::string ctx = (elite ? obj->name : "A pirate fleet")
+                    + " earned a bosun in " + r->name + ".";
+                if (elite) pirate_context_elite.push_back(ctx);
+                else pirate_context_regular.push_back(ctx);
+            }
+
+            // Trigger 2: captain. A fleet that earned a bosun this turn is
+            // skipped - a bosun must survive a turn before it can enable one.
+            if (has_captain) continue;
+            if (promoted.count(obj)) { refused_one_promo++; continue; }
+            if (!has_bosun) continue;
+            if (eff < captain_crew) continue;
+            if (obj->pirate_promote_timer > 0) { refused_cooldown++; continue; }
+            if (captains >= captain_cap) { refused_cap++; continue; }
+            if (deep && deep_captains >= deep_max) { refused_deep++; continue; }
+
+            Unit *cap = promote_officer(obj, crew, I_PIRATE_CAPTAIN);
+            promoted.insert(obj);
+            captains++;
+            if (deep) deep_captains++;
+            captains_promoted++;
+            TryCreatePirateHuntQuest(cap);
+            logger::write("PromotePirateFleets: fleet \"" + obj->name + "\""
+                + " at " + r->short_print()
+                + " - earned a captain, bodies " + std::to_string(eff)
+                + " -> " + std::to_string(pirate_fleet_effective_crew(obj))
+                + ", crew " + std::to_string(crew->items.GetNum(I_PIRATES))
+                + ", captains " + std::to_string(captains) + "/" + std::to_string(captain_cap)
+                + (deep ? " (deep " + std::to_string(deep_captains) + "/" + std::to_string(deep_max) + ")" : ""));
+
+            std::string msg = "Pirates from " + obj->name + " earned a captain in " + r->name + ".";
+            for (const auto f : r->PresentFactions())
+                f->event(msg, "monster", r, crew);
+            pirate_context_elite.push_back(obj->name + " earned a captain in " + r->name + ".");
+        }
+    }
+
+    // Pass 2: rendezvous. At most one merge per region per turn, the first
+    // eligible pair in object order. `captains` is monotonic here, so once the
+    // cap is reached no further merge is possible.
+    if (merge_enabled) {
+        for (const auto r : ordered) {
+            if (captains >= captain_cap) break;
+            bool deep = is_deep(r);
+            if (deep && deep_captains >= deep_max) continue;
+
+            // Pirates do not hold a captain's election under a player's guns:
+            // a rendezvous is refused in any region that holds a non-NPC
+            // faction's units. Without this, a player could whistle fleets
+            // together and farm elite fleets - every merge mints a captain, a
+            // hunt quest and, on the kill, a compass.
+            bool has_players = false;
+            for (const auto f : r->PresentFactions())
+                if (!f->is_npc) { has_players = true; break; }
+            if (has_players) continue;
+
+            Object *first = nullptr;
+            Object *second = nullptr;
+            for (const auto obj : r->objects) {
+                if (!obj->IsFleet()) continue;
+                if (promoted.count(obj)) continue;
+                if (fleet_has_captain(obj)) continue;
+                if (pirate_fleet_effective_crew(obj) < bosun_crew) continue;
+                if (obj->pirate_promote_timer > 0) continue;
+                if (!first) { first = obj; continue; }
+                if (pirate_fleet_has_bosun(first) || pirate_fleet_has_bosun(obj)) {
+                    second = obj;
+                    break;
+                }
+            }
+            if (!second) continue;
+
+            // Receiver: the fleet with the greater sailing capacity; ties break
+            // to the lower object number. It keeps its name.
+            Object *recv, *src;
+            int cap_first = first->FleetCapacity();
+            int cap_second = second->FleetCapacity();
+            if (cap_first != cap_second) {
+                recv = (cap_first > cap_second) ? first : second;
+            } else {
+                recv = (first->num <= second->num) ? first : second;
+            }
+            src = (recv == first) ? second : first;
+
+            Unit *recv_crew = pirate_fleet_crew_unit(recv);
+            Unit *src_crew = pirate_fleet_crew_unit(src);
+            if (!recv_crew || !src_crew) continue;
+
+            std::string src_name = src->name;
+
+            // Ships move with the seizure transfer pattern: down on the source,
+            // up on the receiver. Collected first so the ship list is not
+            // mutated while it is walked.
+            std::vector<std::pair<int, int>> moving;
+            for (const auto ship : src->ships)
+                if (ship->type >= 0 && ship->num > 0)
+                    moving.emplace_back(ship->type, ship->num);
+            for (const auto &m : moving) {
+                src->SetNumShips(m.first, 0);
+                recv->SetNumShips(m.first, recv->GetNumShips(m.first) + m.second);
+            }
+
+            // Officers all move over (all officers are kept, so a merged fleet
+            // may carry two bosuns). The crew units become one below.
+            std::vector<Unit *> officers;
+            for (const auto u : src->units)
+                if (u != src_crew) officers.push_back(u);
+            for (auto u : officers) u->MoveUnit(recv);
+
+            // The two crews become one: sum I_PIRATES into the receiver's crew.
+            // The merged crew takes the LESS mature `free` (the larger value) -
+            // taking the more mature one would let a green crew launder itself
+            // into instant special loot by meeting a veteran.
+            recv_crew->items.SetNum(I_PIRATES,
+                recv_crew->items.GetNum(I_PIRATES) + src_crew->items.GetNum(I_PIRATES));
+            if (src_crew->free > recv_crew->free) recv_crew->free = src_crew->free;
+
+            // The emptied source object is deleted; its destructor frees src_crew.
+            // Null the ppUnits slot before deleting (standard unit teardown).
+            if (src_crew->num >= 0 && src_crew->num < (int)maxppunits)
+                ppUnits[src_crew->num] = nullptr;
+            r->objects.remove(src);
+            delete src;
+
+            // Mark only the survivor as having promoted this turn; the source
+            // is gone and must never be dereferenced again.
+            promoted.insert(recv);
+
+            // Grant the merged fleet a captain at the merged crew's maturity.
+            Unit *cap = promote_officer(recv, recv_crew, I_PIRATE_CAPTAIN);
+            captains++;
+            if (deep) deep_captains++;
+            TryCreatePirateHuntQuest(cap);
+            merges++;
+            logger::write("PromotePirateFleets: \"" + recv->name + "\" received \""
+                + src_name + "\" at " + r->short_print()
+                + " - hull " + std::string(recv->FleetDefinition().const_str())
+                + ", crew " + std::to_string(recv_crew->items.GetNum(I_PIRATES))
+                + ", free " + std::to_string(recv_crew->free)
+                + ", granted a captain");
+
+            std::string msg = "Pirates from " + recv->name + " joined with " + src_name
+                + " in " + r->name + " and chose a captain.";
+            for (const auto f : r->PresentFactions())
+                f->event(msg, "monster", r, recv_crew);
+            pirate_context_elite.push_back(recv->name + " joined with " + src_name
+                + " in " + r->name + " under a new captain.");
+        }
+    }
+
+    // Cooldown tick, once per turn per fleet, after both promotion passes have
+    // evaluated: the turn a captain died does not consume a tick, so a fleet
+    // waits exactly pirate_promote_cooldown turns before it can earn another.
+    for (const auto r : ordered)
+        for (const auto obj : r->objects)
+            if (obj->IsFleet() && obj->pirate_promote_timer > 0)
+                obj->pirate_promote_timer--;
+
+    logger::write("PromotePirateFleets: done - bosuns " + std::to_string(bosuns_promoted)
+        + ", captains " + std::to_string(captains_promoted)
+        + ", merges " + std::to_string(merges)
+        + ", refused cap " + std::to_string(refused_cap)
+        + ", deep " + std::to_string(refused_deep)
+        + ", cooldown " + std::to_string(refused_cooldown)
+        + ", already-promoted " + std::to_string(refused_one_promo));
 }
 
 /**

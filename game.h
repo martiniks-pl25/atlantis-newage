@@ -23,7 +23,7 @@ using json = nlohmann::json;
 #include <unordered_map>
 #include <iosfwd>
 
-#define CURRENT_ATL_VER MAKE_ATL_VER(5, 2, 10) // 5.2.10: Faction::capital_region (CAPITAL order, Trident)
+#define CURRENT_ATL_VER MAKE_ATL_VER(5, 2, 11) // 5.2.11: Object::pirate_promote_timer (pirate promotion cooldown)
 #define JSON_REPORT_VERSION MAKE_ATL_VER(1, 1, 0) // 1.1.0: GM report gets engine/name/number/date; O_NONE removed; clean semver; object_reports structured fields
 
 // Object number namespaces: buildings use 1..(FLEET_NUM_START-1), fleets use FLEET_NUM_START+.
@@ -615,6 +615,10 @@ public:
     std::vector<std::string> pirate_context_regular;
     // Pirates seize empty ships docked in the same non-ocean region
     void PirateSeizeEmptyShips();
+    // Pirates mature into officers (bosun, captain) and captainless fleets that
+    // meet in one region merge under a newly promoted captain. Runs once per turn
+    // before EnsureElitePirateQuests(). See docs/PIRATE_PROMOTION_AND_ELITE_AI_DESIGN.md.
+    void PromotePirateFleets();
     // Create a HUNT_PIRATE quest for the given captain (unconditional).
     void TryCreatePirateHuntQuest(Unit *cap);
     // Each turn: fill open HUNT_PIRATE quest slots from uncovered captains (unconditional).

@@ -31,6 +31,16 @@ int apply_hideout_supply_throttle(int tmapShare, int activeHideouts, int softCap
     return (throttled < floorShare) ? floorShare : throttled;
 }
 
+int pirate_vessel_map_chance(bool had_captain, bool had_bosun, bool had_admiral, bool had_crew)
+{
+    int chance = 0;
+    if (had_captain) chance += 20;
+    if (had_bosun) chance += 20;
+    if (had_admiral) chance += 20;
+    if (had_crew) chance += 10;
+    return chance;
+}
+
 void Game::UpdateMapChanceRamp()
 {
     int rampTurns             = rulesetSpecificData.value("map_chance_ramp_turns", 0);
@@ -1217,6 +1227,7 @@ int Game::RunBattle(ARegion * r,Unit * attacker,Unit * target,int ass,
     }
 
     Battle *b = new Battle;
+    b->pirate_promote_cooldown = std::max(0, rulesetSpecificData.value("pirate_promote_cooldown", 6));
     if (!(r->level && r->level->levelType == ARegionArray::LEVEL_DUNGEON)) {
         b->mapChanceMultiplier = cachedMapChanceMultiplier;
         b->tmapShare = cachedTmapShare;

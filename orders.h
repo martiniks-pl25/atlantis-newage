@@ -229,6 +229,11 @@ class SailOrder : public Order {
     // Trivial-portage waiver, applied once at the first real step of the turn and
     // never serialized: a fleet that only paused keeps its heading.
     bool portage_waived = false;
+    // Direction of a summons' dropped final step (RunCallPirates truncates a
+    // fleet with a captain one hex short of the caster): it points at the caster from
+    // the hex where the fleet halts. Once the order is exhausted, Do1SailOrder
+    // stores it as prevdir to face the fleet away. -1 = unset; never serialized.
+    int summon_halt_dir = -1;
 };
 
 class FindOrder : public Order {
