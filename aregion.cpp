@@ -989,7 +989,7 @@ static int lookup_region_type(const std::string& token)
     return -1;
 }
 
-void ARegion::Readin(std::istream &f, std::list<Faction *>& facs)
+void ARegion::Readin(std::istream &f, std::list<Faction *>& facs, ATL_VER eVersion)
 {
     std::getline(f >> std::ws, name);
 
@@ -1058,7 +1058,7 @@ void ARegion::Readin(std::istream &f, std::list<Faction *>& facs)
     buildingseq = 1;
     for (int j = 0; j < n; j++) {
         Object *temp = new Object(this);
-        temp->Readin(f, facs);
+        temp->Readin(f, facs, eVersion);
         if (temp->num >= buildingseq)
             buildingseq = temp->num + 1;
         objects.push_back(temp);
@@ -1833,7 +1833,7 @@ void ARegionList::WriteRegions(std::ostream& f)
     }
 }
 
-int ARegionList::ReadRegions(std::istream &f, std::list<Faction *>& factions)
+int ARegionList::ReadRegions(std::istream &f, std::list<Faction *>& factions, ATL_VER eVersion)
 {
     int num;
     f >> num;
@@ -1861,7 +1861,7 @@ int ARegionList::ReadRegions(std::istream &f, std::list<Faction *>& factions)
     logger::write("Reading the regions...");
     for (i = 0; i < num; i++) {
         ARegion *temp = new ARegion;
-        temp->Readin(f, factions);
+        temp->Readin(f, factions, eVersion);
         regions.push_back(temp);
 
         pRegionArrays[temp->zloc]->SetRegion(temp->xloc, temp->yloc, temp);

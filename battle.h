@@ -48,6 +48,12 @@ MapChanceRamp compute_map_chance_ramp(
 // tmapShare unchanged).
 int apply_hideout_supply_throttle(int tmapShare, int activeHideouts, int softCap, int floorShare);
 
+// A vessel entry's pirate map-roll chance from which figures died there. Each
+// officer role pays its entry once - captain, bosun and admiral +20 each, the
+// crew +10 - however many of that role died there. Pure - no RNG, no state - so
+// the role rule is testable without a battle.
+int pirate_vessel_map_chance(bool had_captain, bool had_bosun, bool had_admiral, bool had_crew);
+
 class Battle
 {
     public:
@@ -98,6 +104,10 @@ class Battle
         // test_armor_battle.cpp) is unaffected.
         double mapChanceMultiplier = 1.0;
         int tmapShare = 10;
+        // Turn cooldown a pirate fleet must wait after its captain dies before it
+        // can earn another. Copied from rulesetSpecificData by Game::RunBattle and
+        // read by Army::Lose, which has no Game pointer of its own.
+        int pirate_promote_cooldown = 6;
 
     private:
         /**

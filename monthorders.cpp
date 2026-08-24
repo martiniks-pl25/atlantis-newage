@@ -547,6 +547,15 @@ Location *Game::Do1SailOrder(ARegion *reg, Object *fleet, Unit *cap)
                 stop = 1;
             }
             std::erase(o->dirs, x);
+            // A summons truncated for a fleet with a captain halts one hex short of the
+            // caster. When its final executed step empties the order, face it away
+            // by storing the dropped step's direction (which points at the caster);
+            // prevdir is "the way I came from", so the course cone then reads a
+            // heading away and drops the way back. Only after a real step - a fleet
+            // that ran out of movepoints still has directions queued and must not
+            // face away from a hex it never reached.
+            if (x->dir != MOVE_PAUSE && o->dirs.empty() && o->summon_halt_dir >= 0)
+                fleet->SetPrevDir(o->summon_halt_dir);
             delete x;
         }
     }

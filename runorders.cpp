@@ -1208,6 +1208,8 @@ void Game::PostProcessTurn()
 
     if (Globals->WANDERING_MONSTERS_EXIST) GrowWMons(Globals->WMON_FREQUENCY);
 
+    PromotePirateFleets();
+
     EnsureElitePirateQuests();
 
     if (Globals->LAIR_MONSTERS_EXIST) GrowLMons(Globals->LAIR_FREQUENCY);

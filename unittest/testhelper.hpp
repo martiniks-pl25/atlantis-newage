@@ -92,6 +92,10 @@ public:
     void run_pirate_recruit_land_crew();
     // Run pirate empty ship seizure for all regions
     void run_pirate_seize_empty_ships();
+    // Run pirate promotion (bosun/captain/rendezvous) for all regions
+    void run_pirate_promote_fleets();
+    // Spawn one pirate fleet via the real generation path (Game::MakePirateFleet)
+    void run_make_pirate_fleet(ARegion *region);
     // Create an empty fleet (no units) in region with the given ship type and name
     Object *create_empty_fleet(ARegion *region, int ship_type, const std::string& fleet_name = "Ship");
     // Create an empty fleet (no units) holding several ship types at once
@@ -102,6 +106,8 @@ public:
     Unit *create_npc_pirate_fleet(ARegion *region, int pirate_count = 1);
     // Create an NPC pirate captain unit inside an existing fleet object
     Unit *create_npc_pirate_captain(ARegion *region, Object *fleet);
+    // Create an NPC pirate bosun unit inside an existing fleet object
+    Unit *create_npc_pirate_bosun(ARegion *region, Object *fleet);
     // Create a wandering monster pirate unit in the given region
     Unit *create_pirate_unit(ARegion *region, int count);
     // Enable ruleset specific data for testing
@@ -223,5 +229,12 @@ private:
     std::stringstream log_stream;
     Game game;
 };
+
+// Observable stand-ins for the unittest TryCreatePirateHuntQuest stub
+// (unittest/extra.cpp): how many times a captain promotion asked for a quest,
+// and the unit it was last asked for.
+int unittest_pirate_hunt_quest_calls();
+Unit *unittest_pirate_hunt_quest_last();
+void unittest_reset_pirate_hunt_quest_calls();
 
 #endif // TEST_HELPER_HPP

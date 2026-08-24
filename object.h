@@ -92,7 +92,7 @@ class Object
         Object(ARegion *region);
         ~Object();
 
-        void Readin(std::istream& f, std::list<Faction *>& facs);
+        void Readin(std::istream& f, std::list<Faction *>& facs, ATL_VER eVersion);
         void Writeout(std::ostream& f);
         void build_json_report(json& j, Faction *, int, int, int, int, int, int, int);
 
@@ -148,6 +148,9 @@ class Object
         int prevdir;
         int mages;
         int shipno;
+        // Pirate promotion cooldown: turns a fleet must wait after its captain died
+        // before it can earn another (see Game::PromotePirateFleets). Serialized.
+        int pirate_promote_timer;
 
         // Combat scratch, meaningful only while a battle is being resolved. A
         // fortification or ship shelters a limited number of men: shelter_left

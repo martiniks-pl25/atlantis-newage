@@ -393,18 +393,28 @@ ut::suite<"PirateWhistle"> pirate_whistle_suite = [] {
         helper.initialize_game();
         helper.setup_turn();
 
-        // Build a chain: (0,0) → (1,1) → (0,2) → (1,3) — distance 3
-        // (0,0) → (1,1) → (0,2) → (1,3) → (0,4) — distance 4
+        // Hand-wired chain caster - hop1 - hop2 - dist3 - dist4, so the test does
+        // not inherit the 2-wide default world's x-wrap (from (1,1) both NE and
+        // NW reach (0,0)) or its y-wrap ((0,4) is the caster's own hex). The
+        // fifth node is the underworld hex, used purely as a distinct region at
+        // distance 4.
         ARegion *r_caster = helper.get_region(0, 0, 0);
-        r_caster->type = R_OCEAN;
-        ARegion *r_hop1 = helper.get_region(1, 1, 0);
-        r_hop1->type = R_OCEAN;
-        ARegion *r_hop2 = helper.get_region(0, 2, 0);
-        r_hop2->type = R_OCEAN;
-        ARegion *r_dist3 = helper.get_region(1, 3, 0); // 3 hops
-        r_dist3->type = R_OCEAN;
-        ARegion *r_dist4 = helper.get_region(0, 4, 0); // 4 hops
-        r_dist4->type = R_OCEAN;
+        ARegion *r_hop1   = helper.get_region(1, 1, 0);
+        ARegion *r_hop2   = helper.get_region(0, 2, 0);
+        ARegion *r_dist3  = helper.get_region(1, 3, 0);
+        ARegion *r_dist4  = helper.get_region(0, 0, 1);
+        for (ARegion *r : { r_caster, r_hop1, r_hop2, r_dist3, r_dist4 }) {
+            r->type = R_OCEAN;
+            for (int d = 0; d < NDIRS; d++) r->neighbors[d] = nullptr;
+        }
+        r_caster->neighbors[D_SOUTHEAST] = r_hop1;
+        r_hop1->neighbors[D_NORTHWEST]   = r_caster;
+        r_hop1->neighbors[D_SOUTHEAST]   = r_hop2;
+        r_hop2->neighbors[D_NORTHWEST]   = r_hop1;
+        r_hop2->neighbors[D_SOUTHEAST]   = r_dist3;
+        r_dist3->neighbors[D_NORTHWEST]  = r_hop2;
+        r_dist3->neighbors[D_SOUTHEAST]  = r_dist4;
+        r_dist4->neighbors[D_NORTHWEST]  = r_dist3;
 
         Unit *caster = create_whistle_caster(helper, r_caster, 5); // MANI 5 → radius 3
         Unit *pirates_dist3 = helper.create_npc_pirate_fleet(r_dist3, 5);
@@ -427,5 +437,180 @@ ut::suite<"PirateWhistle"> pirate_whistle_suite = [] {
         // Distance 4 → beyond radius 3 → must NOT be touched
         expect(pirates_dist4->monthorders == so_dist4)
             << "fleet at distance 4 must not be redirected (beyond radius 3)";
+    };
+
+    // -----------------------------------------------------------------------
+    // Whistle break: a 10% chance by default, tunable via the ruleset key.
+    // Pinned to 100 the whistle is gone after one cast (and the summon still
+    // happened that turn); pinned to 0 it survives repeated casts.
+    // -----------------------------------------------------------------------
+    "Whistle breaks at 100 and the summon still happens"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+        helper.set_ruleset_specific_data(json{ { "pirate_whistle_break_pct", 100 } });
+
+        ARegion *r_caster = helper.get_region(0, 0, 0);
+        ARegion *r_fleet = helper.get_region(1, 1, 0);
+        for (ARegion *r : { r_caster, r_fleet }) {
+            r->type = R_OCEAN;
+            for (int d = 0; d < NDIRS; d++) r->neighbors[d] = nullptr;
+        }
+        r_caster->neighbors[D_SOUTHEAST] = r_fleet;
+        r_fleet->neighbors[D_NORTHWEST] = r_caster;
+
+        Unit *caster = create_whistle_caster(helper, r_caster, 1);
+        Unit *pirates = helper.create_npc_pirate_fleet(r_fleet, 5);
+        auto *random_so = new SailOrder;
+        pirates->monthorders = random_so;
+
+        helper.activate_spell(S_CALL_PIRATES, { r_caster, caster, nullptr, 0, 0 });
+
+        expect(caster->items.GetNum(I_BOSUN_WHISTLE) == 0_i)
+            << "a 100 break chance consumes the whistle after one cast";
+        expect(pirates->monthorders != random_so)
+            << "the summon still happened on the turn the whistle broke";
+
+        bool saw_break = false;
+        for (const auto &ev : caster->faction->events)
+            if (ev.message == "The bosun's whistle cracks and falls silent." && ev.category == "spell")
+                saw_break = true;
+        expect(saw_break) << "the caster gets a spell event about the broken whistle";
+    };
+
+    "Whistle survives repeated casts at break chance 0"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+        helper.set_ruleset_specific_data(json{ { "pirate_whistle_break_pct", 0 } });
+
+        ARegion *r_caster = helper.get_region(0, 0, 0);
+        ARegion *r_fleet = helper.get_region(1, 1, 0);
+        for (ARegion *r : { r_caster, r_fleet }) {
+            r->type = R_OCEAN;
+            for (int d = 0; d < NDIRS; d++) r->neighbors[d] = nullptr;
+        }
+        r_caster->neighbors[D_SOUTHEAST] = r_fleet;
+        r_fleet->neighbors[D_NORTHWEST] = r_caster;
+
+        Unit *caster = create_whistle_caster(helper, r_caster, 1);
+        helper.create_npc_pirate_fleet(r_fleet, 5);
+
+        for (int i = 0; i < 5; i++)
+            helper.activate_spell(S_CALL_PIRATES, { r_caster, caster, nullptr, 0, 0 });
+
+        expect(caster->items.GetNum(I_BOSUN_WHISTLE) == 1_i)
+            << "a 0 break chance never consumes the whistle";
+    };
+
+    // -----------------------------------------------------------------------
+    // Summons truncation for a fleet with a captain: it refuses the last step, so
+    // it halts one hex short of the caster and is faced away from him. The
+    // direction the dropped step would have used is remembered on the
+    // SailOrder and applied by Do1SailOrder once the order is executed.
+    // -----------------------------------------------------------------------
+    "A fleet with a captain two hexes away is summoned one step and halts facing away"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        // Hand-wired chain caster - mid - fleet, so the test does not inherit the
+        // 2-wide default world's x-wrap (from (1,1) both NE and NW reach (0,0)).
+        ARegion *r_caster = helper.get_region(0, 0, 0);
+        ARegion *r_mid    = helper.get_region(1, 1, 0);
+        ARegion *r_fleet  = helper.get_region(0, 2, 0);
+        for (ARegion *r : { r_caster, r_mid, r_fleet }) {
+            r->type = R_OCEAN;
+            for (int d = 0; d < NDIRS; d++) r->neighbors[d] = nullptr;
+        }
+        r_caster->neighbors[D_SOUTHEAST] = r_mid;
+        r_mid->neighbors[D_NORTHWEST] = r_caster;
+        r_mid->neighbors[D_SOUTHWEST] = r_fleet;
+        r_fleet->neighbors[D_NORTHEAST] = r_mid;
+
+        Unit *caster = create_whistle_caster(helper, r_caster, 3); // radius 2
+        Unit *pirates = helper.create_npc_pirate_fleet(r_fleet, 5);
+        helper.create_npc_pirate_captain(r_fleet, pirates->object);
+
+        helper.activate_spell(S_CALL_PIRATES, { r_caster, caster, nullptr, 0, 0 });
+
+        SailOrder *so = dynamic_cast<SailOrder *>(pirates->monthorders);
+        expect(so != nullptr) << "the fleet with a captain must still be redirected";
+        expect(so != nullptr && so->dirs.size() == 1_ul)
+            << "a fleet with a captain gets a one-step order that halts it one hex short";
+        expect(so != nullptr && so->summon_halt_dir == D_NORTHWEST)
+            << "the remembered direction points at the caster";
+
+        helper.move_units();
+
+        expect(pirates->object->region == r_mid)
+            << "the fleet halts adjacent to the caster, not on top of him";
+        expect(that % pirates->object->prevdir == D_NORTHWEST)
+            << "prevdir points AT the caster, so the heading points away";
+    };
+
+    "A fleet with a captain already adjacent is not claimed by a summons"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        // Hand-wired adjacency: one declared edge from the fleet to the caster,
+        // not the default world's wrapped duplicates.
+        ARegion *r_caster = helper.get_region(0, 0, 0);
+        ARegion *r_fleet = helper.get_region(1, 1, 0);
+        for (ARegion *r : { r_caster, r_fleet }) {
+            r->type = R_OCEAN;
+            for (int d = 0; d < NDIRS; d++) r->neighbors[d] = nullptr;
+        }
+        r_caster->neighbors[D_SOUTHEAST] = r_fleet;
+        r_fleet->neighbors[D_NORTHWEST] = r_caster;
+
+        Unit *caster = create_whistle_caster(helper, r_caster, 1); // radius 1
+        Unit *pirates = helper.create_npc_pirate_fleet(r_fleet, 5);
+        helper.create_npc_pirate_captain(r_fleet, pirates->object);
+
+        auto *original_so = new SailOrder;
+        pirates->monthorders = original_so;
+
+        helper.activate_spell(S_CALL_PIRATES, { r_caster, caster, nullptr, 0, 0 });
+
+        expect(pirates->monthorders == original_so)
+            << "a fleet with a captain already adjacent keeps its own orders";
+    };
+
+    "A captainless fleet is still summoned all the way to the caster"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        // Same hand-wired chain as the truncation test; without a captain the
+        // whole two-step path is issued and nothing is remembered.
+        ARegion *r_caster = helper.get_region(0, 0, 0);
+        ARegion *r_mid    = helper.get_region(1, 1, 0);
+        ARegion *r_fleet  = helper.get_region(0, 2, 0);
+        for (ARegion *r : { r_caster, r_mid, r_fleet }) {
+            r->type = R_OCEAN;
+            for (int d = 0; d < NDIRS; d++) r->neighbors[d] = nullptr;
+        }
+        r_caster->neighbors[D_SOUTHEAST] = r_mid;
+        r_mid->neighbors[D_NORTHWEST] = r_caster;
+        r_mid->neighbors[D_SOUTHWEST] = r_fleet;
+        r_fleet->neighbors[D_NORTHEAST] = r_mid;
+
+        Unit *caster = create_whistle_caster(helper, r_caster, 3); // radius 2
+        Unit *pirates = helper.create_npc_pirate_fleet(r_fleet, 5);
+
+        auto *original_so = new SailOrder;
+        pirates->monthorders = original_so;
+
+        helper.activate_spell(S_CALL_PIRATES, { r_caster, caster, nullptr, 0, 0 });
+
+        expect(pirates->monthorders != original_so)
+            << "a captainless fleet must still be redirected";
+        SailOrder *so = dynamic_cast<SailOrder *>(pirates->monthorders);
+        expect(so != nullptr && so->dirs.size() == 2_ul)
+            << "the full two-step path to the caster is issued";
+        expect(so != nullptr && so->summon_halt_dir == -1)
+            << "no truncation, so no remembered direction";
     };
 };

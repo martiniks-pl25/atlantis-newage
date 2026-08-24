@@ -140,6 +140,14 @@ void UnitTestHelper::run_pirate_seize_empty_ships() {
     game.PirateSeizeEmptyShips();
 }
 
+void UnitTestHelper::run_pirate_promote_fleets() {
+    game.PromotePirateFleets();
+}
+
+void UnitTestHelper::run_make_pirate_fleet(ARegion *region) {
+    game.MakePirateFleet(region);
+}
+
 Object *UnitTestHelper::create_empty_fleet(ARegion *region, int ship_type, const std::string& fleet_name) {
     Object *fleet = new Object(region);
     fleet->type = O_FLEET;
@@ -194,6 +202,19 @@ Unit *UnitTestHelper::create_npc_pirate_captain(ARegion *region, Object *fleet) 
     captain->items.SetNum(I_PIRATE_CAPTAIN, 1);
     captain->MoveUnit(fleet);
     return captain;
+}
+
+Unit *UnitTestHelper::create_npc_pirate_bosun(ARegion *region, Object *fleet) {
+    Faction *monfac = GetFaction(game.factions, game.monfaction);
+
+    Unit *bosun = game.GetNewUnit(monfac);
+    bosun->type = U_WMON;
+    bosun->guard = GUARD_AVOID;
+    bosun->SetFlag(FLAG_HOLDING, 1);
+    bosun->SetFlag(FLAG_BEHIND, 1);
+    bosun->items.SetNum(I_PIRATE_BOSUN, 1);
+    bosun->MoveUnit(fleet);
+    return bosun;
 }
 
 Unit *UnitTestHelper::create_pirate_unit(ARegion *region, int count) {

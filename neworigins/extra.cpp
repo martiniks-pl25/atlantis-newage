@@ -931,6 +931,38 @@ void Game::ModifyTablesPerRuleset(void)
     rulesetSpecificData["pirate_seize_allow_slower"] = 0;
     rulesetSpecificData["pirate_seize_offshore"]     = 1;
 
+    // Pirate promotion tuning - how a fleet matures into officers and how two
+    // captainless fleets that meet merge, read once per turn in
+    // Game::PromotePirateFleets() (the cooldown is also read once per battle in
+    // Game::RunBattle). Thresholds are absolute crew counts, officers included,
+    // so promoting one pirate into an officer never drops a fleet back under its
+    // own bar.
+    //   bosun_crew      - effective crew at which a fleet can earn a bosun
+    //   bosun_chance    - per-fleet-per-turn percent roll for that promotion; it paces
+    //       how fast the queue of eligible fleets drains, not how many fleets
+    //       eventually carry a bosun
+    //   captain_crew    - effective crew at which a fleet with a bosun earns a captain
+    //   captain_per_mille - captain ceiling = max(1, water_hexes * this / 1000)
+    //   captain_surface_share_pct - share of the ceiling reserved for the surface;
+    //       the deep holds the rest (deep_max = cap * (100 - this) / 100)
+    //   cooldown        - turns a fleet waits after its captain died (set in Army::Lose)
+    //   merge           - 1 = let two eligible captainless fleets merge (0 disables)
+    rulesetSpecificData["pirate_promote_bosun_crew"]      = 75;
+    rulesetSpecificData["pirate_promote_bosun_chance"]    = 30;
+    rulesetSpecificData["pirate_promote_captain_crew"]    = 120;
+    rulesetSpecificData["pirate_elite_captain_per_mille"] = 10;
+    rulesetSpecificData["pirate_elite_captain_surface_share_pct"] = 67;
+    rulesetSpecificData["pirate_promote_cooldown"]        = 6;
+    rulesetSpecificData["pirate_promote_merge"]           = 1;
+
+    // Born-elite spawn share: percent of MakePirateFleet() spawns that are elite
+    // (Galley, triple crew, a captain and a bosun). 0 = no born elites, 100 = all.
+    rulesetSpecificData["pirate_elite_spawn_pct"]         = 10;
+
+    // Bosun's whistle break chance: percent roll each time S_CALL_PIRATES is
+    // cast, checked after the summon resolves (the cast that breaks still works).
+    rulesetSpecificData["pirate_whistle_break_pct"]       = 10;
+
     EnableItem(I_CAMEL);
     EnableItem(I_MCROSSBOW);
     EnableItem(I_MWAGON);

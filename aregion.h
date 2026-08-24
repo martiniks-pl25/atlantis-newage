@@ -280,7 +280,7 @@ class ARegion
         void assign_generated_name(int levelType);
 
         void Writeout(std::ostream& f);
-        void Readin(std::istream& f, std::list<Faction *>& factions);
+        void Readin(std::istream& f, std::list<Faction *>& factions, ATL_VER eVersion);
 
         int CanMakeAdv(Faction *, int);
         int HasItem(Faction *, int);
@@ -563,7 +563,7 @@ class ARegionList
 
         ARegion *GetRegion(int);
         ARegion *GetRegion(int, int, int);
-        int ReadRegions(std::istream &f, std::list<Faction *>& facs);
+        int ReadRegions(std::istream &f, std::list<Faction *>& facs, ATL_VER eVersion);
         void WriteRegions(std::ostream&  f);
         Location *FindUnit(int);
         Location *GetUnitId(UnitId *id, int faction, ARegion *cur);

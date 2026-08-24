@@ -210,7 +210,14 @@ bool compareLandmarks(const Landmark &first, const Landmark &second) {
         return first.x < second.x;
     }
     // If they are *still* equal, prefer the smaller y coordinate
-    return first.y < second.y;
+    if (first.y != second.y) {
+        return first.y < second.y;
+    }
+    // Finally, prefer the smaller z coordinate. Two landmarks at the same (x, y)
+    // on different levels would otherwise compare equal, and since std::sort is
+    // not stable, GetSignificantLandmark() could pick a different one from run to
+    // run. Appending the level as the last key makes the ordering total.
+    return first.z < second.z;
 }
 
 const EventLocation EventLocation::Create(ARegion* region) {

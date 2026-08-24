@@ -48,7 +48,25 @@ const std::optional<std::string> ARegion::movement_forbidden_by_ruleset(Unit *u,
     return std::nullopt;
 }
 
-void Game::TryCreatePirateHuntQuest(Unit *) {}
+// Observable stand-in for the ruleset's TryCreatePirateHuntQuest (see
+// neworigins/extra.cpp). The unittest ruleset must not reimplement ruleset
+// quest logic - two copies would silently diverge - so it records that the
+// promotion pass asked for a quest, and for whom, for tests to read back.
+static int pirate_hunt_quest_calls = 0;
+static Unit *pirate_hunt_quest_last = nullptr;
+
+void Game::TryCreatePirateHuntQuest(Unit *cap) {
+    pirate_hunt_quest_calls++;
+    pirate_hunt_quest_last = cap;
+}
+
+int unittest_pirate_hunt_quest_calls() { return pirate_hunt_quest_calls; }
+Unit *unittest_pirate_hunt_quest_last() { return pirate_hunt_quest_last; }
+void unittest_reset_pirate_hunt_quest_calls() {
+    pirate_hunt_quest_calls = 0;
+    pirate_hunt_quest_last = nullptr;
+}
+
 void Game::EnsureElitePirateQuests() {}
 
 // No races forbidden from founding settlements in unit tests

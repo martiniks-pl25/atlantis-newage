@@ -514,7 +514,7 @@ int Game::OpenGame()
     //
     // Read in the ARegions
     //
-    i = regions.ReadRegions(f, factions);
+    i = regions.ReadRegions(f, factions, eVersion);
     if (!i) return 0;
 
     // Migrate: add dungeon level if binary now supports it but save file predates it
@@ -1436,10 +1436,14 @@ void Game::WriteWorldEvents() {
     std::string json_str = this->events->WriteJSON(
         Globals->RULESET_NAME, MonthNames[this->month], this->year, wanted, pirate_context);
 
-    // Pick a shared base filename for both outputs
+    // Pick a shared base filename for both outputs. Never draw service filenames
+    // from the game RNG: the world state depends on that stream and directory
+    // contents are not part of the save, so a leftover times.* file would shift
+    // every downstream roll on a re-run.
     std::string base;
+    static int seq = 0;
     do {
-        base = "times." + std::to_string(rng::get_random(10000));
+        base = "times." + std::to_string(TurnNumber()) + "." + std::to_string(++seq);
     } while (filesystem::exists(base) || filesystem::exists(base + ".json"));
 
     if (write_legacy_text) {
@@ -3827,9 +3831,13 @@ void Game::Equilibrate()
 
 void Game::write_times_article(std::string article)
 {
+    // Never draw service filenames from the game RNG — see WriteWorldEvents.
     std::string fname;
+    static int seq = 0;
+    do {
+        fname = "times." + std::to_string(TurnNumber()) + "." + std::to_string(++seq);
+    } while (filesystem::exists(fname));
 
-    do { fname = "times." + std::to_string(rng::get_random(10000)); } while (filesystem::exists(fname));
     std::ofstream f(fname, std::ios::out | std::ios::trunc);
     if (f.is_open()) {
         f << indent::wrap(78,70,0) << article << '\n';

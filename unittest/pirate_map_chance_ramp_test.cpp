@@ -70,7 +70,7 @@ static Unit *add_plain_fleet(UnitTestHelper &helper, ARegion *r, int crew)
 }
 
 // Adds a fleet crewed by `crew` pirates and led by a captain.
-static Unit *add_captained_fleet(UnitTestHelper &helper, ARegion *r, int crew)
+static Unit *add_elite_fleet(UnitTestHelper &helper, ARegion *r, int crew)
 {
     Unit *pirates = helper.create_npc_pirate_fleet(r, crew);
     helper.create_npc_pirate_captain(r, pirates->object);
@@ -416,8 +416,8 @@ ut::suite<"PirateMapChanceRamp"> pirate_map_chance_ramp_suite = [] {
         helper.setup_turn();
 
         ARegion *r = helper.get_region(0, 2, 0);
-        Unit *first = add_captained_fleet(helper, r, 1);
-        add_captained_fleet(helper, r, 1);
+        Unit *first = add_elite_fleet(helper, r, 1);
+        add_elite_fleet(helper, r, 1);
 
         Unit *attacker = create_pirate_hunter(helper, r);
         Faction *player = attacker->faction;
@@ -441,8 +441,8 @@ ut::suite<"PirateMapChanceRamp"> pirate_map_chance_ramp_suite = [] {
         helper.setup_turn();
 
         ARegion *r = helper.get_region(0, 2, 0);
-        Unit *first = add_captained_fleet(helper, r, 1);
-        add_captained_fleet(helper, r, 1);
+        Unit *first = add_elite_fleet(helper, r, 1);
+        add_elite_fleet(helper, r, 1);
 
         Unit *attacker = create_pirate_hunter(helper, r, /*observation=*/2);
         Faction *player = attacker->faction;
@@ -455,15 +455,15 @@ ut::suite<"PirateMapChanceRamp"> pirate_map_chance_ramp_suite = [] {
             << "one compass per dead captain";
     };
 
-    "each captained fleet in a battle rolls for a map of its own"_test = [] {
+    "each elite fleet in a battle rolls for a map of its own"_test = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
         force_guaranteed_tmap(helper);
 
         ARegion *r = helper.get_region(0, 2, 0);
-        Unit *first = add_captained_fleet(helper, r, 1);
-        add_captained_fleet(helper, r, 1);
+        Unit *first = add_elite_fleet(helper, r, 1);
+        add_elite_fleet(helper, r, 1);
 
         Unit *attacker = create_pirate_hunter(helper, r);
         Faction *player = attacker->faction;
@@ -508,8 +508,8 @@ ut::suite<"PirateMapChanceRamp"> pirate_map_chance_ramp_suite = [] {
         force_guaranteed_tmap(helper);
 
         ARegion *r = helper.get_region(0, 2, 0);
-        Unit *first = add_captained_fleet(helper, r, 1);
-        add_captained_fleet(helper, r, 1);
+        Unit *first = add_elite_fleet(helper, r, 1);
+        add_elite_fleet(helper, r, 1);
         add_plain_fleet(helper, r, 1);
         add_plain_fleet(helper, r, 1);
 

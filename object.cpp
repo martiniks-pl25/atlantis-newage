@@ -59,6 +59,7 @@ Object::Object(ARegion *reg)
     runes = 0;
     region = reg;
     prevdir = -1;
+    pirate_promote_timer = 0;
     flying = 0;
     destroyed = 0;
     movepoints = Globals->PHASED_MOVE_OFFSET % Globals->MAX_SPEED;
@@ -88,12 +89,13 @@ void Object::Writeout(std::ostream& f)
     // movement-time rule applied at the fleet's first real step (see Do1SailOrder).
     f << prevdir << '\n';
     f << runes << '\n';
+    f << pirate_promote_timer << '\n';
     f << units.size() << '\n';
     for(const auto u : units) u->Writeout(f);
     WriteoutFleet(f);
 }
 
-void Object::Readin(std::istream& f, std::list<Faction *>& facs)
+void Object::Readin(std::istream& f, std::list<Faction *>& facs, ATL_VER eVersion)
 {
     f >> num;
 
@@ -114,6 +116,12 @@ void Object::Readin(std::istream& f, std::list<Faction *>& facs)
     f >> inner;
     f >> prevdir;
     f >> runes;
+    // pirate_promote_timer added in engine 5.2.11; older saves have no such field.
+    if (eVersion >= MAKE_ATL_VER(5, 2, 11)) {
+        f >> pirate_promote_timer;
+    } else {
+        pirate_promote_timer = 0;
+    }
 
     int i;
     f >> i;

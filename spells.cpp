@@ -3,6 +3,7 @@
 
 #include "string_parser.hpp"
 
+#include <algorithm>
 #include <queue>
 #include <unordered_map>
 
@@ -2086,6 +2087,8 @@ int Game::RunCallPirates(ARegion *r, Unit *u)
             if (!owner || !owner->faction->is_npc) continue;
             if (owner->items.GetNum(I_PIRATES) <= 0) continue;
 
+            bool has_captain = fleet_has_captain(obj);
+
             // Build directed SailOrder: follow BFS gradient toward caster
             auto *so = new SailOrder;
             ARegion *cur = fleet_region;
@@ -2120,6 +2123,17 @@ int Game::RunCallPirates(ARegion *r, Unit *u)
                 }
 
                 if (best_dir == -1) break; // no valid move toward caster
+
+                // A fleet with a captain refuses the last step of a summons: it stops
+                // one hex short of the caster. The dropped step's direction (it
+                // points at the caster) is remembered so Do1SailOrder can face
+                // the halted fleet away once the order has been executed. When the
+                // path ended early on a coastal hex, best_dist never reaches 0 and
+                // nothing is truncated.
+                if (has_captain && best_dist == 0) {
+                    so->summon_halt_dir = best_dir;
+                    break;
+                }
 
                 auto *md = new MoveDir;
                 md->dir = best_dir;
@@ -2158,6 +2172,16 @@ int Game::RunCallPirates(ARegion *r, Unit *u)
     } else {
         u->event("Calls pirates within " + to_string(radius) + " hex" +
                  (radius > 1 ? "es" : "") + ", but no pirate fleets respond.", "spell");
+    }
+
+    // A whistle cracks after the summon has resolved: the cast that breaks it
+    // still works, but one whistle is lost. The chance is a ruleset key beside
+    // the other pirate tuning, read once per cast.
+    int break_pct = std::max(0, std::min(100,
+        rulesetSpecificData.value("pirate_whistle_break_pct", 10)));
+    if (u->items.GetNum(I_BOSUN_WHISTLE) > 0 && rng::get_random(100) < break_pct) {
+        u->items.SetNum(I_BOSUN_WHISTLE, u->items.GetNum(I_BOSUN_WHISTLE) - 1);
+        u->event("The bosun's whistle cracks and falls silent.", "spell");
     }
 
     return 1;

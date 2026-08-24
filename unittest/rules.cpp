@@ -39,6 +39,13 @@ int *allowedMartial = ma;
 int allowedMartialSize = sizeof(ma) / sizeof(ma[0]);
 
 int factionTypeMin = 0;   // default: no floor (keeps existing test behavior)
+
+// Pirate fleet wandering route length: weight per step count, index + 1 = steps.
+// Mirrors neworigins/rules.cpp; tests that exercise a specific table override
+// this pointer/size and restore it.
+static int psw[] = { 30, 40, 30 };
+int *pirateStepWeights = psw;
+int pirateStepWeightsSize = sizeof(psw) / sizeof(psw[0]);
 int LEADERS_PER_MARKET_UNIT = 900;
 int WILDERNESS_LEADER_CHANCE = 35;
 
