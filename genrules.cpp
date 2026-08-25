@@ -14,6 +14,7 @@ extern const std::vector<int> RACE_NEUTRAL_FOUNDERS;
 #include <iomanip>
 #include <ranges>
 #include <vector>
+#include <map>
 
 using namespace std;
 
@@ -822,7 +823,7 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
               << " already committed to each area, and no area may be raised above "
               << maxRating << " or fall below " << factionTypeMin << ". You therefore have "
               << freePoints << " additional " << strings::plural(freePoints, "point", "points")
-              << " to raise a single area.\n"
+              << " to distribute as you see fit.\n"
               << enclose("p", false);
         }
 
@@ -922,12 +923,24 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
         if (factionTypeMin > 0) {
             int maxRating = Globals->FACTION_POINTS
                           - factionTypeMin * ((int)FactionTypes->size() - 1);
-            f << enclose("p", true) << "For example, a faction may leave both areas at "
-              << factionTypeMin << " (balanced), or raise Martial to " << maxRating
-              << " for more taxing and trade regions, or raise Magic to " << maxRating
-              << " to field more mages"
-              << (app_exist ? " and " + Globals->APPRENTICE_NAME + "s" : "") << ".\n"
-              << enclose("p", false);
+            // Written from FactionTypes rather than naming Martial and Magic, so a ruleset
+            // that runs a floor over the classic three areas is described correctly too.
+            f << enclose("p", true) << "For example, a faction may leave every area at "
+              << factionTypeMin << " (balanced), or raise a single area to " << maxRating << ": ";
+            bool first_area = true;
+            for (auto &fp : *FactionTypes) {
+                if (!first_area) f << ", ";
+                f << fp;
+                if (fp == F_WAR) f << " for more taxing regions";
+                else if (fp == F_TRADE) f << " for more trade regions";
+                else if (fp == F_MARTIAL) f << " for more taxing and trade regions";
+                else if (fp == F_MAGIC) {
+                    f << " to field more mages";
+                    if (app_exist) f << " and " << Globals->APPRENTICE_NAME << 's';
+                }
+                first_area = false;
+            }
+            f << ".\n" << enclose("p", false);
         } else {
 
         int count = FactionTypes->size();
@@ -960,21 +973,29 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
           << faction_point_usage(fac, false) << "\", and would be able to " << FactionTypeDescription(fac) << ".\n"
           << enclose("p", false);
 
-        if (Globals->FACTION_POINTS>3) {
-            int rem = Globals->FACTION_POINTS - 3;
+        // A starting faction commits one point to every area, so what is left over follows
+        // from how many areas this ruleset has - not from the three of the classic layout.
+        const int startingSpent = (int)FactionTypes->size();
+        if (Globals->FACTION_POINTS > startingSpent) {
+            int rem = Globals->FACTION_POINTS - startingSpent;
             f << enclose("p", true) << "Note that it is possible to have a faction type with less than "
               << Globals->FACTION_POINTS << " points spent. In fact, a starting faction has one point spent "
               << "on each of ";
-            for (auto &fp : *FactionTypes) f << fp + ", ";
-            f << "leaving " << rem << " "
+            for (int idx = 0; idx < startingSpent; idx++) {
+                if (idx) f << (idx + 1 == startingSpent ? " and " : ", ");
+                f << (*FactionTypes)[idx];
+            }
+            f << ", leaving " << rem << " "
               << strings::plural(rem, "point", "points") << " unspent.\n"
               << enclose("p", false);
         }
         } // end of the no-floor (factionTypeMin == 0) generic examples
     }
 
-    f << enclose("p", true) << "When a faction starts the game, it is given a one-man unit and "
-      << Globals->START_MONEY << " silver in unclaimed money.  Unclaimed money is cash that your "
+    f << enclose("p", true) << "When a faction starts the game, it is given a one-man unit and at least "
+      << Globals->START_MONEY << " silver in unclaimed money; a faction founded after the world has been "
+      << "running for a while is granted a further sum for every turn it missed, so that joining late is not "
+      << "a handicap.  Unclaimed money is cash that your "
       << "whole faction has access to, but cannot be taken away in battle (silver in a unit's possessions can be "
       << "taken in battle).  This allows a faction to get started without presenting an enticing target for other "
       << "factions. Units in your faction may use the " << url("#claim", "CLAIM") << " order to take this silver, "
@@ -998,8 +1019,8 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
         f << "* Merlin the Magician (17), Merlin (27), man [MAN].  Skills: none.\n";
     }
     if (Globals->RACES_EXIST) {
-        f << "* Merlin's Guards (33), Merlin (27), 20 vikings [VIKI], 20 swords [SWOR]. Skills: none.\n";
-        f << "* Merlin's Workers (34), Merlin (27), 50 vikings [VIKI].  Skills: none.\n";
+        f << "* Merlin's Guards (33), Merlin (27), 20 humans [HUMN], 20 swords [SWOR]. Skills: none.\n";
+        f << "* Merlin's Workers (34), Merlin (27), 50 humans [HUMN].  Skills: none.\n";
     } else {
         f << "* Merlin's Guards (33), Merlin (27), 20 men [MAN], 20 swords [SWOR]. Skills: none.\n";
         f << "* Merlin's Workers (34), Merlin (27), 50 men [MAN].  Skills: none.\n";
@@ -1053,10 +1074,11 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
       << "month, that only take a matter of hours, such as buying and selling commodities, or fighting an opposing "
       << "faction.  Each unit can also do exactly one action that takes up the entire month, such as harvesting "
       << "resources or moving from one region to another.  The orders which take an entire month are "
-      << url("#advance", "ADVANCE") << ", " << url("#build", "BUILD") << ", ";
+      << url("#advance", "ADVANCE") << ", " << url("#build", "BUILD") << ", "
+      << url("#create_village", "CREATE") << ", ";
     if (!(SkillDefs[S_ENTERTAINMENT].flags & SkillType::DISABLED))
         f << url("#entertain", "ENTERTAIN") << ", ";
-    f << url("#move", "MOVE") << ", ";
+    f << url("#explore", "EXPLORE") << ", " << url("#move", "MOVE") << ", ";
     if (Globals->TAX_PILLAGE_MONTH_LONG && !Globals->DISABLE_PILLAGE)
         f << url("#pillage", "PILLAGE") << ", ";
     f << url("#produce", "PRODUCE") << ", ";
@@ -1232,6 +1254,19 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
     f << enclose("table", false);
     f << enclose("center", false);
 
+    if (Globals->FOOD_ITEMS_EXIST) {
+        f << enclose("p", true) << "The table above lists what a region may hold because of its terrain.  "
+          << "Food is granted separately: every region with an economy of its own also produces one kind of "
+          << "food, settled when the world is made and fixed thereafter";
+        if (Globals->COASTAL_FISH) {
+            f << " -- grain or livestock inland, and possibly fish on the coast";
+        } else {
+            f << " -- either grain or livestock";
+        }
+        f << ".  You will therefore see a food product in your region report that the table never mentions.\n"
+          << enclose("p", false);
+    }
+
     f << anchor("world_structures") << '\n';
     f << enclose("h3", true) << "Structures:\n" << enclose("h3", false);
     f << enclose("p", true) << "Regions may also contain structures, such as buildings"
@@ -1260,8 +1295,9 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
       << "can interact with them; however, they may gain benefits, such as defensive bonuses in combat from being "
       << "inside a building.  The first unit to enter an object is considered to be the owner; only this unit can "
       << "do things such as renaming the object, or permitting other units to enter. The owner of an object can be "
-      << "identified on the turn report, as it is the first unit listed under the object.  Only units with men in "
-      << "them can be structure owners, so newly created units cannot own a structure until they contain men.\n"
+      << "identified on the turn report, as it is the first unit listed under the object.  A unit does not need to "
+      << "contain men to own a structure: a unit of undead, golems or siege engines holds a building as well as "
+      << "any garrison of soldiers.\n"
       << enclose("p", false);
     if (Globals->NEXUS_EXISTS) {
         f << anchor("world_nexus") << '\n';
@@ -1294,8 +1330,11 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
         if (!Globals->START_CITIES_EXIST) {
             f << "The Nexus contains portals that provide one-way transportation to various terrain types.  "
               << "A unit that enters one of these portals (by entering the portal and moving IN) will "
-              << "be transported to a region of the matching terrain type.  The region chosen is somewhat "
-              << "random, but will prefer to place players in towns where no other players are present.  "
+              << "be transported to a region of that terrain type, or, if every settlement of that type is "
+              << "already taken, to a settlement of another terrain type instead.  The region chosen is "
+              << "somewhat random, but will prefer an unoccupied village; when none is free the portal "
+              << "settles for a village that already houses one or two factions, and looks at towns and "
+              << "cities only after that.  "
               << "Once a unit has passed through a portal, there is no way to return to the Nexus.";
         } else if (Globals->MULTI_HEX_NEXUS) {
             f << "From the Nexus hexes, there are exits either to other Nexus hexes, or to starting cities "
@@ -1404,7 +1443,8 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
 
     if (Globals->SWIMMERS_COASTAL_ONLY) {
         f << enclose("p", true) << "Swimming units are restricted to coastal ocean regions and lakes. "
-          << "Deep ocean regions cannot be entered by swimming units. "
+          << "Deep ocean regions cannot be entered by swimming units, with one exception: a unit carried by "
+          << "sea creatures able to bear its whole weight rides out into deep water safely. "
           << "Ships are not affected by this restriction.\n"
           << enclose("p", false);
     }
@@ -1473,15 +1513,44 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
           << ".\n" << enclose("p", false);
     }
 
+    // Costs are read from the live terrain table rather than written out, so a ruleset that
+    // retunes movepoints cannot leave this sentence behind. Water is left out: entering it
+    // is a matter for SAIL, not for walking cost.
+    map<int, vector<string>> costly_terrain;
+    for (int i = 0; i < R_NUM; i++) {
+        if (!(TerrainDefs[i].flags & TerrainType::SHOW_RULES)) continue;
+        if (TerrainDefs[i].similar_type == R_OCEAN) continue;
+        if (TerrainDefs[i].movepoints <= 1) continue;
+        costly_terrain[TerrainDefs[i].movepoints].push_back(TerrainDefs[i].name);
+    }
+
     f << enclose("p", true) << "Since regions are hexagonal, each region has six neighbouring "
       << "regions to the north, northeast, southeast, south, southwest and northwest.  Moving from one region to "
-      << "another normally takes one movement point, except that the following terrain types take two movement "
-      << "points for riding or walking units to enter: Forest, Mountain, Swamp, Jungle, and Tundra.";
-    if (Globals->WEATHER_EXISTS) {
+      << "another normally takes one movement point";
+    if (costly_terrain.empty()) {
+        f << ".";
+    } else {
+        f << ", except for the following terrain types, which cost a riding or walking unit more to enter: ";
+        bool first_group = true;
+        for (const auto& [cost, names] : costly_terrain) {
+            if (!first_group) f << "; ";
+            f << cost << " movement points for ";
+            for (size_t n = 0; n < names.size(); n++) {
+                if (n) f << (n + 1 == names.size() ? " and " : ", ");
+                f << names[n];
+            }
+            first_group = false;
+        }
+        f << ".";
+    }
+    if (Globals->WEATHER_EXISTS == 1) {
         f << " Also, during certain seasons (depending on the latitude of the region), all units (including flying "
           << "ones) have a harder time and travel will take twice as many movement points as normal, as freezing "
           << "weather makes travel difficult; in the tropics, seasonal hurricane winds and torrential rains have a "
           << "similar effect.";
+    } else if (Globals->WEATHER_EXISTS > 1) {
+        f << " Weather is reported for every region, but in this world it is description only: it never changes "
+          << "movement costs, sailing speed, or anything else.";
     }
     f << " Units may not move through ocean regions ";
     if (may_sail) {
@@ -1515,7 +1584,7 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
       << "move north, then northeast.  The capacity of the horse is " << cap
       << " and the weight of the man and other items is " << weight
       << (cap > weight ? ", so he can ride" : ", so he must walk")
-      << (Globals->WEATHER_EXISTS ? ". The month is April, so he has " : " and has ")
+      << (Globals->WEATHER_EXISTS == 1 ? ". The month is April, so he has " : " and has ")
       << num_to_word(speed) << " movement " << strings::plural(speed, "point", "points") << ". He issues the order "
       << "MOVE NORTH NORTHEAST. First he moves north, into a plain region.  This uses " << num_to_word(cost)
       << " movement " << strings::plural(cost, "point", "points") << ".";
@@ -1554,8 +1623,25 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
           << "on board a sailing fleet; they will have to reissue the " << url("#guard", "GUARD")
           << " 1 order to guard a region after sailing.\n"
           << enclose("p", false);
-        f << enclose("p", true) << "Most ships get " << num_to_word(ItemDefs[I_LONGBOAT].speed)
-          << " movement point" << (ItemDefs[I_LONGBOAT].speed==1?"":"s") << " per turn.";
+        // Read the range off the live ship list: a variant that enables or retunes a hull
+        // must not be described by whatever speed one hardcoded ship happens to carry.
+        int slowest_ship = -1, fastest_ship = -1;
+        for (int i = 0; i < NITEMS; i++) {
+            if (ItemDefs[i].flags & ItemType::DISABLED) continue;
+            if (!(ItemDefs[i].type & IT_SHIP)) continue;
+            if (slowest_ship < 0 || ItemDefs[i].speed < slowest_ship) slowest_ship = ItemDefs[i].speed;
+            if (ItemDefs[i].speed > fastest_ship) fastest_ship = ItemDefs[i].speed;
+        }
+        f << enclose("p", true);
+        if (slowest_ship < 0) {
+            f << "Ship speeds vary by vessel.";
+        } else if (slowest_ship == fastest_ship) {
+            f << "Ships get " << num_to_word(slowest_ship) << " movement "
+              << strings::plural(slowest_ship, "point", "points") << " per turn.";
+        } else {
+            f << "Ships get between " << num_to_word(slowest_ship) << " and " << num_to_word(fastest_ship)
+              << " movement points per turn, depending on the vessel.";
+        }
         if (Globals->FLEET_CREW_BOOST > 0) {
             f << " Ships get an extra movement point for each time they double the number of required crew, "
               << "up to a maximum of " << num_to_word(Globals->FLEET_CREW_BOOST) << " extra "
@@ -1571,17 +1657,20 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
             f << ".";
         }
         f << " A fleet can move from an ocean region to another ocean region, or from a coastal region to an ocean "
-          << "region, or from an ocean region to a coastal region.";
+          << "region, or from an ocean region to a coastal region.  Lakes count as water for this purpose, and a "
+          << "region bordering one counts as its shore, so fleets may also sail between a lake and the land around "
+          << "it.";
         if (Globals->PREVENT_SAIL_THROUGH) {
             f << " Ships may not sail through single hex land masses and must leave via the same side they "
               << "entered or a side adjacent to that one.";
             if (Globals->ALLOW_TRIVIAL_PORTAGE)
                 f << " Ships ending their movement in a land hex may sail out along any side connecting to water.";
         }
-        f << " Ships can only be constructed in coastal regions. For a fleet to enter any region only costs one "
+        f << " Ships can only be constructed in regions that touch water, whether that is the ocean or a lake. "
+          << "For a fleet to enter any region only costs one "
           << "movement point; the cost of two movement points for entering, say, a forest coastal region, does "
           << "not apply.";
-        if (Globals->WEATHER_EXISTS) {
+        if (Globals->WEATHER_EXISTS == 1) {
             f << " Ships do, however, only get half movement points during the winter months (or monsoon months in "
               << "the tropical latitudes).";
         }
@@ -1590,8 +1679,10 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
           << "exceed the fleet's capacity (the rules do not prevent an overloaded fleet from staying afloat, only "
           << "from moving).  Also, there must be enough sailors aboard (using the " << url("#sail", "SAIL")
           << " order), to sail the fleet, or it will not go anywhere.  Note that the sailing skill increases the "
-          << "usefulness of a unit proportionally; thus, a 1 man unit with level 5 sailing skill can sail a longboat "
-          << "alone.  (See the section on skills for further details on skills.)  The capacities (and costs in "
+          << "usefulness of a unit proportionally; thus, a 1 man unit with level "
+          << num_to_word(ItemDefs[I_LONGSHIP].weight / 50) << " sailing skill can sail a "
+          << ItemDefs[I_LONGSHIP].name << " alone.  (See the section on skills for further details on skills.)  "
+          << "The capacities (and costs in "
           << "labor units) of the various basic ship types are as follows:\n"
           << enclose("p", false);
 
@@ -1665,9 +1756,14 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
       << "more than one move to enter a particular region, then it will move once it has accumulated enough "
       << "movement points to do so. Note that these movement points can be carried over from one month to another "
       << "if a MOVE (or ADVANCE) command did not complete in the month - for example, a unit on foot trying to move "
-      << "into a mountain region in winter would not have enough movement points to enter in one turn, but if it "
-      << "continues the same move on the next turn, it would use the accumulated points from the last month and "
-      << "manage to enter the mountains at last.\n"
+      << (Globals->WEATHER_EXISTS == 1
+          ? "into a mountain region in winter would not have enough movement points to enter in one turn, but if "
+            "it continues the same move on the next turn, it would use the accumulated points from the last month "
+            "and manage to enter the mountains at last."
+          : "into a volcano would not have enough movement points to enter in one turn, but if it continues the "
+            "same move on the next turn, it would use the accumulated points from the last month and manage to "
+            "climb the slopes at last.")
+      << '\n'
       << enclose("p", false);
     if (may_sail) {
         f << enclose("p", true) << "Sailing is handled the same way, with one minor difference: where units "
@@ -1775,21 +1871,23 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
     if (Globals->RACES_EXIST) {
         f << enclose("p", true) << "Skills may be learned up to a maximum level depending on the race of the "
           << "studying unit (remembering that for units containing more than one race, the maximum is determined by "
-          << "the least common denominator).  Every race has a normal maximum skill level, and  a list of skills "
-          << "that they specialize in, and can learn up to higher level. ";
+          << "the least common denominator).  Every race has a normal maximum skill level, and a list of skills "
+          << "for which a separate maximum applies.  For most races that separate maximum is the higher one -- "
+          << "those skills are what the race is good at -- but a race may instead be held below its normal "
+          << "level in the listed skills, so read the table rather than assuming. ";
         if (Globals->LEADERS_EXIST) {
             f << "Leaders, being more powerful, can learn skills to even higher levels. ";
         }
-        f << "Here is a list of the races (including leaders) and the information on normal skill levels "
-          << "and specialized skills.\n" << enclose("p", false);
+        f << "Here is a list of the races (including leaders), their normal skill level, and the skills for "
+          << "which a different level applies.\n" << enclose("p", false);
         f << anchor("tableraces") << '\n';
         f << enclose("center", true);
         f << enclose("table border=\"1\"", true);
         f << enclose("tr", true);
         f << enclose("th", true) << "Race/Type\n" << enclose("th", false);
-        f << enclose("th", true) << "Specilized Skills\n" << enclose("th", false);
-        f << enclose("th", true) << "Max Level (specialized skills)\n" << enclose("th", false);
-        f << enclose("th", true) << "Max Level (non-specialized skills)\n" << enclose("th", false);
+        f << enclose("th", true) << "Listed Skills\n" << enclose("th", false);
+        f << enclose("th", true) << "Max Level (listed skills)\n" << enclose("th", false);
+        f << enclose("th", true) << "Max Level (all other skills)\n" << enclose("th", false);
         f << enclose("tr", false);
         for (int i = 0; i < NITEMS; i++) {
             if (ItemDefs[i].flags & ItemType::DISABLED) continue;
@@ -2039,7 +2137,9 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
       << "studying.  (Note: for all skill uses, it is skill level, not number of months of training, that counts. "
       << "Thus, a unit with 1 month of training is effectively the same as a unit with 2 months of training, "
       << "since both have a skill level of 1.)  The units being taught simply issue the " << url("#study", "STUDY")
-      << " order normally (also, his faction must be declared Friendly by the teaching faction).  Each person can "
+      << " order normally.  The declaration runs from the student's side: the student's faction must have "
+      << "declared the teaching faction Friendly, and a teacher who declares the student Friendly instead will "
+      << "find the order refused.  Each person can "
       << "only teach up to " << Globals->STUDENTS_PER_TEACHER << " "
       << strings::plural(Globals->STUDENTS_PER_TEACHER, "student", "students") << " in a month; additional students dilute "
       << "the training.  Thus, if 1 teacher teaches " << (2 * Globals->STUDENTS_PER_TEACHER)
@@ -2406,7 +2506,8 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
           << "a full-blown city.  A city will have additional markets for common items, and will also have markets for "
           << "less common, more expensive trade items.\n"
           << enclose("p", false);
-        f << enclose("p", true) << "Trade items are bought and sold only by cities, and have no other practical uses.  "
+        f << enclose("p", true) << "Trade items are bought and sold in towns and cities, and have no other "
+          << "practical uses.  "
           << "However, the profit margins on these items are usually quite high. \n"
           << enclose("p", false);
     }
@@ -2572,9 +2673,13 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
           << "northwest road, and the hex it is moving into must have a southeast road.\n"
           << enclose("p", false);
 
-        f << enclose("p", true) << "To gain an economy bonus, a hex must have roads that connect to roads in at "
-          << "least two adjoining hexes.  The economy bonus for the connected roads raises the wages in the "
-          << "region by 1 point.\n"
+        f << enclose("p", true) << "A road pays only where it is met from the other side: both the hex and its "
+          << "neighbour must have built the road facing each other.  A connected road raises the development of "
+          << "the region, and how much it raises depends on what it reaches -- settlements and regions more "
+          << "developed than your own are what make a road worth building, and the road network is followed for "
+          << "some distance, so a road can pay for what lies several hexes further along it.  A road running out "
+          << "into empty, undeveloped country pays nothing at all.  Since wages are set by development, a "
+          << "well-connected region grows richer over time; a lone stretch of road does not.\n"
           << enclose("p", false);
 
         f << anchor("tableroadstructures") << '\n';
@@ -2617,22 +2722,26 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
         f << anchor("economy_canals") << '\n';
         f << enclose("h3", true) << "Canals:\n" << enclose("h3", false);
         f << enclose("p", true) << "A Canal is an infrastructure building that can be constructed in a "
-          << "coastal land region (one bordering at least one ocean hex). When a Canal is present, ships "
+          << "land region bordering at least one water hex, whether that water is ocean or lake. When a "
+          << "Canal is present, ships "
           << "may sail through the region in any direction, bypassing the normal restriction that prevents "
-          << "sailing through an isthmus. Without a canal, a ship that enters a coastal land region may only "
-          << "sail back the way it came or turn to an adjacent ocean hex in the same sailing sequence.\n"
+          << "sailing through an isthmus. Without a canal, a ship that enters such a region may only "
+          << "sail back the way it came or turn to an adjacent water hex in the same sailing sequence.\n"
           << enclose("p", false);
         f << enclose("p", true) << "There are two grades of canal. A Canal of cut stone slows ships passing "
-          << "through it (the through-pass costs as much movement as sailing in bad weather). A Mystic Canal, "
+          << "through it: the through-pass costs two movement points where ordinary sailing costs one. A Mystic "
+          << "Canal, "
           << "engineered from rootstone, lets ships pass at full speed. Only one canal of a given grade may be "
-          << "built per region. A canal built in a non-coastal region has no effect on ship movement.\n"
+          << "built per region. A canal built in a region that touches no water has no effect on ship movement.\n"
           << enclose("p", false);
     }
     if (Globals->DECAY) {
         f << anchor("economy_builddecay") << '\n';
         f << enclose("h3", true) << "Building Decay:\n" << enclose("h3", false);
         f << enclose("p", true) << "Some structures will decay over time if they are not maintained. "
-            << "Difficult terrain and bad weather will speed up this decay. Maintnenance involves having units "
+            << "Difficult terrain"
+            << (Globals->WEATHER_EXISTS == 1 ? " and bad weather" : "")
+            << " will speed up this decay. Maintnenance involves having units "
             << "with the appropriate level of skill expend a small amount of the material used to build the "
             << "structure and labor on a fairly regular basis in the exactly same manner as they would work on "
             << "the building it if it was not completed. In other words, enter the structure and issue the BUILD "
@@ -2728,7 +2837,22 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
           << enclose("p", false);
 
         f << enclose("p", true) << "When a ship is built, if its builder is already the owner of a fleet, then "
-          << "the ship will be added to that fleet; otherwise a new fleet will be created to hold the ship.  A fleet "
+          << "the ship will be added to that fleet; otherwise a new fleet will be created to hold the ship.";
+        switch (Globals->NEW_SHIP_JOINS_FLEET_BEHAVIOR) {
+            case GameDefs::NewShipJoinsFleetBehavior::NO_CROSS_JOIN:
+                f << "  A ship only joins a fleet that travels as it does: a flying ship will not join a "
+                  << "seagoing fleet, nor a seagoing ship a flying one, and the odd vessel out is given a fleet "
+                  << "of its own.";
+                break;
+            case GameDefs::NewShipJoinsFleetBehavior::ONLY_FLYING_CROSS_JOIN:
+                f << "  A flying ship will join any fleet, but a seagoing ship will not join a flying fleet and "
+                  << "is given a fleet of its own instead.";
+                break;
+            case GameDefs::NewShipJoinsFleetBehavior::ALL_CROSS_JOIN:
+                f << "  Flying and seagoing ships may share a fleet.";
+                break;
+        }
+        f << "  A fleet "
           << "has the combined capacity and sailor requirement of its constituent vessels, and moves at the speed of "
           << "its slowest ship.\n" << enclose("p", false);
     }
@@ -2894,7 +3018,10 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
         }
 
         if (Globals->SHIPPING_COST > 0) {
-            f << enclose("p", true) << "The cost of transport items from one quartermaster to "
+            f << enclose("p", true) << "Sending items to a quartermaster no more than "
+              << Globals->LOCAL_TRANSPORT << ' '
+              << strings::plural(Globals->LOCAL_TRANSPORT, "hex", "hexes") << " away is free.  Beyond that, "
+              << "the cost of transporting items from one quartermaster to "
               << "another is based on the weight of the items and costs " << Globals->SHIPPING_COST
               << " silver per weight unit.";
             if (Globals->TRANSPORT & GameDefs::QM_AFFECT_COST) {
@@ -2908,8 +3035,11 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
           << (Globals->FACTION_LIMIT_TYPE == GameDefs::FACLIM_FACTION_TYPES
               ? ", and a faction is limited in the number of quartermasters it may have at any one time"
               : "")
-          << ". The " << url("#transport", "TRANSPORT") << " order counts as trade activity in "
-          << "the hex of the unit issuing the order. The target unit must be at least FRIENDLY "
+          << ". The " << url("#transport", "TRANSPORT") << " order "
+          << (Globals->TRANSPORT_NO_TRADE
+              ? "does not count as trade activity, so shipping goods costs you none of your trade allowance"
+              : "counts as trade activity in the hex of the unit issuing the order")
+          << ". The target unit must be at least FRIENDLY "
           << "to the unit which issues the order.\n"
           << enclose("p", false);
 
@@ -3018,8 +3148,9 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
     f << "A unit using " << url("#advance", "ADVANCE") << " instead of " << url("#move", "MOVE")
       << " to enter a region, will attack any units that attempt to deny it access.  If the advancing unit loses "
       << "the battle, it will be forced to retreat to the previous region it moved through.  If the unit wins the "
-      << "battle and its army doesn't lose any men, it is allowed to continue to move, provided that it has "
-      << "enough movement points.\n"
+      << "battle, it is allowed to continue to move, provided that it has enough movement points and that its "
+      << "army came through lightly: losses of " << Globals->BATTLE_STOP_MOVE_PERCENT
+      << " percent or more of the army bring the advance to a halt for the month.\n"
       << enclose("p", false);
     if (has_stea || !(SkillDefs[S_RIDING].flags & SkillType::DISABLED)) {
         f << enclose("p", true) << "Note that "
@@ -3076,7 +3207,7 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
       << "movement has occurred).  The defender has a unit of soldiers in adjacent region B.  They have 2 movement "
       << "points at this stage. They will buy horses later in the turn, so that when they execute their "
       << url("#move", "MOVE") << " order they will have 4 movement points, but right now they have 2. "
-      << (Globals->WEATHER_EXISTS ? "Region A is forest, but fortunately it is summer, " : "Region A is forest, ")
+      << (Globals->WEATHER_EXISTS == 1 ? "Region A is forest, but fortunately it is summer, " : "Region A is forest, ")
       << "so the soldiers can join the fight.\n"
       << enclose("p", false);
     f << enclose("p", true) << "It is important to note that the units in nearby regions do not actually move to "
@@ -3097,12 +3228,11 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
     f << enclose("h3", true) << "The Battle:\n" << enclose("h3", false);
     f << enclose("p", true) << "The troops having lined up, the fight begins.";
     if (!(SkillDefs[S_TACTICS].flags & SkillType::DISABLED)) {
-        f << " The computer selects the best tactician from each side; that unit is regarded as the leader of "
-          << "its side.  If two or more units on one side have the same Tactics skill, then the one with the lower "
-          << "unit number is regarded as the leader of that side.  If one side's leader has a better Tactics skill "
-          << "than the other side's, then that side gets a "
+        f << " Each side fights with the Tactics skill of its best tactician, whichever unit that is.  If one "
+          << "side's tactics are better than the other's, then that side gets a "
           << (Globals->ADVANCED_TACTICS
-              ? "tactics difference bonus to their attack and defense for the first round of combat."
+              ? "tactics difference bonus to their attack and defense for the first round of combat; the bonus "
+                "is the difference in skill, up to a maximum of three."
               : "free round of attacks.");
     }
     f << '\n' << enclose("p", false);
@@ -3184,11 +3314,15 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
 
     if (!(ObjectDefs[O_TOWER].flags & ObjectType::DISABLED)) {
         f << enclose("p", true) << "A Tower also grants its garrison a commanding view of the surrounding terrain. "
-          << "Any faction with units inside a Tower will automatically receive a scouting report for all "
-          << "adjacent regions each turn. This observation is performed at basic level (Observation 0): "
-          << "non-stealthy units will be visible, but stealth units and invisible items will not be detected. "
-          << "Skills such as Observation [OBSE], True Seeing [MINI] and Mind Reading do not enhance this ability "
-          << "-- the tower provides a fixed, unaugmented view of its surroundings.\n"
+          << "Any faction with units inside a Tower"
+          << (!(ObjectDefs[O_MTOWER].flags & ObjectType::DISABLED)
+              ? std::string(" or a ") + ObjectDefs[O_MTOWER].name
+              : std::string(""))
+          << " will automatically receive a scouting report for all adjacent regions each turn.  How much that "
+          << "report reveals depends on who is watching: the garrison's best Observation skill sets the strength "
+          << "of the view, at roughly half that skill, so a keen-eyed garrison spots what a careless one misses. "
+          << "Sharper sight than that the tower cannot give: True Seeing [MINI] and Mind Reading are of no use "
+          << "from the battlements, however skilled the watchers.\n"
           << enclose("p", false);
     }
 
@@ -3198,7 +3332,7 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
       << "out, then the Behind flag no longer has any effect.\n" << enclose("p", false);
     f << anchor("com_victory") << '\n';
     f << enclose("h3", true) << "Victory!\n" << enclose("h3", false);
-    f << enclose("p", true) << "Combat rounds continue until one side has accrued 50% losses (or more). The "
+    f << enclose("p", true) << "Combat rounds continue until one side has accrued more than 50% losses.  The "
       << "victorious side is then awarded one free round of attacks, after which the battle is over.  If both sides "
       << "have more than 50% losses, the battle is a draw, and neither side gets a free round.\n"
       << enclose("p", false);
@@ -3207,7 +3341,8 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
     if (!(SkillDefs[S_HEALING].flags & SkillType::DISABLED) && !(ItemDefs[I_HERBS].flags & SkillType::DISABLED)) {
         f << enclose("p", true) << "Units with the Healing skill have a chance of being able to heal casualties "
           << "of the winning side, so that they recover rather than dying.  Each character with this skill can "
-          << "attempt to heal " << Globals->HEALS_PER_MAN << " casualties per skill level. Each attempt however "
+          << "attempt to heal " << Globals->HEALS_PER_MAN << " casualties, however skilled they are; what a "
+          << "higher level of Healing buys is a better chance on each attempt, not more attempts. Each attempt "
           << "requires one unit of Herbs, which is thereby used up. Each attempt has a some chance of healing one "
           << "casualty; only one attempt at Healing may be made per casualty. Healing occurs automatically, after "
           << "the battle is over, by any living healers on the winning side.\n"
@@ -3297,7 +3432,8 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
             f << enclose("p", true) << "The " << url("#assassinate", "ASSASSINATE") << " order is a way to kill "
               << "another person without attacking and going through an entire battle. This order can only be "
               << "issued by a one-man unit, and specifies a target unit.  If the target unit contains more than one "
-              << "person, then one will be singled out at random.\n"
+              << "person, then one of them is the victim.  The target must belong to another player: mayors, town "
+              << "guardsmen, monsters and the world's other inhabitants cannot be assassinated.\n"
               << enclose("p", false);
             if (has_obse) {
                 f << enclose("p", true) << "Success for assassination is determined as for theft, i.e. the "
@@ -3532,8 +3668,9 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
       << "in this section.\n"
       << enclose("p", false);
     f << enclose("p", true) << "Although the magic skills and spells are unspecified in these rules, left for the "
-      << "players to discover, the rules for combat spells' interaction are spelled out here.  There are five major "
-      << "types of attacks, and defenses: Combat, Ranged, Energy, Weather, and Spirit.  Every attack and defense "
+      << "players to discover, the rules for combat spells' interaction are spelled out here.  There are six major "
+      << "types of attacks, and defenses: Combat, Ranged, Riding, Energy, Weather, and Spirit.  Every attack and "
+      << "defense "
       << "has a type, and only the appropriate defense is effective against an attack.\n"
       << enclose("p", false);
     f << enclose("p", true) << "Defensive spells are cast at the beginning of each round of combat, and will have "
@@ -3552,9 +3689,11 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
       << "level of the attack spell and the effective skill for defense are matched against each other.  The "
       << "formula for determining the victor between a defensive and offensive spell is the same as for a contest "
       << "of soldiers; if the levels are equal, there is a 1:1 chance of success, and so on.  If the offensive "
-      << "spell is victorious, the offensive spell deals its blows to the defending army, and the Shield in question "
-      << "is destroyed (thus, it can be useful to have more than one of the same type of Shield in effect, as the "
-      << "other Shield will take the place of the destroyed one).  Otherwise, the attack spell disperses, and "
+      << "spell is victorious, the offensive spell deals its blows to the defending army.  Whether the Shield "
+      << "survives depends on what kind of spell got through it: a spell that lays an effect on its victims burns "
+      << "the Shield away as it passes, while a spell that merely deals damage leaves the Shield standing for the "
+      << "next attack (so it can be useful to have more than one of the same type of Shield in effect, as the "
+      << "other Shield will take the place of a destroyed one).  Otherwise, the attack spell disperses, and "
       << "the defending spell remains in place.\n"
       << enclose("p", false);
       f << enclose("p", true) << "Some spells do not actually kill enemies, but rather have some negative effect "
@@ -3645,12 +3784,13 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
           << "units present in the region. The willingness to attack is dependent on the monster's aggression level. "
           << "It is worth reminding that monsters inside the lair will always be visible to the player regardless "
           << "of their stealth score as any other unit in the structure. Empty lairs will spawn new monsters "
-          << "regularly if old ones are killed. Players can guard regions with lairs, and monsters will not spawn "
-          << "there.\n"
+          << "regularly if old ones are killed. Players can guard regions with lairs, and the lair itself will "
+          << "not spawn new monsters there.\n"
           << enclose("p", false);
-        f << enclose("p", true) << "Other monsters do not live in lairs but wander freely. Wandering monsters can "
-          << "spawn in any unguarded region regardless of whether there is a lair. Guarding will prevent monsters "
-          << "from spawning in a particular region. Their willingness to attack depends on their aggression level, "
+        f << enclose("p", true) << "Other monsters do not live in lairs but wander freely. Guarding a region will "
+          << "prevent wandering monsters from spawning in it, with one exception: a region that contains a lair "
+          << "keeps drawing wanderers in, and they will spawn there in the open regardless of whether the region "
+          << "is guarded. Their willingness to attack depends on their aggression level, "
           << "and monsters can advance to neighboring regions while moving. Some monsters could have preferred "
           << "terrains that they like more than others, and then they will be willing to enter such regions more "
           << "likely than others. At the same time, some terrains could be so uncomfortable that monsters will never "
@@ -3677,8 +3817,10 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
         f << enclose("tr", false);
         f << enclose("thead", false);
 
+        // Mirrors the direction pool built in Unit::MoveMonster (unit.cpp): a preferred
+        // direction is entered twice, a neutral one once, and three "stay" entries are added
+        // and then trimmed so they can never outnumber the moves.
         int matrix[3][2];
-        matrix[2][0] = 4;   // stay
 
         f << enclose("tbody", true);
         for (int dirs = 1; dirs <= 6; dirs++) {
@@ -3687,6 +3829,8 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
 
                 matrix[0][0] = preferedDirs * 2;    // prefered
                 matrix[1][0] = neutralDirs;         // neutral
+                const int moveCases = matrix[0][0] + matrix[1][0];
+                matrix[2][0] = (moveCases < 3 ? moveCases : 3);   // stay, trimmed to the moves
 
                 int totalCases = 0;
                 for (int i = 0; i < 3; i++) totalCases += matrix[i][0];
@@ -3703,6 +3847,11 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
         }
         f << enclose("tbody", false);
         f << enclose("table", false);
+        f << enclose("p", true) << "A neutral direction only counts in this table when that region borders "
+          << "terrain the monster prefers; a neutral region with no such neighbour is not somewhere the monster "
+          << "will wander at all, and is left out of its choices entirely.  A monster with nowhere it is willing "
+          << "to go simply stays where it is.\n"
+          << enclose("p", false);
     }
     f << anchor("nonplayers_controlled") << '\n';
     f << enclose("h3", true) << "Controlled Monsters:\n" << enclose("h3", false);
@@ -3760,8 +3909,9 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
       << enclose("p", false);
     f << enclose("p", true) << "Each type of order is designated by giving a keyword as the first non-blank item "
       << "on a line.  Parameters are given after this, separated by spaces or tabs. Blank lines are permitted, as "
-      << "are comments; anything after a semicolon is treated as a comment (provided the semicolon is not in the "
-      << "middle of a word).\n"
+      << "are comments; anything after a semicolon is treated as a comment.  A semicolon ends whatever word it "
+      << "lands in, so it starts a comment wherever it appears -- the only place one survives as an ordinary "
+      << "character is inside a quoted name.\n"
       << enclose("p", false);
     f << enclose("p", true) << "The parser is not case sensitive, so all commands may be given in upper case, "
       << "lower case or a mixture of the two.  However, when supplying names containing spaces, the name must be "
@@ -3880,7 +4030,9 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
         f << enclose("p", true) << "Attempt to assassinate the specified unit, or one of the unit's "
           << "people if the unit contains more than one person.  The order may only be issued by a one-man unit.\n"
           << enclose("p", false);
-        f << enclose("p", true) << "A unit may only attempt to assassinate a unit which is able to be seen.\n"
+        f << enclose("p", true) << "A unit may only attempt to assassinate a unit which is able to be seen, and "
+          << "which belongs to another player; the world's own inhabitants, such as mayors, town guardsmen and "
+          << "monsters, are not valid targets.\n"
           << enclose("p", false);
         f << enclose("p", true) << "Example:\n" << enclose("p", false);
         f << example_start("Assassinate unit number 177.")
@@ -4466,11 +4618,11 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
     f << example_start("Give control of this unit to the faction owning unit 75.")
       << "GIVE 75 UNIT\n"
       << example_end();
-    f << example_start("Give our unfinished Longboat to unit 95.")
-      << "GIVE 95 1 UNFINISHED Longboat\n"
+    f << example_start("Give our unfinished Longship to unit 95.")
+      << "GIVE 95 1 UNFINISHED Longship\n"
       << example_end();
-    f << example_start("Transfer 2 Longboats to the fleet commanded by unit 83.")
-      << "GIVE 83 2 Longboats\n"
+    f << example_start("Transfer 2 Longships to the fleet commanded by unit 83.")
+      << "GIVE 83 2 Longships\n"
       << example_end();
 
     f << enclose(class_tag("div", "rule"), true) << '\n' << enclose("div", false);
@@ -4730,7 +4882,7 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
       << "DESERT" << (Globals->UNDERWORLD_LEVELS ? "/CAVERN" : "") << " HEX\n" << enclose("td", false);
     f << enclose("tr", false);
     f << enclose("tr", true);
-    f << enclose("td align=\"left\" nowrap class=\"fixed\"", true) << ",,,,\n" << enclose("td", false);
+    f << enclose("td align=\"left\" nowrap class=\"fixed\"", true) << "''''\n" << enclose("td", false);
     f << enclose("td align=\"left\" nowrap", true) << "TUNDRA HEX\n" << enclose("td", false);
     f << enclose("tr", false);
     if (Globals->NEXUS_EXISTS) {
@@ -5175,6 +5327,7 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
           << "owner of a transport structure. For long distance transport between quartermasters, the issuing "
           << "unit must also be a quartermaster and be the owner of a transport structure.\n"
           << enclose("p", false);
+        f << anchor("distribute") << '\n';
         f << enclose("p", true) << "For historical reasons, the order DISTRIBUTE can be "
           << "used in place of TRANSPORT and has the same meaning and syntax.\n"
           << enclose("p", false);
@@ -5399,20 +5552,23 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
     f << enclose("ul", true);
     f << enclose("li", true) << url("#teach", "TEACH") << " orders are processed.\n" << enclose("li", false);
     f << enclose("li", true) << url("#study", "STUDY") << " orders are processed.\n" << enclose("li", false);
-    f << enclose("li", true) << "Manufacturing " << url("#produce", "PRODUCE")
-      << " orders (those that produce items from other items, such as using the weaponsmith skill to make swords out "
-      << "of iron) are processed.\n" << enclose("li", false);
-    f << enclose("li", true) << url("#build", "BUILD") << " orders are processed.\n" << enclose("li", false);
+    f << enclose("li", true) << url("#build", "BUILD") << " orders are processed: new structures are laid down "
+      << "first, then the work of everyone building on them is counted.\n" << enclose("li", false);
+    f << enclose("li", true) << url("#produce", "PRODUCE") << " orders are processed -- both those that make "
+      << "items out of other items, such as using the weaponsmith skill to make swords out of iron, and those "
+      << "that take items from the region's own resources, such as using the mining skill to produce iron.  "
+      << "The following orders are worked through in this same phase, and compete with production for the "
+      << "region:\n";
+    f << enclose("ul", true);
     f << enclose("li", true) << url("#create_village", "CREATE") << " orders are processed.\n"
       << enclose("li", false);
-    f << enclose("li", true) << "Primary " << url("#produce", "PRODUCE")
-      << " orders (those that produce items from region resources, such as using the mining skill to produce iron) "
-      << "are processed.\n" << enclose("li", false);
     if (!(SkillDefs[S_ENTERTAINMENT].flags & SkillType::DISABLED)) {
         f << enclose("li", true) << url("#entertain", "ENTERTAIN") << " orders are processed.\n"
           << enclose("li", false);
     }
     f << enclose("li", true) << url("#work", "WORK") << " orders are processed.\n" << enclose("li", false);
+    f << enclose("ul", false);
+    f << enclose("li", false);
     f << enclose("li", true) << url("#explore", "EXPLORE") << " orders are processed.\n"
       << enclose("li", false);
     f << enclose("ul", false);
