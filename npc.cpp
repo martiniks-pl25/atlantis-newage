@@ -3,6 +3,7 @@
 #include "namegen.h"
 #include "quests.h"
 #include "rng.hpp"
+#include "strings_util.hpp"
 #include <numeric>
 #include <limits>
 #include <map>
@@ -704,8 +705,9 @@ void Game::PirateRecruitLandCrew()
         // Notify factions present in the target hex. The press gang carries off
         // more people than it keeps; the rest never come home either.
         std::string msg = "Pirates from " + obj->name + " recruited " + std::to_string(gained)
-            + " new crew members out of " + std::to_string(taken)
-            + " willing hands "
+            + " new crew " + strings::plural(gained, "member", "members")
+            + " out of " + std::to_string(taken)
+            + " willing " + strings::plural(taken, "hand", "hands") + " "
             + (offshore ? std::string("off the coast of ") + target->name + "."
                         : std::string("while docked in ") + target->short_print() + ".");
         std::set<Faction *> presentFactions = target->PresentFactions();

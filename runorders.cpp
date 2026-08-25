@@ -839,6 +839,14 @@ void Game::Do1PromoteOrder(Object *obj, Unit *u)
         return;
     }
 
+    // Ownership is not handed to a stranger sheltering under your roof: the target's
+    // faction has to have declared the promoting faction Friendly. A unit's own faction
+    // counts as an ally, so promoting inside the faction is unaffected.
+    if (tar->faction->get_attitude(u->faction->num) < AttitudeType::FRIENDLY) {
+        u->error("PROMOTE: " + tar->name + " is not a member of a friendly faction.");
+        return;
+    }
+
     std::erase(obj->units, tar);
     obj->units.push_front(tar);
     ObjectType& ob = ObjectDefs[obj->type];
