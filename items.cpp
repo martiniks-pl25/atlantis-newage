@@ -535,6 +535,38 @@ std::string ShowItem::display_tag() {
 
 }
 
+/**
+ * @brief Names the loot tiers a monster's spoiltype can pay, for its description.
+ *
+ * The spoiltype is a bitmask and may name several tiers at once, so every tier
+ * present is listed rather than matched first-wins. Trade goods are named only
+ * when the mask says so, or where the IT_NORMAL -> IT_TRADE substitution that
+ * used to supply them is still enabled (see SPOILS_NO_TRADE).
+ *
+ * @param spoiltype MonType::spoiltype mask; -1 (no spoils) yields an empty string
+ * @return "normal, advanced or trade" and the like, empty if no tier is named
+ * @see Army::GetMonSpoils()
+ */
+static std::string spoil_tier_list(int spoiltype)
+{
+    if (spoiltype == -1) return "";
+
+    std::vector<std::string> tiers;
+    if (spoiltype & IT_NORMAL)   tiers.push_back("normal");
+    if (spoiltype & IT_ADVANCED) tiers.push_back("advanced");
+    if (spoiltype & IT_MAGIC)    tiers.push_back("magic");
+    if ((spoiltype & IT_TRADE) ||
+        (spoiltype == IT_NORMAL && !Globals->SPOILS_NO_TRADE))
+        tiers.push_back("trade");
+
+    std::string out;
+    for (size_t i = 0; i < tiers.size(); i++) {
+        if (i) out += (i + 1 == tiers.size()) ? " or " : ", ";
+        out += tiers[i];
+    }
+    return out;
+}
+
 std::string item_description(int item, int full)
 {
     int i;
@@ -837,15 +869,8 @@ std::string item_description(int item, int full)
                 ", and an observation score of " + std::to_string(monster.obs) + ".";
         }
         temp += " This monster might have ";
-        if (monster.spoiltype != -1) {
-            if (monster.spoiltype & IT_MAGIC) {
-                temp += "magic items and ";
-            } else if (monster.spoiltype & IT_ADVANCED) {
-                temp += "advanced items and ";
-            } else if (monster.spoiltype & IT_NORMAL) {
-                temp += "normal or trade items and ";
-            }
-        }
+        std::string tiers = spoil_tier_list(monster.spoiltype);
+        if (!tiers.empty()) temp += tiers + " items and ";
         temp += "silver as treasure.";
     }
 
@@ -888,15 +913,8 @@ std::string item_description(int item, int full)
 
         if (monster.spoiltype != -1) {
             temp += " This FMI might have ";
-
-            if (monster.spoiltype & IT_MAGIC) {
-                temp += "magic items and ";
-            } else if (monster.spoiltype & IT_ADVANCED) {
-                temp += "advanced items and ";
-            } else if (monster.spoiltype & IT_NORMAL) {
-                temp += "normal or trade items and ";
-            }
-
+            std::string tiers = spoil_tier_list(monster.spoiltype);
+            if (!tiers.empty()) temp += tiers + " items and ";
             temp += "silver as treasure.";
         }
     }

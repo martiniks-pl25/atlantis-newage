@@ -1152,24 +1152,24 @@ void Game::ModifyTablesPerRuleset(void)
     EnableItem(I_MERFOLK);
     EnableItem(I_ELEMENTAL);
     EnableItem(I_HYDRA);
-    EnableItem(O_BOG);
+    EnableObject(O_BOG);
     EnableItem(I_ICEDRAGON);
-    EnableItem(O_ICECAVE);
+    EnableObject(O_ICECAVE);
     EnableItem(I_ILLYRTHID);
-    EnableItem(O_ILAIR);
+    EnableObject(O_ILAIR);
     EnableItem(I_DEVIL);
 
     EnableItem(I_STORMGIANT);
     EnableItem(I_CLOUDGIANT);
-    EnableItem(O_GIANTCASTLE);
+    EnableObject(O_GIANTCASTLE);
 
     EnableItem(I_WARRIORS);
 
     EnableItem(I_DARKMAGE);
-    EnableItem(O_DARKTOWER);
+    EnableObject(O_DARKTOWER);
 
     EnableItem(I_MAGICIANS);
-    EnableItem(O_MAGETOWER);
+    EnableObject(O_MAGETOWER);
 
     //
     // Change races
@@ -1766,7 +1766,7 @@ void Game::ModifyTablesPerRuleset(void)
     modify_monster_spoils("EAGL",  20,   -1);           // Eagle               (default: 20,  -1)
 
     // Sea creatures
-    modify_monster_spoils("PIRA",  250,  IT_ADVANCED);  // Pirates             (default: 300,  IT_ADVANCED)
+    modify_monster_spoils("PIRA",  220,  IT_NORMAL | IT_ADVANCED | IT_TRADE);  // Pirates (default: 300, IT_ADVANCED)
     modify_monster_spoils("KRAK",  20000,IT_MAGIC);     // Kraken              (default: 20000, IT_MAGIC)
     modify_monster_spoils("MERF",  70,   IT_NORMAL);    // Merfolk             (default: 70,   IT_NORMAL)
     modify_monster_spoils("ELEM",  1200, IT_ADVANCED);  // Living Water        (default: 1300, IT_ADVANCED)
@@ -1847,13 +1847,13 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyItemBasePrice(I_ASHIELD,    1200); // was:600 | ARMO5 1m 1xMSHD(450)+1xADMT(300)
 
     // --- Raw materials IT_ADVANCED ---
-    ModifyItemBasePrice(I_MITHRIL,     100); // was:100 | MINI3 1m (resource)
-    ModifyItemBasePrice(I_IRONWOOD,    100); // was:100 | LUMB3 1m (resource)
-    ModifyItemBasePrice(I_ROOTSTONE,   100); // was:100 | QUAR3 1m (resource)
+    ModifyItemBasePrice(I_MITHRIL,     150); // was:100 | MINI3 1m (resource)
+    ModifyItemBasePrice(I_IRONWOOD,    150); // was:100 | LUMB3 1m (resource)
+    ModifyItemBasePrice(I_ROOTSTONE,   120); // was:100 | QUAR3 1m (resource)
     ModifyItemBasePrice(I_YEW,         200); // was:200 | LUMB5 1m (resource)
-    ModifyItemBasePrice(I_FLOATER,     100); // was:100 | HUNT3 1m (resource)
+    ModifyItemBasePrice(I_FLOATER,     150); // was:100 | HUNT3 1m (resource)
     ModifyItemBasePrice(I_ADMANTIUM,   300); // was:300 | MINI5 1m (resource, NOMARKET)
-    ModifyItemBasePrice(I_MUSHROOM,    100); // was:100 | HERB3 1m (resource)
+    ModifyItemBasePrice(I_MUSHROOM,    120); // was:100 | HERB3 1m (resource)
 
     // --- Mounts IT_NORMAL ---
     ModifyItemBasePrice(I_CAMEL,        30); // was:30  | HORS1 1m (capture)
@@ -1864,7 +1864,7 @@ void Game::ModifyTablesPerRuleset(void)
 
     // --- Transport IT_ADVANCED ---
     ModifyItemBasePrice(I_MWAGON,      200); // was:200 | CARP3 1m 1xIRWD(100)
-    ModifyItemBasePrice(I_GLIDER,      250); // was:250 | CARP5 1m 2xFLOA(100)
+    ModifyItemBasePrice(I_GLIDER,      220); // was:250 | CARP5 1m 2xFLOA(100)
 
     // --- Misc IT_ADVANCED ---
     ModifyItemBasePrice(I_HEALPOTION,  200); // was:200 | HEAL3 1m 1xHERBS+1xMUSH(100)
