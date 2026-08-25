@@ -845,6 +845,33 @@ void Army::WriteLosses(Battle * b) {
     }
 }
 
+/**
+ * @brief Rolls one dead monster figure's share of the battle spoils.
+ *
+ * Called once per killed monster soldier. Silver is paid per figure; items are
+ * drawn from a pool of at most MAX_SPOIL_ITEM_TYPES distinct types that the whole
+ * group shares, so the first figures each open a new type and later ones add
+ * quantity to a type already opened.
+ *
+ * Both silver and items are gated on the monster's maturity (@p free):
+ * Young pays nothing, Wild pays silver only, Ancient pays items at half budget,
+ * Elder pays everything.
+ *
+ * When the monster's spoiltype names more than one tier, the pool's opening slots
+ * are filled in the fixed order IT_NORMAL, IT_ADVANCED, IT_MAGIC, IT_TRADE, so a
+ * mixed pool always covers each tier it names before any slot is spent freely.
+ * Trade goods drop one unit at a time; every other item's quantity comes from the
+ * value roll.
+ *
+ * @param spoils       Item list the drop is added to (accumulates across figures)
+ * @param monitem      Monster race item index (I_PIRATES, I_HYDRA, ...)
+ * @param free         Maturity counter: 0 = Elder, higher = younger
+ * @param chosen_types Item-type pool shared by this (unit, race) pair; mutated here
+ *
+ * @note An officer riding with a crew keys its own pool, so its loot never
+ *       competes with the crew's for slots.
+ * @see Army::Lose(), Game::modify_monster_spoils()
+ */
 void Army::GetMonSpoils(ItemList& spoils, int monitem, int free, std::set<int>& chosen_types)
 {
     // Maximum number of distinct item types that can drop from one monster group.
@@ -885,58 +912,101 @@ void Army::GetMonSpoils(ItemList& spoils, int monitem, int free, std::set<int>& 
     }
     if (items_suppressed) return;
 
-    // Determine IT_NORMAL→IT_TRADE upgrade once; used consistently for both
-    // the min_cost scan and item selection so eligible sets are identical.
+    // Determine the IT_NORMAL -> IT_TRADE substitution once; used consistently for
+    // both the min_cost scan and item selection so eligible sets are identical.
+    // SPOILS_NO_TRADE governs this substitution only: a spoiltype that names IT_TRADE
+    // in its own mask reaches the trade tier through the slot order below regardless.
     int type_to_use = thespoil;
     if (type_to_use == IT_NORMAL && rng::get_random(2) && !Globals->SPOILS_NO_TRADE)
         type_to_use = IT_TRADE;
 
+    // A spoiltype naming several tiers (pirates carry IT_NORMAL | IT_ADVANCED | IT_TRADE)
+    // fills its first slots in this fixed order rather than at random, so a crew that
+    // dies in numbers always pays one of each tier instead of collapsing into whichever
+    // tier happens to be cheapest. The order runs cheap-to-dear with trade last: a fight
+    // that kills only a figure or two leaves materials behind, and the trade good - the
+    // one tier whose whole worth is resale - takes a properly beaten crew to earn.
+    constexpr int SPOIL_TIER_ORDER[] = { IT_NORMAL, IT_ADVANCED, IT_MAGIC, IT_TRADE };
+
+    // Trade goods drop one at a time. They are the only loot with no use beyond selling,
+    // so the luck of the drop sits in which good it is - wool at 60 or jewelry at 160 -
+    // rather than in the size of the stack, and a hunter cannot flood a town's demand.
+    constexpr int SPOIL_TRADE_QUANTITY = 1;
+
+    // Common eligibility, shared by the min_cost scan and by item selection so the two
+    // can never drift apart.
+    auto base_ok = [&](int i) {
+        if (!(ItemDefs[i].type & type_to_use)) return false;
+        if (ItemDefs[i].type & (IT_SPECIAL | IT_SHIP | IT_NEVER_SPOIL)) return false;
+        if (ItemDefs[i].flags & ItemType::DISABLED) return false;
+        // A trade good is worth exactly what a town pays for it, so one that no market
+        // anywhere stocks is dead weight in a player's hands. Other NOMARKET items -
+        // silver, adamantium - stay eligible: their worth is in the using, not the selling.
+        if ((ItemDefs[i].type & IT_TRADE) && (ItemDefs[i].flags & ItemType::NOMARKET))
+            return false;
+        return true;
+    };
+
     // First pass: find min_cost of cheapest eligible item within budget.
     // val is rolled in [min_cost, budget*2) so the cheapest item is always
-    // reachable while expensive items require a good roll (val ≥ baseprice).
+    // reachable while expensive items require a good roll (val >= baseprice).
     int min_cost = INT_MAX;
     for (int i = 0; i < NITEMS; i++) {
-        if (
-            (ItemDefs[i].type & type_to_use) && !(ItemDefs[i].type & IT_SPECIAL) &&
-            !(ItemDefs[i].type & IT_SHIP) && !(ItemDefs[i].type & IT_NEVER_SPOIL) &&
-            (ItemDefs[i].baseprice <= budget) && !(ItemDefs[i].flags & ItemType::DISABLED)
-        ) {
+        if (base_ok(i) && ItemDefs[i].baseprice <= budget)
             min_cost = std::min(min_cost, ItemDefs[i].baseprice);
-        }
     }
     if (min_cost == INT_MAX) return;  // no eligible items for this monster/tier
 
     // Roll val in [min_cost, budget*2); effective_cap = min(val, budget) limits
-    // which items can appear this roll — expensive items need a good val roll.
+    // which items can appear this roll - expensive items need a good val roll.
     int val = min_cost + rng::get_random(budget * 2 - min_cost);
     int effective_cap = std::min(val, budget);
 
     int chosen_item = -1;
 
     if ((int)chosen_types.size() < MAX_SPOIL_ITEM_TYPES) {
-        // Pool not full: pick a new item type within effective_cap
-        int count = 0;
-        for (int i = 0; i < NITEMS; i++) {
-            if (
-                (ItemDefs[i].type & type_to_use) && !(ItemDefs[i].type & IT_SPECIAL) &&
-                !(ItemDefs[i].type & IT_SHIP) && !(ItemDefs[i].type & IT_NEVER_SPOIL) &&
-                (ItemDefs[i].baseprice <= effective_cap) && !(ItemDefs[i].flags & ItemType::DISABLED) &&
-                chosen_types.find(i) == chosen_types.end()
-            ) {
-                count++;
+        // Which tiers this spoiltype names, and which of them the pool already covers.
+        int tiers = 0;
+        for (int t : SPOIL_TIER_ORDER) if (type_to_use & t) tiers |= t;
+        const bool multi_tier = (tiers != 0) && ((tiers & (tiers - 1)) != 0);
+
+        int filled_tiers = 0;
+        for (int idx : chosen_types) filled_tiers |= (ItemDefs[idx].type & tiers);
+
+        // The tier this call owes: the first in SPOIL_TIER_ORDER not yet represented.
+        // Zero once every tier is covered, which leaves the remaining slot free.
+        int tier_filter = 0;
+        if (multi_tier) {
+            for (int t : SPOIL_TIER_ORDER) {
+                if ((tiers & t) && !(filled_tiers & t)) { tier_filter = t; break; }
             }
         }
+
+        // An owed tier is filled against the full budget rather than this roll's
+        // effective_cap, because its cheapest item may cost more than the roll allows
+        // and the tier would then never come up at all. A free slot keeps the ceiling.
+        int price_cap = tier_filter ? budget : effective_cap;
+
+        auto eligible = [&](int i, int tf, int cap) {
+            if (!base_ok(i)) return false;
+            if (tf && !(ItemDefs[i].type & tf)) return false;
+            if (ItemDefs[i].baseprice > cap) return false;
+            return chosen_types.find(i) == chosen_types.end();
+        };
+
+        int count = 0;
+        for (int i = 0; i < NITEMS; i++) if (eligible(i, tier_filter, price_cap)) count++;
+        if (count == 0 && tier_filter) {
+            // Nothing in the owed tier is reachable even at full budget - fall through
+            // to a free pick so the figure still pays something.
+            tier_filter = 0;
+            price_cap = effective_cap;
+            for (int i = 0; i < NITEMS; i++) if (eligible(i, 0, price_cap)) count++;
+        }
         if (count > 0) {
-            count = rng::get_random(count) + 1;
+            int pick = rng::get_random(count) + 1;
             for (int i = 0; i < NITEMS; i++) {
-                if (
-                    (ItemDefs[i].type & type_to_use) && !(ItemDefs[i].type & IT_SPECIAL) &&
-                    !(ItemDefs[i].type & IT_SHIP) && !(ItemDefs[i].type & IT_NEVER_SPOIL) &&
-                    (ItemDefs[i].baseprice <= effective_cap) && !(ItemDefs[i].flags & ItemType::DISABLED) &&
-                    chosen_types.find(i) == chosen_types.end()
-                ) {
-                    if (--count == 0) { chosen_item = i; break; }
-                }
+                if (eligible(i, tier_filter, price_cap) && --pick == 0) { chosen_item = i; break; }
             }
             chosen_types.insert(chosen_item);
         }
@@ -952,10 +1022,16 @@ void Army::GetMonSpoils(ItemList& spoils, int monitem, int free, std::set<int>& 
 
     if (chosen_item == -1) return;
 
-    // Quantity: val already rolled; guarantee ≥1 as safety net for pool-full picks
+    // Quantity: val already rolled; guarantee >=1 as safety net for pool-full picks
     // where chosen item may have been locked at a higher baseprice than current val.
-    int quantity = (val + rng::get_random(ItemDefs[chosen_item].baseprice)) / ItemDefs[chosen_item].baseprice;
-    if (quantity == 0) quantity = 1;
+    int quantity;
+    if (ItemDefs[chosen_item].type & IT_TRADE) {
+        quantity = SPOIL_TRADE_QUANTITY;
+    } else {
+        quantity = (val + rng::get_random(ItemDefs[chosen_item].baseprice)) /
+            ItemDefs[chosen_item].baseprice;
+        if (quantity == 0) quantity = 1;
+    }
     spoils.SetNum(chosen_item, spoils.GetNum(chosen_item) + quantity);
 }
 

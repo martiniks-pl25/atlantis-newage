@@ -819,7 +819,10 @@ public:
 	// Extends fortifications defenses into adjacent regions
 	int EXTENDED_FORT_DEFENCE;
 
-	// Remove trade items from spoils
+	// Disables the 50% chance that a monster whose spoiltype is exactly IT_NORMAL
+	// draws its entire loot pool from IT_TRADE instead. Has no effect on a monster
+	// whose spoiltype names IT_TRADE in its own mask: that reaches the trade tier
+	// through the tier order in Army::GetMonSpoils regardless of this setting.
 	int SPOILS_NO_TRADE;
 
 	// Write into time world events like battles, city captures, etc.
