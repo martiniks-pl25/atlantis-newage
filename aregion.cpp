@@ -4307,6 +4307,18 @@ bool economy(ARegionArray* arr, const int w, const int h) {
     // the end, both through gateway_ok() so the two cannot drift apart.
     constexpr int    SETTLEMENTS_KEPT  = 3;
 
+    // A monster lair is not placed in a hex neighbouring a settlement, so a player
+    // who starts in one is not looking at a lair from the doorstep.
+    //
+    // Three terrains are exempt and keep their lair even next door. They cannot be
+    // settled themselves - all three are barren - but they are the richest ground a
+    // settlement can border: ocean has fish, lake has fish, and volcano carries
+    // stone at 100% plus mithril and rootstone at 50% each. The lair is what that
+    // neighbour costs; clearing it is the price of working the hex.
+    auto lair_terrain_ignores_neighbours = [](int type) {
+        return type == R_OCEAN || type == R_VOLCANO || type == R_LAKE;
+    };
+
     // Size each placed settlement starts at, and what counts as an entry point.
     //
     // VILLAGES_ONLY is the ruleset's switch for "world generation makes villages
@@ -4472,8 +4484,20 @@ bool economy(ARegionArray* arr, const int w, const int h) {
                 logger::write(sizeName + " " + name);
             }
 
-            // A lair inside a settlement would be removed by add_town anyway.
-            bool addLair = !is_settlement && rng::get_random(100) < terrain->lairChance;
+            // A lair inside a settlement would be removed by add_town anyway; the
+            // neighbour rule is the one declared with SETTLEMENTS_KEPT above.
+            // chosen_size holds every site picked in phase 2, so this reads the same
+            // whatever order the scan reaches the hexes in.
+            bool lair_ok = lair_terrain_ignores_neighbours(reg->type);
+            if (!lair_ok) {
+                lair_ok = true;
+                for (int d = 0; d < NDIRS; d++) {
+                    ARegion* n = reg->neighbors[d];
+                    if (n && chosen_size.count(n)) { lair_ok = false; break; }
+                }
+            }
+            bool addLair = !is_settlement && lair_ok &&
+                           rng::get_random(100) < terrain->lairChance;
 
             reg->finish_setup({
                 .terrain = terrain,

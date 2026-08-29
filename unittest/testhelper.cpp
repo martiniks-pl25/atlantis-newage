@@ -148,6 +148,10 @@ void UnitTestHelper::run_make_pirate_fleet(ARegion *region) {
     game.MakePirateFleet(region);
 }
 
+void UnitTestHelper::run_make_pirate_lair(Object *obj) {
+    game.MakePirateLair(obj);
+}
+
 Object *UnitTestHelper::create_empty_fleet(ARegion *region, int ship_type, const std::string& fleet_name) {
     Object *fleet = new Object(region);
     fleet->type = O_FLEET;

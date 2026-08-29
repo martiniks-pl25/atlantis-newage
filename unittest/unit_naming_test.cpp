@@ -20,7 +20,7 @@ ut::suite<"Unit Auto-Naming"> unit_naming_suite = [] {
     "getPersonName returns non-empty for each enabled race"_test = [] {
         const std::vector<int> enabled_races = {
             I_MAN, I_ORC, I_HILLDWARF, I_HIGHELF, I_WOODELF, I_HOBBIT,
-            I_LEADERS, I_DROWMAN, I_GNOME, I_ICEDWARF, I_UNDERDWARF,
+            I_LEADERS, I_DROWMAN, I_ICEDWARF, I_UNDERDWARF,
             I_GOBLINMAN, I_LIZARDMAN, I_CENTAURMAN,
             I_FAIRY, I_TIEFLING
         };
@@ -40,7 +40,7 @@ ut::suite<"Unit Auto-Naming"> unit_naming_suite = [] {
     "getPersonName produces varied output for each race"_test = [] {
         const std::vector<int> races = {
             I_MAN, I_ORC, I_HILLDWARF, I_HIGHELF, I_WOODELF, I_HOBBIT,
-            I_LEADERS, I_DROWMAN, I_GNOME, I_ICEDWARF, I_UNDERDWARF,
+            I_LEADERS, I_DROWMAN, I_ICEDWARF, I_UNDERDWARF,
             I_GOBLINMAN, I_LIZARDMAN, I_CENTAURMAN,
             I_FAIRY, I_TIEFLING
         };

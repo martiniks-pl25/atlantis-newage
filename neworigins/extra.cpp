@@ -959,6 +959,10 @@ void Game::ModifyTablesPerRuleset(void)
     // (Galley, triple crew, a captain and a bosun). 0 = no born elites, 100 = all.
     rulesetSpecificData["pirate_elite_spawn_pct"]         = 10;
 
+    // Lair crew multiplier (MakePirateLair): 100 = unchanged. Trident doubles the
+    // pirates a lair spawns so the lair is a real garrison, not a speed bump.
+    rulesetSpecificData["pirate_lair_spawn_mult"]         = 200;
+
     // Bosun's whistle break chance: percent roll each time S_CALL_PIRATES is
     // cast, checked after the summon resolves (the cast that breaks still works).
     rulesetSpecificData["pirate_whistle_break_pct"]       = 10;
@@ -1008,6 +1012,14 @@ void Game::ModifyTablesPerRuleset(void)
     // FMI
     EnableItem(I_CATAPULT);
     EnableItem(I_STEEL_DEFENDER);
+    // Siege engines are heavy machines: raise their transport weight, and raise
+    // what they carry to match so each still moves itself. weight and walk are
+    // separate fields (items.h) - leaving walk at its gamedata value would make
+    // the engine a load someone else has to lift.
+    ModifyItemWeight(I_CATAPULT, 1000);
+    ModifyItemWeight(I_STEEL_DEFENDER, 1500);
+    ModifyItemCapacities(I_CATAPULT, 1000, 0, 0, 0);
+    ModifyItemCapacities(I_STEEL_DEFENDER, 1500, 0, 0, 0);
 
     //
     // Change craft: adamantium
@@ -1135,10 +1147,28 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyObjectName(O_MFORTRESS, "Magical Fortress");
     ModifyObjectName(O_MCASTLE, "Magical Castle");
 
+    // Trident: raise mage-study capacity of the standard fortifications
+    // (Castle 2 -> 5, Citadel 3 -> 10; protect/capacity/sailors kept as in gamedata.cpp).
+    ModifyObjectManpower(O_CASTLE, 300, 0, 0, 5);
+    ModifyObjectManpower(O_CITADEL, 1000, 0, 0, 10);
+
     EnableObject(O_ISLE);
     EnableObject(O_DERELICT);
     EnableObject(O_OCAVE);
     EnableObject(O_WHIRL);
+
+    // Ocean lairs shelter their garrison like a ship's hull (see
+    // docs/BUILDING_DEFENSE_ANALYSIS.md §2): the shelter bonus is not gated on
+    // unit type, so the monster inside receives it. Magic columns (energy/spirit/
+    // weather) are set only where they beat the monster's own defence — a 3 lifts
+    // a 0 to 1 (max(monster, -2 + bonus), army.cpp); merfolk already have weather
+    // 2 and the kraken's native 5 is above any reasonable bonus, so those stay 0.
+    ModifyObjectManpower(O_ISLE,     120, 0, 0, 0);   // pirates (galley-grade)
+    ModifyObjectDefence (O_ISLE,     2, 3, 3, 3, 2, 2);
+    ModifyObjectManpower(O_OCAVE,    100, 0, 0, 0);   // merfolk
+    ModifyObjectDefence (O_OCAVE,    2, 3, 3, 0, 2, 2);
+    ModifyObjectManpower(O_DERELICT,  10, 0, 0, 0);   // kraken (floor 10 so the wording stays plural)
+    ModifyObjectDefence (O_DERELICT, 2, 0, 0, 0, 2, 2);
 
     // Dungeon system — one entrance object used on both sides (surface + inside).
     // See docs/DUNGEON_SYSTEM_DESIGN.md
@@ -1188,6 +1218,7 @@ void Game::ModifyTablesPerRuleset(void)
     DisableItem(I_MINOTAUR);
     DisableItem(I_OGREMAN);
     DisableItem(I_GNOLL);
+    DisableItem(I_GNOME);
 
     ModifyItemBasePrice(I_LEADERS, 800);
 
@@ -1197,6 +1228,8 @@ void Game::ModifyTablesPerRuleset(void)
     modify_race_skills("HUMN", 0, "OBSE");
     modify_race_skills("HUMN", 1, "STEA");
     modify_race_skills("HUMN", 2, "TACT");
+    modify_race_skills("HUMN", 3, "ARMO");
+    modify_race_skills("HUMN", 4, "WEAP");
 
     EnableItem(I_HILLDWARF);
     ModifyItemBasePrice(I_HILLDWARF, 40);
@@ -1215,6 +1248,7 @@ void Game::ModifyTablesPerRuleset(void)
     modify_race_skills("IDWA", 2, "MINI");
     modify_race_skills("IDWA", 3, "FISH");
     modify_race_skills("IDWA", 4, "ARMO");
+    modify_race_skills("IDWA", 5, "QUAR");
 
     EnableItem(I_HIGHELF);
     ModifyItemBasePrice(I_HIGHELF, 40);
@@ -1234,18 +1268,6 @@ void Game::ModifyTablesPerRuleset(void)
     modify_race_skills("WELF", 3, "CARP");
     modify_race_skills("WELF", 4, "WEAP");
     modify_race_skills("WELF", 5, "COOK");
-
-    EnableItem(I_GNOME);
-    ModifyItemBasePrice(I_GNOME, 30);
-    modify_race_skill_levels("GNOM", 5, 2);
-    modify_race_skills("GNOM", 0, "HERB");
-    modify_race_skills("GNOM", 1, "QUAR");
-    modify_race_skills("GNOM", 2, "ENTE");
-    modify_race_skills("GNOM", 3, "XBOW");
-    modify_race_skills("GNOM", 4, "HEAL");
-    modify_race_skills("GNOM", 5, "CARP");
-    ModifyItemCapacities(I_GNOME,7,0,0,0);
-    ModifyItemWeight(I_GNOME, 5);
 
     EnableItem(I_CENTAURMAN);
     ModifyItemBasePrice(I_CENTAURMAN, 70);
@@ -1321,7 +1343,7 @@ void Game::ModifyTablesPerRuleset(void)
 
     EnableItem(I_FAIRY);
     ModifyItemBasePrice(I_FAIRY, 200);
-    modify_race_skill_levels("FAIR", 4, 2);
+    modify_race_skill_levels("FAIR", 5, 2);
     modify_race_skills("FAIR", 0, "OBSE");
     modify_race_skills("FAIR", 1, "HEAL");
     modify_race_skills("FAIR", 2, "HERB");
@@ -1352,15 +1374,15 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainCoastRace(R_PLAIN, 0, I_HIGHELF);
     ModifyTerrainCoastRace(R_PLAIN, 1, I_MAN);
     ModifyTerrainCoastRace(R_PLAIN, 2, I_HIGHELF);
+    ModifyTerrainCoastRace(R_PLAIN, 3, I_CENTAURMAN);
     ModifyTerrainEconomy(R_PLAIN, 600, 12, 30, 1);
 
     ClearTerrainRaces(R_FOREST);
     ModifyTerrainRace(R_FOREST, 0, I_WOODELF);
-    ModifyTerrainRace(R_FOREST, 1, I_GOBLINMAN);
+    ModifyTerrainRace(R_FOREST, 1, I_WOODELF);
     ModifyTerrainRace(R_FOREST, 2, I_MAN);
-    ModifyTerrainRace(R_FOREST, 3, I_WOODELF);
     ModifyTerrainCoastRace(R_FOREST, 0, I_WOODELF);
-    ModifyTerrainCoastRace(R_FOREST, 1, I_ORC);
+    ModifyTerrainCoastRace(R_FOREST, 1,  I_MAN);
     ModifyTerrainCoastRace(R_FOREST, 2, I_HIGHELF);
     ModifyTerrainEconomy(R_FOREST, 450, 12, 18, 2);
 
@@ -1370,15 +1392,15 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainRace(R_MOUNTAIN, 2, I_HILLDWARF);
     ModifyTerrainCoastRace(R_MOUNTAIN, 0, I_HILLDWARF);
     ModifyTerrainCoastRace(R_MOUNTAIN, 1, I_ORC);
-    ModifyTerrainCoastRace(R_MOUNTAIN, 2, I_GNOME);
+    ModifyTerrainCoastRace(R_MOUNTAIN, 2, I_GOBLINMAN);
     ModifyTerrainEconomy(R_MOUNTAIN, 300, 11, 10, 2);
 
     ClearTerrainRaces(R_HILL);
     ModifyTerrainRace(R_HILL, 0, I_HILLDWARF);
     ModifyTerrainRace(R_HILL, 1, I_ORC);
-    ModifyTerrainRace(R_HILL, 2, I_MAN);
-    ModifyTerrainRace(R_HILL, 3, I_HOBBIT);
-    ModifyTerrainCoastRace(R_HILL, 0, I_ORC);
+    ModifyTerrainRace(R_HILL, 2, I_HOBBIT);
+    ModifyTerrainRace(R_HILL, 3, I_CENTAURMAN);
+    ModifyTerrainCoastRace(R_HILL, 0, I_HOBBIT);
     ModifyTerrainCoastRace(R_HILL, 1, I_MAN);
     ModifyTerrainCoastRace(R_HILL, 2, I_HILLDWARF);
     ModifyTerrainEconomy(R_HILL, 450, 12, 18, 2);
@@ -1386,8 +1408,6 @@ void Game::ModifyTablesPerRuleset(void)
     ClearTerrainRaces(R_SWAMP);
     ModifyTerrainRace(R_SWAMP, 0, I_LIZARDMAN);
     ModifyTerrainRace(R_SWAMP, 1, I_GOBLINMAN);
-    ModifyTerrainRace(R_SWAMP, 2, I_GNOME);
-    ModifyTerrainRace(R_SWAMP, 3, I_ORC);
     ModifyTerrainCoastRace(R_SWAMP, 0, I_LIZARDMAN);
     ModifyTerrainCoastRace(R_SWAMP, 1, I_MAN);
     ModifyTerrainCoastRace(R_SWAMP, 2, I_ORC);
@@ -1395,9 +1415,8 @@ void Game::ModifyTablesPerRuleset(void)
 
     ClearTerrainRaces(R_JUNGLE);
     ModifyTerrainRace(R_JUNGLE, 0, I_ORC);
-    ModifyTerrainRace(R_JUNGLE, 1, I_MAN);
+    ModifyTerrainRace(R_JUNGLE, 1, I_WOODELF);
     ModifyTerrainRace(R_JUNGLE, 2, I_GOBLINMAN);
-    ModifyTerrainRace(R_JUNGLE, 3, I_GNOME);
     ModifyTerrainCoastRace(R_JUNGLE, 0, I_ORC);
     ModifyTerrainCoastRace(R_JUNGLE, 1, I_MAN);
     ModifyTerrainCoastRace(R_JUNGLE, 2, I_LIZARDMAN);
@@ -1406,7 +1425,7 @@ void Game::ModifyTablesPerRuleset(void)
     ClearTerrainRaces(R_DESERT);
     ModifyTerrainRace(R_DESERT, 0, I_CENTAURMAN);
     ModifyTerrainRace(R_DESERT, 1, I_GOBLINMAN);
-    ModifyTerrainRace(R_DESERT, 2, I_MAN);
+    ModifyTerrainRace(R_DESERT, 2, I_ORC);
     ModifyTerrainCoastRace(R_DESERT, 0, I_ORC);
     ModifyTerrainCoastRace(R_DESERT, 1, I_GOBLINMAN);
     ModifyTerrainCoastRace(R_DESERT, 2, I_MAN);
@@ -1414,11 +1433,10 @@ void Game::ModifyTablesPerRuleset(void)
 
     ClearTerrainRaces(R_TUNDRA);
     ModifyTerrainRace(R_TUNDRA, 0, I_ICEDWARF);
-    ModifyTerrainRace(R_TUNDRA, 1, I_GNOME);
-    ModifyTerrainRace(R_TUNDRA, 2, I_MAN);
-    ModifyTerrainRace(R_TUNDRA, 3, I_ICEDWARF);
+    ModifyTerrainRace(R_TUNDRA, 1, I_GOBLINMAN);
+    ModifyTerrainRace(R_TUNDRA, 2, I_ICEDWARF);
     ModifyTerrainCoastRace(R_TUNDRA, 0, I_ICEDWARF);
-    ModifyTerrainCoastRace(R_TUNDRA, 1, I_GNOME);
+    ModifyTerrainCoastRace(R_TUNDRA, 1, I_GOBLINMAN);
     ModifyTerrainCoastRace(R_TUNDRA, 2, I_MAN);
     ModifyTerrainEconomy(R_TUNDRA, 350, 11, 10, 2);
 
@@ -1439,10 +1457,10 @@ void Game::ModifyTablesPerRuleset(void)
 
     ClearTerrainRaces(R_UFOREST);
     ModifyTerrainRace(R_UFOREST, 0, I_DROWMAN);
-    ModifyTerrainRace(R_UFOREST, 1, I_GNOME);
+    ModifyTerrainRace(R_UFOREST, 1, I_ORC);
     ModifyTerrainRace(R_UFOREST, 2, I_GOBLINMAN);
     ModifyTerrainCoastRace(R_UFOREST, 0, I_DROWMAN);
-    ModifyTerrainCoastRace(R_UFOREST, 1, I_GNOME);
+    ModifyTerrainCoastRace(R_UFOREST, 1, I_GOBLINMAN);
     ModifyTerrainCoastRace(R_UFOREST, 2, I_DROWMAN);
     ModifyTerrainEconomy(R_UFOREST, 300, 11, 10, 2);
 
@@ -1453,7 +1471,7 @@ void Game::ModifyTablesPerRuleset(void)
 
     ClearTerrainRaces(R_CHASM);
     ModifyTerrainRace(R_CHASM, 0, I_DROWMAN);
-    ModifyTerrainRace(R_CHASM, 1, I_GNOME);
+    ModifyTerrainRace(R_CHASM, 1, I_ORC);
     ModifyTerrainRace(R_CHASM, 2, I_GOBLINMAN);
     ModifyTerrainCoastRace(R_CHASM, 0, I_UNDERDWARF);
     ModifyTerrainCoastRace(R_CHASM, 1, I_DROWMAN);
@@ -1496,16 +1514,16 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainEconomy(R_DFOREST, 250, 11, 12, 2);
 
     // wandering monsters
-    ModifyTerrainWMons(R_OCEAN,8,I_PIRATES,I_KRAKEN,I_MERFOLK);
+    ModifyTerrainWMons(R_OCEAN,5,I_PIRATES,I_KRAKEN,I_MERFOLK);
 
     ModifyTerrainWMons(R_PLAIN,2,I_LION,I_BEHEMOTH,I_CENTAUR);
     ModifyTerrainWMons(R_FOREST,3,I_WOLF,I_TRENT,I_KOBOLD);
-    ModifyTerrainWMons(R_MOUNTAIN,8,I_GBEAR,I_WYVERN,I_OGRE);
+    ModifyTerrainWMons(R_MOUNTAIN,6,I_GBEAR,I_WYVERN,I_OGRE);
     ModifyTerrainWMons(R_HILL,3,I_GBEAR,I_ROC,I_OGRE);
-    ModifyTerrainWMons(R_SWAMP,8,I_CROCODILE,I_BTHING,I_TROLL);
+    ModifyTerrainWMons(R_SWAMP,6,I_CROCODILE,I_BTHING,I_TROLL);
     ModifyTerrainWMons(R_JUNGLE,3,I_ANACONDA,I_KONG,I_WMEN);
-    ModifyTerrainWMons(R_DESERT,8,I_SCORPION,I_SPHINX,I_SANDLING);
-    ModifyTerrainWMons(R_TUNDRA,8,I_PBEAR,I_IWURM,I_YETI);
+    ModifyTerrainWMons(R_DESERT,6,I_SCORPION,I_SPHINX,I_SANDLING);
+    ModifyTerrainWMons(R_TUNDRA,6,I_PBEAR,I_IWURM,I_YETI);
 
     ModifyTerrainWMons(R_VOLCANO,12,I_IMP,I_IFRIT,I_DEMON);
     ModifyTerrainWMons(R_LAKE,4,I_MERFOLK,I_ELEMENTAL,I_MERFOLK);
@@ -1514,9 +1532,9 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainWMons(R_UFOREST,12,I_SPIDER,I_DRAGON,I_TROLL);
     ModifyTerrainWMons(R_TUNNELS,12,I_LIZARD,I_WYVERN,I_ETTIN);
 
-    ModifyTerrainWMons(R_GROTTO,24,I_DEMON,I_DRAGON,I_IFRIT);
-    ModifyTerrainWMons(R_DFOREST,24,I_LMEN,I_DRAGON,I_TROLL);
-    ModifyTerrainWMons(R_CHASM,24,I_DEMON,I_DEVIL,I_ETTIN);
+    ModifyTerrainWMons(R_GROTTO,20,I_DEMON,I_DRAGON,I_IFRIT);
+    ModifyTerrainWMons(R_DFOREST,20,I_LMEN,I_DRAGON,I_TROLL);
+    ModifyTerrainWMons(R_CHASM,20,I_DEMON,I_DEVIL,I_ETTIN);
 
     // monster lairs
     ModifyTerrainLairChance(R_OCEAN, 10);
@@ -1527,7 +1545,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainLair(R_OCEAN, 4, O_ISLE);
     ModifyTerrainLair(R_OCEAN, 5, O_OCAVE);
 
-    ModifyTerrainLairChance(R_PLAIN, 10);
+    ModifyTerrainLairChance(R_PLAIN, 8);
     ModifyTerrainLair(R_PLAIN, 0, O_RUIN);
     ModifyTerrainLair(R_PLAIN, 1, O_RUIN);
     ModifyTerrainLair(R_PLAIN, 2, O_CRYPT);
@@ -1535,7 +1553,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainLair(R_PLAIN, 4, O_MAGETOWER);
     ModifyTerrainLair(R_PLAIN, 5, -1);
 
-    ModifyTerrainLairChance(R_FOREST, 10);
+    ModifyTerrainLairChance(R_FOREST, 8);
     ModifyTerrainLair(R_FOREST, 0, O_RUIN);
     ModifyTerrainLair(R_FOREST, 1, O_RUIN);
     ModifyTerrainLair(R_FOREST, 2, O_LAIR);
@@ -1543,7 +1561,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainLair(R_FOREST, 4, O_CRYPT);
     ModifyTerrainLair(R_FOREST, 5, -1);
 
-    ModifyTerrainLairChance(R_MOUNTAIN, 25);
+    ModifyTerrainLairChance(R_MOUNTAIN, 15);
     ModifyTerrainLair(R_MOUNTAIN, 0, O_LAIR);
     ModifyTerrainLair(R_MOUNTAIN, 1, O_RUIN);
     ModifyTerrainLair(R_MOUNTAIN, 2, O_CAVE);
@@ -1551,7 +1569,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainLair(R_MOUNTAIN, 4, O_MAGETOWER);
     ModifyTerrainLair(R_MOUNTAIN, 5, O_GIANTCASTLE);
 
-    ModifyTerrainLairChance(R_HILL, 15);
+    ModifyTerrainLairChance(R_HILL, 10);
     ModifyTerrainLair(R_HILL, 0, O_LAIR);
     ModifyTerrainLair(R_HILL, 1, O_RUIN);
     ModifyTerrainLair(R_HILL, 2, O_LAIR);
@@ -1559,7 +1577,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainLair(R_HILL, 4, O_MAGETOWER);
     ModifyTerrainLair(R_HILL, 5, O_CRYPT);
 
-    ModifyTerrainLairChance(R_SWAMP, 20);
+    ModifyTerrainLairChance(R_SWAMP, 15);
     ModifyTerrainLair(R_SWAMP, 0, O_LAIR);
     ModifyTerrainLair(R_SWAMP, 1, O_RUIN);
     ModifyTerrainLair(R_SWAMP, 2, O_LAIR);
@@ -1567,7 +1585,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainLair(R_SWAMP, 4, O_BOG);
     ModifyTerrainLair(R_SWAMP, 5, O_CRYPT);
 
-    ModifyTerrainLairChance(R_JUNGLE, 15);
+    ModifyTerrainLairChance(R_JUNGLE, 10);
     ModifyTerrainLair(R_JUNGLE, 0, O_LAIR);
     ModifyTerrainLair(R_JUNGLE, 1, O_RUIN);
     ModifyTerrainLair(R_JUNGLE, 2, O_LAIR);
@@ -1575,7 +1593,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainLair(R_JUNGLE, 4, O_BOG);
     ModifyTerrainLair(R_JUNGLE, 5, O_CRYPT);
 
-    ModifyTerrainLairChance(R_DESERT, 20);
+    ModifyTerrainLairChance(R_DESERT, 10);
     ModifyTerrainLair(R_DESERT, 0, O_LAIR);
     ModifyTerrainLair(R_DESERT, 1, O_RUIN);
     ModifyTerrainLair(R_DESERT, 2, O_LAIR);
@@ -1583,7 +1601,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainLair(R_DESERT, 4, O_BOG);
     ModifyTerrainLair(R_DESERT, 5, O_CRYPT);
 
-    ModifyTerrainLairChance(R_TUNDRA, 20);
+    ModifyTerrainLairChance(R_TUNDRA, 15);
     ModifyTerrainLair(R_TUNDRA, 0, O_BOG);
     ModifyTerrainLair(R_TUNDRA, 1, O_ICECAVE);
     ModifyTerrainLair(R_TUNDRA, 2, O_GIANTCASTLE);
@@ -1591,7 +1609,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainLair(R_TUNDRA, 4, O_CRYPT);
     ModifyTerrainLair(R_TUNDRA, 5, O_CRYPT);
 
-    ModifyTerrainLairChance(R_VOLCANO, 25);
+    ModifyTerrainLairChance(R_VOLCANO, 20);
     ModifyTerrainLair(R_VOLCANO, 0, O_DEMONPIT);
     ModifyTerrainLair(R_VOLCANO, 1, O_IFRITLAIR);
     ModifyTerrainLair(R_VOLCANO, 2, O_GIANTCASTLE);
@@ -1607,7 +1625,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainLair(R_LAKE, 4, O_OCAVE);
     ModifyTerrainLair(R_LAKE, 5, -1);
 
-    ModifyTerrainLairChance(R_CAVERN, 20);
+    ModifyTerrainLairChance(R_CAVERN, 15);
     ModifyTerrainLair(R_CAVERN, 0, O_LAIR);
     ModifyTerrainLair(R_CAVERN, 1, O_RUIN);
     ModifyTerrainLair(R_CAVERN, 2, O_IFRITLAIR);
@@ -1615,7 +1633,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainLair(R_CAVERN, 4, O_CAVE);
     ModifyTerrainLair(R_CAVERN, 5, O_DARKTOWER);
 
-    ModifyTerrainLairChance(R_UFOREST, 20);
+    ModifyTerrainLairChance(R_UFOREST, 15);
     ModifyTerrainLair(R_UFOREST, 0, O_LAIR);
     ModifyTerrainLair(R_UFOREST, 1, O_RUIN);
     ModifyTerrainLair(R_UFOREST, 2, O_GIANTCASTLE);
@@ -1623,7 +1641,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainLair(R_UFOREST, 4, O_CAVE);
     ModifyTerrainLair(R_UFOREST, 5, O_DARKTOWER);
 
-    ModifyTerrainLairChance(R_TUNNELS, 20);
+    ModifyTerrainLairChance(R_TUNNELS, 15);
     ModifyTerrainLair(R_TUNNELS, 0, O_LAIR);
     ModifyTerrainLair(R_TUNNELS, 1, O_RUIN);
     ModifyTerrainLair(R_TUNNELS, 2, O_GIANTCASTLE);
@@ -1631,7 +1649,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainLair(R_TUNNELS, 4, O_CAVE);
     ModifyTerrainLair(R_TUNNELS, 5, O_DARKTOWER);
 
-    ModifyTerrainLairChance(R_GROTTO, 25);
+    ModifyTerrainLairChance(R_GROTTO, 20);
     ModifyTerrainLair(R_GROTTO, 0, O_LAIR);
     ModifyTerrainLair(R_GROTTO, 1, O_IFRITLAIR);
     ModifyTerrainLair(R_GROTTO, 2, O_GIANTCASTLE);
@@ -1639,7 +1657,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainLair(R_GROTTO, 4, O_CAVE);
     ModifyTerrainLair(R_GROTTO, 5, O_DARKTOWER);
 
-    ModifyTerrainLairChance(R_DFOREST, 25);
+    ModifyTerrainLairChance(R_DFOREST, 20);
     ModifyTerrainLair(R_DFOREST, 0, O_RUIN);
     ModifyTerrainLair(R_DFOREST, 1, O_CAVE);
     ModifyTerrainLair(R_DFOREST, 2, O_DEMONPIT);
@@ -1647,7 +1665,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainLair(R_DFOREST, 4, O_ILAIR);
     ModifyTerrainLair(R_DFOREST, 5, O_DARKTOWER);
 
-    ModifyTerrainLairChance(R_CHASM, 25);
+    ModifyTerrainLairChance(R_CHASM, 20);
     ModifyTerrainLair(R_CHASM, 0, O_LAIR);
     ModifyTerrainLair(R_CHASM, 1, O_RUIN);
     ModifyTerrainLair(R_CHASM, 2, O_CAVE);
@@ -1782,6 +1800,39 @@ void Game::ModifyTablesPerRuleset(void)
     modify_monster_spoils("DMAG",  5000, IT_MAGIC);     // Dark Mage           (default: 5000, IT_MAGIC)
     modify_monster_spoils("MAGI",  4000, IT_MAGIC);     // Evil Magicians      (default: 4000, IT_MAGIC)
     modify_monster_spoils("SORC",  2000, IT_ADVANCED);  // Evil Sorcerers      (default: 1000, IT_ADVANCED)
+
+    // --- Monster combat stats: hitDamage and officer tuning ---
+    // Tuned via modify_monster_attacks_and_hits (numAttacks, hits, regen, hitDamage)
+    // and modify_monster_skills (tactics, stealth, obs). Only the noted field changes;
+    // the rest are restated from the MonDefs defaults in gamedata.cpp.
+
+    // Colossal monsters (size 5): hitDamage 1 -> 5
+    modify_monster_attacks_and_hits("DRAG", 50,  60,  0,  5);   // default: 50 atk, 60 hp, 0 regen
+    modify_monster_attacks_and_hits("BALR", 200, 280, 0,  5);   // default: 200 atk, 280 hp, 0 regen
+    modify_monster_attacks_and_hits("KRAK", 200, 200, 0,  5);   // default: 200 atk, 200 hp, 0 regen
+    modify_monster_attacks_and_hits("STGI", 80,  80,  0,  5);   // default: 80 atk, 80 hp, 0 regen
+    modify_monster_attacks_and_hits("CLGI", 100, 100, 0,  5);   // default: 100 atk, 100 hp, 0 regen
+    modify_monster_attacks_and_hits("IDRA", 120, 120, 0,  5);   // default: 120 atk, 120 hp, 0 regen
+    modify_monster_attacks_and_hits("DEVL", 250, 250, 0,  5);   // default: 250 atk, 250 hp, 0 regen
+
+    // Huge monsters (size 4): hitDamage 1 -> 3
+    modify_monster_attacks_and_hits("ROC",  25,  25,  0,  3);   // default: 25 atk, 25 hp, 0 regen
+    modify_monster_attacks_and_hits("BOGT", 30,  30,  0,  3);   // default: 30 atk, 30 hp, 0 regen
+    modify_monster_attacks_and_hits("KONG", 40,  40,  0,  3);   // default: 40 atk, 40 hp, 0 regen
+    modify_monster_attacks_and_hits("SPHI", 80,  80,  0,  3);   // default: 80 atk, 80 hp, 0 regen
+    modify_monster_attacks_and_hits("WYVR", 20,  25,  0,  3);   // default: 20 atk, 25 hp, 0 regen (damage 2 -> 3)
+    modify_monster_attacks_and_hits("ETTI", 32,  50,  0,  3);   // default: 32 atk, 50 hp, 0 regen
+    modify_monster_attacks_and_hits("HYDR", 70,  70,  30, 3);   // default: 70 atk, 70 hp, 30 regen
+    modify_monster_attacks_and_hits("BEHE", 20,  60,  0,  3);   // default: 20 atk, 60 hp, 0 regen
+
+    // Regular pirates (PIRA): observation 1 -> 2
+    modify_monster_skills("PIRA", 1, 1, 2);                     // tactics 1, stealth 1 = default
+
+    // Pirate officers: tactics, obs, and hits
+    modify_monster_skills("PBOS", 3, 1, 3);                     // tactics 2 -> 3; obs 2 -> 3; stealth 1 = default
+    modify_monster_attacks_and_hits("PBOS", 2, 10, 0, 1);       // hits 6 -> 10; 2 atk, 0 regen, damage 1 = default
+    modify_monster_skills("PCAP", 5, 1, 4);                     // tactics 4 -> 5; obs 3 -> 4; stealth 1 = default
+    modify_monster_attacks_and_hits("PCAP", 3, 15, 0, 2);       // hits 10 -> 15; 3 atk, 0 regen, damage 2 = default
 
         // --- Base prices: weapons, armor, tools ---
     // Resources: IRON=30  WOOD=30  FUR=30  HERBS=30  MITH=100  IRWD=100  ADMT=300

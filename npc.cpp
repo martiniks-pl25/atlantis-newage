@@ -439,6 +439,9 @@ void Game::MakePirateLair(Object *pObj)
 
     int pira_count = (pmon.number + rng::get_random(pmon.number) + 1) / 2;
     if (has_bosun) pira_count = (pira_count * 3) / 2;
+    // Ruleset multiplier so a ruleset can beef up lair garrisons without touching
+    // the engine default (100 = unchanged). Valued in neworigins/extra.cpp.
+    pira_count = (pira_count * rulesetSpecificData.value("pirate_lair_spawn_mult", 100)) / 100;
 
     // Main pirate crew
     Unit *u = GetNewUnit(monfac, 0);

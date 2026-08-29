@@ -756,7 +756,10 @@ std::string object_description(int obj)
     }
 
     if (o->protect) {
-        temp += " This structure provides defense to the first " + std::to_string(o->protect) + " men inside it. " +
+        // Monster lairs shelter monsters, not men; every other structure keeps
+        // the classic "men" wording.
+        const char *occupants = (o->monster != -1) ? "monsters" : "men";
+        temp += " This structure provides defense to the first " + std::to_string(o->protect) + " " + occupants + " inside it. " +
             "This structure gives a defensive bonus of ";
         std::vector<std::string> defences;
         for (int i=0; i<NUM_ATTACK_TYPES; i++) {
@@ -767,8 +770,10 @@ std::string object_description(int obj)
         }
         temp += strings::join(defences, ", ", " and ") + (defences.size() > 0 ? "." : "");
 
-        // Capacity check prevents showing wrong details for ships
-        if (Globals->EXTENDED_FORT_DEFENCE && !o->capacity) {
+        // Capacity check prevents showing wrong details for ships; monster lairs
+        // are excluded too — their garrison never joins a battle in an adjacent
+        // region, so the claim would only mislead players.
+        if (Globals->EXTENDED_FORT_DEFENCE && !o->capacity && o->monster == -1) {
             temp += " This structure also protects in all adjacent regions.";
         }
     }

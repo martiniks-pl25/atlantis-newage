@@ -1111,6 +1111,7 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
     int leadidx = -1;
     for (int i = 0; i < NITEMS; i++) {
         if (!(ItemDefs[i].type & IT_MAN)) continue;
+        if (ItemDefs[i].flags & ItemType::DISABLED) continue;
         if (ItemDefs[i].type & IT_LEADER) {
             if (leadidx == -1) leadidx = i;
         } else {
