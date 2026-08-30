@@ -378,6 +378,9 @@ Map::Map(int width, int height) : map(CellMap(width, height)) {
     frequency = 5.0;
     amplitude = 0.5;
     redistribution = 1.0;
+    octaves = 3;
+    lacunarity = 2.0;
+    persistence = 0.5;
     evoparation = 1.0;
 
     waterPercent = 0.2;
@@ -438,11 +441,11 @@ Blob* fillByBiome(CellMap* map, Cell* start, const Biome* biome) {
 void Map::Generate() {
     int len = map.width * map.height;
 
-    SimplexNoise* noise = new SimplexNoise(frequency, amplitude);
+    SimplexNoise* noise = new SimplexNoise(frequency, amplitude, lacunarity, persistence);
     std::vector<Blob*> blobs;
 
     // Create high-frequency noise for polar archipelago effect
-    SimplexNoise* islandNoise = new SimplexNoise(frequency * 4.0, amplitude);
+    SimplexNoise* islandNoise = new SimplexNoise(frequency * 4.0, amplitude, lacunarity, persistence);
 
     // 0. elevation
     const int ELEVATION = 16000;    // elevation range is 16km
@@ -458,7 +461,7 @@ void Map::Generate() {
         double ny = (double) cell->y / map.height;
 
         // Base elevation from main noise (creates continents)
-        double e = pow((noise->cylinderFractal(3, nx, ny) + 1.0) / 2.0, redistribution);
+        double e = pow((noise->cylinderFractal(octaves, nx, ny) + 1.0) / 2.0, redistribution);
 
         // Polar archipelago effect: fragment land into islands at high latitudes
         double lat = std::abs(((halfHeight - cell->y) / halfHeight) * 90.0);  // 0-90°
@@ -468,6 +471,7 @@ void Map::Generate() {
             double polarAmount = (lat - polarLatitudeStart) / (90.0 - polarLatitudeStart);
 
             // High-frequency noise creates small-scale terrain variation (islands)
+            // Polar noise deliberately keeps its own fixed octave count
             double islandDetail = (islandNoise->cylinderFractal(2, nx, ny) + 1.0) / 2.0;
 
             // Smooth blend between continental and island terrain

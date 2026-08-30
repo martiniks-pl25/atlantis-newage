@@ -142,6 +142,14 @@ public:
     double redistribution;
     double frequency;
     double amplitude;
+
+    // Fractal sum: each next octave is lacunarity times finer and carries
+    // persistence times the weight of the previous one. Lower persistence
+    // leaves the largest shape dominant; higher persistence adds roughness
+    // at intermediate scales.
+    int    octaves;        // fractal octaves for the continental noise
+    double lacunarity;     // frequency multiplier between octaves
+    double persistence;    // amplitude retained by each next octave
     double waterPercent;
     double mountainPercent;
     double hillPercent;

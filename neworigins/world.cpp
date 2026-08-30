@@ -430,8 +430,11 @@ void Game::CreateWorld()
         float default_frequency = 3.6;
         float default_amplitude = 0.6;
         float default_redistribution = 2;  // Even gentler elevation (avoid too much flat land)
+        int   default_octaves = 3;
+        float default_lacunarity = 2.0;
+        float default_persistence = 0.5;
         float default_evoparation = 0.89;    // Maximum evaporation = maximum rainfall (ensure forests)
-        float default_waterPercent = 0.45;   // % base ocean (more moisture sources)
+        float default_waterPercent = 0.55;   // % base ocean (more moisture sources)
         float default_mountainPercent = 0.10;  // mountain + hill
         float default_hillPercent = 0.60;      // hill% (in set with mountains)
         float default_lakePercent = 0.15;  // 15% chance for lake placement
@@ -439,7 +442,7 @@ void Game::CreateWorld()
         // Polar archipelago parameters (control polar island fragmentation)
         float default_polarLatitudeStart = 65.0;   // Latitude where island effect begins (60-75°, lower = more area affected)
         float default_polarIslandBlend = 0.70;     // Island fragmentation strength (0.3-0.8, higher = more fragmented)
-        float default_polarElevationRedux = 0.85;  // Polar submersion level (0.2-0.7, higher = more ocean at poles)
+        float default_polarElevationRedux = 0.80;  // Polar submersion level (0.2-0.7, higher = more ocean at poles)
 
         // Show current defaults
         logger::write("");
@@ -480,7 +483,7 @@ void Game::CreateWorld()
             // Terrain generation
             map->frequency = ask_parameter_float("Continent frequency (1.0-10.0, higher=bigger)",
                                                 default_frequency, 1.0, 10.0);
-            map->amplitude = ask_parameter_float("Noise amplitude (0.1-1.0, terrain strength)",
+            map->amplitude = ask_parameter_float("Noise amplitude (no effect - normalised away, kept for sweep field order)",
                                                 default_amplitude, 0.1, 1.0);
             map->redistribution = ask_parameter_float("Elevation diversity (0.0-5.0)",
                                                      default_redistribution, 0.0, 5.0);
@@ -504,6 +507,11 @@ void Game::CreateWorld()
             map->evoparation = ask_parameter_float("Rainfall balance (0.0-1.0, higher=WETTER)",
                                                   default_evoparation, 0.0, 1.0);
 
+            // Fractal noise summation
+            map->octaves     = ask_parameter("Noise octaves (1-6)", default_octaves, 1, 6);
+            map->lacunarity  = ask_parameter_float("Octave frequency step (1.2-3.0)", default_lacunarity, 1.2, 3.0);
+            map->persistence = ask_parameter_float("Octave weight decay (0.1-0.9)", default_persistence, 0.1, 0.9);
+
             // Polar parameters use defaults (modify in world.cpp to experiment)
             map->polarLatitudeStart = default_polarLatitudeStart;
             map->polarIslandBlend = default_polarIslandBlend;
@@ -515,6 +523,9 @@ void Game::CreateWorld()
             map->frequency = default_frequency;
             map->amplitude = default_amplitude;
             map->redistribution = default_redistribution;
+            map->octaves = default_octaves;
+            map->lacunarity = default_lacunarity;
+            map->persistence = default_persistence;
             map->evoparation = default_evoparation;
             map->waterPercent = default_waterPercent;
             map->mountainPercent = default_mountainPercent;
