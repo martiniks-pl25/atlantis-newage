@@ -54,19 +54,16 @@ static int count_pirate_hulls(ARegion *r)
     return hulls;
 }
 
-// Pushes the map-chance ramp so far past 100 that every vessel roll succeeds and
+// Pushes the map-chance cap to 100 at turn 100 so every vessel roll succeeds and
 // every success yields a TMAP, so the number of maps recovered *is* the number of
 // rolls Army::Lose() made. Same device as pirate_map_chance_ramp_test.cpp.
 static void force_guaranteed_tmap(UnitTestHelper &helper)
 {
     json data;
-    data["map_chance_ramp_turns"] = 1;
-    data["map_chance_ramp_bonus"] = 100.0;
-    data["tmap_share_early"] = 100;
-    data["tmap_share_late"] = 100;
+    data["map_chance_cap"] = 100;
     helper.set_ruleset_specific_data(data);
-    helper.game_object().year = 1;
-    helper.game_object().month = 0;
+    helper.game_object().year = 9;
+    helper.game_object().month = 3;  // TurnNumber() == 100
     helper.game_object().UpdateMapChanceRamp();
 }
 
@@ -93,9 +90,9 @@ ut::suite<"PirateSeizeSpoils"> pirate_seize_spoils_suite = [] {
 
     // -----------------------------------------------------------------------
     // A plain fleet - no captain, no bosun - is worth a map roll of its own.
-    // That is the flat +10 crew bonus in Army::Lose(): a vessel earns it because
-    // grown pirates died aboard it, not because an officer did. Officers only add
-    // +20 each on top.
+    // That is the crew's turn-scaled map chance in Army::Lose(): a vessel earns it
+    // because grown pirates died aboard it, not because an officer did. Officers
+    // add a flat +20 each on top.
     // -----------------------------------------------------------------------
     "a grown crew with no officers aboard still rolls for a map"_test = [] {
         UnitTestHelper helper;
@@ -222,30 +219,25 @@ ut::suite<"PirateSeizeSpoils"> pirate_seize_spoils_suite = [] {
     };
 };
 
-// The map-roll chance formula, extracted as a pure helper so the role rule is
-// testable without a battle: each officer role pays its vessel entry once.
-// Captain, bosun and admiral contribute +20 each at most once however many of
-// that role died there; the crew contributes +10 once. This applies to a fleet
-// hull and a dungeon room alike.
-ut::suite<"PirateVesselMapChance"> pirate_vessel_map_chance_suite = [] {
+// The officer map-roll bonus, extracted as a pure helper so the role rule is
+// testable without a battle: captain, bosun and admiral each pay a flat +20 at
+// most once per vessel entry, however many of that role died there. The crew's
+// chance is separate and scales with the turn (see Battle::crewMapChance). This
+// applies to a fleet hull and a dungeon room alike.
+ut::suite<"PirateOfficerChance"> pirate_officer_chance_suite = [] {
     using namespace ut;
 
-    "each officer role pays once per vessel entry"_test = [] {
-        // Born elite: captain + bosun + crew - the common case, unchanged.
-        expect(pirate_vessel_map_chance(true, true, false, true) == 50_i)
-            << "captain 20 + bosun 20 + crew 10";
-        // A hull where several bosuns died: the bosun role still pays once.
-        expect(pirate_vessel_map_chance(false, true, false, true) == 30_i)
-            << "two bosuns give the same chance as one bosun";
-        expect(pirate_vessel_map_chance(false, true, false, true) < 50_i)
-            << "strictly less than a per-officer sum (two bosuns + crew would be 50)";
-        // A dungeon room: several bosuns and several captains, plus the Admiral.
-        expect(pirate_vessel_map_chance(true, true, false, true) == 50_i)
-            << "several bosuns and several captains pay 20 + 20 + 10";
-        expect(pirate_vessel_map_chance(true, true, true, true) == 70_i)
+    "each officer role pays a flat +20 once per vessel entry"_test = [] {
+        expect(pirate_officer_chance(true, false, false) == 20_i)
+            << "captain 20";
+        expect(pirate_officer_chance(false, true, false) == 20_i)
+            << "a bosun pays 20";
+        expect(pirate_officer_chance(true, true, false) == 40_i)
+            << "captain 20 + bosun 20";
+        expect(pirate_officer_chance(true, true, true) == 60_i)
             << "plus another 20 when the Admiral dies there";
-        expect(pirate_vessel_map_chance(true, true, true, true) < 130_i)
-            << "strictly less than a per-officer sum (3 bosuns + 2 captains + admiral would be 130)";
+        expect(pirate_officer_chance(false, false, false) == 0_i)
+            << "no officers, no flat bonus (the crew scales separately)";
     };
 
     // A fleet hull with one captain and two bosuns is still one vessel entry:

@@ -894,14 +894,14 @@ void Game::ModifyTablesPerRuleset(void)
     // rulesetSpecificData["crowns_to_win"]    = 3;
     // rulesetSpecificData["coronation_turns"] = 5;
 
-    // Pirate map-chance turn ramp + hideout-supply throttle — active on both Arcanum
-    // (dev) and Trident (prod), unlike the coronation flag above. See
+    // Pirate map-drop tuning: the mature crew's per-vessel map chance and the TMAP
+    // share both ramp as "turn N = N%", capped at map_chance_cap; the hideout-supply
+    // throttle floors the TMAP share at tmap_share_floor. Active on both Arcanum (dev)
+    // and Trident (prod), unlike the coronation flag above. See
     // docs/PIRATE_MAP_CHANCE_RAMP_PLAN.md.
-    rulesetSpecificData["map_chance_ramp_turns"]     = 60;
-    rulesetSpecificData["map_chance_ramp_bonus"]     = 0.5;
-    rulesetSpecificData["tmap_share_early"]          = 10;
-    rulesetSpecificData["tmap_share_late"]           = 20;
-    rulesetSpecificData["hideout_soft_cap_percent"]  = 7;
+    rulesetSpecificData["map_chance_cap"]           = 60;
+    rulesetSpecificData["tmap_share_floor"]         = 10;
+    rulesetSpecificData["hideout_soft_cap_percent"] = 7;
 
     // Pirate press-gang tuning - how a fleet takes on crew, read once per turn
     // in Game::PirateRecruitLandCrew().

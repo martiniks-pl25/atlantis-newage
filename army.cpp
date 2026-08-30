@@ -1159,11 +1159,10 @@ void Army::Lose(Battle *b, ItemList& spoils)
     }
     int tmaps = 0, rmaps = 0;
     for (auto &v : vessels) {
-        // Each officer role pays its vessel entry once, however many of that role
-        // died there - captain, bosun and admiral alike, in a fleet hull or a
-        // dungeon room. The whistle roll above stays per bosun.
-        int chance = pirate_vessel_map_chance(v.had_captain, v.had_bosun, v.had_admiral, v.had_crew);
-        int scaled = (int)(chance * b->mapChanceMultiplier);
+        // Officers pay a flat +20 each; the crew's per-vessel chance scales as
+        // "turn N = N%" (Battle::crewMapChance, 10% in a dungeon).
+        int scaled = pirate_officer_chance(v.had_captain, v.had_bosun, v.had_admiral)
+                   + (v.had_crew ? b->crewMapChance : 0);
         if (scaled <= 0 || rng::get_random(100) >= scaled) continue;
         if (rng::get_random(100) < b->tmapShare) {
             spoils.SetNum(I_TREASURE_MAP, spoils.GetNum(I_TREASURE_MAP) + 1);

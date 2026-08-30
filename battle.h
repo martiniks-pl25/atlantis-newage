@@ -34,12 +34,11 @@ enum {
 // see docs/PIRATE_MAP_CHANCE_RAMP_PLAN.md). Both functions are pure — no RNG, no
 // Game/Battle state — so they are testable in isolation from the combat pipeline.
 struct MapChanceRamp {
-    double multiplier;  // multiplies Army::Lose's pirate_tmap_chance; 1.0 = unchanged
-    int tmapShare;      // 0-100: scheduled % of a successful map roll that becomes TMAP, before supply throttle
+    int crewChance;  // mature crew's per-vessel map-roll chance, "turn N = N%" capped
+    int tmapShare;   // 0-100: scheduled % of a successful map roll that becomes TMAP, before supply throttle
 };
 
-MapChanceRamp compute_map_chance_ramp(
-    int turnNumber, int rampTurns, double rampBonus, int shareEarly, int shareLate);
+MapChanceRamp compute_map_chance_ramp(int turnNumber, int cap);
 
 // Suppresses tmapShare toward floorShare as more pirate hideouts are already alive
 // in the world, so the turn ramp above can't be tuned into a hideout-spawn feedback
@@ -48,11 +47,11 @@ MapChanceRamp compute_map_chance_ramp(
 // tmapShare unchanged).
 int apply_hideout_supply_throttle(int tmapShare, int activeHideouts, int softCap, int floorShare);
 
-// A vessel entry's pirate map-roll chance from which figures died there. Each
-// officer role pays its entry once - captain, bosun and admiral +20 each, the
-// crew +10 - however many of that role died there. Pure - no RNG, no state - so
-// the role rule is testable without a battle.
-int pirate_vessel_map_chance(bool had_captain, bool had_bosun, bool had_admiral, bool had_crew);
+// A vessel entry's flat officer map-roll bonus: captain, bosun and admiral pay
+// +20 each, however many of that role died there. The crew is NOT included — its
+// chance scales separately as "turn N = N%" (see Battle::crewMapChance). Pure —
+// no RNG, no state — so the role rule is testable without a battle.
+int pirate_officer_chance(bool had_captain, bool had_bosun, bool had_admiral);
 
 class Battle
 {
@@ -97,12 +96,13 @@ class Battle
         std::string quest_rewards;           // event text for factions that already knew the quest
         std::string quest_rewards_unaware;   // event text for factions that did NOT know the quest
 
-        // Turn-ramped, hideout-supply-throttled pirate map-drop tuning, copied each
-        // battle from Game's per-turn cache (Task 4 wires this in Game::RunBattle).
-        // Defaults reproduce pre-ramp behavior exactly, so any direct `new Battle` /
-        // `Battle b;` construction that bypasses RunBattle (simulate.cpp,
-        // test_armor_battle.cpp) is unaffected.
-        double mapChanceMultiplier = 1.0;
+        // Turn-scaled, hideout-supply-throttled pirate map-drop tuning, copied each
+        // battle from Game's per-turn cache in Game::RunBattle. crewMapChance is the
+        // mature crew's per-vessel map chance ("turn N = N%" on the surface, 10% in a
+        // dungeon); tmapShare is the TMAP fraction. Defaults (10/10) reproduce the
+        // dungeon-battle baseline, so any direct `new Battle` / `Battle b;` construction
+        // that bypasses RunBattle (simulate.cpp, test_armor_battle.cpp) is unaffected.
+        int crewMapChance = 10;
         int tmapShare = 10;
         // Turn cooldown a pirate fleet must wait after its captain dies before it
         // can earn another. Copied from rulesetSpecificData by Game::RunBattle and

@@ -30,19 +30,16 @@ static int count_surviving_race(ARegion *r, Faction *player, int race)
     return total;
 }
 
-// Pushes the map-chance ramp so far past 100 that every vessel roll succeeds and
+// Pushes the map-chance cap to 100 at turn 100 so every vessel roll succeeds and
 // every success yields a TMAP. Lets a test count how many rolls were made without
 // seeding a specific RNG draw.
 static void force_guaranteed_tmap(UnitTestHelper &helper)
 {
     json data;
-    data["map_chance_ramp_turns"] = 1;
-    data["map_chance_ramp_bonus"] = 100.0;
-    data["tmap_share_early"] = 100;
-    data["tmap_share_late"] = 100;
+    data["map_chance_cap"] = 100;
     helper.set_ruleset_specific_data(data);
-    helper.game_object().year = 1;
-    helper.game_object().month = 0;  // TurnNumber() == 1, rampTurns == 1 -> full ramp at once
+    helper.game_object().year = 9;
+    helper.game_object().month = 3;  // TurnNumber() == 100 -> crewChance and tmapShare both 100
     helper.game_object().UpdateMapChanceRamp();
 }
 
@@ -82,33 +79,33 @@ ut::suite<"PirateMapChanceRamp"> pirate_map_chance_ramp_suite = [] {
 
     // --- compute_map_chance_ramp ---
 
-    "ramp disabled (rampTurns=0) returns unchanged defaults"_test = [] {
-        MapChanceRamp r = compute_map_chance_ramp(1, /*rampTurns=*/0, /*rampBonus=*/0.5, /*shareEarly=*/10, /*shareLate=*/25);
-        expect(r.multiplier == 1.0_d);
+    "cap disabled (cap=0) returns dormant defaults"_test = [] {
+        MapChanceRamp r = compute_map_chance_ramp(1, /*cap=*/0);
+        expect(r.crewChance == 10_i);
         expect(r.tmapShare == 10_i);
     };
 
-    "turn 1 of a configured ramp is at the start of the curve"_test = [] {
-        MapChanceRamp r = compute_map_chance_ramp(1, /*rampTurns=*/60, /*rampBonus=*/0.5, /*shareEarly=*/10, /*shareLate=*/25);
-        expect(r.multiplier > 1.0_d && r.multiplier < 1.02_d);
-        expect(r.tmapShare == 10_i);
+    "turn 1 of a configured cap is at the start of the curve"_test = [] {
+        MapChanceRamp r = compute_map_chance_ramp(1, /*cap=*/60);
+        expect(r.crewChance == 1_i);
+        expect(r.tmapShare == 1_i);
     };
 
-    "turn at rampTurns reaches full plateau bonus"_test = [] {
-        MapChanceRamp r = compute_map_chance_ramp(60, 60, 0.5, 10, 25);
-        expect(r.multiplier == 1.5_d);
-        expect(r.tmapShare == 25_i);
+    "turn at cap reaches the full value"_test = [] {
+        MapChanceRamp r = compute_map_chance_ramp(60, 60);
+        expect(r.crewChance == 60_i);
+        expect(r.tmapShare == 60_i);
     };
 
-    "turn past rampTurns clamps at plateau, does not keep growing"_test = [] {
-        MapChanceRamp r = compute_map_chance_ramp(9999, 60, 0.5, 10, 25);
-        expect(r.multiplier == 1.5_d);
-        expect(r.tmapShare == 25_i);
+    "turn past cap clamps at the cap, does not keep growing"_test = [] {
+        MapChanceRamp r = compute_map_chance_ramp(9999, 60);
+        expect(r.crewChance == 60_i);
+        expect(r.tmapShare == 60_i);
     };
 
-    "negative rampTurns is treated as disabled (no divide-by-zero)"_test = [] {
-        MapChanceRamp r = compute_map_chance_ramp(100, -5, 0.5, 10, 25);
-        expect(r.multiplier == 1.0_d);
+    "negative cap is treated as disabled (no divide-by-zero)"_test = [] {
+        MapChanceRamp r = compute_map_chance_ramp(100, -5);
+        expect(r.crewChance == 10_i);
         expect(r.tmapShare == 10_i);
     };
 
@@ -144,7 +141,7 @@ ut::suite<"PirateMapChanceRamp"> pirate_map_chance_ramp_suite = [] {
 
     "a freshly constructed Battle defaults to unramped values"_test = [] {
         Battle b;
-        expect(b.mapChanceMultiplier == 1.0_d);
+        expect(b.crewMapChance == 10_i);
         expect(b.tmapShare == 10_i);
     };
 
@@ -159,7 +156,7 @@ ut::suite<"PirateMapChanceRamp"> pirate_map_chance_ramp_suite = [] {
         helper.set_ruleset_specific_data(json::object());
         helper.game_object().UpdateMapChanceRamp();
 
-        expect(helper.game_object().cachedMapChanceMultiplier == 1.0_d);
+        expect(helper.game_object().cachedCrewMapChance == 10_i);
         expect(helper.game_object().cachedTmapShare == 10_i);
     };
 
@@ -169,18 +166,15 @@ ut::suite<"PirateMapChanceRamp"> pirate_map_chance_ramp_suite = [] {
         helper.setup_turn();
 
         json data;
-        data["map_chance_ramp_turns"] = 60;
-        data["map_chance_ramp_bonus"] = 0.5;
-        data["tmap_share_early"] = 10;
-        data["tmap_share_late"] = 20;
+        data["map_chance_cap"] = 60;
         helper.set_ruleset_specific_data(data);
 
         helper.game_object().year = 6;
-        helper.game_object().month = 0;  // TurnNumber() == (6-1)*12+0+1 == 61, past the 60-turn plateau
+        helper.game_object().month = 0;  // TurnNumber() == (6-1)*12+0+1 == 61, past the 60-turn cap
         helper.game_object().UpdateMapChanceRamp();
 
-        expect(helper.game_object().cachedMapChanceMultiplier == 1.5_d);
-        expect(helper.game_object().cachedTmapShare == 20_i);  // no hideout_soft_cap_percent set -> unthrottled
+        expect(helper.game_object().cachedCrewMapChance == 60_i);
+        expect(helper.game_object().cachedTmapShare == 60_i);  // no hideout_soft_cap_percent set -> unthrottled
     };
 
     "UpdateMapChanceRamp derives a larger hideout cap on a larger dungeon-level grid"_test = [] {
@@ -194,15 +188,12 @@ ut::suite<"PirateMapChanceRamp"> pirate_map_chance_ramp_suite = [] {
         r->level->y = 64;  // total_cells = (64/8)*(64/8) = 64 -> soft cap = max(1, 64*7/100) = 4
 
         json data;
-        data["map_chance_ramp_turns"] = 60;
-        data["map_chance_ramp_bonus"] = 0.5;
-        data["tmap_share_early"] = 10;
-        data["tmap_share_late"] = 20;
+        data["map_chance_cap"] = 60;
         data["hideout_soft_cap_percent"] = 7;
         helper.set_ruleset_specific_data(data);
 
         helper.game_object().year = 6;
-        helper.game_object().month = 0;  // TurnNumber() == 61, plateau -> scheduled tmapShare == 20
+        helper.game_object().month = 0;  // TurnNumber() == 61, past cap -> scheduled tmapShare == 60
 
         DungeonInstance d;
         d.type = DungeonType::DUNGEON_PIRATE_HIDEOUT;
@@ -211,8 +202,8 @@ ut::suite<"PirateMapChanceRamp"> pirate_map_chance_ramp_suite = [] {
 
         helper.game_object().UpdateMapChanceRamp();
 
-        // factor = 1 - 1/4 = 0.75; 20*0.75 = 15, still above the floor of 10
-        expect(helper.game_object().cachedTmapShare == 15_i);
+        // factor = 1 - 1/4 = 0.75; 60*0.75 = 45, still above the floor of 10
+        expect(helper.game_object().cachedTmapShare == 45_i);
     };
 
     "UpdateMapChanceRamp derives a smaller hideout cap on a smaller dungeon-level grid"_test = [] {
@@ -226,15 +217,12 @@ ut::suite<"PirateMapChanceRamp"> pirate_map_chance_ramp_suite = [] {
         r->level->y = 16;  // total_cells = (16/8)*(16/8) = 4 -> soft cap = max(1, 4*7/100) = 1
 
         json data;
-        data["map_chance_ramp_turns"] = 60;
-        data["map_chance_ramp_bonus"] = 0.5;
-        data["tmap_share_early"] = 10;
-        data["tmap_share_late"] = 20;
+        data["map_chance_cap"] = 60;
         data["hideout_soft_cap_percent"] = 7;
         helper.set_ruleset_specific_data(data);
 
         helper.game_object().year = 6;
-        helper.game_object().month = 0;  // TurnNumber() == 61, plateau -> scheduled tmapShare == 20
+        helper.game_object().month = 0;  // TurnNumber() == 61, past cap -> scheduled tmapShare == 60
 
         DungeonInstance d;
         d.type = DungeonType::DUNGEON_PIRATE_HIDEOUT;
@@ -243,7 +231,7 @@ ut::suite<"PirateMapChanceRamp"> pirate_map_chance_ramp_suite = [] {
 
         helper.game_object().UpdateMapChanceRamp();
 
-        // The same single active hideout that only cost 5 points on the 64x64 map
+        // The same single active hideout that only cost 15 points on the 64x64 map
         // (test above) fully saturates a 16x16 map's cap of 1 -> floored at 10.
         expect(helper.game_object().cachedTmapShare == 10_i);
     };
@@ -256,13 +244,10 @@ ut::suite<"PirateMapChanceRamp"> pirate_map_chance_ramp_suite = [] {
         helper.setup_turn();
 
         json data;
-        data["map_chance_ramp_turns"] = 60;
-        data["map_chance_ramp_bonus"] = 0.5;
-        data["tmap_share_early"] = 10;
-        data["tmap_share_late"] = 20;
+        data["map_chance_cap"] = 60;
         helper.set_ruleset_specific_data(data);
         helper.game_object().year = 6;
-        helper.game_object().month = 0;  // TurnNumber() == 61, plateau
+        helper.game_object().month = 0;  // TurnNumber() == 61, past cap
         helper.game_object().UpdateMapChanceRamp();
 
         ARegion *r = helper.get_region(0, 2, 0);
@@ -274,8 +259,8 @@ ut::suite<"PirateMapChanceRamp"> pirate_map_chance_ramp_suite = [] {
         helper.run_battle(r, attacker, pirates);
 
         Battle *b = helper.game_object().battles.back();
-        expect(b->mapChanceMultiplier == 1.5_d);
-        expect(b->tmapShare == 20_i);
+        expect(b->crewMapChance == 60_i);
+        expect(b->tmapShare == 60_i);
     };
 
     "RunBattle leaves Battle at defaults when the cache itself is at defaults"_test = [] {
@@ -294,7 +279,7 @@ ut::suite<"PirateMapChanceRamp"> pirate_map_chance_ramp_suite = [] {
         helper.run_battle(r, attacker, pirates);
 
         Battle *b = helper.game_object().battles.back();
-        expect(b->mapChanceMultiplier == 1.0_d);
+        expect(b->crewMapChance == 10_i);
         expect(b->tmapShare == 10_i);
     };
 
@@ -304,14 +289,11 @@ ut::suite<"PirateMapChanceRamp"> pirate_map_chance_ramp_suite = [] {
         helper.setup_turn();
 
         json data;
-        data["map_chance_ramp_turns"] = 60;
-        data["map_chance_ramp_bonus"] = 0.5;
-        data["tmap_share_early"] = 10;
-        data["tmap_share_late"] = 20;
+        data["map_chance_cap"] = 60;
         helper.set_ruleset_specific_data(data);
         helper.game_object().year = 6;
         helper.game_object().month = 0;
-        helper.game_object().UpdateMapChanceRamp();  // cache now holds ramped, non-default values
+        helper.game_object().UpdateMapChanceRamp();  // cache now holds non-default values
 
         ARegion *r = helper.get_region(0, 2, 0);
         r->level->levelType = ARegionArray::LEVEL_DUNGEON;  // fight happens inside a hideout's own rooms
@@ -323,7 +305,7 @@ ut::suite<"PirateMapChanceRamp"> pirate_map_chance_ramp_suite = [] {
         helper.run_battle(r, attacker, pirates);
 
         Battle *b = helper.game_object().battles.back();
-        expect(b->mapChanceMultiplier == 1.0_d);
+        expect(b->crewMapChance == 10_i);
         expect(b->tmapShare == 10_i);
     };
 
@@ -334,24 +316,20 @@ ut::suite<"PirateMapChanceRamp"> pirate_map_chance_ramp_suite = [] {
         helper.initialize_game();
         helper.setup_turn();
 
-        // Extreme but valid config: at turn 1 with rampTurns=1, ramp=1.0 immediately.
-        // rampBonus=100 pushes the scaled chance far past 100 (always succeeds regardless
-        // of the RNG draw); shareLate=100 forces every successful roll to be a TMAP.
-        // This proves Army::Lose is reading b->mapChanceMultiplier/tmapShare rather than
-        // the old hardcoded constants, without needing to know/seed a specific RNG draw.
+        // Extreme but valid config: at turn 100 with cap=100, crewChance and tmapShare
+        // both hit 100, so every vessel roll succeeds and every success is a TMAP.
+        // This proves Army::Lose is reading b->crewMapChance/tmapShare rather than
+        // hardcoded constants, without needing to know/seed a specific RNG draw.
         json data;
-        data["map_chance_ramp_turns"] = 1;
-        data["map_chance_ramp_bonus"] = 100.0;
-        data["tmap_share_early"] = 100;
-        data["tmap_share_late"] = 100;
+        data["map_chance_cap"] = 100;
         helper.set_ruleset_specific_data(data);
-        helper.game_object().year = 1;
-        helper.game_object().month = 0;  // TurnNumber() == 1
+        helper.game_object().year = 9;
+        helper.game_object().month = 3;  // TurnNumber() == 100
         helper.game_object().UpdateMapChanceRamp();  // refresh the per-turn cache with the new config
 
         ARegion *r = helper.get_region(0, 2, 0);
-        // Only rank-and-file pirates (base chance 10%) - without the ramp this would
-        // usually NOT drop a map at all; with the ramp it must always drop a TMAP.
+        // Only rank-and-file pirates - without the cap this would usually NOT drop a
+        // map at all; at turn 100 with cap=100 it must always drop a TMAP.
         Unit *pirates = helper.create_npc_pirate_fleet(r, 1);
         Faction *player = helper.create_faction("Player");
         Unit *attacker = helper.create_unit(player, r);
@@ -368,8 +346,8 @@ ut::suite<"PirateMapChanceRamp"> pirate_map_chance_ramp_suite = [] {
                     total_rmap += u->items.GetNum(I_RESOURCE_MAP);
                 }
 
-        expect(total_tmap == 1_i) << "extreme ramp must guarantee exactly one TMAP";
-        expect(total_rmap == 0_i) << "shareLate=100 must never produce an RMAP";
+        expect(total_tmap == 1_i) << "extreme cap must guarantee exactly one TMAP";
+        expect(total_rmap == 0_i) << "cap=100 with tmapShare=100 must never produce an RMAP";
     };
 
     // -----------------------------------------------------------------------
