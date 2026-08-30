@@ -377,7 +377,7 @@ public:
     // Per-turn cache for the pirate map-chance ramp — computed once in
     // UpdateMapChanceRamp() (called from PreProcessTurn()), read by every battle
     // this turn via Game::RunBattle(). See docs/PIRATE_MAP_CHANCE_RAMP_PLAN.md.
-    double cachedMapChanceMultiplier = 1.0;
+    int cachedCrewMapChance = 10;
     int cachedTmapShare = 10;
 
     // Per-turn claim map for CAST CPIR: fleet owner → best (smallest) BFS distance claimed.

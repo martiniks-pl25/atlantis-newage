@@ -11,15 +11,11 @@
 
 using namespace std;
 
-MapChanceRamp compute_map_chance_ramp(
-    int turnNumber, int rampTurns, double rampBonus, int shareEarly, int shareLate)
+MapChanceRamp compute_map_chance_ramp(int turnNumber, int cap)
 {
-    if (rampTurns <= 0) return { 1.0, shareEarly };
-    int clamped = (turnNumber < rampTurns) ? turnNumber : rampTurns;
-    double p = (double)clamped / (double)rampTurns;
-    double multiplier = 1.0 + p * rampBonus;
-    int tmapShare = (int)(shareEarly + (shareLate - shareEarly) * p);
-    return { multiplier, tmapShare };
+    if (cap <= 0) return { 10, 10 };  // dormant: pre-ramp baseline (crew 10%, TMAP share 10%)
+    int clamped = (turnNumber < cap) ? turnNumber : cap;
+    return { clamped, clamped };
 }
 
 int apply_hideout_supply_throttle(int tmapShare, int activeHideouts, int softCap, int floorShare)
@@ -31,25 +27,18 @@ int apply_hideout_supply_throttle(int tmapShare, int activeHideouts, int softCap
     return (throttled < floorShare) ? floorShare : throttled;
 }
 
-int pirate_vessel_map_chance(bool had_captain, bool had_bosun, bool had_admiral, bool had_crew)
+int pirate_officer_chance(bool had_captain, bool had_bosun, bool had_admiral)
 {
-    int chance = 0;
-    if (had_captain) chance += 20;
-    if (had_bosun) chance += 20;
-    if (had_admiral) chance += 20;
-    if (had_crew) chance += 10;
-    return chance;
+    return (had_captain ? 20 : 0) + (had_bosun ? 20 : 0) + (had_admiral ? 20 : 0);
 }
 
 void Game::UpdateMapChanceRamp()
 {
-    int rampTurns             = rulesetSpecificData.value("map_chance_ramp_turns", 0);
-    double rampBonus          = rulesetSpecificData.value("map_chance_ramp_bonus", 0.0);
-    int shareEarly            = rulesetSpecificData.value("tmap_share_early", 10);
-    int shareLate             = rulesetSpecificData.value("tmap_share_late", 10);
+    int cap                   = rulesetSpecificData.value("map_chance_cap", 0);
+    int floorShare            = rulesetSpecificData.value("tmap_share_floor", 10);
     int hideoutSoftCapPercent = rulesetSpecificData.value("hideout_soft_cap_percent", 0);
 
-    MapChanceRamp ramp = compute_map_chance_ramp(TurnNumber(), rampTurns, rampBonus, shareEarly, shareLate);
+    MapChanceRamp ramp = compute_map_chance_ramp(TurnNumber(), cap);
 
     int hideoutSoftCap = 0;
     if (hideoutSoftCapPercent > 0) {
@@ -67,8 +56,8 @@ void Game::UpdateMapChanceRamp()
                 activeHideouts++;
     }
 
-    cachedMapChanceMultiplier = ramp.multiplier;
-    cachedTmapShare = apply_hideout_supply_throttle(ramp.tmapShare, activeHideouts, hideoutSoftCap, shareEarly);
+    cachedCrewMapChance = ramp.crewChance;
+    cachedTmapShare = apply_hideout_supply_throttle(ramp.tmapShare, activeHideouts, hideoutSoftCap, floorShare);
 }
 
 // Formats the per-round death breakdown for the "loses X" line.
@@ -1229,7 +1218,7 @@ int Game::RunBattle(ARegion * r,Unit * attacker,Unit * target,int ass,
     Battle *b = new Battle;
     b->pirate_promote_cooldown = std::max(0, rulesetSpecificData.value("pirate_promote_cooldown", 6));
     if (!(r->level && r->level->levelType == ARegionArray::LEVEL_DUNGEON)) {
-        b->mapChanceMultiplier = cachedMapChanceMultiplier;
+        b->crewMapChance = cachedCrewMapChance;
         b->tmapShare = cachedTmapShare;
     }
     // Battles inside a dungeon level (a hideout's own rooms) keep Battle's
