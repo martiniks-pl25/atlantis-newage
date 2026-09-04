@@ -42,39 +42,39 @@ const std::vector<Biome> BIOMES = {
     { .name = B_FOREST, .feritality = 0.8, .temp = { -1000,    0 }, .rainfall = { 51, 1000 } },
 
     // 0
-    { .name = B_TUNDRA, .feritality = 1.5, .temp = {     1,   10 }, .rainfall = {   0,   50 } },
-    { .name = B_PLAINS, .feritality = 0.8, .temp = {     1,   10 }, .rainfall = {  51,  200 } },
+    { .name = B_TUNDRA, .feritality = 1.5, .temp = {     1,   10 }, .rainfall = {   0,  120 } },
+    { .name = B_PLAINS, .feritality = 0.8, .temp = {     1,   10 }, .rainfall = { 121,  200 } },
     { .name = B_FOREST, .feritality = 1.0, .temp = {     1,   10 }, .rainfall = { 201, 1000 } },
 
     // 10
     { .name = B_PLAINS, .feritality = 1.0, .temp = {    11,   15 }, .rainfall = {   0,  200 } },
-    { .name = B_FOREST, .feritality = 1.0, .temp = {    11,   15 }, .rainfall = { 201,  800 } },
-    { .name = B_SWAMP,  .feritality = 1.0, .temp = {    11,   15 }, .rainfall = { 801, 1000 } },
+    { .name = B_FOREST, .feritality = 1.0, .temp = {    11,   15 }, .rainfall = { 201,  870 } },
+    { .name = B_SWAMP,  .feritality = 1.0, .temp = {    11,   15 }, .rainfall = { 871, 1000 } },
 
     // 15
-    { .name = B_DESERT, .feritality = 1.2, .temp = {    16,   20 }, .rainfall = {   0,  100 } },
-    { .name = B_PLAINS, .feritality = 1.0, .temp = {    16,   20 }, .rainfall = { 101,  250 } },
+    { .name = B_DESERT, .feritality = 1.2, .temp = {    16,   20 }, .rainfall = {   0,   60 } },
+    { .name = B_PLAINS, .feritality = 1.0, .temp = {    16,   20 }, .rainfall = {  61,  250 } },
     { .name = B_FOREST, .feritality = 1.0, .temp = {    16,   20 }, .rainfall = { 251,  600 } },
-    { .name = B_JUNGLE, .feritality = 1.0, .temp = {    16,   30 }, .rainfall = { 601,  800 } },
-    { .name = B_SWAMP,  .feritality = 1.0, .temp = {    16,   20 }, .rainfall = { 801, 1000 } },
+    { .name = B_JUNGLE, .feritality = 1.0, .temp = {    16,   30 }, .rainfall = { 601,  870 } },
+    { .name = B_SWAMP,  .feritality = 1.0, .temp = {    16,   20 }, .rainfall = { 871, 1000 } },
 
     // 20
-    { .name = B_DESERT, .feritality = 1.2, .temp = {    21,   30 }, .rainfall = {   0,  150 } },
-    { .name = B_PLAINS, .feritality = 1.0, .temp = {    21,   30 }, .rainfall = { 151,  250 } },
+    { .name = B_DESERT, .feritality = 1.2, .temp = {    21,   30 }, .rainfall = {   0,   80 } },
+    { .name = B_PLAINS, .feritality = 1.0, .temp = {    21,   30 }, .rainfall = {  81,  250 } },
     { .name = B_FOREST, .feritality = 1.2, .temp = {    21,   30 }, .rainfall = { 251,  400 } },
-    { .name = B_JUNGLE, .feritality = 1.2, .temp = {    21,   30 }, .rainfall = { 401,  800 } },
-    { .name = B_SWAMP,  .feritality = 1.2, .temp = {    21,   30 }, .rainfall = { 801, 1000 } },
+    { .name = B_JUNGLE, .feritality = 1.2, .temp = {    21,   30 }, .rainfall = { 401,  870 } },
+    { .name = B_SWAMP,  .feritality = 1.2, .temp = {    21,   30 }, .rainfall = { 871, 1000 } },
 
     // 30
-    { .name = B_DESERT, .feritality = 1.0, .temp = {    31,   40 }, .rainfall = {   0,  150 } },
-    { .name = B_PLAINS, .feritality = 1.0, .temp = {    31,   40 }, .rainfall = { 151,  250 } },
+    { .name = B_DESERT, .feritality = 1.0, .temp = {    31,   40 }, .rainfall = {   0,   80 } },
+    { .name = B_PLAINS, .feritality = 1.0, .temp = {    31,   40 }, .rainfall = {  81,  250 } },
     { .name = B_FOREST, .feritality = 1.2, .temp = {    31,   40 }, .rainfall = { 251,  400 } },
-    { .name = B_JUNGLE, .feritality = 1.2, .temp = {    31,   40 }, .rainfall = { 401,  800 } },
-    { .name = B_SWAMP,  .feritality = 1.0, .temp = {    31,   40 }, .rainfall = { 801, 1000 } },
+    { .name = B_JUNGLE, .feritality = 1.2, .temp = {    31,   40 }, .rainfall = { 401,  870 } },
+    { .name = B_SWAMP,  .feritality = 1.0, .temp = {    31,   40 }, .rainfall = { 871, 1000 } },
 
     // 40
-    { .name = B_DESERT, .feritality = 1.0, .temp = {    41,   50 }, .rainfall = {   0,  150 } },
-    { .name = B_PLAINS, .feritality = 1.0, .temp = {    41,   50 }, .rainfall = { 151,  300 } },
+    { .name = B_DESERT, .feritality = 1.0, .temp = {    41,   50 }, .rainfall = {   0,   80 } },
+    { .name = B_PLAINS, .feritality = 1.0, .temp = {    41,   50 }, .rainfall = {  81,  300 } },
     { .name = B_FOREST, .feritality = 1.0, .temp = {    41,   50 }, .rainfall = { 301,  400 } },
     { .name = B_JUNGLE, .feritality = 1.0, .temp = {    41,   50 }, .rainfall = { 401, 1000 } },
 
@@ -279,6 +279,46 @@ inline double degToRad(double deg) {
     return deg * RAD;
 }
 
+/**
+ * @brief Target elevation for the latitude-profile mask at an absolute latitude.
+ *
+ * A designer-controlled bias blended into the noise field before sea level is
+ * chosen. The shape is a single-edge land plateau: 1.0 for every latitude at or
+ * above landEdgeLatitude, running all the way to the pole, then falling with a
+ * cosine smoothstep toward the equator to (1 - equatorSeaDepth) at the equator.
+ * The poles are not shaped here at all; polar drowning belongs to the polar
+ * block's polarElevationRedux, which stays independent of maskStrength and
+ * multiplies the elevation rather than pulling it toward a flat target. The
+ * smoothstep has zero slope at the land edge, so there is no hard step or kink
+ * where the plateau meets the transition.
+ *
+ * landEdgeLatitude sets both WHERE the land ends on the equatorial side and HOW
+ * LONG the slope to the equator is: the slope spans the whole 0..landEdgeLatitude
+ * range, so a lower edge makes the descent to the equator steeper as well as
+ * wider.
+ *
+ * Formula (lat is absolute 0..90):
+ *   lat >= landEdgeLatitude : profile = 1.0
+ *   lat <  landEdgeLatitude : profile = (1 - equatorSeaDepth) + equatorSeaDepth * s(lat / landEdgeLatitude)
+ *   where s(t) = 0.5 - 0.5 * cos(pi * t) is the cosine smoothstep (0 at t=0, 1 at t=1).
+ *
+ * @param lat Absolute latitude in degrees, 0..90.
+ * @return Target elevation in 0..1.
+ * @note Depends on latitude only, so the cylinder wrap in X is preserved by
+ *       construction. The caller (Map::Generate) may pass a longitude-warped
+ *       latitude; this function itself stays a pure function of its argument.
+ */
+double Map::latitude_profile(double lat) const {
+    const double edge = std::max(0.0, std::min(90.0, landEdgeLatitude));
+
+    if (lat < edge) {
+        double t = (edge > 0.0) ? lat / edge : 1.0;
+        double s = 0.5 - 0.5 * cos(M_PI * t);
+        return (1.0 - equatorSeaDepth) + equatorSeaDepth * s;
+    }
+    return 1.0;
+}
+
 // static const Edge LEFT_WIND[MOISTURE_SOURCES] = {
 //     {  0,  1, 0.1 },
 //     { -1,  1, 0.2 },
@@ -396,6 +436,14 @@ Map::Map(int width, int height) : map(CellMap(width, height)) {
     polarLatitudeStart = 70.0;
     polarIslandBlend = 0.5;
     polarElevationRedux = 0.35;
+
+    // Latitude-profile mask defaults (maskStrength 0.0 = mask disabled)
+    landEdgeLatitude = 33.0;
+    equatorSeaDepth = 0.45;
+    maskStrength = 0.0;
+    maskLatJitter = 0.0;
+    maskLongVariance = 0.0;
+    maskBandRelease = 0.0;
 }
 
 Blob* fillByElevation(CellMap* map, Cell* start, int biome, Range elevation) {
@@ -447,12 +495,38 @@ void Map::Generate() {
     // Create high-frequency noise for polar archipelago effect
     SimplexNoise* islandNoise = new SimplexNoise(frequency * 4.0, amplitude, lacunarity, persistence);
 
+    // Latitude-profile mask noise fields. Each is an independent SimplexNoise
+    // instance (its constructor shuffles its own permutation table), so neither
+    // correlates with the elevation noise or the polar island noise. Both use a
+    // low frequency and few octaves so the warp and the strength drift are broad
+    // wanders, not fine fuzz. They are constructed only when their parameter is
+    // active: constructing one consumes RNG draws, and both the mask-off and the
+    // degenerate (jitter 0 / variance 0) cases must not shift the world's RNG
+    // stream, otherwise earlier sweeps would stop being reproducible.
+    SimplexNoise* latJitterNoise = nullptr;
+    SimplexNoise* longVarNoise = nullptr;
+    if (maskStrength > 0.0) {
+        if (maskLatJitter > 0.0) {
+            latJitterNoise = new SimplexNoise(1.0, amplitude, lacunarity, persistence);
+        }
+        if (maskLongVariance > 0.0) {
+            longVarNoise = new SimplexNoise(1.5, amplitude, lacunarity, persistence);
+        }
+    }
+
     // 0. elevation
     const int ELEVATION = 16000;    // elevation range is 16km
     int minElevation = ELEVATION;
     int maxElevation = 0;
     std::map<int, int> hist;
     const double halfHeight = map.height / 2.0;
+    // Regions sample only the EVEN cell rows (each region reads the top-left
+    // cell of its 2x2 block, and the loop skips (x+y)%2), so the span must be
+    // measured across that sampled subset, not across the full grid: with -1.0
+    // the sampled y=0 gives +90 and the last sampled row gives -90, keeping the
+    // two poles symmetric. The unsampled odd row below is clamped at the two
+    // latitude sites below.
+    const double halfSpan = halfHeight - 1.0;
 
     for (int i = 0; i < len; i++) {
         auto cell = map.items[i];
@@ -463,9 +537,54 @@ void Map::Generate() {
         // Base elevation from main noise (creates continents)
         double e = pow((noise->cylinderFractal(octaves, nx, ny) + 1.0) / 2.0, redistribution);
 
-        // Polar archipelago effect: fragment land into islands at high latitudes
-        double lat = std::abs(((halfHeight - cell->y) / halfHeight) * 90.0);  // 0-90°
+        double lat = std::abs(((halfSpan - cell->y) / halfSpan) * 90.0);  // 0-90°
+        lat = std::min(lat, 90.0);  // clamp: the odd row below the sampled subset overshoots the pole
 
+        // Latitude-profile mask: bias the elevation field toward the designer's
+        // macro-geography (open polar seas, a mid-latitude land band, an
+        // equatorial sea). This runs BEFORE the polar block so polar
+        // fragmentation operates on top of the mask rather than fighting it.
+        // maskStrength == 0 reproduces the unmasked field bit-for-bit.
+        if (maskStrength > 0.0) {
+            // Latitude jitter (domain warp): shift the band edge north/south
+            // with a broad low-frequency field so coasts wander with longitude
+            // into bays, peninsulas and straits instead of ruler-straight rows.
+            double warpedLat = lat;
+            if (latJitterNoise != nullptr) {
+                warpedLat += maskLatJitter * latJitterNoise->cylinderFractal(2, nx, ny);
+                warpedLat = std::max(0.0, std::min(90.0, warpedLat));
+            }
+
+            // Longitudinal strength variance: some meridians act at full
+            // strength, others nearly release, so the equatorial sea opens only
+            // partway around the world and land bridges survive elsewhere.
+            double kEffective = maskStrength;
+            if (longVarNoise != nullptr) {
+                double m = (longVarNoise->cylinderFractal(2, nx, ny) + 1.0) / 2.0;  // 0..1
+                kEffective = maskStrength * (1.0 - maskLongVariance * m);
+                kEffective = std::max(0.0, std::min(1.0, kEffective));
+            }
+
+            // Band release: on the band plateau the profile is a flat 1.0, so a
+            // uniform blend weight would push every cell toward the same target
+            // height and flatten the noise relief. Weight the blend by how far
+            // the profile pushes DOWN instead: full strength only at the deepest
+            // push-down (the equator trough, where the sea must carve), and
+            // released by maskBandRelease on the plateau, where the noise decides.
+            // The equator is the deepest point of the profile by construction -
+            // the poles are not pushed down here, that is polarElevationRedux.
+            // maskBandRelease currently defaults to 0.0, so this release has no
+            // effect until it is raised again.
+            double profile = latitude_profile(warpedLat);
+            double depth = 1.0 - profile;  // 0 on the plateau, larger toward the equator
+            double maxDepth = equatorSeaDepth;
+            double shape = (maxDepth > 0.0) ? std::min(1.0, depth / maxDepth) : 0.0;  // 0..1
+            double localK = kEffective * (1.0 - maskBandRelease * (1.0 - shape));
+
+            e = e * (1.0 - localK) + profile * localK;
+        }
+
+        // Polar archipelago effect: fragment land into islands at high latitudes
         if (lat > polarLatitudeStart && polarLatitudeStart < 89.0) {
             // Calculate polar blending factor (0.0 at polarLatitudeStart, 1.0 at pole)
             double polarAmount = (lat - polarLatitudeStart) / (90.0 - polarLatitudeStart);
@@ -494,6 +613,8 @@ void Map::Generate() {
     }
 
     delete islandNoise;
+    delete latJitterNoise;
+    delete longVarNoise;
 
     // 1. determine sea level
     logger::write("1. determine sea level");
@@ -577,11 +698,12 @@ void Map::Generate() {
         item->elevation -= seaLevel;
 
         bool isWater = item->biome == B_WATER;
-        double lat = ((halfHeight - item->y) / halfHeight) * 90.0;
+        double lat = ((halfSpan - item->y) / halfSpan) * 90.0;
+        lat = std::max(-90.0, std::min(90.0, lat));  // clamp the odd row to the pole, symmetrically
         int tempElevation = isWater ? 0 : item->elevation;
 
-
-        item->temperature = round(temperature(minTemp, maxTemp, degToRad(/* 23.5 */ 0), degToRad(lat), tempElevation));
+        double tempValue = temperature(minTemp, maxTemp, degToRad(/* 23.5 */ 0), degToRad(lat), tempElevation);
+        item->temperature = round(tempValue);
         item->temperature = std::min(MAX_TEMP, std::max(MIN_TEMP, item->temperature));
         item->saturation = round(saturation(item->temperature));
 

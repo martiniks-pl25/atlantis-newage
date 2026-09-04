@@ -67,6 +67,31 @@ int allowedMartialSize = sizeof(ma) / sizeof(ma[0]);
 // FACTION_POINTS = 3 the only reachable builds are 1-1, 2-1 and 1-2.
 int factionTypeMin = 1;
 
+// River generation tunables (declared in gamedefs.h; kept out of the GameDefs
+// positional initializer below so retuning cannot shift that list).
+int riverMinLength = 2;      // skip rivers shorter than this many hexes (0 = no minimum)
+int riverMaxCount = 0;       // cap on rivers built per map (0 = unlimited)
+int riverReachDivisor = 4;   // maxRiverReach = std::min(w, h) / this (0 disables rivers)
+int riverCoastPenalty = 3;   // pathfinding cost multiplier for coast-adjacent hexes
+
+// Surface settlement placement tunables (declared in gamedefs.h; kept out of the
+// GameDefs positional initializer below). 2d2+2 reproduces the old hardcoded [4..6]
+// spacing; 8 guaranteed rounds (up from the old 4) is what lets the scarce terrains
+// reach settlementsKept without inflating the plentiful ones.
+int settlementSpacingDice = 2;
+int settlementSpacingBase = 2;
+int settlementGuaranteedRounds = 8;
+int settlementsKept = 4;
+
+// Volcano placement tunables (declared in gamedefs.h; kept out of the GameDefs
+// positional initializer below). Counting hills as upland lets volcanoes appear
+// across the widely distributed hill terrain instead of only inside the few large
+// mountain massifs, and the larger exclusion radius stops them lining up at the
+// minimum spacing.
+int volcanoMinMountains = 2;    // R_MOUNTAIN hexes required in the neighbourhood
+int volcanoUplandNeeded = 4;    // upland (mountain+hill+volcano) base; + 2d3 - 2 = 4-8
+int volcanoExclusionRadius = 4; // no other volcano within this radius (was 2)
+
 // Pirate fleet wandering route length: weight per step count, index + 1 = steps.
 // {30, 40, 30} = 30% one step, 40% two steps, 30% three steps.
 static int psw[] = { 30, 40, 30 };

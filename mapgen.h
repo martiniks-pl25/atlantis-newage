@@ -164,7 +164,16 @@ public:
     double polarIslandBlend;      // Strength of island fragmentation (0.0-1.0)
     double polarElevationRedux;   // Elevation reduction at poles (0.0-1.0, higher = more ocean)
 
+    // Latitude-profile mask parameters (configurable in world.cpp)
+    double landEdgeLatitude;   // Latitude where the land ends toward the equator (degrees, absolute)
+    double equatorSeaDepth;    // How far the equator is pushed down (0.0-1.0)
+    double maskStrength;       // Blend weight of the profile against the noise (0.0-1.0, 0 = off)
+    double maskLatJitter;      // Latitude jitter of the band edge (degrees, 0 = off)
+    double maskLongVariance;   // Longitudinal variance of mask strength (0.0-1.0, 0 = off)
+    double maskBandRelease;    // Band release of the mask inside the land band (0.0-1.0, 0 = off)
+
     CellMap map;
 
+    double latitude_profile(double lat) const;
     void Generate();
 };

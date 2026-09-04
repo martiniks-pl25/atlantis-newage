@@ -64,6 +64,40 @@ extern int allowedMartialSize;
 // Minimum points each faction-type category keeps (0 = no floor; ruleset-set,
 // like the allowed* arrays — NOT a GameDefs struct field).
 extern int factionTypeMin;
+// River generation tunables, ruleset-set like factionTypeMin (NOT GameDefs struct
+// fields - that struct uses positional initialisers). See makeRivers in aregion.cpp:
+//   riverMinLength    - skip a river whose path is shorter than this (0 = no minimum)
+//   riverMaxCount     - cap on rivers built per map (0 = unlimited)
+//   riverReachDivisor - maxRiverReach = std::min(w, h) / this (0 disables rivers)
+//   riverCoastPenalty - pathfinding cost multiplier for hexes adjacent to a coast
+extern int riverMinLength;
+extern int riverMaxCount;
+extern int riverReachDivisor;
+extern int riverCoastPenalty;
+// Surface settlement placement tunables, ruleset-set like riverMinLength (NOT
+// GameDefs struct fields - that struct uses positional initialisers). See economy()
+// in aregion.cpp:
+//   settlementSpacingDice / settlementSpacingBase - spacing roll between two
+//        settlements: rng::make_roll(2, settlementSpacingDice) + settlementSpacingBase
+//   settlementGuaranteedRounds - rounds a badly-rolling terrain keeps its place
+//        instead of retiring; the lever for the scarce terrains
+//   settlementsKept - entry-capable settlements a gateway terrain must end with
+extern int settlementSpacingDice;
+extern int settlementSpacingBase;
+extern int settlementGuaranteedRounds;
+extern int settlementsKept;
+// Volcano placement tunables, ruleset-set like riverMinLength (NOT GameDefs struct
+// fields - that struct uses positional initialisers). See placeVolcanoes in
+// aregion.cpp:
+//   volcanoMinMountains    - R_MOUNTAIN hexes the neighbourhood must contain
+//   volcanoUplandNeeded    - base of the upland requirement; the roll is
+//        volcanoUplandNeeded + rng::make_roll(2, 3) - 2, i.e. a 4-8 spread around
+//        the default 4 (the old make_roll(2, 3) + 2 window). Upland counts
+//        R_MOUNTAIN + R_HILL + R_VOLCANO.
+//   volcanoExclusionRadius - no other volcano may sit within this radius
+extern int volcanoMinMountains;
+extern int volcanoUplandNeeded;
+extern int volcanoExclusionRadius;
 // Pirate fleet wandering route length: a weight table where index + 1 is the
 // number of steps, ruleset-set like the allowed* arrays — NOT a GameDefs struct
 // field. An empty or zero-sum table falls back to a compiled-in default.

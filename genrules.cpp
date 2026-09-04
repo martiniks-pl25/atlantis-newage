@@ -3246,6 +3246,12 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
       << "then the target is automatically killed.  Armor may provide extra defense against otherwise successful "
       << "attacks.\n"
       << enclose("p", false);
+    f << enclose("p", true) << "A successful hit normally inflicts a single point of damage, which is "
+      << "enough to kill an ordinary soldier, who can withstand only one such hit.  Some large monsters, "
+      << "however, strike with such force that a single blow inflicts several points of damage.  Against an "
+      << "ordinary soldier this extra force is wasted, but it is far more dangerous to monsters, which can "
+      << "withstand many hits.  The exact damage a monster's blow inflicts is noted in its description.\n"
+      << enclose("p", false);
 
     f << enclose("p", true) << "The basic skill used in battle is the Combat skill; this is used for hand to "
       << "hand fighting.  If one soldier tries to hit another using most weapons, there is a 50% chance that the "

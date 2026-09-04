@@ -40,6 +40,25 @@ int allowedMartialSize = sizeof(ma) / sizeof(ma[0]);
 
 int factionTypeMin = 0;   // default: no floor (keeps existing test behavior)
 
+// River generation tunables - defaults preserve the pre-tuning engine behaviour.
+int riverMinLength = 0;      // no minimum length
+int riverMaxCount = 0;       // unlimited rivers
+int riverReachDivisor = 4;   // matches the old hardcoded /4
+int riverCoastPenalty = 10;  // matches the old hardcoded *10
+
+// Surface settlement placement tunables - defaults preserve the pre-tuning engine
+// behaviour (2d2+2 spacing, 4 guaranteed rounds, 3 kept).
+int settlementSpacingDice = 2;
+int settlementSpacingBase = 2;
+int settlementGuaranteedRounds = 4;
+int settlementsKept = 3;
+
+// Volcano placement tunables - defaults preserve the pre-tuning engine behaviour
+// (2-hex exclusion radius, the same 4-8 upland spread).
+int volcanoMinMountains = 2;
+int volcanoUplandNeeded = 4;    // 4 + 2d3 - 2 = 4-8, the old 2d3+2 window
+int volcanoExclusionRadius = 2; // was the hardcoded 2
+
 // Pirate fleet wandering route length: weight per step count, index + 1 = steps.
 // Mirrors neworigins/rules.cpp; tests that exercise a specific table override
 // this pointer/size and restore it.

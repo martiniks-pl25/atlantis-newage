@@ -3205,7 +3205,6 @@ int mapBiome(int biome) {
 struct WaterBody {
     int name;
     std::unordered_set<graphs::Location2D> regions;
-    std::unordered_set<int> connections;
     bool rivers;
 
     bool includes(const graphs::Location2D key) {
@@ -3222,14 +3221,6 @@ struct WaterBody {
 
     void add(const ARegion* reg) {
         regions.insert({ reg->xloc, reg->yloc });
-    }
-
-    void connect(WaterBody* other) {
-        connections.insert(other->name);
-    }
-
-    bool connected(WaterBody* other) {
-        return connections.find(other->name) != connections.end();
     }
 };
 
@@ -3290,7 +3281,9 @@ bool isNearWaterBody(ARegion* reg, std::vector<WaterBody*>& list) {
 // Algorithm:
 //   1. Find all water bodies (connected ocean regions) via BFS
 //   2. Calculate shortest land distances between all water body pairs
-//   3. For each water body, connect to 3-6 closest neighbors with rivers
+//   3. Connectivity-driven placement: repeatedly join the closest pair of
+//      water bodies that are still in different navigable groups, until one
+//      group remains (or the reach limit / riverMaxCount stops it)
 //   4. Rivers use Dijkstra pathfinding with elevation-based costs
 //   5. Rivers alternate R_OCEAN and R_SWAMP terrain every 4 hexes
 void makeRivers(
@@ -3409,193 +3402,273 @@ void makeRivers(
         if (rivers.find(next) != rivers.end()) {
             cost = cost / 10;
         }
-        // Rivers avoid coastlines (cost * 10)
+        // Rivers avoid coastlines. riverCoastPenalty is lower than the old
+        // hardcoded 10 so the path still prefers inland ground but no longer
+        // pins itself two hexes from the shore.
         else if (isNearWater(next)) {
-            cost = cost * 10;
+            cost = cost * riverCoastPenalty;
         }
 
         return cost;
     });
 
-    // === PHASE 4: Create rivers between close water bodies ===
-    int riverName = 0;
+    // === PHASE 4: Connectivity-driven river placement ===
+    // A river earns its place only when it links two water bodies that cannot
+    // already reach each other by sailing. Track that with a union-find over
+    // the bodies: find() returns the navigable group a body belongs to. We
+    // repeatedly connect the closest pair still in two different groups and
+    // join the groups after each river, until one group remains (or the reach
+    // limit / riverMaxCount stops us). The per-river cost rules in PHASE 3 are
+    // what keep the result looking like a river, not the pairing rule.
+    std::vector<int> groupParent(sz);
+    std::vector<int> groupRank(sz, 0);
     for (size_t i = 0; i < sz; i++) {
-        logger::write("Connecting water body " + std::to_string(i));
-
-        // Find all water bodies within maxRiverReach distance
-        std::vector<std::pair<int, int>> candidates;
-        WaterBody* source = waterBodies[i];
-
-        for (size_t j = 0; j < sz; j++) {
-            if (i == j) {
-                continue;  // Can't connect to self
-            }
-
-            int distance = distances[i][j];
-            if (distance <= maxRiverReach) {
-                candidates.push_back(std::make_pair(j, distance));
-            }
+        groupParent[i] = (int) i;
+    }
+    auto findGroup = [&groupParent](int i) {
+        while (groupParent[i] != i) {
+            groupParent[i] = groupParent[groupParent[i]];  // path halving
+            i = groupParent[i];
         }
+        return i;
+    };
+    auto joinGroups = [&groupParent, &groupRank, &findGroup](int a, int b) {
+        a = findGroup(a);
+        b = findGroup(b);
+        if (a == b) return;
+        if (groupRank[a] < groupRank[b]) std::swap(a, b);
+        groupParent[b] = a;
+        if (groupRank[a] == groupRank[b]) groupRank[a]++;
+    };
 
-        // Each water body connects to 3-6 random neighbors (or all if fewer)
-        int numConnections = std::min(rng::make_roll(3, 4), (int) candidates.size());
-        logger::write("There will be " + std::to_string(numConnections) + " rivers");
+    int riverName = 0;
+    // Summary counters for the single measurement line logged at the end.
+    int riversBuilt = 0;
+    int riversSkippedTooShort = 0;
+    int riversSkippedByCap = 0;
+    int riverHexes = 0;
+    int riverSwampHexes = 0;
 
-        if (numConnections > 0) {
-            rng::shuffle(candidates);  // Randomize which neighbors to connect
-
-            for (int ci = 0; ci < numConnections; ci++) {
-                WaterBody* target = waterBodies[candidates[ci].first];
-                logger::write("Planing river to " + std::to_string(target->name));
-
-                if (source->connected(target)) {
-                    logger::write("Already connected, moving to next target");
-                    continue;  // Don't create duplicate rivers
-                }
-
-                // Setup pathfinding rules for this river
-                graph.setInclusion([ source, target, &rivers ](ARegion* current, ARegion* next) {
-                    if (source->includes(next)) {
-                        return false;  // Can't go through source water body
-                    }
-
-                    if (target->includes(current) && target->includes(next)) {
-                        return false;  // Can touch target edge but not go through it
-                    }
-
-                    if (rivers.find(next) != rivers.end()) {
-                        return true;  // Rivers can cross each other
-                    }
-
-                    if (!target->includes(next) && next->type == R_OCEAN) {
-                        return false;  // Can't go through other water bodies
-                    }
-
-                    return true;  // Land is traversable
-                });
-
-                // Find optimal river path from source to target
-                graphs::Location2D riverStart;
-                graphs::Location2D riverEnd;
-                int riverCost = INT32_MAX;
-
-                // Try all coastal points of source water body
-                for (const auto& start : source->regions) {
-                    if (innerWater.find(start) != innerWater.end()) {
-                        continue;  // Skip deep ocean - can't start river there
-                    }
-
-                    // Dijkstra pathfinding from this start point
-                    std::unordered_map<graphs::Location2D, graphs::Location2D> cameFrom;
-                    std::unordered_map<graphs::Location2D, double> costSoFar;
-                    graphs::dijkstraSearch(graph, start, cameFrom, costSoFar);
-
-                    // Find cheapest path to any point in target water body
-                    int smallestCost = INT32_MAX;
-                    graphs::Location2D end;
-                    for(const auto loc : target->regions) {
-                        int cost = costSoFar[loc];
-                        if (cost > 0 && cost < smallestCost) {
-                            end = loc;
-                            smallestCost = cost;
-                        }
-                    }
-
-                    if (smallestCost == INT32_MAX) {
-                        continue;  // No path from this start point
-                    }
-
-                    // Update best river path if this is cheaper
-                    if (smallestCost < riverCost) {
-                        riverStart = start;
-                        riverEnd = end;
-                        riverCost = smallestCost;
-                    }
-                }
-
-                if (riverCost == INT32_MAX) {
-                    logger::write("No path to " + std::to_string(target->name) + " found");
-                    continue;  // No valid river path found
-                }
-
-                // Reconstruct optimal path using Dijkstra
-                std::unordered_map<graphs::Location2D, graphs::Location2D> cameFrom;
-                std::unordered_map<graphs::Location2D, double> costSoFar;
-                graphs::dijkstraSearch(graph, riverStart, riverEnd, cameFrom, costSoFar);
-
-                // Build path from end to start
-                std::vector<ARegion*> path;
-                graphs::Location2D current = riverEnd;
-                while (current != riverStart) {
-                    ARegion* reg = graph.get(current);
-                    path.push_back(reg);
-                    current = cameFrom[current];
-                }
-
-                int riverLen = path.size();
-                logger::write("River length is " + std::to_string(riverLen));
-
-                // Check if entire river path is on extreme parallels - skip if so
-                bool entirelyOnExtremeParallels = true;
-                for (auto reg : path) {
-                    if (reg->yloc > 1 && reg->yloc < h - 2) {
-                        entirelyOnExtremeParallels = false;
-                        break;
-                    }
-                }
-
-                if (entirelyOnExtremeParallels) {
-                    logger::write("Skipping river - entire path on extreme parallels");
-                    continue;
-                }
-
-                // Mark water bodies as connected (only if river will be created)
-                source->connect(target);
-                target->connect(source);
-
-                // Place river: alternate R_OCEAN and R_SWAMP (adaptive segmentation)
-                bool first = true;
-                int counter = 0;
-                // Adaptive segment length: shorter rivers have more swamps (%)
-                int segmentLen = std::min(riverLen / 2, 6);
-                if (segmentLen < 3) segmentLen = 3;
-                if (segmentLen > riverLen - 1) segmentLen = riverLen - 1;
-                logger::write("River segment length is " + std::to_string(segmentLen));
-
-                for (auto reg : path) {
-                    // Skip river hexes on extreme north/south parallels (y=0,1 or y=h-2,h-1)
-                    if (reg->yloc <= 1 || reg->yloc >= h - 2) {
-                        logger::write("Skipping river hex at extreme parallel y=" + std::to_string(reg->yloc));
-                        continue;
-                    }
-
-                    if (rivers.find(reg) != rivers.end()) {
-                        // Crossing existing river - start new river segment
-                        riverName++;
-                        counter = 1;
-                        first = false;
-                        continue;
-                    }
-                    else {
-                        rivers.insert(std::make_pair(reg, riverName));
-                    }
-
-                    if (first) {
-                        // First hex: R_SWAMP if very short river, else R_OCEAN
-                        reg->type = path.size() == 1 ? R_SWAMP : R_OCEAN;
-                        first = false;
-                        continue;
-                    }
-
-                    // Alternate R_SWAMP every 4 hexes, otherwise R_OCEAN
-                    reg->type = (counter % segmentLen) == 0 ? R_SWAMP : R_OCEAN;
-                    counter++;
-                }
-
-                riverName++;  // Next river gets new ID
+    // Gather every close-enough pair once with its land distance, closest
+    // first. Iterating in this order is the same as "repeatedly take the
+    // closest pair from two different groups": pairs an earlier river already
+    // merged are skipped by the find() check in the loop body.
+    struct RiverPair {
+        int distance;
+        int from;
+        int to;
+    };
+    std::vector<RiverPair> pairs;
+    for (size_t i = 0; i < sz; i++) {
+        for (size_t j = i + 1; j < sz; j++) {
+            if (distances[i][j] <= maxRiverReach) {
+                pairs.push_back({ distances[i][j], (int) i, (int) j });
             }
         }
     }
+    std::sort(pairs.begin(), pairs.end(), [](const RiverPair& a, const RiverPair& b) {
+        return a.distance < b.distance;
+    });
+
+    for (const RiverPair& pair : pairs) {
+        int i = pair.from;
+        int j = pair.to;
+
+        if (findGroup(i) == findGroup(j)) {
+            continue;  // Already in one navigable group via an earlier river
+        }
+
+        // Cap reached: no more rivers may be built. Count this remaining
+        // cross-group pair and move on without building; no further joins
+        // happen, so the group count below reflects the true shortfall.
+        if (riverMaxCount > 0 && riversBuilt >= riverMaxCount) {
+            riversSkippedByCap++;
+            continue;
+        }
+
+        WaterBody* source = waterBodies[i];
+        WaterBody* target = waterBodies[j];
+        logger::write("Planing river from " + std::to_string(source->name) +
+            " to " + std::to_string(target->name));
+
+        // Setup pathfinding rules for this river
+        graph.setInclusion([ source, target, &rivers ](ARegion* current, ARegion* next) {
+            if (source->includes(next)) {
+                return false;  // Can't go through source water body
+            }
+
+            if (target->includes(current) && target->includes(next)) {
+                return false;  // Can touch target edge but not go through it
+            }
+
+            if (rivers.find(next) != rivers.end()) {
+                return true;  // Rivers can cross each other
+            }
+
+            if (!target->includes(next) && next->type == R_OCEAN) {
+                return false;  // Can't go through other water bodies
+            }
+
+            return true;  // Land is traversable
+        });
+
+        // Find optimal river path from source to target
+        graphs::Location2D riverStart;
+        graphs::Location2D riverEnd;
+        int riverCost = INT32_MAX;
+
+        // Try all coastal points of source water body
+        for (const auto& start : source->regions) {
+            if (innerWater.find(start) != innerWater.end()) {
+                continue;  // Skip deep ocean - can't start river there
+            }
+
+            // Dijkstra pathfinding from this start point
+            std::unordered_map<graphs::Location2D, graphs::Location2D> cameFrom;
+            std::unordered_map<graphs::Location2D, double> costSoFar;
+            graphs::dijkstraSearch(graph, start, cameFrom, costSoFar);
+
+            // Find cheapest path to any point in target water body
+            int smallestCost = INT32_MAX;
+            graphs::Location2D end;
+            for(const auto loc : target->regions) {
+                int cost = costSoFar[loc];
+                if (cost > 0 && cost < smallestCost) {
+                    end = loc;
+                    smallestCost = cost;
+                }
+            }
+
+            if (smallestCost == INT32_MAX) {
+                continue;  // No path from this start point
+            }
+
+            // Update best river path if this is cheaper
+            if (smallestCost < riverCost) {
+                riverStart = start;
+                riverEnd = end;
+                riverCost = smallestCost;
+            }
+        }
+
+        if (riverCost == INT32_MAX) {
+            logger::write("No path to " + std::to_string(target->name) + " found");
+            continue;  // No valid river path found
+        }
+
+        // Reconstruct optimal path using Dijkstra
+        std::unordered_map<graphs::Location2D, graphs::Location2D> cameFrom;
+        std::unordered_map<graphs::Location2D, double> costSoFar;
+        graphs::dijkstraSearch(graph, riverStart, riverEnd, cameFrom, costSoFar);
+
+        // Build path from end to start
+        std::vector<ARegion*> path;
+        graphs::Location2D current = riverEnd;
+        while (current != riverStart) {
+            ARegion* reg = graph.get(current);
+            path.push_back(reg);
+            current = cameFrom[current];
+        }
+
+        int riverLen = path.size();
+        logger::write("River length is " + std::to_string(riverLen));
+
+        // Skip rivers shorter than riverMinLength: on a fragmented map such a
+        // river only joins two already-adjacent seas and adds swamp without a
+        // useful channel. Do not join the water bodies, do not touch hexes.
+        if (riverMinLength > 0 && riverLen < riverMinLength) {
+            riversSkippedTooShort++;
+            logger::write("Skipping river - shorter than riverMinLength");
+            continue;
+        }
+
+        // Check if entire river path is on extreme parallels - skip if so
+        bool entirelyOnExtremeParallels = true;
+        for (auto reg : path) {
+            if (reg->yloc > 1 && reg->yloc < h - 2) {
+                entirelyOnExtremeParallels = false;
+                break;
+            }
+        }
+
+        if (entirelyOnExtremeParallels) {
+            logger::write("Skipping river - entire path on extreme parallels");
+            continue;
+        }
+
+        // Mark the two water bodies as one navigable group (only if a river
+        // will actually be created below).
+        joinGroups(i, j);
+
+        // Place river: alternate R_OCEAN and R_SWAMP (adaptive segmentation)
+        bool first = true;
+        int counter = 0;
+        // Adaptive segment length: shorter rivers have more swamps (%).
+        // Clamp order matters: cap to riverLen - 1 FIRST so the floor of 3 is
+        // not undone for short rivers, then floor to 3, then to at least 1 so
+        // the modulo below can never divide by zero. A river is therefore
+        // never made entirely of swamp.
+        int segmentLen = std::min(riverLen / 2, 6);
+        if (segmentLen > riverLen - 1) segmentLen = riverLen - 1;
+        if (segmentLen < 3) segmentLen = 3;
+        if (segmentLen < 1) segmentLen = 1;
+        logger::write("River segment length is " + std::to_string(segmentLen));
+
+        for (auto reg : path) {
+            // Skip river hexes on extreme north/south parallels (y=0,1 or y=h-2,h-1)
+            if (reg->yloc <= 1 || reg->yloc >= h - 2) {
+                logger::write("Skipping river hex at extreme parallel y=" + std::to_string(reg->yloc));
+                continue;
+            }
+
+            if (rivers.find(reg) != rivers.end()) {
+                // Crossing existing river - start new river segment
+                riverName++;
+                counter = 1;
+                first = false;
+                continue;
+            }
+            else {
+                rivers.insert(std::make_pair(reg, riverName));
+            }
+
+            if (first) {
+                // First hex: R_SWAMP if very short river, else R_OCEAN
+                reg->type = path.size() == 1 ? R_SWAMP : R_OCEAN;
+                riverHexes++;
+                if (reg->type == R_SWAMP) riverSwampHexes++;
+                first = false;
+                continue;
+            }
+
+            // Alternate R_SWAMP every segmentLen hexes, otherwise R_OCEAN
+            reg->type = (counter % segmentLen) == 0 ? R_SWAMP : R_OCEAN;
+            riverHexes++;
+            if (reg->type == R_SWAMP) riverSwampHexes++;
+            counter++;
+        }
+
+        riversBuilt++;  // Count only rivers that were actually written
+        riverName++;    // Next river gets new ID
+    }
+
+    // Count the navigable groups that remain: 1 means every sea is reachable
+    // from every other. More than 1 means the reach limit, the cap, or the
+    // too-short filter left some bodies disconnected.
+    int groupsRemaining = 0;
+    for (size_t i = 0; i < sz; i++) {
+        if (findGroup((int) i) == (int) i) {
+            groupsRemaining++;
+        }
+    }
+
+    logger::write("Rivers summary: water bodies " + std::to_string(sz) +
+        ", groups " + std::to_string(groupsRemaining) +
+        ", built " + std::to_string(riversBuilt) +
+        ", skipped too short " + std::to_string(riversSkippedTooShort) +
+        ", skipped by cap " + std::to_string(riversSkippedByCap) +
+        ", hexes " + std::to_string(riverHexes) +
+        " (swamp " + std::to_string(riverSwampHexes) + ")");
 }
 
 void cleanupIsolatedPlaces(
@@ -3673,8 +3746,62 @@ int countNeighbors(ARegionGraph& graph, ARegion* reg, int ofType, int distance) 
     return count;
 }
 
+// Counts hexes within `distance` whose terrain is any of `types`, in a single
+// breadth-first pass (the single-type countNeighbors above is the same search,
+// narrowed to one terrain type).
+int countNeighborsOfTypes(ARegionGraph& graph, ARegion* reg, const std::vector<int>& types, int distance) {
+    graphs::Location2D loc = { reg->xloc, reg->yloc };
+
+    int count = 0;
+
+    auto result = graphs::breadthFirstSearch(graph, loc);
+    for (auto kv : result) {
+        int d = kv.second.distance + 1;
+        if (d > distance) {
+            continue;
+        }
+
+        ARegion* r = graph.get(kv.first);
+        for (int t : types) {
+            if (r->type == t) {
+                count++;
+                break;
+            }
+        }
+    }
+
+    return count;
+}
+
+/**
+ * @brief Converts mountain hexes into volcanoes where the local upland is dense enough.
+ *
+ * A volcano usually raises its own upland rather than needing a dense mountain core,
+ * so the neighbourhood counts R_HILL (and any existing R_VOLCANO) as upland alongside
+ * R_MOUNTAIN. That spreads volcanoes out of the few large mountain massifs and onto
+ * the far more widely distributed hill terrain, while the larger exclusion radius
+ * stops them lining up at the minimum spacing.
+ *
+ * A mountain becomes a volcano when all three hold:
+ *   1. no other volcano sits within volcanoExclusionRadius;
+ *   2. at least volcanoMinMountains hexes are R_MOUNTAIN;
+ *   3. the total upland (R_MOUNTAIN + R_HILL + R_VOLCANO) reaches
+ *      volcanoUplandNeeded + rng::make_roll(2, 3) - 2 - a 4-8 spread around the
+ *      default 4, the same [4..8] window the old hardcoded make_roll(2, 3) + 2 gave.
+ *
+ * The terrain counts keep the old rolled neighbourhood radius
+ * (rng::make_roll(1, 3) + 1 = 2-4 hexes); the volcano check uses the fixed
+ * volcanoExclusionRadius.
+ *
+ * @param arr The region array being generated (mutated in place)
+ * @param w   Map width
+ * @param h   Map height
+ */
 void placeVolcanoes(ARegionArray* arr, const int w, const int h) {
     ARegionGraph graph = ARegionGraph(arr);
+
+    int mountainsExamined = 0;
+    int volcanoesPlaced = 0;
 
     for (int x = 0; x < w; x++) {
         for (int y = 0; y < h; y++) {
@@ -3686,15 +3813,28 @@ void placeVolcanoes(ARegionArray* arr, const int w, const int h) {
             if (reg->type != R_MOUNTAIN) {
                 continue;
             }
+            mountainsExamined++;
 
-            int mountains = countNeighbors(graph, reg, R_MOUNTAIN, rng::make_roll(1, 3) + 1);
-            int volcanoes = countNeighbors(graph, reg, R_VOLCANO, 2);
+            int countingRadius = rng::make_roll(1, 3) + 1;  // 2-4 hexes, as before
 
-            if (volcanoes == 0 && mountains >= (rng::make_roll(2, 3) + 2)) {
+            // The mountain minimum and the total upland (mountains + hills +
+            // volcanoes) each need their own count; the volcano exclusion uses a
+            // separate fixed radius.
+            int mountains = countNeighbors(graph, reg, R_MOUNTAIN, countingRadius);
+            int upland = countNeighborsOfTypes(graph, reg, { R_MOUNTAIN, R_HILL, R_VOLCANO }, countingRadius);
+            int volcanoes = countNeighbors(graph, reg, R_VOLCANO, volcanoExclusionRadius);
+
+            int uplandNeeded = volcanoUplandNeeded + rng::make_roll(2, 3) - 2;
+
+            if (volcanoes == 0 && mountains >= volcanoMinMountains && upland >= uplandNeeded) {
                 reg->type = R_VOLCANO;
+                volcanoesPlaced++;
             }
         }
     }
+
+    logger::write("Volcanoes placed: " + std::to_string(volcanoesPlaced) +
+        " from " + std::to_string(mountainsExamined) + " mountain hexes examined");
 }
 
 void ARegionList::PlaceVolcanos(ARegionArray *arr) {
@@ -4278,14 +4418,18 @@ bool economy(ARegionArray* arr, const int w, const int h) {
     logger::write("Setting settlements");
 
     // -----------------------------------------------------------------------
-    // Tunable constants for surface settlement generation.
-    // Kept local (not GameDefs) to keep the generation policy next to the code
-    // that applies it — change here when tuning density or city ratio.
+    // Tunable constants for surface settlement generation, now ruleset globals.
+    // Declared in gamedefs.h and set in neworigins/rules.cpp on the same pattern as
+    // riverMinLength (NOT GameDefs fields - that struct uses positional initialisers):
+    //   settlementSpacingDice / settlementSpacingBase - the spacing roll, below
+    //   settlementGuaranteedRounds                   - guaranteed placement rounds
+    //   settlementsKept                              - villages a terrain must keep
     // -----------------------------------------------------------------------
 
     // Spacing between any two settlements, rolled fresh for every placement:
     // 2d2+2 -> [4..6], peaking at 5. The spread is what keeps the map from looking
-    // laid out on a grid.
+    // laid out on a grid. Dice and base come from the ruleset globals above, so the
+    // roll is rng::make_roll(2, settlementSpacingDice) + settlementSpacingBase.
     //
     // Nothing anywhere lowers this roll. Four is the floor on purpose: at 3 a
     // single player can sit between two settlements and take both in one move,
@@ -4293,19 +4437,23 @@ bool economy(ARegionArray* arr, const int w, const int h) {
     // monthorders.cpp). Rolling [3..6] instead was measured and rejected - a 3
     // lands somewhere almost every time, so terrains never retired and 48x48 ran
     // to 29-43 settlements against a baseline of 19-24.
-    auto settlement_spacing = []() { return rng::make_roll(2, 2) + 2; };
+    auto settlement_spacing = []() {
+        return rng::make_roll(2, settlementSpacingDice) + settlementSpacingBase;
+    };
 
-    // Rounds during which a terrain that rolls badly gets another chance next
-    // round instead of retiring. Four of them aim for four settlements per gateway
-    // terrain, which is what leaves SETTLEMENTS_KEPT standing once the city upgrade
-    // has taken its share. Raise for a denser world, lower for a sparser one.
-    constexpr int    GUARANTEED_ROUNDS = 4;
+    // settlementGuaranteedRounds: rounds during which a terrain that rolls badly
+    // gets another chance next round instead of retiring. A miss in these rounds is
+    // simply lost and the terrain stays active; after them the first miss retires it
+    // for good. That makes the guaranteed rounds the lever for the scarce terrains
+    // (tundra, mountain, hill), which get one attempt per round and average 3.0-3.6
+    // villages, while the plentiful ones already exceed settlementsKept and gain
+    // nothing. The ceiling on the lever is the spacing roll: once no candidate hex
+    // is far enough from every chosen settlement, extra rounds place nothing.
 
-    // Entry-capable settlements a terrain must end with. One lone site is a
-    // bottleneck rather than a start: every player choosing that terrain arrives in
-    // the same hex. Enforced twice, by the city upgrade below and by the verdict at
-    // the end, both through gateway_ok() so the two cannot drift apart.
-    constexpr int    SETTLEMENTS_KEPT  = 3;
+    // settlementsKept: entry-capable settlements a terrain must end with. One lone
+    // site is a bottleneck rather than a start: every player choosing that terrain
+    // arrives in the same hex. Enforced twice, by the city upgrade below and by the
+    // verdict at the end, both through gateway_ok() so the two cannot drift apart.
 
     // A monster lair is not placed in a hex neighbouring a settlement, so a player
     // who starts in one is not looking at a lair from the doorstep.
@@ -4325,7 +4473,7 @@ bool economy(ARegionArray* arr, const int w, const int h) {
     // only". It is honoured here, and the two rules above follow it rather than
     // assuming villages:
     //
-    //   set   -> place villages; a gateway terrain needs SETTLEMENTS_KEPT villages
+    //   set   -> place villages; a gateway terrain needs settlementsKept villages
     //   clear -> place mixed sizes; any settlement of the terrain counts
     //
     // Both readings are defensible against the entry ladder, which is tiered: its
@@ -4441,7 +4589,7 @@ bool economy(ARegionArray* arr, const int w, const int h) {
     const int cap = Globals->MAX_SURFACE_SETTLEMENTS;   // 0 = none
 
     SettlementPlacement placement = place_settlements_round_robin(
-        suitable, w, settlement_spacing, GUARANTEED_ROUNDS, cap);
+        suitable, w, settlement_spacing, settlementGuaranteedRounds, cap);
 
     {
         // The walk's own ordering, so the log cannot drift from what it did.
@@ -4455,7 +4603,7 @@ bool economy(ARegionArray* arr, const int w, const int h) {
     for (const auto reg : placement.chosen) chosen_size[reg] = settlement_size();
 
     logger::write("Settlements placed:" + describe_placement(placement, cap) +
-                  " (" + std::to_string(GUARANTEED_ROUNDS) + " guaranteed)");
+                  " (" + std::to_string(settlementGuaranteedRounds) + " guaranteed)");
     // -----------------------------------------------------------------------
     // PHASE 3. Turn the chosen sites into towns, then finish every region.
     // -----------------------------------------------------------------------
@@ -4485,7 +4633,7 @@ bool economy(ARegionArray* arr, const int w, const int h) {
             }
 
             // A lair inside a settlement would be removed by add_town anyway; the
-            // neighbour rule is the one declared with SETTLEMENTS_KEPT above.
+            // neighbour rule is the settlementsKept rule documented above.
             // chosen_size holds every site picked in phase 2, so this reads the same
             // whatever order the scan reaches the hexes in.
             bool lair_ok = lair_terrain_ignores_neighbours(reg->type);
@@ -4558,7 +4706,7 @@ bool economy(ARegionArray* arr, const int w, const int h) {
 
         // Entry points remaining per terrain. Promoting one away would undo the
         // placement rounds and leave that gateway crowded, so cities come only from
-        // terrains with more than SETTLEMENTS_KEPT to spare - in practice the
+        // terrains with more than settlementsKept to spare - in practice the
         // plentiful ones, which is also where a city belongs.
         //
         // Counted through gateway_ok, so with VILLAGES_ONLY clear a promotion costs
@@ -4577,7 +4725,7 @@ bool economy(ARegionArray* arr, const int w, const int h) {
         auto try_pick = [&](int dist) {
             for (auto* v : shuffled) {
                 if (std::find(cities.begin(), cities.end(), v) != cities.end()) continue;
-                if (Globals->VILLAGES_ONLY && entries_left[v->type] <= SETTLEMENTS_KEPT) continue;
+                if (Globals->VILLAGES_ONLY && entries_left[v->type] <= settlementsKept) continue;
                 bool ok = true;
                 for (auto* c : cities) {
                     graphs::Location2D a = { v->xloc, v->yloc };
@@ -4692,7 +4840,7 @@ bool economy(ARegionArray* arr, const int w, const int h) {
     // Counted off the finished map rather than off the placement tallies, so it
     // reflects whatever the city upgrade left behind.
     //
-    // The bar is SETTLEMENTS_KEPT counted through gateway_ok, the same pair the city
+    // The bar is settlementsKept counted through gateway_ok, the same pair the city
     // upgrade respects, so the two cannot disagree about what a usable gateway looks
     // like. With VILLAGES_ONLY set that means villages; with it clear, any settlement
     // of the terrain counts, because the entry ladder reaches towns and cities too.
@@ -4737,7 +4885,7 @@ bool economy(ARegionArray* arr, const int w, const int h) {
 
         int n = final_entries[terrain];
         verdict += " " + std::string(TerrainDefs[terrain].name) + "=" + std::to_string(n);
-        if (n < SETTLEMENTS_KEPT) playable = false;
+        if (n < settlementsKept) playable = false;
     }
     logger::write(verdict);
 
@@ -4748,7 +4896,7 @@ bool economy(ARegionArray* arr, const int w, const int h) {
 
     if (!playable)
         logger::write("REJECTED: a gateway terrain has fewer than " +
-                      std::to_string(SETTLEMENTS_KEPT) +
+                      std::to_string(settlementsKept) +
                       (Globals->VILLAGES_ONLY ? " villages" : " settlements") +
                       " - regenerate this world.");
 
@@ -5206,7 +5354,9 @@ void ARegionList::create_natural_surface_level(Map* map) {
     // all rivers
     std::unordered_map<ARegion*, int> rivers;
 
-    const int maxRiverReach = std::min(w, h) / 4;
+    // riverReachDivisor 0 disables rivers entirely (maxRiverReach 0, so no pair is
+    // close enough to connect) instead of dividing by zero.
+    const int maxRiverReach = (riverReachDivisor > 0) ? std::min(w, h) / riverReachDivisor : 0;
     makeRivers(map, arr, waterBodies, rivers, w, h, maxRiverReach);
 
     cleanupIsolatedPlaces(arr, waterBodies, rivers, w, h);

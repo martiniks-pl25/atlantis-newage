@@ -427,6 +427,11 @@ void Game::CreateWorld()
         // Default parameters (can be changed before compilation or at runtime)
         int default_minTemp = -45;
         int default_maxTemp = 45;
+        // Noise frequency: how many oscillations span the map, so it sets how many
+        // separate landmasses and mountain groups there are. Higher = smaller, more
+        // numerous forms. Measured on 64x48 with the simplified profile, no refusals at
+        // any value: 2.5 gives 4 masses and 25-hex ridges, 3.6 gives 6 and 15, 5.0 gives
+        // 9 and 11. Treat 3.6 as the floor - lower merges the land back together.
         float default_frequency = 3.6;
         float default_amplitude = 0.6;
         float default_redistribution = 2;  // Even gentler elevation (avoid too much flat land)
@@ -434,15 +439,50 @@ void Game::CreateWorld()
         float default_lacunarity = 2.0;
         float default_persistence = 0.5;
         float default_evoparation = 0.89;    // Maximum evaporation = maximum rainfall (ensure forests)
-        float default_waterPercent = 0.55;   // % base ocean (more moisture sources)
+        float default_waterPercent = 0.58;   // % base ocean (more moisture sources)
         float default_mountainPercent = 0.10;  // mountain + hill
-        float default_hillPercent = 0.60;      // hill% (in set with mountains)
+        float default_hillPercent = 0.60;      // hill% within the mountain block (NOTE: prompt caps input at 0.50, so this default cannot be typed in)
         float default_lakePercent = 0.15;  // 15% chance for lake placement
 
-        // Polar archipelago parameters (control polar island fragmentation)
-        float default_polarLatitudeStart = 65.0;   // Latitude where island effect begins (60-75°, lower = more area affected)
-        float default_polarIslandBlend = 0.70;     // Island fragmentation strength (0.3-0.8, higher = more fragmented)
-        float default_polarElevationRedux = 0.80;  // Polar submersion level (0.2-0.7, higher = more ocean at poles)
+        // Polar block: applied after the mask, above polarLatitudeStart only.
+        // Gate + ramp steepness: amount = (lat-this)/(90-this). >=89 disables the whole
+        // block. It is the only thing that ends the land on the polar side (the mask's
+        // plateau runs from landEdgeLatitude to the pole), so it must stay above
+        // landEdgeLatitude or it drowns the plateau; measured refusals 0% at 80, 40% at
+        // 72.
+        float default_polarLatitudeStart = 80.0;
+        // Island fragmentation: replaces elevation with high-frequency noise, weighted by
+        // amount*this, BEFORE the submersion multiplies it away. Off by default because it
+        // only bites when the poles are not drowned: at redux 0 it lifts polar landmasses
+        // from 6.6 to 14.4 per world, but from redux 0.40 upward rows 0-1 are already sea
+        // and the count stops responding (6.5/5.7/6.5/5.6 across blend 0..1). Raise it only
+        // if the polar sea lane is abandoned.
+        float default_polarIslandBlend = 0.0;
+        // Polar submersion, elevation *= (1 - amount*this): sets the sea-lane width.
+        // On 64x48: 0.40 clears the outermost row, 0.50 clears two rows, above 0.60 only
+        // the third row thins. Row counts scale with map height.
+        float default_polarElevationRedux = 0.50;
+
+        // Latitude-profile mask (macro-geography bias blended into elevation)
+        float default_landEdgeLatitude = 33.0; // Latitude where the land ends toward the equator (degrees)
+        float default_equatorSeaDepth = 0.35;  // How far the equator is pushed down (0.0-1.0)
+        // Blend weight of the profile against the noise (0 = mask off entirely, and with
+        // it the jitter/variance/release below). Measured on 64x48: below 0.45 the noise
+        // wins and the equatorial sea barely forms (1-2 rows, absent in some worlds);
+        // 0.45 is the threshold where it appears in every world (3-8 rows) and the two
+        // hemispheres even out. Above that only the sea widens. Useful range 0.30-0.45.
+        float default_maskStrength = 0.45;
+        // Latitude jitter: each cell reads the profile at lat + this * noise(x,y), so the
+        // coastline wanders instead of following a parallel. Measured on 64x48: coast
+        // raggedness rises 3.70 -> 4.39 from 0 to 10 degrees and then stops, so 5-10 is
+        // the useful range; 20-30 only thins the third landmass and costs tundra.
+        // TODO it only reaches the EQUATOR-side coast: above landEdgeLatitude the profile
+        // is a flat 1.0, so warping the latitude changes nothing there. The polar coast is
+        // cut by the polar block alone, which is strictly zonal - it looks knife-straight.
+        // Feeding the same warped latitude to the polar block would fix that.
+        float default_maskLatJitter = 0.0;
+        float default_maskLongVariance = 0.0;  // Longitudinal variance of mask strength (0.0-1.0, 0 = off)
+        float default_maskBandRelease = 0.30;  // Band release of the mask inside the land band (0.0-1.0, 0 = off)
 
         // Show current defaults
         logger::write("");
@@ -451,9 +491,9 @@ void Game::CreateWorld()
                       std::to_string(default_maxTemp) + " (equator)");
         logger::write("  Terrain generation:");
         logger::write("    Continent frequency: " + std::to_string(default_frequency) +
-                      " (higher = bigger continents)");
+                      " (higher = MORE, smaller continents)");
         logger::write("    Noise amplitude: " + std::to_string(default_amplitude) +
-                      " (terrain strength)");
+                      " (no effect, normalised away)");
         logger::write("    Elevation diversity: " + std::to_string(default_redistribution));
         logger::write("  Land/Water distribution:");
         logger::write("    Water: " + std::to_string((int)(default_waterPercent * 100)) + "%");
@@ -462,7 +502,22 @@ void Game::CreateWorld()
         logger::write("    Lake chance: " + std::to_string((int)(default_lakePercent * 100)) + "%");
         logger::write("  Climate:");
         logger::write("    Rainfall balance: " + std::to_string(default_evoparation) +
-                      " (higher = drier)");
+                      " (higher = WETTER)");
+        logger::write("  Macro-geography mask (maskStrength 0 = mask off):");
+        logger::write("    Land edge latitude: " + std::to_string(default_landEdgeLatitude) + " deg");
+        logger::write("    Equator push-down: " + std::to_string(default_equatorSeaDepth));
+        logger::write("    Mask blend strength: " + std::to_string(default_maskStrength) +
+                      " (0 = off)");
+        logger::write("    Band-edge latitude jitter: " + std::to_string(default_maskLatJitter) +
+                      " deg (0 = off)");
+        logger::write("    Longitudinal strength variance: " + std::to_string(default_maskLongVariance) +
+                      " (0 = off)");
+        logger::write("    Band release: " + std::to_string(default_maskBandRelease) +
+                      " (0 = off)");
+        logger::write("  Polar shaping (polarLatitudeStart >= 89 disables it):");
+        logger::write("    Latitude start: " + std::to_string(default_polarLatitudeStart) + " deg");
+        logger::write("    Island blend: " + std::to_string(default_polarIslandBlend));
+        logger::write("    Elevation redux: " + std::to_string(default_polarElevationRedux));
         logger::write("");
         logger::write("Use these settings? (y/n) [y]: ");
 
@@ -475,17 +530,17 @@ void Game::CreateWorld()
             logger::write("");
 
             // Temperature
-            map->minTemp = ask_parameter("Min temperature (poles, -20 to 20)",
-                                         default_minTemp, -20, 20);
+            map->minTemp = ask_parameter("Min temperature (poles, -60 to 20)",
+                                         default_minTemp, -60, 20);
             map->maxTemp = ask_parameter("Max temperature (equator, 20 to 80)",
                                          default_maxTemp, 20, 80);
 
             // Terrain generation
-            map->frequency = ask_parameter_float("Continent frequency (1.0-10.0, higher=bigger)",
+            map->frequency = ask_parameter_float("Continent frequency (1.0-10.0, higher = more and smaller)",
                                                 default_frequency, 1.0, 10.0);
             map->amplitude = ask_parameter_float("Noise amplitude (no effect - normalised away, kept for sweep field order)",
                                                 default_amplitude, 0.1, 1.0);
-            map->redistribution = ask_parameter_float("Elevation diversity (0.0-5.0)",
+            map->redistribution = ask_parameter_float("Elevation curve (0.0-5.0, no effect on terrain shares)",
                                                      default_redistribution, 0.0, 5.0);
 
             // Land/Water
@@ -493,7 +548,7 @@ void Game::CreateWorld()
                                                    default_waterPercent, 0.05, 0.90);
             map->mountainPercent = ask_parameter_float("Mountain percentage (0.0-0.50)",
                                                        default_mountainPercent, 0.0, 0.50);
-            map->hillPercent = ask_parameter_float("Hill percentage (0.0-1.00)",
+            map->hillPercent = ask_parameter_float("Hill percentage (0.0-0.50)",
                                                    default_hillPercent, 0.0, 0.50);
             map->lakePercent = ask_parameter_float("Lake placement chance (0.0-1.00)",
                                                    default_lakePercent, 0.0, 1.0);
@@ -512,10 +567,27 @@ void Game::CreateWorld()
             map->lacunarity  = ask_parameter_float("Octave frequency step (1.2-3.0)", default_lacunarity, 1.2, 3.0);
             map->persistence = ask_parameter_float("Octave weight decay (0.1-0.9)", default_persistence, 0.1, 0.9);
 
-            // Polar parameters use defaults (modify in world.cpp to experiment)
-            map->polarLatitudeStart = default_polarLatitudeStart;
-            map->polarIslandBlend = default_polarIslandBlend;
-            map->polarElevationRedux = default_polarElevationRedux;
+            // Latitude-profile mask (macro-geography bias; 0 = off)
+            map->landEdgeLatitude = ask_parameter_float("Land edge latitude (0-90, degrees)",
+                                                        default_landEdgeLatitude, 0.0, 90.0);
+            map->equatorSeaDepth = ask_parameter_float("Equator push-down (0.0-1.0)",
+                                                       default_equatorSeaDepth, 0.0, 1.0);
+            map->maskStrength = ask_parameter_float("Mask blend strength (0.0-1.0, 0 = off)",
+                                                    default_maskStrength, 0.0, 1.0);
+            map->maskLatJitter = ask_parameter_float("Band-edge latitude jitter (0.0-30.0 deg, 0 = off)",
+                                                     default_maskLatJitter, 0.0, 30.0);
+            map->maskLongVariance = ask_parameter_float("Longitudinal strength variance (0.0-1.0, 0 = off)",
+                                                        default_maskLongVariance, 0.0, 1.0);
+            map->maskBandRelease = ask_parameter_float("Band release (0.0-1.0, 0 = off)",
+                                                       default_maskBandRelease, 0.0, 1.0);
+
+            // Polar archipelago parameters (polarLatitudeStart >= 89 disables the block)
+            map->polarLatitudeStart = ask_parameter_float("Polar latitude start (0.0-90.0 deg, 89+ disables the polar block)",
+                                                          default_polarLatitudeStart, 0.0, 90.0);
+            map->polarIslandBlend = ask_parameter_float("Polar island blend (0.0-1.0, higher = more fragmented)",
+                                                        default_polarIslandBlend, 0.0, 1.0);
+            map->polarElevationRedux = ask_parameter_float("Polar elevation redux (0.0-1.0, higher = more ocean at poles)",
+                                                           default_polarElevationRedux, 0.0, 1.0);
         } else {
             // Use defaults
             map->minTemp = default_minTemp;
@@ -536,6 +608,12 @@ void Game::CreateWorld()
             map->polarLatitudeStart = default_polarLatitudeStart;
             map->polarIslandBlend = default_polarIslandBlend;
             map->polarElevationRedux = default_polarElevationRedux;
+            map->landEdgeLatitude = default_landEdgeLatitude;
+            map->equatorSeaDepth = default_equatorSeaDepth;
+            map->maskStrength = default_maskStrength;
+            map->maskLatJitter = default_maskLatJitter;
+            map->maskLongVariance = default_maskLongVariance;
+            map->maskBandRelease = default_maskBandRelease;
         }
 
         regions.create_natural_surface_level(map);
