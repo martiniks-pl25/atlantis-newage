@@ -368,7 +368,7 @@ void Game::ProcessRegionSpell(Unit *u, int spell, parser::string_parser& parser,
             auto zval = parser.get_token().get_number();
             if (zval) {
                 z = zval.value();
-                if (z < 0 || z >= (Globals->UNDERWORLD_LEVELS + Globals->UNDERDEEP_LEVELS + Globals->ABYSS_LEVEL + 2)) {
+                if (z < 0 || z >= regions.numLevels) {
                     parse_error(checker, u, 0, "CAST '" + skdef.name + "': Invalid Z coordinate specified.");
                     return;
                 }
@@ -819,7 +819,19 @@ int Game::GetRegionInRange(ARegion *r, ARegion *tar, Unit *u, int spell)
     maxdist *= range->get().rangeMult;
 
     int dist;
-    dist = regions.GetPlanarDistance(tar, r, range->get().crossLevelPenalty, maxdist);
+    if (r_dungeon != -1 || tar_dungeon != -1) {
+        // Dungeon rooms sit at coordinates picked at random within the shared
+        // LEVEL_DUNGEON grid, with no geographic relationship to the surface
+        // entrance that leads to them — GetPlanarDistance's coordinate overlay
+        // is meaningless here. Route through the real connectivity instead
+        // (the entrance's O_DUNGEON_ENTRANCE `inner` link, then the dungeon's
+        // own corridor graph), same mechanism already used for TRANSPORT
+        // (GameDefs::USE_CONNECTED_DISTANCES). No path (e.g. a DYING dungeon
+        // whose entrance is gone) naturally reads as out of range.
+        dist = regions.get_connected_distance(tar, r, range->get().crossLevelPenalty, maxdist);
+    } else {
+        dist = regions.GetPlanarDistance(tar, r, range->get().crossLevelPenalty, maxdist);
+    }
     if (dist > maxdist) {
         u->error("CAST: Target region out of range.");
         return 0;
