@@ -573,6 +573,12 @@ class ARegionList
                 int maxY);
 
         ARegion *FindGate(int);
+        // Clears a region's gate (gate/gateopen/gatemonth) and keeps
+        // numberofgates consistent: with sequential numbering
+        // (!DISPERSE_GATE_NUMBERS) the last gate's number is moved into the
+        // freed slot so numbers stay contiguous 1..numberofgates, exactly as
+        // the GM "dg" edit command already does. No-op if r->gate is 0.
+        void RemoveGate(ARegion *r);
         int GetPlanarDistance(ARegion *one, ARegion *two, int penalty, int maxdist = -1);
         int get_connected_distance(ARegion *start, ARegion *target, int penalty, int maxdist = -1);
         int GetWeather(ARegion *pReg, int month);

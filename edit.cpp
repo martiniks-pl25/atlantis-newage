@@ -366,18 +366,7 @@ void Game::EditGameRegionTerrain( ARegion *pReg )
         }
 
         if (token == "dg") {
-            if (!Globals->DISPERSE_GATE_NUMBERS && pReg->gate > 0) {
-                int numgates = regions.numberofgates;
-                for(const auto reg : regions) {
-                    if (reg->gate == numgates) {
-                        reg->gate = pReg->gate;
-                        break;
-                    }
-                    logger::write("Error: Could not find last gate");
-                }
-            }
-            pReg->gate = 0;
-            regions.numberofgates--;
+            regions.RemoveGate(pReg);
             continue;
         }
 
