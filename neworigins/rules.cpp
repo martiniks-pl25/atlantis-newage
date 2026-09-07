@@ -33,11 +33,11 @@
 // the html file containing the rules to correctly reflect the changes!
 //
 
-static int am[] = { 4, 4, 5, 5, 5, 5 };
+static int am[] = { 3, 3, 4, 5, 5, 5 };
 int *allowedMages = am;
 int allowedMagesSize = sizeof(am) / sizeof(am[0]);
 
-static int aa[] = { 8, 8, 10, 10, 10, 10 };
+static int aa[] = { 6, 6, 8, 10, 10, 10 };
 int *allowedApprentices = aa;
 int allowedApprenticesSize = sizeof(aa) / sizeof(aa[0]);
 
@@ -49,7 +49,7 @@ static int at[] = { 0, 15, 30, 50, 75, 100 };
 int *allowedTrades = at;
 int allowedTradesSize = sizeof(at) / sizeof(at[0]);
 
-static int aq[] = { 7, 7, 14, 14, 14, 14 };
+static int aq[] = { 7, 7, 11, 14, 14, 14 };
 int *allowedQuartermasters = aq;
 int allowedQuartermastersSize = sizeof(aq) / sizeof(aq[0]);
 
@@ -59,12 +59,13 @@ int *allowedTacticians = ag;
 int allowedTacticiansSize = sizeof(ag) / sizeof(ag[0]);
 
 // allowed Martial activity
-static int ma[] = { 18, 18, 36, 36, 36, 36 };
+static int ma[] = { 18, 18, 27, 36, 36, 36 };
 int *allowedMartial = ma;
 int allowedMartialSize = sizeof(ma) / sizeof(ma[0]);
 
 // Minimum points each faction-type category keeps. Trident: 1, so with
-// FACTION_POINTS = 3 the only reachable builds are 1-1, 2-1 and 1-2.
+// FACTION_POINTS = 4 the reachable builds are 1-1, 2-1, 1-2, 2-2, 3-1 and 1-3
+// (rating 3 is the new specialist tier; am[]/aa[]/aq[]/ma[] index 3 carries it).
 int factionTypeMin = 1;
 
 // River generation tunables (declared in gamedefs.h; kept out of the GameDefs
@@ -149,7 +150,7 @@ static GameDefs g = {
 	30,	/* WMON_FREQUENCY */
 	30,	/* LAIR_FREQUENCY */
 
-	3,	/* FACTION_POINTS */
+	4,	/* FACTION_POINTS */
 
 	200,	/* TIMES_REWARD */
 

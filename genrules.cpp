@@ -923,10 +923,12 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
         if (factionTypeMin > 0) {
             int maxRating = Globals->FACTION_POINTS
                           - factionTypeMin * ((int)FactionTypes->size() - 1);
+            int freePoints = Globals->FACTION_POINTS - factionTypeMin * (int)FactionTypes->size();
             // Written from FactionTypes rather than naming Martial and Magic, so a ruleset
             // that runs a floor over the classic three areas is described correctly too.
             f << enclose("p", true) << "For example, a faction may leave every area at "
-              << factionTypeMin << " (balanced), or raise a single area to " << maxRating << ": ";
+              << factionTypeMin << " (balanced but with unspent points), or raise a single area "
+              << "to " << maxRating << ": ";
             bool first_area = true;
             for (auto &fp : *FactionTypes) {
                 if (!first_area) f << ", ";
@@ -941,6 +943,27 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
                 first_area = false;
             }
             f << ".\n" << enclose("p", false);
+
+            // A genuinely balanced full-spend build only exists as a distinct third option
+            // when there are enough free points to raise every area at least once - otherwise
+            // it collapses into one of the two examples already given above.
+            if (freePoints >= (int)FactionTypes->size()) {
+                int singleValue = freePoints / (int)FactionTypes->size();
+                int reminder = freePoints % (int)FactionTypes->size();
+                for (auto &fp : *FactionTypes) {
+                    int extra = singleValue;
+                    if (reminder > 0) {
+                        extra += 1;
+                        reminder--;
+                    }
+                    fac.type[fp] = factionTypeMin + extra;
+                }
+                f << enclose("p", true) << "A faction may instead spend every point and still stay "
+                  << "balanced by raising every area evenly: " << faction_point_usage(fac)
+                  << ". This faction's type would appear as \"" << faction_point_usage(fac, false)
+                  << "\", and would be able to " << FactionTypeDescription(fac) << ".\n"
+                  << enclose("p", false);
+            }
         } else {
 
         int count = FactionTypes->size();
