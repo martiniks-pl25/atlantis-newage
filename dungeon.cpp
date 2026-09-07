@@ -538,6 +538,16 @@ void Game::try_spawn_dungeon()
                   std::to_string((int)d.room_nums.size()) + " rooms.");
 }
 
+int Game::find_dungeon_instance_for_region(int region_num)
+{
+    for (size_t i = 0; i < activeDungeons.size(); i++) {
+        auto &rooms = activeDungeons[i].room_nums;
+        if (std::find(rooms.begin(), rooms.end(), region_num) != rooms.end())
+            return (int)i;
+    }
+    return -1;
+}
+
 // ---------------------------------------------------------------------------
 // Game::ProcessDungeons — main entry point called each turn.
 // ---------------------------------------------------------------------------

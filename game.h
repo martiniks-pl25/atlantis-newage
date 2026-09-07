@@ -578,6 +578,13 @@ public:
     void GenerateLocalQuestsForMayor(ARegion *city, Unit *mayor);
     std::set<int> ComputeMayorDomain(ARegion *city);
     void ProcessDungeons();       // dungeon.cpp — see docs/DUNGEON_SYSTEM_DESIGN.md
+    // Index into activeDungeons whose room_nums contains region_num, or -1 if
+    // the region belongs to no active dungeon instance. Used by
+    // GetRegionInRange() (spells.cpp) to stop level-crossing spells from
+    // hopping between two DIFFERENT dungeons that happen to sit on adjacent
+    // cells of the shared LEVEL_DUNGEON grid — the range check is plain
+    // coordinate distance and knows nothing about instance boundaries.
+    int find_dungeon_instance_for_region(int region_num);
     void UpdateMapChanceRamp();  // battle.cpp — see docs/PIRATE_MAP_CHANCE_RAMP_PLAN.md
     void try_spawn_dungeon();
     ARegion* find_entrance_spot();
