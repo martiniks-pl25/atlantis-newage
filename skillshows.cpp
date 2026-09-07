@@ -451,6 +451,27 @@ const std::string ShowSkill::Report(Faction *f) const
                         break;
                 }
                 str += "regions of the caster. ";
+                if (range->get().flags & RangeType::RNG_CROSS_LEVELS) {
+                    str += "Coordinates of locations not on the surface are "
+                        "scaled to the surface coordinates for this "
+                        "calculation. Crossing between different levels "
+                        "increases the distance by ";
+                    str += std::to_string(range->get().crossLevelPenalty);
+                    str += " per level difference. ";
+                    if (Globals->DUNGEON_LEVEL) {
+                        str += "A dungeon has no fixed position relative to "
+                            "the surface, so teleporting into or out of one "
+                            "does not use this coordinate scaling: the "
+                            "distance is instead measured along the actual "
+                            "path to its entrance, plus a flat ";
+                        str += std::to_string(range->get().crossLevelPenalty);
+                        str += " for passing through the entrance itself, "
+                            "then the distance through the dungeon's own "
+                            "passages to the target mage's region. If the "
+                            "dungeon's entrance has closed, no such path "
+                            "exists and the target is out of range.";
+                    }
+                }
             }
             str += "To use this skill, CAST Portal_Lore <target> UNITS "
                 "<unit> ..., where <target> is the unit number of the "
@@ -506,6 +527,19 @@ const std::string ShowSkill::Report(Faction *f) const
                     }
                     str += " Note that Farsight cannot be used either into "
                         "or out of the Nexus.";
+                    if (Globals->DUNGEON_LEVEL) {
+                        str += " A dungeon has no fixed position relative to "
+                            "the surface, so viewing into or out of one does "
+                            "not use this coordinate scaling: the distance "
+                            "is instead measured along the actual path to "
+                            "its entrance, plus a flat ";
+                        str += std::to_string(range->get().crossLevelPenalty);
+                        str += " for passing through the entrance itself, "
+                            "then the distance through the dungeon's own "
+                            "passages to the target region. If the "
+                            "dungeon's entrance has closed, no such path "
+                            "exists and the region is out of range.";
+                    }
                 } else {
                     str += "To use this skill, CAST Farsight REGION <x> "
                         "<y>, where <x> and <y> are the coordinates of the "
@@ -590,6 +624,19 @@ const std::string ShowSkill::Report(Faction *f) const
                     }
                     str += " Note that Teleportation cannot be used either "
                         "into or out of the Nexus.";
+                    if (Globals->DUNGEON_LEVEL) {
+                        str += " A dungeon has no fixed position relative to "
+                            "the surface, so teleporting into or out of one "
+                            "does not use this coordinate scaling: the "
+                            "distance is instead measured along the actual "
+                            "path to its entrance, plus a flat ";
+                        str += std::to_string(range->get().crossLevelPenalty);
+                        str += " for passing through the entrance itself, "
+                            "then the distance through the dungeon's own "
+                            "passages to the target region. If the "
+                            "dungeon's entrance has closed, no such path "
+                            "exists and the region is out of range.";
+                    }
                 } else {
                     str += "To use this skill, CAST Teleportation REGION "
                         "<x> <y>, where <x> and <y> are the coordinates of "
