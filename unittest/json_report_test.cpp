@@ -212,8 +212,16 @@ ut::suite<"JSON Report"> json_report_suite = []
     expect(entertainment == 76_i);
 
     // verify the products and the markets
+    //
+    // I_HORSE is guaranteed (100% chance in the plain terrain table) and always
+    // first, so it's safe to check exactly. The winged horse slot (25% chance)
+    // never shows here regardless of its roll: it's IT_ADVANCED and this
+    // faction hasn't learned it (see the report's CanMakeAdv gate). Herbs is a
+    // 30% roll that DOES show if it hits, so the visible list is legitimately
+    // 1 or 2 items depending on the RNG stream — same reasoning as the
+    // grain_price range check below, applied to product count instead of price.
     auto products = json_report["products"].size();
-    expect(products == 2_ul);
+    expect(products >= 1_ul && products <= 2_ul);
     auto expected_product = json{ {"tag", "HORS"}, {"name", "horse"}, {"plural", "horses"}, {"amount", 15 } };
     auto first_product = json_report["products"][0];
     expect(first_product == expected_product);

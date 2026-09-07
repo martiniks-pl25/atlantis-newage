@@ -788,6 +788,18 @@ int Game::GetRegionInRange(ARegion *r, ARegion *tar, Unit *u, int spell)
         return 0;
     }
 
+    // Two DIFFERENT active dungeon instances can sit on adjacent cells of
+    // the shared LEVEL_DUNGEON grid, so straight-line distance below is not
+    // enough to keep them isolated. Block only when BOTH ends are inside a
+    // dungeon room and it's not the same instance; one end on the surface
+    // (or in no active dungeon) is unaffected.
+    int r_dungeon   = find_dungeon_instance_for_region(r->num);
+    int tar_dungeon = find_dungeon_instance_for_region(tar->num);
+    if (r_dungeon != -1 && tar_dungeon != -1 && r_dungeon != tar_dungeon) {
+        u->error("CAST: Spell cannot cross into a different dungeon.");
+        return 0;
+    }
+
     int maxdist;
     switch(range->get().rangeClass) {
         default:
