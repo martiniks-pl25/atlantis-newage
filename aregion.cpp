@@ -2565,6 +2565,31 @@ ARegion *ARegionList::FindGate(int x)
     return nullptr;
 }
 
+void ARegionList::RemoveGate(ARegion *r)
+{
+    if (!r->gate) return;
+
+    if (!Globals->DISPERSE_GATE_NUMBERS) {
+        int last = numberofgates;
+        bool found = false;
+        for (const auto reg : regions) {
+            if (reg->gate == last) {
+                reg->gate = r->gate;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            logger::write("Error: Could not find last gate");
+        }
+    }
+
+    r->gate = 0;
+    r->gateopen = 0;
+    r->gatemonth = 0;
+    numberofgates--;
+}
+
 ARegion *ARegionList::FindConnectedRegions(ARegion *r, ARegion *tail, int shaft)
 {
     int i;

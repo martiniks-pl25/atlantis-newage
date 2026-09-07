@@ -846,6 +846,11 @@ void Game::ProcessDungeons()
             }
             r->objects.clear();
 
+            // A gate constructed inside this room (CGAT) must not outlive the
+            // dungeon: otherwise it stays dialable forever, including into a
+            // future dungeon instance that recycles this same grid cell.
+            if (r->gate) regions.RemoveGate(r);
+
             // Recreate the O_DUMMY object. Clearing objects above destroyed it,
             // and every region must own a dummy so GetDummy() never returns null
             // (units/monsters move into a region via MoveUnit(GetDummy())). Without
