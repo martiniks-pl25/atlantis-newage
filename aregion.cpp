@@ -2740,6 +2740,11 @@ int ARegionList::get_connected_distance(ARegion *start, ARegion *target, int pen
             }
         }
 
+        // No more reachable regions to expand into: target is unreachable
+        // within maxdist (or at all). Without this check, q.top() on an
+        // empty queue is undefined behavior.
+        if (q.empty()) return 10000000;
+
         cur = q.top().r;
         cur_dist = q.top().dist;
         q.pop();
