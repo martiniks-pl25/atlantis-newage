@@ -368,7 +368,12 @@ void Game::ProcessRegionSpell(Unit *u, int spell, parser::string_parser& parser,
             auto zval = parser.get_token().get_number();
             if (zval) {
                 z = zval.value();
-                if (z < 0 || z >= regions.numLevels) {
+                // The level count comes from the ruleset layout, not from the
+                // loaded world: order checking runs on DummyGame(), which sets
+                // up no regions at all. Mirrors ARegionList::create_levels().
+                int levels = 2 + Globals->UNDERWORLD_LEVELS + Globals->UNDERDEEP_LEVELS +
+                             Globals->ABYSS_LEVEL + Globals->DUNGEON_LEVEL;
+                if (z < 0 || z >= levels) {
                     parse_error(checker, u, 0, "CAST '" + skdef.name + "': Invalid Z coordinate specified.");
                     return;
                 }
