@@ -4,6 +4,7 @@
 #include "dungeon.h"
 #include "aregion.h"
 #include "object.h"
+#include "skills.h"
 #include "testhelper.hpp"
 
 namespace ut = boost::ut;
@@ -69,21 +70,34 @@ static void fake_far_away(ARegion *r) {
 ut::suite<"DungeonConnectedDistance"> dungeon_connected_distance_suite = [] {
     using namespace ut;
 
-    "explicit Z matching a real deep level is no longer rejected at parse time"_test = [] {
-        UnitTestHelper helper;
-        helper.initialize_game();
-        helper.setup_turn();
+    // The Z bound comes from the ruleset's level layout - nexus, surface,
+    // underworld, underdeep, abyss, dungeon - exactly as world.cpp calls
+    // ARegionList::create_levels(), and never from the regions actually
+    // loaded. The unit-test world builds fewer real arrays than the layout
+    // describes, which is harmless here: parsing validates the number and
+    // never calls GetRegion().
+    static const auto deepest_level = []() {
+        return 1 + Globals->UNDERWORLD_LEVELS + Globals->UNDERDEEP_LEVELS +
+               Globals->ABYSS_LEVEL + Globals->DUNGEON_LEVEL;
+    };
 
-        ARegionList &regions = helper.get_regions();
-        // Pretend the world has 5 levels (0..4), as Trident does with the
-        // dungeon level at index 4 — without needing a real level 4 array,
-        // since parsing never touches GetRegion(). expand_levels() resizes
-        // pRegionArrays safely; the new slot must be nulled explicitly
-        // (expand_levels leaves it uninitialized) so ~ARegionList()'s
-        // unconditional `delete pRegionArrays[i]` doesn't crash on a wild
-        // pointer when this helper is torn down at the end of the test.
-        regions.expand_levels(5);
-        regions.pRegionArrays[4] = nullptr;
+    // An explicit Z is only read for ranges flagged RNG_CROSS_LEVELS. The
+    // unittest ruleset leaves RangeDefs at their gamedata.cpp defaults, where
+    // rng_farsight carries no flags; neworigins/extra.cpp is what turns the
+    // flag on. Mirror that around the parse, and put the shared table back
+    // afterwards so other suites see the ruleset they expect.
+    struct cross_level_farsight {
+        RangeType &range;
+        int saved;
+        cross_level_farsight()
+            : range(find_range("rng_farsight").value().get()), saved(range.flags) {
+            range.flags = saved | RangeType::RNG_CROSS_LEVELS;
+        }
+        ~cross_level_farsight() { range.flags = saved; }
+    };
+
+    static const auto farsight_rejects_z = [](UnitTestHelper &helper, int z) {
+        cross_level_farsight cross_levels;
 
         Faction *faction = helper.create_faction("Test Faction");
         Unit *leader = helper.get_first_unit(faction);
@@ -92,14 +106,60 @@ ut::suite<"DungeonConnectedDistance"> dungeon_connected_distance_suite = [] {
         std::stringstream ss;
         ss << "#atlantis " << faction->num << "\n";
         ss << "unit " << leader->num << "\n";
-        ss << "cast farsight REGION 0 0 4\n";
+        ss << "cast farsight REGION 0 0 " << z << "\n";
         helper.parse_orders(faction->num, ss);
 
-        bool has_invalid_z = false;
         for (auto &e : faction->errors)
-            if (e.message.find("Invalid Z coordinate") != std::string::npos) has_invalid_z = true;
-        expect(!has_invalid_z)
-            << "z == numLevels-1 (a real, valid deepest level) must parse, not be rejected";
+            if (e.message.find("Invalid Z coordinate") != std::string::npos) return true;
+        return false;
+    };
+
+    "explicit Z naming the deepest level of the layout parses"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        expect(!farsight_rejects_z(helper, deepest_level()))
+            << "the deepest level the ruleset lays out (the dungeon level) is a valid target";
+    };
+
+    "explicit Z past the end of the layout is rejected"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        expect(farsight_rejects_z(helper, deepest_level() + 1))
+            << "a level the ruleset never lays out must be rejected at parse time";
+    };
+
+    "explicit Z parses while checking orders with no world loaded"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+        cross_level_farsight cross_levels;
+
+        Faction *faction = helper.create_faction("Portal Checker");
+        Unit *leader = helper.get_first_unit(faction);
+
+        // `atlantis check` - the syntax check the web portal runs - parses on
+        // Game::DummyGame(), which sets up no regions at all, so numLevels is
+        // 0 there. Reproduce that state for the parse itself.
+        ARegionList &regions = helper.get_regions();
+        int saved_levels = regions.numLevels;
+        regions.numLevels = 0;
+
+        std::stringstream check_out;
+        orders_check checker(check_out);
+        std::stringstream ss;
+        ss << "#atlantis " << faction->num << " \"pw\"\n";
+        ss << "unit " << leader->num << "\n";
+        ss << "cast farsight REGION 59 9 1\n";
+        helper.parse_orders(faction->num, ss, &checker);
+
+        regions.numLevels = saved_levels;
+
+        expect(check_out.str().find("Invalid Z coordinate") == std::string::npos)
+            << "order checking runs without regions; Z must be validated against the ruleset";
     };
 
     "teleport into an isolated dungeon room routes through its entrance"_test = [] {

@@ -280,7 +280,7 @@ static GameDefs g = {
 	100,	// POP_GROWTH
 	3,	// DELAY_MORTALITY
 	6,	// DELAY_GROWTH
-	100,	// RECRUIT_POP_LOSS_PERCENT (25% = recruit 100 men, lose 25 population)
+	100,	// RECRUIT_POP_LOSS_PERCENT (percent of each recruit removed from region population)
 	0,	// DISABLE_PILLAGE (0 = enabled)
 	100,	// TOWN_DEVELOPMENT
 	1,	// VILLAGES_ONLY - all settlements start as villages
