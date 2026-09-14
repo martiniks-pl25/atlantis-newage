@@ -164,9 +164,60 @@ ut::suite<"MonsterRaid"> monster_raid_suite = [] {
         farmer->MoveUnit(farm);
         Unit *behemoth = make_behemoth(helper, r, 0);
 
+        int saved = behemothTrampleOccupiedHitChance;
+        behemothTrampleOccupiedHitChance = 100;
         helper.run_behemoth_trample(r, behemoth);
+        behemothTrampleOccupiedHitChance = saved;
 
-        expect(farm->incomplete == 1) << "an occupied farm is still trampled, only picked less often";
+        expect(farm->incomplete == 1) << "with every hit landing, an occupied farm is trampled like an empty one";
+    };
+
+    "A miss on a garrisoned building burns the point"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        ARegion *r = helper.get_region(0, 0, 0);
+        r->type = R_PLAIN;
+
+        Object *farm = make_building(r, O_FARM);
+        int initial = farm->incomplete;
+        Unit *farmer = helper.create_unit(helper.create_faction("Farmers"), r);
+        farmer->MoveUnit(farm);
+        Unit *behemoth = make_behemoth(helper, r, 0);       // elder: budget 12
+
+        int saved = behemothTrampleOccupiedHitChance;
+        behemothTrampleOccupiedHitChance = 0;
+        helper.run_behemoth_trample(r, behemoth);
+        behemothTrampleOccupiedHitChance = saved;
+
+        expect(farm->incomplete == initial) << "every point that misses the garrisoned farm is spent, none lands";
+        expect(helper.game_object().monster_raid_context.empty()) << "a trample that damages nothing writes no gazette line";
+    };
+
+    "Misses on a garrisoned building do not spare an empty one beside it"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        ARegion *r = helper.get_region(0, 0, 0);
+        r->type = R_PLAIN;
+
+        Object *empty = make_building(r, O_FARM);
+        int emptyInitial = empty->incomplete;
+        Object *garrisoned = make_building(r, O_FARM);
+        int garrisonedInitial = garrisoned->incomplete;
+        Unit *farmer = helper.create_unit(helper.create_faction("Farmers"), r);
+        farmer->MoveUnit(garrisoned);
+        Unit *behemoth = make_behemoth(helper, r, 0);       // elder: budget 12
+
+        int saved = behemothTrampleOccupiedHitChance;
+        behemothTrampleOccupiedHitChance = 0;
+        helper.run_behemoth_trample(r, behemoth);
+        behemothTrampleOccupiedHitChance = saved;
+
+        expect(empty->incomplete > emptyInitial) << "points that pick the empty farm still land";
+        expect(garrisoned->incomplete == garrisonedInitial) << "the garrisoned farm takes no damage at 0% hit chance";
     };
 
     "Behemoth never takes a building below the quarter-cost floor"_test = [] {

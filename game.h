@@ -51,17 +51,20 @@ public:
  *
  * Shared by every monster building raid so all of them pick targets through the one
  * filter in raid_targets(). An empty building enters the pick array emptyWeight
- * times, an occupied one occupiedWeight times; a weight of 0 leaves it out.
+ * times, an occupied one occupiedWeight times; a weight of 0 leaves it out. A hit on
+ * an occupied building lands with occupiedHitChance percent (see raid_lands()).
  */
 struct RaidProfile {
     int emptyWeight;
     int occupiedWeight;
     int damagePerHit;
+    int occupiedHitChance;
 };
 
 std::map<Object *, int> raid_snapshot(ARegion *r);
 std::vector<Object *> raid_targets(ARegion *r, const std::map<Object *, int>& initialIncomplete,
                                    const RaidProfile& profile);
+bool raid_lands(Object *target, const RaidProfile& profile);
 void raid_hit(Object *target, const RaidProfile& profile);
 
 /// The main game class

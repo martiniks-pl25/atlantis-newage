@@ -55,6 +55,9 @@ int behemothTrampleDamageSize = sizeof(btd) / sizeof(btd[0]);
 int behemothTrampleChance = 100;
 int behemothTrampleEmptyWeight = 3;
 int behemothTrampleOccupiedWeight = 1;
+// A point aimed at an occupied building lands with this percent chance and is spent
+// even when it misses; empty buildings are always hit.
+int behemothTrampleOccupiedHitChance = 35;
 
 int LEADERS_PER_MARKET_UNIT = 900;
 int WILDERNESS_LEADER_CHANCE = 35;
