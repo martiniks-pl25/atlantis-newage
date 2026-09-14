@@ -641,11 +641,11 @@ public:
     // Pirate activity context collected during turn processing for AI gazette content.
     // Elite = named ships with a captain (I_PIRATE_CAPTAIN).
     // Populated by PirateRaidBuildings() and PirateRecruitLandCrew().
-    // Consumed (and cleared) by WriteNewspaper() → serialized as "pirate_context" in times.json.
+    // Consumed (and cleared) by WriteWorldEvents() → serialized as "pirate_context" in times.json.
     std::vector<std::string> pirate_context_elite;
     std::vector<std::string> pirate_context_regular;
-    // Building raids by monsters other than pirates (the behemoth trample), for the AI
-    // gazette. Consumed (and cleared) by WriteNewspaper() -> "monster_raid_context".
+    // Building raids by monsters other than pirates (the behemoth trample), for the
+    // gazette. Consumed (and cleared) by WriteWorldEvents() -> "monster_raid_context".
     std::vector<std::string> monster_raid_context;
     // Pirates seize empty ships docked in the same non-ocean region
     void PirateSeizeEmptyShips();
