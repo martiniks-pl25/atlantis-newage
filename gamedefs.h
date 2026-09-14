@@ -111,11 +111,14 @@ extern int pirateStepWeightsSize;
 //   behemothTrampleChance         - percent chance a behemoth tramples this turn
 //   behemothTrampleEmptyWeight    - pick-array copies of an empty target building
 //   behemothTrampleOccupiedWeight - pick-array copies of an occupied one (0 = never)
+//   behemothTrampleOccupiedHitChance - percent chance a point aimed at an occupied
+//                                   building lands; a miss still spends the point
 extern int *behemothTrampleDamage;
 extern int behemothTrampleDamageSize;
 extern int behemothTrampleChance;
 extern int behemothTrampleEmptyWeight;
 extern int behemothTrampleOccupiedWeight;
+extern int behemothTrampleOccupiedHitChance;
 // Leader recruitment supply, also ruleset-set rather than GameDefs fields, so a
 // world can retune them without shifting that struct's positional initializer:
 //   LEADERS_PER_MARKET_UNIT  - one leader on offer per this many people in the region

@@ -108,6 +108,9 @@ int behemothTrampleDamageSize = sizeof(btd) / sizeof(btd[0]);
 int behemothTrampleChance = 100;
 int behemothTrampleEmptyWeight = 3;
 int behemothTrampleOccupiedWeight = 1;
+// A point aimed at an occupied building lands with this percent chance and is spent
+// even when it misses; empty buildings are always hit.
+int behemothTrampleOccupiedHitChance = 35;
 
 // Leader recruitment supply (declared in gamedefs.h; kept out of the GameDefs
 // positional initializer below so retuning cannot shift that list).

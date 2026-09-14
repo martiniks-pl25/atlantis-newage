@@ -2207,6 +2207,27 @@ std::vector<Object *> raid_targets(ARegion *r, const std::map<Object *, int>& in
 }
 
 /**
+ * @brief Rolls whether a raid point aimed at a building lands.
+ *
+ * A point aimed at an empty building always lands. A point aimed at an occupied one lands
+ * with occupiedHitChance percent; the caller spends the point either way, so a garrison
+ * turns part of a raider's budget into nothing. The roll is drawn only for an occupied
+ * target with a chance between 1 and 99, so a raider that never aims at occupied
+ * buildings draws nothing extra from the game RNG.
+ *
+ * @param target  Building picked from raid_targets().
+ * @param profile Raider whose occupiedHitChance applies.
+ * @return true if the hit lands and raid_hit() should be applied.
+ * @see raid_targets(), raid_hit()
+ */
+bool raid_lands(Object *target, const RaidProfile& profile)
+{
+    if (target->units.empty() || profile.occupiedHitChance >= 100) return true;
+    if (profile.occupiedHitChance <= 0) return false;
+    return rng::get_random(100) < profile.occupiedHitChance;
+}
+
+/**
  * @brief Applies one raid hit to a building.
  *
  * Adds damagePerHit to incomplete (lasting damage, repaired with BUILD) and to destroyed
@@ -2243,7 +2264,7 @@ void Game::PirateRaidBuildings(ARegion *r, Unit *u)
     if (pirateCount <= 0) return;
 
     // Empty buildings only, 2 damage per hit
-    const RaidProfile pirates = { 1, 0, 2 };
+    const RaidProfile pirates = { 1, 0, 2, 100 };
     const std::map<Object *, int> initialIncomplete = raid_snapshot(r);
     std::set<Object *> damagedObjects;
 
@@ -2255,6 +2276,7 @@ void Game::PirateRaidBuildings(ARegion *r, Unit *u)
         if (rng::get_random(2) == 0) continue;
 
         Object *target = targets[rng::get_random(targets.size())];
+        if (!raid_lands(target, pirates)) continue;
         raid_hit(target, pirates);
         damagedObjects.insert(target);
     }
@@ -2294,7 +2316,9 @@ void Game::PirateRaidBuildings(ARegion *r, Unit *u)
  * entry; a free above the table (an escaped monster) counts as the youngest. The budget is
  * spent one damage point at a time, each on a fresh weighted pick from raid_targets():
  * empty buildings enter behemothTrampleEmptyWeight times, occupied ones
- * behemothTrampleOccupiedWeight times. A building leaves the pick array once it reaches
+ * behemothTrampleOccupiedWeight times. A point aimed at an occupied building lands only
+ * with behemothTrampleOccupiedHitChance percent and is spent even when it misses, so a
+ * garrison protects its building. A building leaves the pick array once it reaches
  * its per-turn cap, so a large budget spreads over several buildings, and the cost / 4
  * floor means a behemoth stops buildings but never razes them.
  *
@@ -2318,7 +2342,8 @@ void Game::BehemothTrampleBuildings(ARegion *r, Unit *u)
     int last = behemothTrampleDamageSize - 1;
     int budget = behemothTrampleDamage[last - std::clamp(u->free, 0, last)];
 
-    const RaidProfile behemoth = { behemothTrampleEmptyWeight, behemothTrampleOccupiedWeight, 1 };
+    const RaidProfile behemoth = { behemothTrampleEmptyWeight, behemothTrampleOccupiedWeight, 1,
+                                   behemothTrampleOccupiedHitChance };
     const std::map<Object *, int> initialIncomplete = raid_snapshot(r);
     std::set<Object *> damagedObjects;
 
@@ -2327,6 +2352,8 @@ void Game::BehemothTrampleBuildings(ARegion *r, Unit *u)
         if (targets.empty()) break;
 
         Object *target = targets[rng::get_random(targets.size())];
+        // A point aimed at a garrisoned building may miss; it is spent either way
+        if (!raid_lands(target, behemoth)) continue;
         raid_hit(target, behemoth);
         damagedObjects.insert(target);
     }
