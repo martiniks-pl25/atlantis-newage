@@ -7,6 +7,8 @@ using json = nlohmann::json;
 #include "../gamedata.h"
 #include "testhelper.hpp"
 
+#include <algorithm>
+
 // Because boost::ut has it's own concept of events, as does Game, we cannot just use do
 // using namespace boost::ut; here. Instead, we alias it, and then use the alias inside the
 // closure to make the user defined literals and all the other niceness available.
@@ -393,5 +395,75 @@ ut::suite<"JSON Report"> json_report_suite = []
     // verify the endturn
     auto endturn_order = json{ {"order", "ENDTURN"} };
     expect(json_unit_report["orders"][2] == endturn_order);
+  };
+
+  "Monster spoil tiers name the loot tiers of a spoiltype mask"_test = []
+  {
+    UnitTestHelper helper;
+    helper.initialize_game();
+
+    using tiers = vector<string>;
+    expect(spoil_tiers(-1) == tiers{}) << "no spoils names no tier";
+    expect(spoil_tiers(IT_ADVANCED) == tiers{"advanced"});
+    expect(spoil_tiers(IT_MAGIC) == tiers{"magic"});
+    expect(spoil_tiers(IT_NORMAL | IT_ADVANCED | IT_TRADE) == tiers{"normal", "advanced", "trade"})
+      << "a mask with several tiers names every one of them";
+
+    int saved = Globals->SPOILS_NO_TRADE;
+    Globals->SPOILS_NO_TRADE = 1;
+    expect(spoil_tiers(IT_NORMAL) == tiers{"normal"}) << "no trade substitution when SPOILS_NO_TRADE is set";
+    Globals->SPOILS_NO_TRADE = 0;
+    expect(spoil_tiers(IT_NORMAL) == tiers{"normal", "trade"}) << "IT_NORMAL may be paid in trade goods";
+    Globals->SPOILS_NO_TRADE = saved;
+  };
+
+  "Monster stats in the JSON report carry spoil tiers, not item tags"_test = []
+  {
+    UnitTestHelper helper;
+    helper.initialize_game();
+    helper.setup_turn();
+    Game &game = helper.game_object();
+
+    const vector<string> allowed = {"normal", "advanced", "magic", "trade"};
+    auto find_dragon = [](const json &report) -> const json * {
+      for (auto &entry : report["item_reports"])
+        if (entry.value("description", "").rfind("dragon [DRAG]", 0) == 0) return &entry;
+      return nullptr;
+    };
+
+    // GM report (faction 1): every monster, written by build_gm_json_report
+    Faction *gm = helper.get_faction(1);
+    int saved = Globals->GM_REPORT;
+    Globals->GM_REPORT = 1;
+    json gm_report;
+    gm->build_json_report(gm_report, &game, nullptr);
+    Globals->GM_REPORT = saved;
+
+    size_t checked = 0;
+    for (auto &entry : gm_report["item_reports"]) {
+      if (!entry.contains("_stats") || !entry["_stats"].contains("spoiltype")) continue;
+      const json &spoils = entry["_stats"]["spoiltype"];
+      expect(spoils.is_array()) << "spoiltype must be an array of tier names";
+      if (!spoils.is_array()) continue;
+      for (auto &tier : spoils)
+        expect(tier.is_string() && find(allowed.begin(), allowed.end(), tier.get<string>()) != allowed.end())
+          << "every spoil tier is one of normal/advanced/magic/trade";
+      checked++;
+    }
+    expect(checked > 0_ul) << "the GM report must contain monster stats to check";
+    const json *gm_dragon = find_dragon(gm_report);
+    expect(gm_dragon != nullptr) << "the GM report must contain the dragon";
+    if (gm_dragon) expect((*gm_dragon)["_stats"]["spoiltype"] == json::array({"magic"}))
+      << "GM report: the dragon's IT_MAGIC spoils read as [magic]";
+
+    // Player report: a faction that has seen a dragon, written by build_json_report
+    Faction *faction = helper.create_faction("Test Faction");
+    faction->DiscoverItem(I_DRAGON, 1, 1);
+    json player_report;
+    faction->build_json_report(player_report, &game, nullptr);
+    const json *player_dragon = find_dragon(player_report);
+    expect(player_dragon != nullptr) << "a faction that discovered the dragon reports it";
+    if (player_dragon) expect((*player_dragon)["_stats"]["spoiltype"] == json::array({"magic"}))
+      << "player report: the dragon's IT_MAGIC spoils read as [magic]";
   };
 };
