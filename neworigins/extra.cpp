@@ -1666,6 +1666,7 @@ void Game::ModifyTablesPerRuleset(void)
     modify_monster_threat("BOGT",  2,   25);  // Swamp Creatures
     modify_monster_threat("KONG",  2,   80);  // Great Apes
     modify_monster_threat("SPHI",  1,   50);  // Sphinx
+    modify_monster_threat("BEHE",  1,   20);  // Behemoth
     modify_monster_threat("ICEW",  8,   25);  // Ice Wurms
     modify_monster_threat("DRAG",  1,   80);  // Dragon
     modify_monster_threat("WYVR",  1,   50);  // Wyvern

@@ -69,6 +69,19 @@ extern int factionTypeMin;
 // field. An empty or zero-sum table falls back to a compiled-in default.
 extern int *pirateStepWeights;
 extern int pirateStepWeightsSize;
+// Behemoth building trample, ruleset-set like pirateStepWeights - NOT GameDefs
+// struct fields. See Game::BehemothTrampleBuildings in game.cpp:
+//   behemothTrampleDamage         - damage budget per turn by maturity, youngest
+//                                   first; the monster's free counter (3 = young,
+//                                   0 = elder) picks the entry
+//   behemothTrampleChance         - percent chance a behemoth tramples this turn
+//   behemothTrampleEmptyWeight    - pick-array copies of an empty target building
+//   behemothTrampleOccupiedWeight - pick-array copies of an occupied one (0 = never)
+extern int *behemothTrampleDamage;
+extern int behemothTrampleDamageSize;
+extern int behemothTrampleChance;
+extern int behemothTrampleEmptyWeight;
+extern int behemothTrampleOccupiedWeight;
 // Leader recruitment supply, also ruleset-set rather than GameDefs fields, so a
 // world can retune them without shifting that struct's positional initializer:
 //   LEADERS_PER_MARKET_UNIT  - one leader on offer per this many people in the region

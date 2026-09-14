@@ -53,7 +53,8 @@ public:
     std::string Write(std::string worldName, std::string month, int year);
     std::string WriteJSON(std::string worldName, std::string month, int year,
                           std::vector<std::pair<int,std::string>> wanted,
-                          std::vector<std::string> pirate_context = {});
+                          std::vector<std::string> pirate_context = {},
+                          std::vector<std::string> monster_raid_context = {});
 
     void AddFact(FactBase *fact);
 

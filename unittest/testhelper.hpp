@@ -88,6 +88,8 @@ public:
     void run_annihilation();
     // Run pirate raid on buildings for a specific unit
     void run_pirate_raid(ARegion *r, Unit *u);
+    // Behemoth building trample (Game::BehemothTrampleBuildings)
+    void run_behemoth_trample(ARegion *r, Unit *u);
     // Run pirate land crew recruitment for all fleets
     void run_pirate_recruit_land_crew();
     // Run pirate empty ship seizure for all regions

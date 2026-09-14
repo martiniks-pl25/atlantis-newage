@@ -1433,8 +1433,14 @@ void Game::WriteWorldEvents() {
     pirate_context_elite.clear();
     pirate_context_regular.clear();
 
+    // Monster raid context: the first 15 lines in turn order. No shuffle, so the game RNG
+    // stream is untouched.
+    std::vector<std::string> raid_context(monster_raid_context.begin(),
+        monster_raid_context.begin() + std::min<size_t>(15, monster_raid_context.size()));
+    monster_raid_context.clear();
+
     std::string json_str = this->events->WriteJSON(
-        Globals->RULESET_NAME, MonthNames[this->month], this->year, wanted, pirate_context);
+        Globals->RULESET_NAME, MonthNames[this->month], this->year, wanted, pirate_context, raid_context);
 
     // Pick a shared base filename for both outputs. Never draw service filenames
     // from the game RNG: the world state depends on that stream and directory
@@ -2129,23 +2135,105 @@ void Game::PostProcessUnitExtra(ARegion *r, Unit *u)
 }
 
 /**
- * @brief Pirates raid empty production buildings, roads, and inns in non-ocean regions.
+ * @brief Records each object's incomplete value before a raid starts.
  *
- * Each pirate in the unit acts independently: picks a random valid target and deals
- * 1 damage point (same as a 1-man unit with BUIL=0 in the DESTROY order).
+ * raid_targets() reads it to choose the per-turn cap: a building that was working when
+ * the raid began may take maxMaintenance + 1 (just enough to stop it), a building that
+ * was already broken may take 4 more.
  *
- * Target eligibility (re-evaluated per pirate):
- *   - Empty (no units inside)
- *   - Not NEVERDECAY
- *   - Type: production building (productionAided != -1), road (IsRoad()), or inn (O_INN)
- *   - structurePoints > 25% of cost  (don't finish off heavily damaged buildings)
- *   - o->destroyed < 25% of cost     (per-turn damage cap: max 25% of cost per turn)
+ * @param r The raided region.
+ * @return Map from every object in the region to its current incomplete value.
+ * @see raid_targets()
+ */
+std::map<Object *, int> raid_snapshot(ARegion *r)
+{
+    std::map<Object *, int> initial;
+    for (const auto o : r->objects) initial[o] = o->incomplete;
+    return initial;
+}
+
+/**
+ * @brief Builds the weighted pick array for the next raid hit.
  *
- * structurePoints = cost - incomplete
- * Damage: o->incomplete += 1, o->destroyed += 1 (destroyed resets each turn on load)
+ * The single target filter for every monster building raid. An object qualifies if:
+ *   - the region is not ocean or lake;
+ *   - it is not the dummy object, a fleet, or NEVERDECAY;
+ *   - it is a production building (productionAided != -1), a road, or an inn -
+ *     fortifications and every other object are never raided;
+ *   - its structure points (cost - incomplete) are above cost / 4, so a raid never
+ *     finishes off a wreck;
+ *   - its damage this turn (destroyed) is below the cap: maxMaintenance + 1 if it was
+ *     working at the snapshot (incomplete < 1), otherwise 4.
+ * A qualifying object is pushed emptyWeight times if nobody is inside, otherwise
+ * occupiedWeight times, so rng::get_random(size) over the result is a weighted pick.
  *
- * @param r  The region where the unit is located.
- * @param u  The unit to check.
+ * @param r                 The raided region.
+ * @param initialIncomplete Snapshot from raid_snapshot() taken when the raid began.
+ * @param profile           Target weights for this raider.
+ * @return Candidate objects repeated by weight; empty when nothing can be hit.
+ * @note Call again before every hit: a target that reaches its cap drops out, so the
+ *       rest of the damage moves to other buildings.
+ * @example Working farm (incomplete -5, maxMaintenance 5): cap 6, so one raid can take
+ *          it to incomplete 1 (stopped) but no further; it bottoms out at incomplete 8
+ *          (structure points 2 = cost / 4) over later turns and is never removed.
+ * @see raid_snapshot(), raid_hit()
+ */
+std::vector<Object *> raid_targets(ARegion *r, const std::map<Object *, int>& initialIncomplete,
+                                   const RaidProfile& profile)
+{
+    std::vector<Object *> targets;
+    if (r->type == R_OCEAN || r->type == R_LAKE) return targets;
+
+    for (const auto o : r->objects) {
+        if (o->type == O_DUMMY || o->IsFleet()) continue;
+        const ObjectType& ot = ObjectDefs[o->type];
+        if (ot.flags & ObjectType::NEVERDECAY) continue;
+        if (ot.productionAided == -1 && !o->IsRoad() && o->type != O_INN) continue;
+
+        int weight = o->units.empty() ? profile.emptyWeight : profile.occupiedWeight;
+        if (weight <= 0) continue;
+
+        // Never finish off a wreck
+        if (ot.cost - o->incomplete <= ot.cost / 4) continue;
+
+        auto snap = initialIncomplete.find(o);
+        int initial = (snap != initialIncomplete.end()) ? snap->second : o->incomplete;
+        int cap = (initial < 1) ? ot.maxMaintenance + 1 : 4;
+        if (o->destroyed >= cap) continue;
+
+        targets.insert(targets.end(), weight, o);
+    }
+    return targets;
+}
+
+/**
+ * @brief Applies one raid hit to a building.
+ *
+ * Adds damagePerHit to incomplete (lasting damage, repaired with BUILD) and to destroyed
+ * (this turn's damage, which raid_targets() compares against the cap; destroyed is not
+ * saved, so it starts at 0 every turn).
+ *
+ * @param target  Building picked from raid_targets().
+ * @param profile Raider whose damagePerHit is applied.
+ */
+void raid_hit(Object *target, const RaidProfile& profile)
+{
+    target->incomplete += profile.damagePerHit;
+    target->destroyed  += profile.damagePerHit;
+}
+
+/**
+ * @brief Pirates raid empty production buildings, roads and inns on land.
+ *
+ * Each pirate in the unit acts in turn: with a 50% chance it picks one target from
+ * raid_targets() (empty buildings only, uniform pick) and deals 2 damage. Target rules,
+ * the per-turn cap and the cost / 4 floor are described on raid_targets().
+ * The factions present get one event naming the damaged buildings, and the raid is
+ * recorded in pirate_context_elite or pirate_context_regular for the gazette.
+ *
+ * @param r The region where the unit is located.
+ * @param u The unit to check; anything other than a wandering monster holding I_PIRATES is ignored.
+ * @see raid_targets(), BehemothTrampleBuildings()
  */
 void Game::PirateRaidBuildings(ARegion *r, Unit *u)
 {
@@ -2154,52 +2242,20 @@ void Game::PirateRaidBuildings(ARegion *r, Unit *u)
     int pirateCount = u->items.GetNum(I_PIRATES);
     if (pirateCount <= 0) return;
 
-    // Only on non-ocean, non-lake terrain
-    if (r->type == R_OCEAN || r->type == R_LAKE) return;
-
-    // Snapshot initial incomplete for each object to determine per-turn cap
-    std::map<Object *, int> initialIncomplete;
-    for (const auto o : r->objects)
-        initialIncomplete[o] = o->incomplete;
-
+    // Empty buildings only, 2 damage per hit
+    const RaidProfile pirates = { 1, 0, 2 };
+    const std::map<Object *, int> initialIncomplete = raid_snapshot(r);
     std::set<Object *> damagedObjects;
 
     for (int i = 0; i < pirateCount; i++) {
-        // Collect valid targets for this pirate
-        std::vector<Object *> candidates;
-        for (const auto o : r->objects) {
-            if (o->type == O_DUMMY) continue;
-            if (ObjectDefs[o->type].flags & ObjectType::NEVERDECAY) continue;
-            if (!o->units.empty()) continue;
-
-            const ObjectType& ot = ObjectDefs[o->type];
-            if (ot.productionAided == -1 && !o->IsRoad() && o->type != O_INN) continue;
-
-            int cost = ot.cost;
-            int destroyThreshold = cost / 4;  // don't finish off badly damaged buildings
-            int structurePoints = cost - o->incomplete;
-
-            // Skip if too damaged (don't finish off)
-            if (structurePoints <= destroyThreshold) continue;
-
-            // Per-turn damage cap depends on initial state:
-            //   functional (initial < 1): maxMaintenance+1 — enough to disable in one raid
-            //   broken     (initial >= 1): 4 — slow additional damage
-            int capThreshold = (initialIncomplete[o] < 1) ? ot.maxMaintenance + 1 : 4;
-            if (o->destroyed >= capThreshold) continue;
-
-            candidates.push_back(o);
-        }
-
-        if (candidates.empty()) break;
+        std::vector<Object *> targets = raid_targets(r, initialIncomplete, pirates);
+        if (targets.empty()) break;
 
         // 50% chance this pirate attempts to raid
         if (rng::get_random(2) == 0) continue;
 
-        // Each pirate picks a random target and deals 2 damage points
-        Object *target = candidates[rng::get_random(candidates.size())];
-        target->incomplete += 2;
-        target->destroyed  += 2;
+        Object *target = targets[rng::get_random(targets.size())];
+        raid_hit(target, pirates);
         damagedObjects.insert(target);
     }
 
@@ -2228,6 +2284,66 @@ void Game::PirateRaidBuildings(ARegion *r, Unit *u)
         pirate_context_elite.push_back(ctx);
     else
         pirate_context_regular.push_back(ctx);
+}
+
+/**
+ * @brief A behemoth tramples production buildings, roads and inns in its region.
+ *
+ * The damage budget comes from the monster's maturity: behemothTrampleDamage lists it
+ * youngest first, and the free counter (3 young ... 0 elder, one step per turn) picks the
+ * entry; a free above the table (an escaped monster) counts as the youngest. The budget is
+ * spent one damage point at a time, each on a fresh weighted pick from raid_targets():
+ * empty buildings enter behemothTrampleEmptyWeight times, occupied ones
+ * behemothTrampleOccupiedWeight times. A building leaves the pick array once it reaches
+ * its per-turn cap, so a large budget spreads over several buildings, and the cost / 4
+ * floor means a behemoth stops buildings but never razes them.
+ *
+ * @param r The region where the unit is located.
+ * @param u The unit to check; anything other than a wandering monster holding I_BEHEMOTH is ignored.
+ * @note Runs in the raid phase of RunOrders, after ENTER and before combat, so a player
+ *       can still step into a building that turn to lower its weight.
+ * @example Elder behemoth (budget 12) beside two empty working farms at incomplete -5:
+ *          each farm takes exactly 6 and ends at incomplete 1, no longer producing.
+ * @see raid_targets(), PirateRaidBuildings()
+ */
+void Game::BehemothTrampleBuildings(ARegion *r, Unit *u)
+{
+    if (u->type != U_WMON) return;
+    if (u->items.GetNum(I_BEHEMOTH) <= 0) return;
+    if (!behemothTrampleDamage || behemothTrampleDamageSize <= 0) return;
+    if (behemothTrampleChance <= 0) return;
+    // Roll only below 100% so a certain trample draws nothing from the game RNG
+    if (behemothTrampleChance < 100 && rng::get_random(100) >= behemothTrampleChance) return;
+
+    int last = behemothTrampleDamageSize - 1;
+    int budget = behemothTrampleDamage[last - std::clamp(u->free, 0, last)];
+
+    const RaidProfile behemoth = { behemothTrampleEmptyWeight, behemothTrampleOccupiedWeight, 1 };
+    const std::map<Object *, int> initialIncomplete = raid_snapshot(r);
+    std::set<Object *> damagedObjects;
+
+    for (int i = 0; i < budget; i++) {
+        std::vector<Object *> targets = raid_targets(r, initialIncomplete, behemoth);
+        if (targets.empty()) break;
+
+        Object *target = targets[rng::get_random(targets.size())];
+        raid_hit(target, behemoth);
+        damagedObjects.insert(target);
+    }
+
+    if (damagedObjects.empty()) return;
+
+    std::string nameList;
+    for (const auto o : damagedObjects) {
+        if (!nameList.empty()) nameList += ", ";
+        nameList += o->name;
+    }
+
+    std::string msg = "Tramples and damages " + nameList + " in " + r->short_print() + ".";
+    for (const auto f : r->PresentFactions()) f->event(msg, "decay", r, u);
+
+    // Collect for AI gazette context (monster_raid_context in times.json)
+    monster_raid_context.push_back("A behemoth trampled buildings in " + r->name + ".");
 }
 
 void Game::MonsterCheck(ARegion *r, Unit *u)
