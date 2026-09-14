@@ -1777,6 +1777,39 @@ void Game::ModifyTablesPerRuleset(void)
     modify_monster_spoils("MAGI",  4000, IT_MAGIC);     // Evil Magicians      (default: 4000, IT_MAGIC)
     modify_monster_spoils("SORC",  2000, IT_ADVANCED);  // Evil Sorcerers      (default: 1000, IT_ADVANCED)
 
+    // --- Monster combat stats: hitDamage and officer tuning ---
+    // Tuned via modify_monster_attacks_and_hits (numAttacks, hits, regen, hitDamage)
+    // and modify_monster_skills (tactics, stealth, obs). Only the noted field changes;
+    // the rest are restated from the MonDefs defaults in gamedata.cpp.
+
+    // Colossal monsters (size 5): hitDamage 1 -> 5
+    modify_monster_attacks_and_hits("DRAG", 50,  60,  0,  5);   // default: 50 atk, 60 hp, 0 regen
+    modify_monster_attacks_and_hits("BALR", 200, 280, 0,  5);   // default: 200 atk, 280 hp, 0 regen
+    modify_monster_attacks_and_hits("KRAK", 200, 200, 0,  5);   // default: 200 atk, 200 hp, 0 regen
+    modify_monster_attacks_and_hits("STGI", 80,  80,  0,  5);   // default: 80 atk, 80 hp, 0 regen
+    modify_monster_attacks_and_hits("CLGI", 100, 100, 0,  5);   // default: 100 atk, 100 hp, 0 regen
+    modify_monster_attacks_and_hits("IDRA", 120, 120, 0,  5);   // default: 120 atk, 120 hp, 0 regen
+    modify_monster_attacks_and_hits("DEVL", 250, 250, 0,  5);   // default: 250 atk, 250 hp, 0 regen
+
+    // Huge monsters (size 4): hitDamage 1 -> 3
+    modify_monster_attacks_and_hits("ROC",  25,  25,  0,  3);   // default: 25 atk, 25 hp, 0 regen
+    modify_monster_attacks_and_hits("BOGT", 30,  30,  0,  3);   // default: 30 atk, 30 hp, 0 regen
+    modify_monster_attacks_and_hits("KONG", 40,  40,  0,  3);   // default: 40 atk, 40 hp, 0 regen
+    modify_monster_attacks_and_hits("SPHI", 80,  80,  0,  3);   // default: 80 atk, 80 hp, 0 regen
+    modify_monster_attacks_and_hits("WYVR", 20,  25,  0,  3);   // default: 20 atk, 25 hp, 0 regen (damage 2 -> 3)
+    modify_monster_attacks_and_hits("ETTI", 32,  50,  0,  3);   // default: 32 atk, 50 hp, 0 regen
+    modify_monster_attacks_and_hits("HYDR", 70,  70,  30, 3);   // default: 70 atk, 70 hp, 30 regen
+    modify_monster_attacks_and_hits("BEHE", 20,  60,  0,  3);   // default: 20 atk, 60 hp, 0 regen
+
+    // Regular pirates (PIRA): observation 1 -> 2
+    modify_monster_skills("PIRA", 1, 1, 2);                     // tactics 1, stealth 1 = default
+
+    // Pirate officers: tactics, obs, and hits
+    modify_monster_skills("PBOS", 3, 1, 3);                     // tactics 2 -> 3; obs 2 -> 3; stealth 1 = default
+    modify_monster_attacks_and_hits("PBOS", 2, 10, 0, 1);       // hits 6 -> 10; 2 atk, 0 regen, damage 1 = default
+    modify_monster_skills("PCAP", 5, 1, 4);                     // tactics 4 -> 5; obs 3 -> 4; stealth 1 = default
+    modify_monster_attacks_and_hits("PCAP", 3, 15, 0, 2);       // hits 10 -> 15; 3 atk, 0 regen, damage 2 = default
+
         // --- Base prices: weapons, armor, tools ---
     // Resources: IRON=30  WOOD=30  FUR=30  HERBS=30  MITH=100  IRWD=100  ADMT=300
     // Training:  L1=10s(1mo)  L2=30s(3mo)  L3=60s(6mo)  L4=100s(10mo)  L5=150s(15mo)
