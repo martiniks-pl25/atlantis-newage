@@ -65,6 +65,16 @@ int volcanoExclusionRadius = 2; // was the hardcoded 2
 static int psw[] = { 30, 40, 30 };
 int *pirateStepWeights = psw;
 int pirateStepWeightsSize = sizeof(psw) / sizeof(psw[0]);
+
+// Behemoth building trample. Mirrors neworigins/rules.cpp; tests that exercise
+// other values override these and restore them.
+static int btd[] = { 3, 6, 9, 12 };
+int *behemothTrampleDamage = btd;
+int behemothTrampleDamageSize = sizeof(btd) / sizeof(btd[0]);
+int behemothTrampleChance = 100;
+int behemothTrampleEmptyWeight = 3;
+int behemothTrampleOccupiedWeight = 1;
+
 int LEADERS_PER_MARKET_UNIT = 900;
 int WILDERNESS_LEADER_CHANCE = 35;
 

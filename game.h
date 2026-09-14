@@ -21,6 +21,7 @@ using json = nlohmann::json;
 #include <map>
 #include <string>
 #include <unordered_map>
+#include <vector>
 #include <iosfwd>
 
 #define CURRENT_ATL_VER MAKE_ATL_VER(5, 2, 11) // 5.2.11: Object::pirate_promote_timer (pirate promotion cooldown)
@@ -44,6 +45,24 @@ public:
 
     void error(const std::string& err);
 };
+
+/**
+ * @brief How a monster spends building damage in a region.
+ *
+ * Shared by every monster building raid so all of them pick targets through the one
+ * filter in raid_targets(). An empty building enters the pick array emptyWeight
+ * times, an occupied one occupiedWeight times; a weight of 0 leaves it out.
+ */
+struct RaidProfile {
+    int emptyWeight;
+    int occupiedWeight;
+    int damagePerHit;
+};
+
+std::map<Object *, int> raid_snapshot(ARegion *r);
+std::vector<Object *> raid_targets(ARegion *r, const std::map<Object *, int>& initialIncomplete,
+                                   const RaidProfile& profile);
+void raid_hit(Object *target, const RaidProfile& profile);
 
 /// The main game class
 /** Currently this doc is here to switch on the class so that
@@ -611,6 +630,8 @@ public:
 
     // Pirates raid empty production buildings and roads in non-ocean regions
     void PirateRaidBuildings(ARegion *r, Unit *u);
+    // A behemoth tramples production buildings and roads; its damage budget grows with maturity
+    void BehemothTrampleBuildings(ARegion *r, Unit *u);
     // Pirates recruit new crew when docked on land (before movement phase)
     void PirateRecruitLandCrew();
 
@@ -620,6 +641,9 @@ public:
     // Consumed (and cleared) by WriteNewspaper() → serialized as "pirate_context" in times.json.
     std::vector<std::string> pirate_context_elite;
     std::vector<std::string> pirate_context_regular;
+    // Building raids by monsters other than pirates (the behemoth trample), for the AI
+    // gazette. Consumed (and cleared) by WriteNewspaper() -> "monster_raid_context".
+    std::vector<std::string> monster_raid_context;
     // Pirates seize empty ships docked in the same non-ocean region
     void PirateSeizeEmptyShips();
     // Pirates mature into officers (bosun, captain) and captainless fleets that

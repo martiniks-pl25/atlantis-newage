@@ -21,12 +21,14 @@ void Game::RunOrders()
     RunEnterOrders(0);
     logger::write("Running PROMOTE/EVICT Orders...");
     RunPromoteOrders();
-    logger::write("Running Pirate Raids...");
+    logger::write("Running Monster Raids...");
     for (const auto r : regions) {
         for (const auto o : r->objects) {
             for (const auto u : o->units) {
-                if (u->type == U_WMON && u->IsAlive())
+                if (u->type == U_WMON && u->IsAlive()) {
                     PirateRaidBuildings(r, u);
+                    BehemothTrampleBuildings(r, u);
+                }
             }
         }
     }

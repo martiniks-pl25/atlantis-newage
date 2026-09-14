@@ -3001,9 +3001,9 @@ std::vector<MonType> MonDefs = {
 
     // Plains colossus: thick hide, earth-shaking stomp
     // combat=4 (slow but crushing), hits=60 (very tanky)
-    // def: melee 4 (hide), energy 3, spirit 1, weather 2, ranged 4 (massive profile)
+    // def: melee 4 (hide), energy 4, spirit 3, weather 1, riding 2, ranged 4
     // earthquake lvl 2: devastating vs garrisoned units
-    {4,{3,4,3,1,2,4},
+    {4,{4,4,3,1,2,4},
      20,60,0,
      3,0,2,
      "earthquake", 2,

@@ -132,6 +132,10 @@ void UnitTestHelper::run_pirate_raid(ARegion *r, Unit *u) {
     game.PirateRaidBuildings(r, u);
 }
 
+void UnitTestHelper::run_behemoth_trample(ARegion *r, Unit *u) {
+    game.BehemothTrampleBuildings(r, u);
+}
+
 void UnitTestHelper::run_pirate_recruit_land_crew() {
     game.PirateRecruitLandCrew();
 }

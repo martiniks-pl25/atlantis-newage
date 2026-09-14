@@ -520,7 +520,8 @@ static std::string categoryToString(EventCategory cat) {
 
 std::string Events::WriteJSON(std::string worldName, std::string month, int year,
                               std::vector<std::pair<int,std::string>> wanted,
-                              std::vector<std::string> pirate_context) {
+                              std::vector<std::string> pirate_context,
+                              std::vector<std::string> monster_raid_context) {
     std::list<Event> events;
     for (auto &fact : this->facts) {
         fact->GetEvents(events);
@@ -569,6 +570,13 @@ std::string Events::WriteJSON(std::string worldName, std::string month, int year
     for (const auto &s : pirate_context)
         pirateArray.push_back(s);
     j["pirate_context"] = pirateArray;
+
+    // Building raids by monsters other than pirates (the behemoth trample), capped at 15.
+    // Empty array when no such raid happened this turn.
+    json raidArray = json::array();
+    for (const auto &s : monster_raid_context)
+        raidArray.push_back(s);
+    j["monster_raid_context"] = raidArray;
 
     return j.dump(2);
 }

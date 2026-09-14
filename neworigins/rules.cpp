@@ -99,6 +99,16 @@ static int psw[] = { 30, 40, 30 };
 int *pirateStepWeights = psw;
 int pirateStepWeightsSize = sizeof(psw) / sizeof(psw[0]);
 
+// Behemoth building trample (declared in gamedefs.h). Budget per turn by maturity,
+// youngest first: young 3, great 6, ancient 9, elder 12. A small production
+// building needs maxMaintenance + 1 = 6 damage to stop working.
+static int btd[] = { 3, 6, 9, 12 };
+int *behemothTrampleDamage = btd;
+int behemothTrampleDamageSize = sizeof(btd) / sizeof(btd[0]);
+int behemothTrampleChance = 100;
+int behemothTrampleEmptyWeight = 3;
+int behemothTrampleOccupiedWeight = 1;
+
 // Leader recruitment supply (declared in gamedefs.h; kept out of the GameDefs
 // positional initializer below so retuning cannot shift that list).
 int LEADERS_PER_MARKET_UNIT = 1000;
