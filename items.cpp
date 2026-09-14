@@ -536,28 +536,44 @@ std::string ShowItem::display_tag() {
 }
 
 /**
- * @brief Names the loot tiers a monster's spoiltype can pay, for its description.
+ * @brief Lists the loot tiers a monster's spoiltype can pay.
  *
  * The spoiltype is a bitmask and may name several tiers at once, so every tier
- * present is listed rather than matched first-wins. Trade goods are named only
- * when the mask says so, or where the IT_NORMAL -> IT_TRADE substitution that
- * used to supply them is still enabled (see SPOILS_NO_TRADE).
+ * present is listed rather than matched first-wins. Trade goods are named when
+ * the mask says so, or when the mask is exactly IT_NORMAL and SPOILS_NO_TRADE
+ * is off, since that monster may then be paid in trade goods instead. The
+ * monster description and the JSON report both read the tiers from here, so
+ * the two always agree.
  *
- * @param spoiltype MonType::spoiltype mask; -1 (no spoils) yields an empty string
- * @return "normal, advanced or trade" and the like, empty if no tier is named
+ * @param spoiltype MonType::spoiltype mask; -1 (no spoils) yields no tier
+ * @return tier names in the order normal, advanced, magic, trade
+ * @example spoil_tiers(IT_NORMAL | IT_ADVANCED | IT_TRADE) -> {"normal", "advanced", "trade"}
  * @see Army::GetMonSpoils()
  */
-static std::string spoil_tier_list(int spoiltype)
+std::vector<std::string> spoil_tiers(int spoiltype)
 {
-    if (spoiltype == -1) return "";
-
     std::vector<std::string> tiers;
+    if (spoiltype == -1) return tiers;
+
     if (spoiltype & IT_NORMAL)   tiers.push_back("normal");
     if (spoiltype & IT_ADVANCED) tiers.push_back("advanced");
     if (spoiltype & IT_MAGIC)    tiers.push_back("magic");
     if ((spoiltype & IT_TRADE) ||
         (spoiltype == IT_NORMAL && !Globals->SPOILS_NO_TRADE))
         tiers.push_back("trade");
+    return tiers;
+}
+
+/**
+ * @brief Joins a monster's loot tiers into a phrase for its description.
+ *
+ * @param spoiltype MonType::spoiltype mask; -1 (no spoils) yields an empty string
+ * @return "normal, advanced or trade" and the like, empty if no tier is named
+ * @see spoil_tiers()
+ */
+static std::string spoil_tier_list(int spoiltype)
+{
+    std::vector<std::string> tiers = spoil_tiers(spoiltype);
 
     std::string out;
     for (size_t i = 0; i < tiers.size(); i++) {

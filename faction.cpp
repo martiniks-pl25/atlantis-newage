@@ -563,7 +563,7 @@ void Faction::build_gm_json_report(json& j, Game *game) {
                     {"regen",             m.regen},
                     {"hostile",           m.hostile},
                     {"silver",            m.silver},
-                    {"spoiltype",         m.spoiltype == -1 ? json(nullptr) : json(ItemDefs[m.spoiltype].abr)},
+                    {"spoiltype",         spoil_tiers(m.spoiltype)},
                     {"number",            m.number},
                 };
                 if (m.special) item_stats["special"]       = m.special;
@@ -1125,7 +1125,7 @@ void Faction::build_json_report(json& j, Game *game, size_t **citems) {
                     {"regen",             m.regen},
                     {"hostile",           m.hostile},
                     {"silver",            m.silver},
-                    {"spoiltype",         m.spoiltype == -1 ? json(nullptr) : json(ItemDefs[m.spoiltype].abr)},
+                    {"spoiltype",         spoil_tiers(m.spoiltype)},
                     {"number",            m.number},
                 };
                 if (m.special) item_stats["special"]       = m.special;

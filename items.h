@@ -458,6 +458,7 @@ enum {
 };
 extern std::string item_string(int type, int num, int flags = 0);
 extern std::string item_description(int item, int full);
+extern std::vector<std::string> spoil_tiers(int spoiltype);
 
 extern int IsSoldier(int);
 
