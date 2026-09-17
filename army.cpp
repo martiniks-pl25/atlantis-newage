@@ -823,6 +823,10 @@ void Army::Reset() {
 void Army::WriteLosses(Battle * b) {
     b->AddLine(leader->name + " loses " + std::to_string(count - NumAlive()) + ".");
 
+    if (!b->total_casualties.empty()) {
+        b->total_casualties.back().lost = count - NumAlive();
+    }
+
     if (notbehind != count) {
         std::list<Unit *> units;
         for (int i=notbehind; i<count; i++) {
@@ -834,6 +838,9 @@ void Army::WriteLosses(Battle * b) {
         int comma = 0;
         std::string damaged;
         for(const auto u : units) {
+            if (!b->total_casualties.empty()) {
+                b->total_casualties.back().damaged_units.push_back(u->num);
+            }
             if (comma) {
                 damaged += ", " + std::to_string(u->num);
             } else {
@@ -1045,8 +1052,17 @@ void Army::Regenerate(Battle *b)
                 std::string aName = s->name;
 
                 if (s->damage != 0) {
-                    b->AddLine(aName + " takes " + std::to_string(s->damage) + " hits bringing it to " +
-                        std::to_string(s->hits) + "/" + std::to_string(s->maxhits) + ".");
+                    std::string dtext = aName + " takes " + std::to_string(s->damage) + " hits bringing it to " +
+                        std::to_string(s->hits) + "/" + std::to_string(s->maxhits) + ".";
+                    b->AddLine(dtext);
+                    BattleEvent ev;
+                    b->capture_unit(s->unit, ev.unit);
+                    ev.kind = "damage";
+                    ev.hits = s->damage;
+                    ev.current = s->hits;
+                    ev.max = s->maxhits;
+                    ev.text = dtext;
+                    b->AddEvent(ev);
                     s->damage = 0;
                 } else {
                     b->AddLine(aName + " takes no hits leaving it at " + std::to_string(s->hits) + "/" +
@@ -1056,8 +1072,17 @@ void Army::Regenerate(Battle *b)
                     int regen = s->regen;
                     if (regen > diff) regen = diff;
                     s->hits += regen;
-                    b->AddLine(aName + " regenerates " + std::to_string(regen) + " hits bringing it to " +
-                        std::to_string(s->hits) + "/" + std::to_string(s->maxhits) + ".");
+                    std::string rtext = aName + " regenerates " + std::to_string(regen) + " hits bringing it to " +
+                        std::to_string(s->hits) + "/" + std::to_string(s->maxhits) + ".";
+                    b->AddLine(rtext);
+                    BattleEvent ev;
+                    b->capture_unit(s->unit, ev.unit);
+                    ev.kind = "regen";
+                    ev.hits = regen;
+                    ev.current = s->hits;
+                    ev.max = s->maxhits;
+                    ev.text = rtext;
+                    b->AddEvent(ev);
                 }
             }
         }
@@ -1066,6 +1091,7 @@ void Army::Regenerate(Battle *b)
 
 void Army::Lose(Battle *b, ItemList& spoils)
 {
+    b->push_total_casualty(leader);
     WriteLosses(b);
     // Track chosen item types per (unit, race) pair to limit spoils variety.
     // Mixed units (e.g. kobolds + trolls) get separate pools per monster type
@@ -1152,10 +1178,14 @@ void Army::Lose(Battle *b, ItemList& spoils)
     }
     if (killed_dungeon_boss) {
         spoils.SetNum(I_RESOURCE_MAP, spoils.GetNum(I_RESOURCE_MAP) + 1);
-        b->AddLine("Among the warden's hoard the victors find ancient resource charts.");
+        std::string note = "Among the warden's hoard the victors find ancient resource charts.";
+        b->AddLine(note);
+        b->messages.push_back(note);
     }
     if (killed_admiral) {
-        b->AddLine("Upon the Admiral's fall, the victors lift the Crown from the ruin of the cove.");
+        std::string note = "Upon the Admiral's fall, the victors lift the Crown from the ruin of the cove.";
+        b->AddLine(note);
+        b->messages.push_back(note);
     }
     int tmaps = 0, rmaps = 0;
     for (auto &v : vessels) {
@@ -1182,13 +1212,17 @@ void Army::Lose(Battle *b, ItemList& spoils)
             found += (rmaps == 1) ? "a set of ancient resource charts"
                                   : std::to_string(rmaps) + " sets of ancient resource charts";
         }
-        b->AddLine("Searching the wrecked pirate " + std::string(vessels.size() == 1 ? "vessel" : "vessels") +
-            ", the victors recover " + found + ".");
+        std::string note = "Searching the wrecked pirate " +
+            std::string(vessels.size() == 1 ? "vessel" : "vessels") +
+            ", the victors recover " + found + ".";
+        b->AddLine(note);
+        b->messages.push_back(note);
     }
 }
 
 void Army::Tie(Battle * b)
 {
+    b->push_total_casualty(leader);
     WriteLosses(b);
     for (int x=0; x<count; x++) {
         Soldier * s = soldiers[x];
@@ -1267,6 +1301,15 @@ void Army::DoHealLevel(Battle *b, int level, int rate, int useItems)
         } else {
             b->AddLine(s->unit->name + " heals " + std::to_string(n) + " with " + std::to_string(rate) + "% chance.");
         }
+        if (!b->total_casualties.empty()) {
+            BattleHeal heal;
+            b->capture_unit(s->unit, heal.unit);
+            heal.count = n;
+            if (useItems && s->healitem == I_HEALPOTION) heal.source = "healing potion";
+            else if (useItems) heal.source = "healing";
+            else heal.source = "magical healing";
+            b->total_casualties.back().heals.push_back(std::move(heal));
+        }
     }
 }
 
@@ -1274,6 +1317,7 @@ void Army::Win(Battle * b, ItemList& spoils)
 {
     int wintype;
 
+    b->push_total_casualty(leader);
     DoHeal(b);
 
     WriteLosses(b);

@@ -101,9 +101,13 @@ public:
 
     // out_quest_num / out_unaware_msg let Army::Win send a different completion event to
     // factions that did NOT know about the quest (awareness checked via known_local_quests).
+    // out_tokens receives this quest's own token grant (q->tokens). Read it instead of the
+    // I_BOUNTY count in `spoils`: that list is a shared pot which already holds looted tokens
+    // and the grants of any earlier target killed in the same battle.
     int check_kill_target(Unit *u, ItemList& spoils, std::string *quest_rewards,
                           int *out_issuer_region = nullptr, Events *events = nullptr,
-                          int *out_quest_num = nullptr, std::string *out_unaware_msg = nullptr);
+                          int *out_quest_num = nullptr, std::string *out_unaware_msg = nullptr,
+                          bool *out_global = nullptr, int *out_tokens = nullptr);
     int check_harvest_target(ARegion *r,    int item, int harvested, int max, Unit *u, std::string *quest_rewards);
     int check_build_target(ARegion *r, int building, Unit *u, std::string *quest_rewards);
     int check_visit_target(ARegion *r, Unit *u, std::string *quest_rewards);

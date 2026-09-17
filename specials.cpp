@@ -187,6 +187,11 @@ void Battle::UpdateShields(Army *a)
         }
 
         AddLine(a->soldiers[i]->unit->name + " casts " + spd.shielddesc + ".");
+        BattleEvent ev;
+        capture_unit(a->soldiers[i]->unit, ev.unit);
+        ev.kind = "shield";
+        ev.text = a->soldiers[i]->unit->name + " casts " + spd.shielddesc + ".";
+        AddEvent(ev);
     }
 }
 
@@ -231,7 +236,14 @@ void Battle::DoSpecialAttack(int round, Soldier *a, Army *attackers,
         }
     }
 
-    if (tot == -1) AddLine(a->name + " " + spd.spelldesc + ", but it is deflected.");
+    if (tot == -1) {
+        AddLine(a->name + " " + spd.spelldesc + ", but it is deflected.");
+        BattleEvent ev;
+        capture_unit(a->unit, ev.unit);
+        ev.kind = "special";
+        ev.text = a->name + " " + spd.spelldesc + ", but it is deflected.";
+        AddEvent(ev);
+    }
     else if (tot > 0) {
         if (spd.effectflags & SpecialType::FX_DONT_COMBINE) {
             std::string temp = a->name + " " + spd.spelldesc;
@@ -243,10 +255,23 @@ void Battle::DoSpecialAttack(int round, Soldier *a, Army *attackers,
 
             temp += std::string(spd.spelltarget) + ".";
             AddLine(temp);
+            BattleEvent ev;
+            capture_unit(a->unit, ev.unit);
+            ev.kind = "special";
+            ev.killed = tot;
+            ev.text = temp;
+            AddEvent(ev);
         }
         else {
-            AddLine(a->name + " " + spd.spelldesc + ", " + spd.spelldesc2 + std::to_string(tot) +
-                spd.spelltarget + ".");
+            std::string temp = a->name + " " + spd.spelldesc + ", " + spd.spelldesc2 + std::to_string(tot) +
+                spd.spelltarget + ".";
+            AddLine(temp);
+            BattleEvent ev;
+            capture_unit(a->unit, ev.unit);
+            ev.kind = "special";
+            ev.killed = tot;
+            ev.text = temp;
+            AddEvent(ev);
         }
     }
 }

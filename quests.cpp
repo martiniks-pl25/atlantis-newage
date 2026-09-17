@@ -135,7 +135,8 @@ std::string QuestList::distribute_rewards(Unit *u, std::shared_ptr<Quest> q)
 
 int QuestList::check_kill_target(Unit *u, ItemList& spoils, std::string *quest_rewards,
                                  int *out_issuer_region, Events *events,
-                                 int *out_quest_num, std::string *out_unaware_msg)
+                                 int *out_quest_num, std::string *out_unaware_msg,
+                                 bool *out_global, int *out_tokens)
 {
     for (auto q : quests) {
         bool match = false;
@@ -172,6 +173,8 @@ int QuestList::check_kill_target(Unit *u, ItemList& spoils, std::string *quest_r
         }
         if (out_issuer_region) *out_issuer_region = q->issuer_region;
         if (out_quest_num)     *out_quest_num     = q->num;
+        if (out_global)        *out_global        = is_global;
+        if (out_tokens)        *out_tokens        = q->tokens;
 
         // Gazette event — skip dungeon LOCAL_LAIR_CLEAR (BOSS_KILLED DungeonFact fires instead).
         bool is_dungeon = (q->subtype == Quest::LOCAL_LAIR_CLEAR && q->building < 0);

@@ -358,6 +358,7 @@ public:
 
     std::list<Faction *> factions;
     std::vector<Battle *> battles;
+    int current_battle_phase = -1;   // -1 = before movement; else the movement phase a battle follows
     ARegionList regions;
     int factionseq;
     unsigned int unitseq;
@@ -675,7 +676,7 @@ public:
     void CheckWMonAttack(ARegion *, Unit *);
     Unit *GetWMonTar(ARegion *, int, Unit *);
     int CountWMonTars(ARegion *, Unit *);
-    void AttemptAttack(ARegion *, Unit *, Unit *, int, int = 0);
+    void AttemptAttack(ARegion *, Unit *, Unit *, int, int = 0, int trigger = 0);
     void DoAutoAttacks();
     void DoAdvanceAttack(ARegion *, Unit *);
     void DoAutoAttack(ARegion *, Unit *);
@@ -779,7 +780,10 @@ public:
     // Battle function
     //
     int KillDead(Location *, Battle *, int, int);
-    int RunBattle(ARegion *, Unit *, Unit *, int = 0, int = 0);
+    // trigger and the AttemptAttack one below carry a BattleTrigger value (battle.h). They
+    // are typed int because game.h is included nearly everywhere and must not pull battle.h
+    // into the whole build graph.
+    int RunBattle(ARegion *, Unit *, Unit *, int = 0, int = 0, int trigger = 0);
     void GetSides(
         ARegion *r, std::set<Faction *>& afacs, std::set<Faction *>& dfacs, std::list<Location *>& atts,
         std::list<Location *>& defs, Unit *att, Unit *tar, int ass = 0, int adv = 0
