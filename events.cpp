@@ -549,6 +549,8 @@ std::string Events::WriteJSON(std::string worldName, std::string month, int year
             json item;
             item["category"] = categoryToString(e.category);
             item["text"]     = e.text;
+            if (!e.subtype.empty())
+                item["subtype"] = e.subtype;
             eventArray.push_back(item);
         }
     }
@@ -683,9 +685,9 @@ void VillageFoundedFact::GetEvents(std::list<Event> &events) {
 // --- DungeonFact ---
 
 static const std::vector<std::string> dungeon_spawn_templates = {
-    "Dark passages have opened near {REGION}. Strange creatures stir within.",
+    "An entrance to {DUNGEON} has opened near {REGION}. Strange creatures stir within.",
     "Travelers near {REGION} speak of {DUNGEON} -- dark corridors, foul sounds, and the stench of death.",
-    "A {DUNGEON} has appeared near {REGION}. None who entered have returned to tell the tale.",
+    "The halls of {DUNGEON} have appeared near {REGION}. None who entered have returned to tell the tale.",
     "Adventurers near {REGION} report the discovery of {DUNGEON}. Proceed with caution.",
 };
 
@@ -725,23 +727,28 @@ static std::string applyDungeonTemplate(const std::string &tmpl,
 void DungeonFact::GetEvents(std::list<Event> &events) {
     const std::vector<std::string> *templates = nullptr;
     int score = 0;
+    std::string subtype;
 
     switch (event_type) {
         case DungeonEventType::SPAWN:
             templates = &dungeon_spawn_templates;
             score = 40;
+            subtype = "spawn";
             break;
         case DungeonEventType::BOSS_KILLED:
             templates = &dungeon_boss_killed_templates;
             score = 70;
+            subtype = "boss_killed";
             break;
         case DungeonEventType::COLLAPSING:
             templates = &dungeon_collapsing_templates;
             score = 55;
+            subtype = "collapsing";
             break;
         case DungeonEventType::DECAYING:
             templates = &dungeon_decaying_templates;
             score = 60;
+            subtype = "decaying";
             break;
     }
 
@@ -751,7 +758,8 @@ void DungeonFact::GetEvents(std::list<Event> &events) {
     events.push_back({
         .category = EVENT_DUNGEON,
         .score = score,
-        .text = text
+        .text = text,
+        .subtype = subtype
     });
 }
 
