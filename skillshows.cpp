@@ -1514,7 +1514,9 @@ const std::string ShowSkill::Report(Faction *f) const
                 "and Spirit skills. To call the pirates, the "
                 "mage should issue the order CAST Call_Pirates. The summoned fleets "
                 "approach by sea. Cast on or near the coast, as only fleets that "
-                "can sail to the caster's region will answer.";
+                "can sail to the caster's region will answer. Each use carries a"
+                " small chance the whistle will crack and be lost, though the"
+                " casting itself still succeeds.";
             break;
     }
 
