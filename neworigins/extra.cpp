@@ -961,7 +961,7 @@ void Game::ModifyTablesPerRuleset(void)
 
     // Bosun's whistle break chance: percent roll each time S_CALL_PIRATES is
     // cast, checked after the summon resolves (the cast that breaks still works).
-    rulesetSpecificData["pirate_whistle_break_pct"]       = 10;
+    rulesetSpecificData["pirate_whistle_break_pct"]       = 5;
 
     EnableItem(I_CAMEL);
     EnableItem(I_MCROSSBOW);

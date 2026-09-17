@@ -2207,7 +2207,7 @@ int Game::RunCallPirates(ARegion *r, Unit *u)
     // still works, but one whistle is lost. The chance is a ruleset key beside
     // the other pirate tuning, read once per cast.
     int break_pct = std::max(0, std::min(100,
-        rulesetSpecificData.value("pirate_whistle_break_pct", 10)));
+        rulesetSpecificData.value("pirate_whistle_break_pct", 5)));
     if (u->items.GetNum(I_BOSUN_WHISTLE) > 0 && rng::get_random(100) < break_pct) {
         u->items.SetNum(I_BOSUN_WHISTLE, u->items.GetNum(I_BOSUN_WHISTLE) - 1);
         u->event("The bosun's whistle cracks and falls silent.", "spell");

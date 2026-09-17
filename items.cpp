@@ -1344,6 +1344,10 @@ std::string item_description(int item, int full)
                 " current region by 1-2 units. The effect is permanent. Any unit may use this"
                 " item; no skill is required.";
             break;
+        case I_BOSUN_WHISTLE:
+            temp += " Each use carries a small chance the whistle will crack and be"
+                " lost, though the casting itself still succeeds.";
+            break;
         default:
             break;
     }
