@@ -5,6 +5,7 @@
 
 #include "events.h"
 #include "game.h"
+#include "battle.h"
 #include "gamedata.h"
 #include "logger.hpp"
 #include "namegen.h"
@@ -188,6 +189,10 @@ void Game::RunMovementOrders()
     AString order;
 
     for (phase = 0; phase < Globals->MAX_SPEED; phase++) {
+        // Claimed before the Enter sweep, not just before DoMovementAttacks: entering a
+        // region can start a fight too (DoMoveEnter -> RunBattle), and those battles belong
+        // to this phase. Read by RunBattle for the report's phase field.
+        current_battle_phase = phase;
         for (const auto r : regions) {
             for (const auto o : r->objects) {
                 for (const auto u : o->units) { DoMoveEnter(u, r); }
@@ -253,12 +258,16 @@ void Game::RunMovementOrders()
     }
 
     // Do a final round of Enters after the phased movement is done,
-    // in case such a thing is at the end of a move chain
+    // in case such a thing is at the end of a move chain.
+    // It closes out move chains after the last phase, so a battle it starts is reported as
+    // following that phase rather than as a pre-movement fight.
+    current_battle_phase = Globals->MAX_SPEED - 1;
     for (const auto r : regions) {
         for (const auto o : r->objects) {
             for (const auto u : o->units) { DoMoveEnter(u, r); }
         }
     }
+    current_battle_phase = -1;
 
     // Queue remaining moves
     for (const auto r : regions) {
@@ -2059,7 +2068,7 @@ void Game::DoMoveEnter(Unit *unit, ARegion *region)
 
             bool done = false;
             while (forbid) {
-                int result = RunBattle(region, unit, forbid, 0, 0);
+                int result = RunBattle(region, unit, forbid, 0, 0, TRIGGER_AUTO_ATTACK);
                 if (result == BATTLE_IMPOSSIBLE) {
                     unit->error("ENTER: Unable to attack " + forbid->name);
                     done = 1;

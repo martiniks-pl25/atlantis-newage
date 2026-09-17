@@ -1,4 +1,5 @@
 #include "game.h"
+#include "battle.h"
 #include "gamedata.h"
 #include "namegen.h"
 #include "quests.h"
@@ -290,7 +291,7 @@ void Game::Do1Assassinate(ARegion *r, Object *o, Unit *u)
         }
     }
     u->PracticeAttribute("stealth");
-    RunBattle(r, u, tar, ass);
+    RunBattle(r, u, tar, ass, 0, TRIGGER_ASSASSINATION);
 }
 
 void Game::Do1Steal(ARegion *r, Object *o, Unit *u)
@@ -1610,7 +1611,7 @@ void Game::DoAutoAttackOn(ARegion *r, Unit *t)
     for(const auto o : r->objects) {
         for(const auto u : o->units) {
             if (u->guard != GUARD_AVOID && (u->GetAttitude(r, t) == AttitudeType::HOSTILE) && u->IsAlive() && u->canattack) {
-                AttemptAttack(r, u, t, 1);
+                AttemptAttack(r, u, t, 1, 0, TRIGGER_AUTO_ATTACK);
             }
             if (!t->IsAlive()) return;
         }
@@ -1620,7 +1621,7 @@ void Game::DoAutoAttackOn(ARegion *r, Unit *t)
 void Game::DoAdvanceAttack(ARegion *r, Unit *u) {
     Unit *t = r->Forbidden(u);
     while (t && u->canattack && u->IsAlive()) {
-        AttemptAttack(r, u, t, 1, 1);
+        AttemptAttack(r, u, t, 1, 1, TRIGGER_ADVANCE);
         t = r->Forbidden(u);
     }
 }
@@ -1630,7 +1631,7 @@ void Game::DoAutoAttack(ARegion *r, Unit *u) {
     for(const auto o : r->objects) {
         for(const auto t : o->units) {
             if (u->GetAttitude(r, t) == AttitudeType::HOSTILE) {
-                AttemptAttack(r, u, t, 1);
+                AttemptAttack(r, u, t, 1, 0, TRIGGER_AUTO_ATTACK);
             }
             if (u->canattack == 0 || u->IsAlive() == 0) return;
         }
@@ -1772,7 +1773,7 @@ void Game::CheckWMonAttack(ARegion *r, Unit *u) {
     if (rng::get_random(effectiveRand) >= effectiveHostile) return;
 
     Unit *t = GetWMonTar(r, rng::get_random(tars), u);
-    if (t) AttemptAttack(r, u, t, 1);
+    if (t) AttemptAttack(r, u, t, 1, 0, TRIGGER_AUTO_ATTACK);
 }
 
 void Game::DoAttackOrders()
@@ -1795,7 +1796,7 @@ void Game::DoAttackOrders()
                             delete id;
                             if (u->canattack && u->IsAlive()) {
                                 if (t) {
-                                    AttemptAttack(r, u, t, 0);
+                                    AttemptAttack(r, u, t, 0, 0, TRIGGER_ATTACK_ORDER);
                                 } else {
                                     u->error("ATTACK: Non-existent unit.");
                                 }
@@ -1818,7 +1819,7 @@ void Game::DoAttackOrders()
 // 1 if t is already dead.
 // 2 if u can't see t
 // 3 if u lacks the riding to catch t
-void Game::AttemptAttack(ARegion *r, Unit *u, Unit *t, int silent, int adv)
+void Game::AttemptAttack(ARegion *r, Unit *u, Unit *t, int silent, int adv, int trigger)
 {
     if (!t->IsAlive()) return;
 
@@ -1837,7 +1838,7 @@ void Game::AttemptAttack(ARegion *r, Unit *u, Unit *t, int silent, int adv)
         return;
     }
 
-    RunBattle(r, u, t, 0, adv);
+    RunBattle(r, u, t, 0, adv, trigger);
     return;
 }
 

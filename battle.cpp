@@ -6,6 +6,7 @@
 #include "quests.h"
 #include "items.h"
 #include "strings_util.hpp"
+#include "string_filters.hpp"
 
 #include <algorithm>
 
@@ -58,6 +59,82 @@ void Game::UpdateMapChanceRamp()
 
     cachedCrewMapChance = ramp.crewChance;
     cachedTmapShare = apply_hideout_supply_throttle(ramp.tmapShare, activeHideouts, hideoutSoftCap, floorShare);
+}
+
+// Passed as the observation of a capture site whose BattleUnit is serialized as a bare
+// {name, number} reference, so the faction is never disclosed. Lower than any stealth.
+static constexpr int NO_FACTION_DISCLOSURE = -1;
+
+// Mirrors Unit::battle_report() / Unit::get_name(): a unit's faction is disclosed only when
+// the ruleset reports faction info at all, and the unit either reveals its faction outright
+// or fails to out-stealth the opposing side's best observation. The same Battle is handed to
+// every faction that witnessed the fight, so the structured fields must hide exactly what the
+// prose hides. See docs/report-format/BATTLE_REPORT_DESIGN.md §3.4.
+//
+// @param observation best observation of the opposing side (dobs judges attackers, aobs
+//                    defenders); NO_FACTION_DISCLOSURE to never disclose.
+static bool battle_faction_visible(Unit* u, int observation) {
+    if (!Globals->BATTLE_FACTION_INFO) return false;
+    if (u->reveal == REVEAL_FACTION) return true;
+    return observation > u->GetAttribute("stealth");
+}
+
+// Captures a Unit* as a BattleUnit reference (name/number/faction), mirroring
+// Unit::build_json_descriptor(). Called during Run() while the unit is still alive.
+// The faction is recorded only when the opposing side could identify it.
+static void capture_battle_unit(Unit* u, BattleUnit& bu, int observation = NO_FACTION_DISCLOSURE) {
+    if (!u) return;
+    bu.name = (u->type == U_WMON) ? (u->GetMonsterDisplayName() | filter::strip_number)
+                                  : (u->name | filter::strip_number);
+    bu.number = u->num;
+    if (u->faction && battle_faction_visible(u, observation)) {
+        bu.faction_name = u->faction->name | filter::strip_number;
+        bu.faction_number = u->faction->num;
+        bu.faction_known = true;
+    }
+}
+
+// Groups a round's death map ({(unitNum, race) -> count}) into per-item-type losses,
+// mirroring FormatDeathBreakdown() but structured for the JSON report.
+static void capture_losses(const std::map<std::pair<int, int>, int>& roundDeaths,
+                           std::vector<BattleLoss>& out) {
+    if (roundDeaths.empty()) return;
+    std::map<int, std::map<int, int>> byRace;
+    for (const auto& [key, cnt] : roundDeaths) byRace[key.second][key.first] += cnt;
+    for (const auto& [race, unitCounts] : byRace) {
+        BattleLoss loss;
+        loss.tag = ItemDefs[race].abr;
+        loss.name = ItemDefs[race].name;
+        loss.plural = ItemDefs[race].names;
+        for (const auto& [unum, c] : unitCounts) {
+            loss.count += c;
+            loss.units.push_back({ unum, c });
+        }
+        out.push_back(std::move(loss));
+    }
+}
+
+void Battle::capture_unit(Unit* u, BattleUnit& bu) {
+    capture_battle_unit(u, bu);
+}
+
+void Battle::push_total_casualty(Unit* leader) {
+    BattleTotalCasualty tc;
+    capture_battle_unit(leader, tc.army);
+    total_casualties.push_back(std::move(tc));
+}
+
+// Captures a battle's spoils ItemList into structured BattleSpoil entries.
+static void capture_spoils(ItemList& spoils, Battle& b) {
+    for (const auto i : spoils) {
+        if (!i) continue;
+        BattleSpoil s;
+        s.tag = ItemDefs[i->type].abr;
+        s.name = ItemDefs[i->type].name;
+        s.plural = ItemDefs[i->type].names;
+        s.count = i->num;
+        b.spoil_items.push_back(std::move(s));
+    }
 }
 
 // Formats the per-round death breakdown for the "loses X" line.
@@ -212,6 +289,11 @@ void Battle::FreeRound(Army * att,Army * def, int ass)
     /* Write header */
     AddLine(att->leader->name + " gets a free round of attacks.");
 
+    // Structured free round (JSON): number -1 marks it as a free round.
+    BattleRound br;
+    br.number = -1;
+    rounds.push_back(std::move(br));
+
     /* Update both army's shields */
     att->shields.clear();
     UpdateShields(att);
@@ -227,6 +309,11 @@ void Battle::FreeRound(Army * att,Army * def, int ass)
     bool attOverwhelm = IsArmyOverwhelmedBy(def, att);
     if (attOverwhelm) {
         AddLine(def->leader->name + " is overwhelmed.");
+        BattleEvent ev;
+        capture_battle_unit(def->leader, ev.unit);
+        ev.kind = "overwhelm";
+        ev.text = def->leader->name + " is overwhelmed.";
+        AddEvent(ev);
     }
 
     /* Run attacks until done */
@@ -244,6 +331,13 @@ void Battle::FreeRound(Army * att,Army * def, int ass)
     alv -= def->NumAlive();
     AddLine(def->leader->name + " loses " + std::to_string(alv)
         + FormatDeathBreakdown(def->roundDeaths) + ".");
+
+    BattleCasualty cd;
+    capture_battle_unit(def->leader, cd.army);
+    cd.lost = alv;
+    capture_losses(def->roundDeaths, cd.losses);
+    rounds.back().casualties.push_back(std::move(cd));
+
     AddLine("");
 
     if (Globals->BATTLE_LOG_LEVEL == BattleLogLevel::VERBOSE) {
@@ -306,6 +400,7 @@ void Battle::DoAttack(int round, Soldier *a, Army *attackers, Army *def,
                 acc.spelldesc2 = spd.spelldesc2;
                 acc.spelltarget = spd.spelltarget;
                 acc.total += tot;
+                capture_unit(a->unit, acc.unit);
             }
         }
     }
@@ -351,12 +446,22 @@ void Battle::NormalRound(int round,Army * a,Army * b)
     /* Write round header */
     AddLine("Round " + to_string(round) + ":");
 
+    BattleRound br;
+    br.number = round;
+
     if (a->tactics_bonus > b->tactics_bonus) {
         AddLine(a->leader->name + " tactics bonus " + std::to_string(a->tactics_bonus) + ".");
+        br.has_tactics_bonus = true;
+        br.tactics_bonus = a->tactics_bonus;
+        capture_battle_unit(a->leader, br.tactics_army);
     }
     if (b->tactics_bonus > a->tactics_bonus) {
         AddLine(b->leader->name + " tactics bonus " + std::to_string(b->tactics_bonus) + ".");
+        br.has_tactics_bonus = true;
+        br.tactics_bonus = b->tactics_bonus;
+        capture_battle_unit(b->leader, br.tactics_army);
     }
+    rounds.push_back(std::move(br));
 
     /* Update both army's shields */
     UpdateShields(a);
@@ -373,10 +478,24 @@ void Battle::NormalRound(int round,Army * a,Army * b)
     int batt = b->CanAttack();
 
     bool aOverwhelm = IsArmyOverwhelmedBy(b, a);
-    if (aOverwhelm) AddLine(b->leader->name + " is overwhelmed.");
+    if (aOverwhelm) {
+        AddLine(b->leader->name + " is overwhelmed.");
+        BattleEvent ev;
+        capture_battle_unit(b->leader, ev.unit);
+        ev.kind = "overwhelm";
+        ev.text = b->leader->name + " is overwhelmed.";
+        AddEvent(ev);
+    }
 
     bool bOverwhelm = IsArmyOverwhelmedBy(a, b);
-    if (bOverwhelm) AddLine(a->leader->name + " is overwhelmed.");
+    if (bOverwhelm) {
+        AddLine(a->leader->name + " is overwhelmed.");
+        BattleEvent ev;
+        capture_battle_unit(a->leader, ev.unit);
+        ev.kind = "overwhelm";
+        ev.text = a->leader->name + " is overwhelmed.";
+        AddEvent(ev);
+    }
 
     /* Run attacks until done */
     while (aalive && balive && (aatt || batt))
@@ -413,6 +532,19 @@ void Battle::NormalRound(int round,Army * a,Army * b)
     bialive -= balive;
     AddLine(b->leader->name + " loses " + std::to_string(bialive)
         + FormatDeathBreakdown(b->roundDeaths) + ".");
+
+    // Structured per-round casualties (JSON report).
+    BattleCasualty ca;
+    capture_battle_unit(a->leader, ca.army);
+    ca.lost = aialive;
+    capture_losses(a->roundDeaths, ca.losses);
+    rounds.back().casualties.push_back(std::move(ca));
+    BattleCasualty cb;
+    capture_battle_unit(b->leader, cb.army);
+    cb.lost = bialive;
+    capture_losses(b->roundDeaths, cb.losses);
+    rounds.back().casualties.push_back(std::move(cb));
+
     AddLine("");
 
     if (Globals->BATTLE_LOG_LEVEL == BattleLogLevel::VERBOSE) {
@@ -445,11 +577,18 @@ void Battle::GetSpoils(std::list<Location *>& losers, ItemList& spoils, int ass,
         if (!numalive) {
             int issuer_region = -1;
             int qnum = -1;
+            int tokens = -1;
             if (quests.check_kill_target(u, spoils, &quest_rewards, &issuer_region, events,
-                                         &qnum, &quest_rewards_unaware)) {
+                                         &qnum, &quest_rewards_unaware, &quest_global, &tokens)) {
                 AddLine("Quest completed! " + quest_rewards);
+                messages.push_back("Quest completed! " + quest_rewards);
                 if (issuer_region != -1) quest_issuer_region = issuer_region;
                 if (qnum != -1)          quest_num           = qnum;
+                // The quest's own grant, not spoils.GetNum(I_BOUNTY): that pot also holds
+                // looted tokens and earlier grants. A battle killing several bounty targets
+                // reports the last one, so num/issuer_region/tokens/global stay consistent
+                // with each other; every completion still gets its own messages[] line.
+                quest_tokens = tokens;
                 this->quest_rewards         = quest_rewards;
                 this->quest_rewards_unaware = quest_rewards_unaware;
             }
@@ -618,6 +757,10 @@ int Battle::Run(
         (!armies[0]->NumAlive() && armies[1]->NumAlive())) {
         if (ass) assassination = ASS_FAIL;
 
+        outcome = BATTLE_LOST;
+        capture_battle_unit(armies[0]->leader, defeat_unit);
+        defeat_routed = armies[0]->NumAlive() > 0;
+
         if (armies[0]->NumAlive()) {
             AddLine(armies[0]->leader->name + " is routed!");
             FreeRound(armies[1],armies[0]);
@@ -654,6 +797,7 @@ int Battle::Run(
             temp = "Spoils: none.";
         }
 
+        capture_spoils(spoils, *this);
         armies[1]->Win(this, spoils);
 
         AddLine("");
@@ -671,6 +815,11 @@ int Battle::Run(
             assassination = ASS_SUCC;
             asstext = armies[1]->leader->name + " is assassinated in " + region->short_print() + "!";
         }
+
+        outcome = BATTLE_WON;
+        capture_battle_unit(armies[1]->leader, defeat_unit);
+        defeat_routed = armies[1]->NumAlive() > 0;
+
         if (armies[1]->NumAlive()) {
             AddLine(armies[1]->leader->name + " is routed!");
             FreeRound(armies[0],armies[1]);
@@ -707,6 +856,7 @@ int Battle::Run(
             temp = "Spoils: none.";
         }
 
+        capture_spoils(spoils, *this);
         armies[0]->Win(this, spoils);
         AddLine("");
         AddLine(temp);
@@ -719,6 +869,7 @@ int Battle::Run(
 
     AddLine("The battle ends indecisively.");
     AddLine("");
+    outcome = BATTLE_DRAW;
 
     if (Globals->BATTLE_LOG_LEVEL >= BattleLogLevel::DETAILED) {
         AddLine("Battle statistics:");
@@ -760,6 +911,15 @@ void Battle::WriteSides(
     else AddLine(att->name + " attacks " + tar->name + " in " + r->short_print() + "!");
     AddLine("");
 
+    // Structured opening data for the JSON report (units still alive here). The attacker /
+    // defender pair is captured at the end of this function, once dobs and aobs are known.
+    region_x = r->xloc;
+    region_y = r->yloc;
+    region_z = r->zloc;
+    region_terrain = TerrainDefs[r->type].name;
+    region_province = r->name;
+    region_label = (r->level && !r->level->strName.empty()) ? r->level->strName : "surface";
+
     int dobs = 0;
     int aobs = 0;
     for(const auto d : defs) {
@@ -772,12 +932,42 @@ void Battle::WriteSides(
         int a = at->unit->GetAttribute("observation");
         if (a > aobs) aobs = a;
         AddLine(at->unit->battle_report(dobs));
+        BattleUnit bu;
+        capture_battle_unit(at->unit, bu, dobs);
+        bu.behind = at->unit->GetFlag(FLAG_BEHIND);
+        attackers.push_back(bu);
     }
 
     AddLine("");
     AddLine("Defenders:");
-    for(const auto de : defs) AddLine(de->unit->battle_report(aobs));
+    for(const auto de : defs) {
+        AddLine(de->unit->battle_report(aobs));
+        BattleUnit bu;
+        capture_battle_unit(de->unit, bu, aobs);
+        bu.behind = de->unit->GetFlag(FLAG_BEHIND);
+        defenders.push_back(bu);
+    }
     AddLine("");
+
+    // Same disclosure gate as the roster lines above: dobs judges the attacker, aobs the
+    // defender. Both observations are final only once the loops above have run.
+    capture_battle_unit(att, attacker_unit, dobs);
+    capture_battle_unit(tar, defender_unit, aobs);
+}
+
+// Emits a BattleUnit as a full reference (name, number, faction, behind). The faction key is
+// absent when the opposing side could not identify it, mirroring the prose roster line.
+static void battle_unit_full_json(const BattleUnit& bu, json& j) {
+    j["name"] = bu.name;
+    j["number"] = bu.number;
+    if (bu.faction_known) j["faction"] = { { "name", bu.faction_name }, { "number", bu.faction_number } };
+    if (bu.behind) j["behind"] = true;
+}
+
+// Emits a BattleUnit as a bare reference (name, number only).
+static void battle_unit_ref_json(const BattleUnit& bu, json& j) {
+    j["name"] = bu.name;
+    j["number"] = bu.number;
 }
 
 void Battle::build_json_report(json& j, Faction *fac) {
@@ -790,17 +980,180 @@ void Battle::build_json_report(json& j, Faction *fac) {
     }
     j["type"] = "battle";
     j["report"] = text;
+
+    // Timing / trigger
+    if (phase >= 0) {
+        j["phase"] = { { "timing", "movement" }, { "index", phase } };
+    } else {
+        j["phase"] = { { "timing", "before_movement" }, { "index", nullptr } };
+    }
+    const char* trigger_str = "attack_order";
+    switch (trigger) {
+        case TRIGGER_AUTO_ATTACK:   trigger_str = "auto_attack"; break;
+        case TRIGGER_ADVANCE:       trigger_str = "advance"; break;
+        case TRIGGER_ASSASSINATION: trigger_str = "assassination"; break;
+        default:                    trigger_str = "attack_order"; break;
+    }
+    j["trigger"] = trigger_str;
+
+    // Opening
+    {
+        json ja; battle_unit_full_json(attacker_unit, ja);
+        json jd; battle_unit_full_json(defender_unit, jd);
+        j["attacker"] = ja;
+        j["defender"] = jd;
+    }
+    j["region"] = {
+        { "coordinates", { { "x", region_x }, { "y", region_y }, { "z", region_z }, { "label", region_label } } },
+        { "terrain", region_terrain },
+        { "province", region_province }
+    };
+
+    {
+        json jatt = json::array();
+        for (const auto& bu : attackers) { json ju; battle_unit_full_json(bu, ju); jatt.push_back(ju); }
+        j["attackers"] = jatt;
+        json jdef = json::array();
+        for (const auto& bu : defenders) { json ju; battle_unit_full_json(bu, ju); jdef.push_back(ju); }
+        j["defenders"] = jdef;
+    }
+
+    // Rounds
+    {
+        json jrounds = json::array();
+        for (const auto& r : rounds) {
+            json jr;
+            jr["number"] = r.number;
+            if (r.has_tactics_bonus) {
+                json jt; battle_unit_ref_json(r.tactics_army, jt);
+                jr["tactics_bonus"] = { { "army", jt }, { "bonus", r.tactics_bonus } };
+            }
+            json jevents = json::array();
+            for (const auto& ev : r.events) {
+                json je;
+                json ju; battle_unit_ref_json(ev.unit, ju);
+                je["unit"] = ju;
+                je["kind"] = ev.kind;
+                if (ev.killed >= 0) je["killed"] = ev.killed;
+                if (ev.hits >= 0) je["hits"] = ev.hits;
+                if (ev.current >= 0) je["current"] = ev.current;
+                if (ev.max >= 0) je["max"] = ev.max;
+                je["text"] = ev.text;
+                jevents.push_back(je);
+            }
+            jr["events"] = jevents;
+            json jcas = json::array();
+            for (const auto& c : r.casualties) {
+                json jc;
+                json ja; battle_unit_ref_json(c.army, ja);
+                jc["army"] = ja;
+                jc["lost"] = c.lost;
+                json jlosses = json::array();
+                for (const auto& l : c.losses) {
+                    json jl;
+                    jl["tag"] = l.tag;
+                    jl["name"] = l.name;
+                    jl["plural"] = l.plural;
+                    jl["count"] = l.count;
+                    json junits = json::array();
+                    for (const auto& [unum, cnt] : l.units) junits.push_back({ { "number", unum }, { "count", cnt } });
+                    jl["units"] = junits;
+                    jlosses.push_back(jl);
+                }
+                jc["losses"] = jlosses;
+                jcas.push_back(jc);
+            }
+            jr["casualties"] = jcas;
+            jrounds.push_back(jr);
+        }
+        j["rounds"] = jrounds;
+    }
+
+    // Outcome / defeat
+    switch (outcome) {
+        case BATTLE_WON:  j["outcome"] = "attacker_won"; break;
+        case BATTLE_LOST: j["outcome"] = "defender_won"; break;
+        default:          j["outcome"] = "draw"; break;
+    }
+    if (outcome == BATTLE_WON || outcome == BATTLE_LOST) {
+        json jd;
+        json jdu; battle_unit_ref_json(defeat_unit, jdu);
+        jd["unit"] = jdu;
+        jd["type"] = defeat_routed ? "routed" : "destroyed";
+        j["defeat"] = jd;
+    }
+
+    // Total casualties
+    {
+        json jtc = json::array();
+        for (const auto& tc : total_casualties) {
+            json jt;
+            json ja; battle_unit_ref_json(tc.army, ja);
+            jt["army"] = ja;
+            jt["lost"] = tc.lost;
+            jt["damaged_units"] = tc.damaged_units;
+            json jheals = json::array();
+            for (const auto& h : tc.heals) {
+                json jh;
+                json jhu; battle_unit_ref_json(h.unit, jhu);
+                jh["unit"] = jhu;
+                jh["count"] = h.count;
+                jh["source"] = h.source;
+                jheals.push_back(jh);
+            }
+            jt["heals"] = jheals;
+            jtc.push_back(jt);
+        }
+        j["total_casualties"] = jtc;
+    }
+
+    // Spoils
+    {
+        json jsp = json::array();
+        for (const auto& s : spoil_items)
+            jsp.push_back({ { "tag", s.tag }, { "name", s.name }, { "plural", s.plural }, { "count", s.count } });
+        j["spoils"] = jsp;
+    }
+
+    // Quest
+    if (quest_num != -1) {
+        j["quest"] = {
+            { "num", quest_num },
+            { "issuer_region", quest_issuer_region },
+            { "tokens", quest_tokens >= 0 ? quest_tokens : 0 },
+            { "global", quest_global }
+        };
+    }
+
+    // Post-battle messages
+    if (!messages.empty()) j["messages"] = messages;
 }
 
 void Battle::AddLine(const std::string& line) {
     text.push_back(line);
 }
 
+void Battle::AddEvent(const BattleEvent& ev) {
+    if (!rounds.empty()) rounds.back().events.push_back(ev);
+}
+
+// Called at the end of NormalRound only. FreeRound does not flush, so a mount special used
+// in a free round is carried into the next normal round's summary, or dropped when the free
+// round is the last one. That is long-standing prose behaviour; the events mirror it rather
+// than diverge from it.
 void Battle::FlushMountSpecials() {
     for (auto& [key, acc] : mountSpecialAccum) {
-        if (acc.total > 0)
-            AddLine(acc.unitName + " " + acc.spelldesc + ", "
-                + acc.spelldesc2 + std::to_string(acc.total) + acc.spelltarget + ".");
+        if (acc.total > 0) {
+            std::string temp = acc.unitName + " " + acc.spelldesc + ", "
+                + acc.spelldesc2 + std::to_string(acc.total) + acc.spelltarget + ".";
+            AddLine(temp);
+            BattleEvent ev;
+            ev.unit = acc.unit;
+            ev.kind = "mount";
+            ev.killed = acc.total;
+            ev.text = temp;
+            AddEvent(ev);
+        }
     }
     mountSpecialAccum.clear();
 }
@@ -1149,6 +1502,7 @@ int Game::KillDead(Location * l, Battle *b, int max_susk, int max_rais)
             tmp += ".";
             l->unit->items.SetNum(I_SKELETON, l->unit->items.GetNum(I_SKELETON) + skel);
             l->unit->items.SetNum(I_UNDEAD, l->unit->items.GetNum(I_UNDEAD) + undead);
+            b->messages.push_back(tmp);
             b->AddLine(tmp);
             b->AddLine("");
             l->unit->raised = 0;
@@ -1159,7 +1513,7 @@ int Game::KillDead(Location * l, Battle *b, int max_susk, int max_rais)
 }
 
 int Game::RunBattle(ARegion * r,Unit * attacker,Unit * target,int ass,
-                     int adv)
+                     int adv, int trigger)
 {
     std::set<Faction *> afacs, dfacs;
     std::list<Location *> atts, defs;
@@ -1216,6 +1570,8 @@ int Game::RunBattle(ARegion * r,Unit * attacker,Unit * target,int ass,
     }
 
     Battle *b = new Battle;
+    b->trigger = trigger;
+    b->phase = current_battle_phase;
     b->pirate_promote_cooldown = std::max(0, rulesetSpecificData.value("pirate_promote_cooldown", 6));
     if (!(r->level && r->level->levelType == ARegionArray::LEVEL_DUNGEON)) {
         b->crewMapChance = cachedCrewMapChance;
@@ -1320,6 +1676,7 @@ int Game::RunBattle(ARegion * r,Unit * attacker,Unit * target,int ass,
         u->MakeWMon("Undead", I_SKELETON, skel);
         u->items.SetNum(I_UNDEAD, undead);
         u->MoveUnit(r->GetDummy());
+        b->messages.push_back(tmp);
         b->AddLine(tmp);
         b->AddLine("");
     }

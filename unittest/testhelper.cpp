@@ -1,4 +1,5 @@
 #include "../game.h"
+#include "../battle.h"
 #include "../gamedata.h"
 #include "../quests.h"
 #include "../rng.hpp"
@@ -173,7 +174,7 @@ Object *UnitTestHelper::create_empty_fleet_multi(ARegion *region, std::initializ
 }
 
 int UnitTestHelper::run_battle(ARegion *r, Unit *attacker, Unit *target) {
-    return game.RunBattle(r, attacker, target);
+    return game.RunBattle(r, attacker, target, 0, 0, TRIGGER_ATTACK_ORDER);
 }
 
 Unit *UnitTestHelper::create_npc_pirate_fleet(ARegion *region, int pirate_count) {
