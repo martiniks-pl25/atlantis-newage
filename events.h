@@ -36,6 +36,7 @@ struct Event {
     EventCategory category;
     int score;
     std::string text;
+    std::string subtype;  // secondary discriminator; dungeon lifecycle phase for EVENT_DUNGEON
 };
 
 
