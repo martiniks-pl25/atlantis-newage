@@ -259,6 +259,29 @@ const Landmark* EventLocation::GetSignificantLandmark() {
     return &(this->landmarks.at(0));
 }
 
+std::string nearest_settlement_title(ARegion *r, const int radius) {
+    // Mirrors EventLocation::Create's landmark pass so the chosen settlement (and
+    // the way ties break) matches battle reports exactly. Only settlement
+    // landmarks are kept; sorting the full set first is unnecessary because
+    // compareLandmarks is a total order and non-settlement entries never change
+    // the relative order of the settlements. Deterministic: breadthFirstSearch,
+    // populateSettlementLandmark and compareLandmarks use no RNG.
+    std::vector<Landmark> settlements;
+    auto items = breadthFirstSearch(r, radius);
+    for (auto &kv : items) {
+        auto reg = kv.second.key;
+        auto distance = kv.second.distance;
+        populateSettlementLandmark(settlements, reg, distance);
+    }
+
+    if (settlements.empty()) {
+        return "";
+    }
+
+    std::sort(std::begin(settlements), std::end(settlements), compareLandmarks);
+    return settlements.front().title;
+}
+
 
 /////-----
 
@@ -551,6 +574,8 @@ std::string Events::WriteJSON(std::string worldName, std::string month, int year
             item["text"]     = e.text;
             if (!e.subtype.empty())
                 item["subtype"] = e.subtype;
+            if (!e.highlight.empty())
+                item["highlight"] = e.highlight;
             eventArray.push_back(item);
         }
     }
@@ -645,6 +670,10 @@ void PirateSightingFact::GetEvents(std::list<Event> &events) {
     text += terrain_name;
     text += " of ";
     text += region_name;
+    if (!near_settlement.empty()) {
+        text += ", near the ";
+        text += near_settlement;
+    }
     text += ".";
     events.push_back({
         .category = EVENT_PIRATE_SIGHTING,
@@ -759,7 +788,8 @@ void DungeonFact::GetEvents(std::list<Event> &events) {
         .category = EVENT_DUNGEON,
         .score = score,
         .text = text,
-        .subtype = subtype
+        .subtype = subtype,
+        .highlight = { dungeon_type_name, region_name }
     });
 }
 

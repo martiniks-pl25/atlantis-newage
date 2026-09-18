@@ -154,6 +154,20 @@ private:
     // resolve Faction::capital_region. Returns {"crowns":[...],"capitals":[...]}.
     json BuildRegaliaJson();
 
+    // Build the gazette "dungeons" block: every dungeon still alive at the end of
+    // the turn, as [{ "type", "region", "state": "open" | "closing" }]. Pirate
+    // hideouts are left out: they are private treasure-map finds and the gazette
+    // never announces them.
+    json BuildDungeonsJson();
+
+    // Build the gazette "pirates" block: one record per elite pirate captain (the
+    // sightings set) plus any captain a HUNT_PIRATE / GLOBAL_BOSS_HUNT quest
+    // targets, as [{ "captain", "captain_num", "ship", "ship_num", "terrain",
+    // "region", "near", "bounty" }]. Bounty captains sort first, then by captain
+    // name. Never carries coordinates — the portal merges these into its
+    // "Wanted at Sea" list and coordinates are forbidden by design.
+    json BuildPiratesJson();
+
     // Trident coronation victory check (engine-side so it is unit-testable, unlike
     // the ruleset-stubbed CheckVictory). Gated on rulesetSpecificData victory_type
     // == "coronation"; advances/resets each faction's Faction::coronation counter
