@@ -37,6 +37,7 @@ struct Event {
     int score;
     std::string text;
     std::string subtype;  // secondary discriminator; dungeon lifecycle phase for EVENT_DUNGEON
+    std::vector<std::string> highlight;  // phrases the reader should notice (set in bold by the portal)
 };
 
 
@@ -114,6 +115,13 @@ struct Landmark {
 };
 
 bool compareLandmarks(const Landmark &a, const Landmark &b);
+
+// Returns the title of the nearest settlement within `radius` regions of `r`
+// ("town of X" / "city of X" / "village of X" — the same wording battles use),
+// or "" when none is found. Reuses the battle-report landmark machinery
+// (breadthFirstSearch + populateSettlementLandmark + compareLandmarks), so ties
+// break exactly as in battle reports. No RNG is involved.
+std::string nearest_settlement_title(ARegion *r, int radius = 4);
 
 struct EventLocation {
     int x;
@@ -216,6 +224,7 @@ public:
     std::string captain_name;
     std::string terrain_name;
     std::string region_name;
+    std::string near_settlement;  // "town of X"-style nearest settlement, or ""
 };
 
 class SettlementStatsFact : public FactBase {

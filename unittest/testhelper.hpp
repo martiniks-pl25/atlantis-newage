@@ -209,6 +209,10 @@ public:
     int count_pillagers(ARegion *r) { return game.CountPillagers(r); }
     // Build the gazette regalia block (crowns + capitals) for assertion in tests.
     json build_regalia_json() { return game.BuildRegaliaJson(); }
+    // Build the gazette dungeons register (alive dungeons) for assertion in tests.
+    json build_dungeons_json() { return game.BuildDungeonsJson(); }
+    // Build the gazette pirates register (sightings + bounty captains) for tests.
+    json build_pirates_json() { return game.BuildPiratesJson(); }
     // Run the Trident coronation victory check; returns the winning faction or null.
     Faction *run_check_coronation() { return game.check_coronation(); }
 

@@ -1241,6 +1241,131 @@ json Game::BuildRegaliaJson() {
     return regalia;
 }
 
+json Game::BuildDungeonsJson() {
+    // Every dungeon still alive at the end of the turn, ordered "open" (ACTIVE)
+    // before "closing" (DYING), then by type, then by region. COLLAPSING and FREE
+    // slots are omitted, and pirate hideouts are left out: they are private
+    // treasure-map finds and the gazette never announces them.
+    struct Entry {
+        std::string type;
+        std::string region;
+        bool open;
+    };
+    std::vector<Entry> entries;
+    for (const auto &d : activeDungeons) {
+        if (d.state != DungeonSlotState::ACTIVE && d.state != DungeonSlotState::DYING)
+            continue;
+        if (d.type == DungeonType::DUNGEON_PIRATE_HIDEOUT)
+            continue;
+        ARegion *r = regions.GetRegion(d.surface_region_num);
+        if (!r) continue;
+        entries.push_back({ DungeonTypeDefs[(int)d.type].name, r->name,
+                            d.state == DungeonSlotState::ACTIVE });
+    }
+    std::sort(entries.begin(), entries.end(),
+        [](const Entry &a, const Entry &b) {
+            if (a.open != b.open) return a.open;          // open before closing
+            if (a.type != b.type) return a.type < b.type;
+            return a.region < b.region;
+        });
+    json arr = json::array();
+    for (const auto &e : entries)
+        arr.push_back({ { "type",   e.type },
+                        { "region", e.region },
+                        { "state",  e.open ? "open" : "closing" } });
+    return arr;
+}
+
+json Game::BuildPiratesJson() {
+    // One record per elite pirate captain, plus any captain a pirate-hunt quest
+    // targets that the sightings pass did not already cover. `bounty` marks a
+    // captain a HUNT_PIRATE / GLOBAL_BOSS_HUNT quest currently wants dead; the
+    // portal uses it to merge "Fleet Sightings" and "Bounties" into one
+    // "Wanted at Sea" list. Names carry no "(N)" unit numbers — the bare unit and
+    // ship numbers ride alongside as captain_num / ship_num. Coordinates are
+    // never emitted (the design forbids them in text and JSON alike).
+    struct Entry {
+        std::string captain;
+        int captain_num;
+        std::string ship;
+        int ship_num;
+        std::string terrain;
+        std::string region;
+        std::string near;
+        bool bounty;
+    };
+
+    std::map<int, Entry> by_captain;
+
+    // Pass 1: every elite captain on a fleet — the same set the sightings prose
+    // reports. Bounty starts false and is flipped by pass 2 when a quest names
+    // the captain.
+    for (const auto reg : regions) {
+        for (const auto obj : reg->objects) {
+            if (obj->type != O_FLEET) continue;
+            for (const auto u : obj->units) {
+                if (u->faction->num != monfaction) continue;
+                if (u->items.GetNum(I_PIRATE_CAPTAIN) == 0) continue;
+                Entry e;
+                e.captain     = u->name | filter::strip_number;
+                e.captain_num = u->num;
+                e.ship        = obj->name | filter::strip_number;
+                e.ship_num    = obj->num;
+                e.terrain     = TerrainDefs[TerrainDefs[reg->type].similar_type].name;
+                e.region      = reg->name;
+                e.near        = nearest_settlement_title(reg);
+                e.bounty      = false;
+                by_captain[u->num] = e;
+            }
+        }
+    }
+
+    // Pass 2: captains a pirate-hunt quest targets, whether or not pass 1 saw
+    // them. A captain in both sets is one record with bounty: true.
+    for (const auto &q : quests) {
+        bool pirate_hunt = (q->type == Quest::HUNT_PIRATE) ||
+                           (q->subtype == Quest::GLOBAL_BOSS_HUNT);
+        if (!pirate_hunt) continue;
+        Location *l = regions.FindUnit(q->target);
+        if (!l) continue;
+        Entry &e = by_captain[l->unit->num];
+        if (e.captain.empty()) {
+            e.captain     = l->unit->name | filter::strip_number;
+            e.captain_num = l->unit->num;
+            e.ship        = l->obj->name | filter::strip_number;
+            e.ship_num    = l->obj->num;
+            e.terrain     = TerrainDefs[TerrainDefs[l->region->type].similar_type].name;
+            e.region      = l->region->name;
+            e.near        = nearest_settlement_title(l->region);
+        }
+        e.bounty = true;
+        delete l;
+    }
+
+    std::vector<Entry> entries;
+    for (const auto &kv : by_captain) entries.push_back(kv.second);
+    std::sort(entries.begin(), entries.end(),
+        [](const Entry &a, const Entry &b) {
+            if (a.bounty != b.bounty) return a.bounty;  // bounty first
+            return a.captain < b.captain;
+        });
+
+    json arr = json::array();
+    for (const auto &e : entries) {
+        arr.push_back({
+            { "captain",     e.captain },
+            { "captain_num", e.captain_num },
+            { "ship",        e.ship },
+            { "ship_num",    e.ship_num },
+            { "terrain",     e.terrain },
+            { "region",      e.region },
+            { "near",        e.near.empty() ? json(nullptr) : json(e.near) },
+            { "bounty",      e.bounty }
+        });
+    }
+    return arr;
+}
+
 // --- Trident coronation victory predicates (hold_condition components) ---
 
 // Does faction f actively guard region r? (a unit of f on GUARD_GUARD in r)
@@ -1325,7 +1450,22 @@ void Game::WriteWorldEvents() {
     int contested_settlements = 0;
     int total_villages = 0, total_towns = 0, total_cities = 0;
     int surface_villages = 0, surface_towns = 0, surface_cities = 0;
+    // Per-type breakdown of settlements no faction owns (and that are not
+    // contested) and of contested ones, for the portal's by-type display.
+    int uncontrolled_villages = 0, uncontrolled_towns = 0, uncontrolled_cities = 0;
+    int contested_villages = 0, contested_towns = 0, contested_cities = 0;
     std::map<int, SettlementOwner> ownership;
+
+    auto add_uncontrolled = [&](int tt) {
+        if (tt == TOWN_VILLAGE) uncontrolled_villages++;
+        else if (tt == TOWN_TOWN) uncontrolled_towns++;
+        else uncontrolled_cities++;
+    };
+    auto add_contested = [&](int tt) {
+        if (tt == TOWN_VILLAGE) contested_villages++;
+        else if (tt == TOWN_TOWN) contested_towns++;
+        else contested_cities++;
+    };
 
     for (const auto reg : regions) {
         if (!reg->town) continue;
@@ -1346,7 +1486,7 @@ void Game::WriteWorldEvents() {
                     guarders.insert(u->faction);
             }
         }
-        if (guarders.empty()) continue;
+        if (guarders.empty()) { add_uncontrolled(tt); continue; }
 
         Faction *owner = nullptr;
         // Guard faction takes precedence if present
@@ -1363,7 +1503,8 @@ void Game::WriteWorldEvents() {
                 if (!f->is_npc) players.push_back(f);
             }
             if (players.size() == 1) owner = players[0];
-            else if (players.size() > 1) contested_settlements++;
+            else if (players.size() > 1) { contested_settlements++; add_contested(tt); }
+            else add_uncontrolled(tt);  // guarders but no guard faction, no player faction
         }
         if (!owner) continue;
 
@@ -1412,6 +1553,7 @@ void Game::WriteWorldEvents() {
                 ps->captain_name = u->name;
                 ps->terrain_name = TerrainDefs[TerrainDefs[reg->type].similar_type].name;
                 ps->region_name  = reg->name;
+                ps->near_settlement = nearest_settlement_title(reg);
                 this->events->AddFact(ps);
             }
         }
@@ -1549,6 +1691,11 @@ void Game::WriteWorldEvents() {
                     text += TerrainDefs[TerrainDefs[l->region->type].similar_type].name;
                     text += " of ";
                     text += l->region->name;
+                    std::string near_title = nearest_settlement_title(l->region);
+                    if (!near_title.empty()) {
+                        text += ", near the ";
+                        text += near_title;
+                    }
                     text += ". Bring proof of their destruction and claim the bounty!";
                     delete l;
                 }
@@ -1564,6 +1711,11 @@ void Game::WriteWorldEvents() {
                     text += TerrainDefs[TerrainDefs[l->region->type].similar_type].name;
                     text += " of ";
                     text += l->region->name;
+                    std::string near_title = nearest_settlement_title(l->region);
+                    if (!near_title.empty()) {
+                        text += ", near the ";
+                        text += near_title;
+                    }
                     text += ". Bring proof of their destruction and claim the bounty!";
                     delete l;
                 }
@@ -1597,6 +1749,12 @@ void Game::WriteWorldEvents() {
         settlement_stats["total_by_type"]   = { {"villages", total_villages},
                                                  {"towns",    total_towns},
                                                  {"cities",   total_cities} };
+        settlement_stats["uncontrolled_by_type"] = { {"villages", uncontrolled_villages},
+                                                     {"towns",    uncontrolled_towns},
+                                                     {"cities",   uncontrolled_cities} };
+        settlement_stats["contested_by_type"]     = { {"villages", contested_villages},
+                                                      {"towns",    contested_towns},
+                                                      {"cities",   contested_cities} };
         settlement_stats["surface_by_type"] = { {"villages", surface_villages},
                                                  {"towns",    surface_towns},
                                                  {"cities",   surface_cities} };
@@ -1610,6 +1768,12 @@ void Game::WriteWorldEvents() {
 
         // Regalia: crowns held and declared capitals (Trident victory summary)
         j["regalia"] = BuildRegaliaJson();
+
+        // Dungeon register: every non-pirate dungeon still alive this turn.
+        j["dungeons"] = BuildDungeonsJson();
+
+        // Pirate captain register: one record per captain (sightings + bounties).
+        j["pirates"] = BuildPiratesJson();
 
         std::ofstream jf(base + ".json", std::ios::out | std::ios::trunc);
         if (jf.is_open()) {
