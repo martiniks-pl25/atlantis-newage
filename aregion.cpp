@@ -4710,9 +4710,9 @@ bool economy(ARegionArray* arr, const int w, const int h) {
     // exits non-zero so a caller can simply roll again:
     //   until ./neworigins new; do :; done
     //
-    // Measured over ten seeds each with VILLAGES_ONLY set, 64x48 clears this every
-    // time; 48x48 fails it on two to four worlds in ten, mountain and tundra being
-    // the terrains that run out of room first.
+    // Measured over twenty seeds each with VILLAGES_ONLY set, 64x48 refuses about
+    // seven worlds in ten, tundra, desert, mountain and hill being the terrains
+    // that run out of room first; 48x48 fails it on two to four worlds in ten.
     // -----------------------------------------------------------------------
     std::unordered_map<int, int> final_entries;
     for (int x = 0; x < w; x++) {

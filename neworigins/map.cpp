@@ -3082,6 +3082,13 @@ void ARegionList::MakeShaftLinks(int levelFrom, int levelTo, int odds)
  * @param minDistanceSame Initial minimum distance; also used as fixed spacing when seeds==1.
  * @param minDistanceStair Minimum distance from existing shafts (stairwell prevention).
  * @param seeds Number of Poisson seeds. When >1 uses dynamic spacing 2d2+2 (like village placement).
+ * @param cap_by_destination Count the shaft cap over the smaller of the two levels.
+ *
+ * @note Neither end of a shaft may lie in a settlement: the entrance filter rejects
+ *       towns, and a candidate whose exit lands in a town is dropped (logged as
+ *       "town"), never nudged, so each exit stays beneath its own entrance.
+ *       Relies on every level's settlements being placed before this runs.
+ * @see CreateLairsAtShafts()
  */
 void ARegionList::CreateSmartShafts(int levelFrom, int levelTo, int minDistanceSame,
                                     int minDistanceStair, int seeds, bool cap_by_destination) {
@@ -3144,6 +3151,7 @@ void ARegionList::CreateSmartShafts(int levelFrom, int levelTo, int minDistanceS
 
     int shaftsCreated = 0;
     int rejected_ocean = 0, rejected_barren = 0, rejected_missing = 0, rejected_stair = 0;
+    int rejected_town = 0;
 
     for (const auto& pos : candidates) {
         if (shaftsCreated >= maxShafts) break;
@@ -3206,11 +3214,17 @@ void ARegionList::CreateSmartShafts(int levelFrom, int levelTo, int minDistanceS
         // TerrainType::BARREN flag. Chasm and tunnels carry that flag but are
         // ordinary terrain ids, so a shaft may open into a chasm - and on the
         // underdeep, which has no R_BARREN regions at all, this branch never fires.
-        // The source filter is asymmetric with this one in both directions: isLand
-        // above also rejects volcano, lake and towns, none of which is checked here.
+        // isLand above also rejects volcano and lake at the entrance; those are
+        // allowed here.
+        //
+        // A shaft never touches a settlement at either end. The entrance is covered
+        // by isLand, because every level places its settlements before any shaft is
+        // dug; the exit is covered here. Both ends of a shaft get a lair
+        // (CreateLairsAtShafts), and a lair must not share a hex with a town.
         if (!dst) { rejected_missing++; continue; }
         if (dst->type == R_OCEAN)  { rejected_ocean++;  continue; }
         if (dst->type == R_BARREN) { rejected_barren++; continue; }
+        if (dst->town)             { rejected_town++;   continue; }
 
         // Create the O_SHAFT object on the upper level.
         Object* down = new Object(src);
@@ -3238,6 +3252,7 @@ void ARegionList::CreateSmartShafts(int levelFrom, int levelTo, int minDistanceS
         ", rejected: stairwell " + std::to_string(rejected_stair) +
         ", ocean " + std::to_string(rejected_ocean) +
         ", barren " + std::to_string(rejected_barren) +
+        ", town " + std::to_string(rejected_town) +
         ", no region " + std::to_string(rejected_missing));
 }
 
@@ -3245,13 +3260,19 @@ void ARegionList::CreateSmartShafts(int levelFrom, int levelTo, int minDistanceS
  * @brief Creates mandatory lairs in regions with shafts
  *
  * Ensures that every region containing an O_SHAFT has an appropriate lair.
+ * A shaft object sits at BOTH ends of a shaft, so this covers entrances and
+ * exits alike - whichever ends lie on `level`.
  * The lair type is selected from terrain-appropriate options using GetPossibleLairs().
- * Does not create a second lair if one already exists.
+ * Does not create a second lair if one already exists, and never places a lair
+ * in a settlement hex (the same rule as ARegion::LairCheck()).
  *
  * @param level The map level to process
  *
- * @note Should be called immediately after CreateSmartShafts() for each level
- * @note Uses terrain-specific lair tables (TerrainDefs[].lairs[])
+ * @note Call it for every level once all shafts exist; the last level holds
+ *       only exits and would otherwise be left without lairs.
+ * @note Uses terrain-specific lair tables (TerrainDefs[].lairs[]); a terrain with
+ *       no enabled lair leaves its shaft unguarded.
+ * @see CreateSmartShafts()
  */
 void ARegionList::CreateLairsAtShafts(int level)
 {
@@ -3264,6 +3285,7 @@ void ARegionList::CreateLairsAtShafts(int level)
         for (int y = 0; y < pArr->y; y++) {
             ARegion *reg = pArr->GetRegion(x, y);
             if (!reg) continue;
+            if (reg->town) continue;  // no lair in a settlement
 
             // Step 1: Check if region has a shaft
             bool hasShaft = false;

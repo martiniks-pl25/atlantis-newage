@@ -572,7 +572,6 @@ void Game::CreateWorld()
         // on 64x48. The count is set by that roll, not by maxShafts (61), which never
         // binds here - so do NOT cap this call by the destination level.
         regions.CreateSmartShafts(1, 2, 5, 0, 4);
-        regions.CreateLairsAtShafts(1);  // Create lairs at shaft entrances on Surface
     }
 
     // 2. Connections between multiple Underworld levels (L2 -> L3, etc.)
@@ -581,7 +580,6 @@ void Game::CreateWorld()
             // Dynamic 2d2+2 spacing, 2 seeds, stairwell prevention 4, capped by
             // the level below - see the surface call above for why only these are.
             regions.CreateSmartShafts(i, i + 1, 5, 4, 2, true);
-            regions.CreateLairsAtShafts(i);  // Create lairs at shaft entrances
         }
     }
 
@@ -593,7 +591,6 @@ void Game::CreateWorld()
         // underdeep's own size: on 64x48 that is 192 regions, so ~7 shafts rather
         // than the 30 the underworld's size would ask for.
         regions.CreateSmartShafts(bottomUW, topUD, 4, 2, 2, true);
-        regions.CreateLairsAtShafts(bottomUW);  // Create lairs at transition level
     }
 
     // 4. Connections between multiple Underdeep levels
@@ -603,8 +600,17 @@ void Game::CreateWorld()
         for (int i = firstUD; i < lastUD; i++) {
             // Dynamic 2d2+2 spacing, 2 seeds, stairwell prevention 2, capped below.
             regions.CreateSmartShafts(i, i + 1, 4, 2, 2, true);
-            regions.CreateLairsAtShafts(i);  // Create lairs at shaft entrances
         }
+    }
+
+    // 5. Lairs at both ends of every shaft, on every level. Run once all shafts
+    // exist: a shaft puts an O_SHAFT object at its entrance and at its exit, so a
+    // per-level pass covers both, and the deepest level - which holds only exits -
+    // is included. Settlement hexes are skipped inside CreateLairsAtShafts.
+    {
+        int lastLevel = Globals->UNDERWORLD_LEVELS + Globals->UNDERDEEP_LEVELS + 1;
+        for (int i = 1; i <= lastLevel; i++)
+            regions.CreateLairsAtShafts(i);
     }
     // --- END OF SMART SHAFTS GENERATION ---
 
