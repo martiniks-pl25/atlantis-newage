@@ -4522,9 +4522,9 @@ bool economy(ARegionArray* arr, const int w, const int h) {
     };
 
     // Fraction of villages to upgrade to cities after initial placement.
-    // 0.12 sits in the middle of the requested 10-15% band; adjust here
+    // 0.10 sits at the low end of the requested 10-15% band; adjust here
     // to rebalance the "village-heavy vs city-heavy" feel of a map.
-    constexpr double CITY_FRACTION    = 0.12;
+    constexpr double CITY_FRACTION    = 0.10;
     // Floor so tiny maps still get a couple of cities.
     constexpr int    CITY_MIN_COUNT   = 2;
     // Bounds on the auto-derived minimum city-to-city distance. Lower floor
