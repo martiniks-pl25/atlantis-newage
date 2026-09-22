@@ -657,9 +657,8 @@ void Game::CreateWorld()
     if (Globals->UNDERWORLD_LEVELS > 0) {
         // Entrance on Surface: dynamic spacing 2d2+2 (mean 5), 4 seeds, no stairwell check.
         // Deliberately the same roll the villages use, so the surface carries about
-        // one shaft per settlement: measured 35-43 shafts against 34-47 settlements
-        // on 64x48. The count is set by that roll, not by maxShafts (61), which never
-        // binds here - so do NOT cap this call by the destination level.
+        // one shaft per settlement. The count is set by that roll, not by maxShafts,
+        // which never binds here - so do NOT cap this call by the destination level.
         regions.CreateSmartShafts(1, 2, 5, 0, 4);
     }
 
@@ -677,8 +676,8 @@ void Game::CreateWorld()
         int bottomUW = Globals->UNDERWORLD_LEVELS + 1;
         int topUD = bottomUW + 1;
         // Dynamic 2d2+2 spacing, 2 seeds, stairwell prevention 2, capped by the
-        // underdeep's own size: on 64x48 that is 192 regions, so ~7 shafts rather
-        // than the 30 the underworld's size would ask for.
+        // underdeep's own size, which is a fraction of the underworld's - counting
+        // over the underworld would riddle the smaller level with shafts.
         regions.CreateSmartShafts(bottomUW, topUD, 4, 2, 2, true);
     }
 

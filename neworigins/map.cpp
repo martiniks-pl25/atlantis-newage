@@ -3103,13 +3103,13 @@ void ARegionList::CreateSmartShafts(int levelFrom, int levelTo, int minDistanceS
     //
     // Which level that is counted over is a real choice, not a detail. The surface
     // link is about ENTRANCE density - the roll is deliberately the same 2d2+2 the
-    // villages use, so the surface ends up with about as many shafts as settlements
-    // (measured 35-43 against 34-47 on 64x48). Counting that over the underworld
-    // instead would cap it at 30 and break the correspondence.
+    // villages use, so the surface ends up with about as many shafts as settlements.
+    // Counting that over the smaller underworld instead would cap it below the
+    // settlement count and break the correspondence.
     //
     // The underground links are the opposite: what matters is how permeable the
-    // level BELOW is. The underdeep is 192 regions, so the source rule would aim 30
-    // shafts at it - one per six hexes, a sieve. Hence cap_by_destination.
+    // level BELOW is. The underdeep is a fraction of the underworld's size, so the
+    // source rule would riddle it with shafts. Hence cap_by_destination.
     int srcRegions = (pFrom->x * pFrom->y) / 2;
     int dstRegions = (pTo->x * pTo->y) / 2;
     int countOver = cap_by_destination ? std::min(srcRegions, dstRegions) : srcRegions;
@@ -3163,16 +3163,12 @@ void ARegionList::CreateSmartShafts(int levelFrom, int levelTo, int minDistanceS
 
         // 3. STAIRWELL CHECK: do not cluster two ways down to the SAME level.
         //
-        // This used to ask HasShaft(), which is true of any object with an inner
-        // link - including the up-shafts the previous pass had just planted on this
-        // very level. With the surface link raised to 35-43 shafts, and this search
-        // reaching three moves (breadthFirstSearch skips only when distance >
-        // maxDistance, so a radius-3 disc, up to 37 hexes), those up-shafts covered
-        // nearly all 768 underworld hexes and the way down was choked off: Arcanum
-        // had 14 surface shafts and 10 down, the current generator 35-43 and 3-8.
-        //
-        // A shaft to the surface is a different thing from a shaft to the deep and
-        // must not block one; a hex serving as both is if anything a natural hub.
+        // Only shafts leading to levelTo count. The up-shafts the previous pass
+        // planted on this level are dense (about one per surface settlement), and
+        // this search reaches a radius-3 disc of up to 37 hexes, so letting them
+        // count would choke off almost every way down. A shaft to the surface is a
+        // different thing from a shaft to the deep and must not block one; a hex
+        // serving as both is if anything a natural hub.
         bool tooCloseToExisting = false;
         if (minDistanceStair > 0) {
             auto nearby = breadthFirstSearch(src, minDistanceStair);
