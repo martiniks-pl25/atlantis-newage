@@ -27,17 +27,9 @@ ut::suite<"TreasureMapRules"> treasure_map_rules_suite = []
 {
     using namespace ut;
 
-    "NewOrigins deciphers at 30%, 60% with a compass, and burns half the failures"_test = []
-    {
-        const TreasureMapRules& tmap = ruleset_config().pirates.treasure_map;
-
-        expect(tmap.chance(false) == 30_i);
-        expect(tmap.chance(true) == 60_i);
-        expect(tmap.burn_on_fail == 50_i);
-    };
-
     // The descriptions print the configured numbers rather than their own copy of them,
-    // so retuning the ruleset retunes the text with it.
+    // so retuning the ruleset retunes the text with it. Tests link the stub ruleset
+    // (GAME=unittest), so these compare against ruleset_config(), not NewOrigins values.
     "treasure map description states every configured chance"_test = []
     {
         UnitTestHelper helper;
