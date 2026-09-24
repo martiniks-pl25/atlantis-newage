@@ -1,5 +1,6 @@
 #include "game.h"
 #include "gamedata.h"
+#include "ruleset_config.h"
 #include "indenter.hpp"
 #include "strings_util.hpp"
 
@@ -11,6 +12,7 @@ extern const std::vector<int> RACE_NEUTRAL_FOUNDERS;
 #include <fstream>
 #include <sstream>
 #include <ctime>
+#include <format>
 #include <iomanip>
 #include <ranges>
 #include <vector>
@@ -4405,14 +4407,16 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
       << "The effect persists indefinitely and survives subsequent turns. "
       << "The map is consumed when the order executes, even if the region has nothing to chart.\n"
       << enclose("p", false);
+    const TreasureMapRules& tmap = ruleset_config().pirates.treasure_map;
     f << enclose("p", true) << enclose("b", true) << "EXPLORE TMAP" << enclose("b", false)
       << " — Decipher a treasure map (TMAP). "
       << "The unit spends the month following the charts to locate a hidden pirate hideout"
       << " carved into coastal cliffs within a few hexes of the current region."
-      << " Carrying a compass (COMP) doubles the chance of success."
+      << std::format(" Each month of study has a {}% chance of success, or {}% if the same"
+                     " unit carries a compass (COMP).", tmap.chance(false), tmap.chance(true))
       << " The map is consumed only when a hideout is actually placed; if the charts are read"
       << " but no site can be found, the map is kept for another attempt."
-      << " On failure, the salt-stained charts may fall apart."
+      << std::format(" A failed attempt destroys the map {}% of the time.", tmap.burn_on_fail)
       << " This order can only be used on the surface.\n"
       << enclose("p", false);
     f << enclose("p", true) << "Examples:\n" << enclose("p", false);

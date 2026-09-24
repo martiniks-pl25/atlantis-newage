@@ -120,7 +120,7 @@ ut::suite<"ExploreOrder"> explore_order_suite = [] {
         helper.initialize_game();
         helper.setup_turn();
 
-        rng::seed_random(1);  // seed where 25% roll succeeds (value < 25)
+        rng::seed_random(1);
 
         Faction *fac = helper.create_faction("TreasureHunter");
         Unit *u = helper.get_first_unit(fac);

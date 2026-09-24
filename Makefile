@@ -36,7 +36,7 @@ endif
 FLAGS_STAMP := obj/.cflags
 $(shell mkdir -p obj; [ "$$(cat $(FLAGS_STAMP) 2>/dev/null)" = "$(CFLAGS)" ] || printf '%s' "$(CFLAGS)" > $(FLAGS_STAMP))
 
-RULESET_OBJECTS = extra.o map.o monsters.o rules.o world.o quest_setup.o
+RULESET_OBJECTS = extra.o map.o monsters.o rules.o ruleset_config.o world.o quest_setup.o
 
 ENGINE_OBJECTS = aregion.o army.o astring.o battle.o economy.o \
   edit.o faction.o game.o gamedata.o gamedefs.o \
