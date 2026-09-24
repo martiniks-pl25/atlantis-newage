@@ -663,8 +663,8 @@ class ARegionList
         void report_landmasses(ARegionArray *arr, int level);
 
         void CalcDensities();
-        int GetLevelXScale(int level);
-        int GetLevelYScale(int level);
+        double GetLevelXScale(int level);
+        double GetLevelYScale(int level);
 
         void AddHistoricalBuildings(ARegionArray* arr, const int w, const int h, Map* map);
 
@@ -684,7 +684,7 @@ class ARegionList
         void MakeCentralLand(ARegionArray *pRegs);
         void MakeRingLand(ARegionArray *pRegs, int minDistance, int maxDistance);
 
-        void SetupAnchors(ARegionArray *pArr);
+        void SetupAnchors(ARegionArray *pArr, double density = 1.0);
         void GrowTerrain(ARegionArray *pArr, int growOcean, bool generateLakes = true);
         void RandomTerrain(ARegionArray *pArr);
         void MakeUWMaze(ARegionArray *pArr);

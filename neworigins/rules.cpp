@@ -78,11 +78,16 @@ int riverCoastPenalty = 3;   // pathfinding cost multiplier for coast-adjacent h
 // Surface settlement placement tunables (declared in gamedefs.h; kept out of the
 // GameDefs positional initializer below). 2d2+2 reproduces the old hardcoded [4..6]
 // spacing; 8 guaranteed rounds (up from the old 4) is what lets the scarce terrains
-// reach settlementsKept without inflating the plentiful ones.
+// reach settlementsKept without inflating the plentiful ones. settlementsKept = 5
+// gives every gateway terrain room for a fifth entrant before villages double up;
+// it refuses far more worlds than 4, so worlds are generated in a loop and picked.
 int settlementSpacingDice = 2;
 int settlementSpacingBase = 2;
 int settlementGuaranteedRounds = 8;
-int settlementsKept = 4;
+int settlementsKept = 5;
+
+// Water on the underground levels; see gamedefs.h. Provisional - swept.
+double undergroundWaterShare = 0.40;
 
 // Volcano placement tunables (declared in gamedefs.h; kept out of the GameDefs
 // positional initializer below). Counting hills as upland lets volcanoes appear

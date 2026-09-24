@@ -86,6 +86,11 @@ extern int settlementSpacingDice;
 extern int settlementSpacingBase;
 extern int settlementGuaranteedRounds;
 extern int settlementsKept;
+
+// Share of an underground level that should end up as water (0.0-1.0). Ocean
+// anchors are only kept where the surface above is water, so the roll that
+// picks them is scaled by the surface's own water share to land on this.
+extern double undergroundWaterShare;
 // Volcano placement tunables, ruleset-set like riverMinLength (NOT GameDefs struct
 // fields - that struct uses positional initialisers). See placeVolcanoes in
 // aregion.cpp:

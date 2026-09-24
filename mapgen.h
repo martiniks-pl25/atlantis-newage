@@ -160,8 +160,7 @@ public:
     bool generateHistoricalProductionBuildings; // Generate ruined production buildings for basic resources
 
     // Polar archipelago parameters (configurable in world.cpp)
-    double polarLatitudeStart;    // Latitude where island effect begins (degrees, 60-75)
-    double polarIslandBlend;      // Strength of island fragmentation (0.0-1.0)
+    double polarLatitudeStart;    // Latitude where the polar block begins (degrees, >= 89 disables it)
     double polarElevationRedux;   // Elevation reduction at poles (0.0-1.0, higher = more ocean)
 
     // Latitude-profile mask parameters (configurable in world.cpp)
@@ -169,8 +168,8 @@ public:
     double equatorSeaDepth;    // How far the equator is pushed down (0.0-1.0)
     double maskStrength;       // Blend weight of the profile against the noise (0.0-1.0, 0 = off)
     double maskLatJitter;      // Latitude jitter of the band edge (degrees, 0 = off)
-    double maskLongVariance;   // Longitudinal variance of mask strength (0.0-1.0, 0 = off)
     double maskBandRelease;    // Band release of the mask inside the land band (0.0-1.0, 0 = off)
+    double noiseAspectCorrection; // How much of the hex-map aspect to correct in the noise (0 = none, 1 = full)
 
     CellMap map;
 

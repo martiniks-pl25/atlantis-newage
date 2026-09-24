@@ -24,10 +24,10 @@ void Game::CreateWorld() {
 int ARegionList::GetRegType( ARegion *pReg ) { return 0; }
 
 // Unit test levels are unscaled.
-int ARegionList::GetLevelXScale(int level) { return 1; }
+double ARegionList::GetLevelXScale(int level) { return 1.0; }
 
 // Unit test levels are unscaled.
-int ARegionList::GetLevelYScale(int level) { return 1; }
+double ARegionList::GetLevelYScale(int level) { return 1.0; }
 
 // Unit test regions are fully connected
 int ARegionList::CheckRegionExit(ARegion *pFrom, ARegion *pTo ) { return 1; }

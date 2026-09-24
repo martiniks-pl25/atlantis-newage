@@ -416,8 +416,13 @@ Map::Map(int width, int height) : map(CellMap(width, height)) {
     maxTemp = 60;
 
     frequency = 5.0;
-    amplitude = 0.5;
-    redistribution = 1.0;
+    // Not prompted. Amplitude cancels out: the fractal sum is divided by the sum
+    // of the octave amplitudes. Redistribution is the exponent applied to the
+    // noise before the mask blend: it leaves terrain shares alone (sea level and
+    // mountains are percentiles) but sets how strongly the mask out-competes the
+    // noise, so it stays fixed at the value every measurement was taken with.
+    amplitude = 0.6;
+    redistribution = 2.0;
     octaves = 3;
     lacunarity = 2.0;
     persistence = 0.5;
@@ -434,7 +439,6 @@ Map::Map(int width, int height) : map(CellMap(width, height)) {
 
     // Polar archipelago defaults
     polarLatitudeStart = 70.0;
-    polarIslandBlend = 0.5;
     polarElevationRedux = 0.35;
 
     // Latitude-profile mask defaults (maskStrength 0.0 = mask disabled)
@@ -442,8 +446,8 @@ Map::Map(int width, int height) : map(CellMap(width, height)) {
     equatorSeaDepth = 0.45;
     maskStrength = 0.0;
     maskLatJitter = 0.0;
-    maskLongVariance = 0.0;
     maskBandRelease = 0.0;
+    noiseAspectCorrection = 1.0;
 }
 
 Blob* fillByElevation(CellMap* map, Cell* start, int biome, Range elevation) {
@@ -492,26 +496,15 @@ void Map::Generate() {
     SimplexNoise* noise = new SimplexNoise(frequency, amplitude, lacunarity, persistence);
     std::vector<Blob*> blobs;
 
-    // Create high-frequency noise for polar archipelago effect
-    SimplexNoise* islandNoise = new SimplexNoise(frequency * 4.0, amplitude, lacunarity, persistence);
-
     // Latitude-profile mask noise fields. Each is an independent SimplexNoise
-    // instance (its constructor shuffles its own permutation table), so neither
-    // correlates with the elevation noise or the polar island noise. Both use a
-    // low frequency and few octaves so the warp and the strength drift are broad
-    // wanders, not fine fuzz. They are constructed only when their parameter is
-    // active: constructing one consumes RNG draws, and both the mask-off and the
-    // degenerate (jitter 0 / variance 0) cases must not shift the world's RNG
-    // stream, otherwise earlier sweeps would stop being reproducible.
+    // instance (its constructor shuffles its own permutation table), so none
+    // correlates with the elevation noise. They use a low frequency and few
+    // octaves so the warps are broad wanders, not fine fuzz, and are constructed
+    // only when their parameter is active, so switching a feature off does not
+    // shift the world's RNG stream.
     SimplexNoise* latJitterNoise = nullptr;
-    SimplexNoise* longVarNoise = nullptr;
-    if (maskStrength > 0.0) {
-        if (maskLatJitter > 0.0) {
-            latJitterNoise = new SimplexNoise(1.0, amplitude, lacunarity, persistence);
-        }
-        if (maskLongVariance > 0.0) {
-            longVarNoise = new SimplexNoise(1.5, amplitude, lacunarity, persistence);
-        }
+    if (maskStrength > 0.0 && maskLatJitter > 0.0) {
+        latJitterNoise = new SimplexNoise(1.0, amplitude, lacunarity, persistence);
     }
 
     // 0. elevation
@@ -528,11 +521,26 @@ void Map::Generate() {
     // latitude sites below.
     const double halfSpan = halfHeight - 1.0;
 
+    // Noise aspect. The noise is sampled on a unit square (a cylinder of
+    // circumference 1 by a height of 1), but the hex map it lands on is not
+    // square: regions exist only where x + y is even, so a column holds H/2
+    // hexes, and neighbouring columns sit sqrt(3)/2 of a hex apart. The map is
+    // therefore W * sqrt(3)/2 wide by H/2 tall - 1.73 : 1 for a square region
+    // grid - and a round noise blob came out 1.73 times wider than tall, which
+    // is what stretched landmasses into east-west strips. Dividing the noise's
+    // y by that ratio makes one noise unit the same distance in both directions.
+    // map.width / map.height equals the region grid's W / H (both are doubled).
+    // noiseAspectCorrection scales how much of that ratio is taken out: 1 leaves
+    // blobs round, 0 keeps the old east-west stretch, and values between give a
+    // milder stretch of aspect^(1 - correction).
+    const double noiseAspect = pow(std::sqrt(3.0) * map.width / map.height,
+                                   std::max(0.0, std::min(1.0, noiseAspectCorrection)));
+
     for (int i = 0; i < len; i++) {
         auto cell = map.items[i];
 
         double nx = (double) cell->x / map.width;
-        double ny = (double) cell->y / map.height;
+        double ny = (double) cell->y / map.height / noiseAspect;  // noise space, see above
 
         // Base elevation from main noise (creates continents)
         double e = pow((noise->cylinderFractal(octaves, nx, ny) + 1.0) / 2.0, redistribution);
@@ -555,15 +563,7 @@ void Map::Generate() {
                 warpedLat = std::max(0.0, std::min(90.0, warpedLat));
             }
 
-            // Longitudinal strength variance: some meridians act at full
-            // strength, others nearly release, so the equatorial sea opens only
-            // partway around the world and land bridges survive elsewhere.
             double kEffective = maskStrength;
-            if (longVarNoise != nullptr) {
-                double m = (longVarNoise->cylinderFractal(2, nx, ny) + 1.0) / 2.0;  // 0..1
-                kEffective = maskStrength * (1.0 - maskLongVariance * m);
-                kEffective = std::max(0.0, std::min(1.0, kEffective));
-            }
 
             // Band release: on the band plateau the profile is a flat 1.0, so a
             // uniform blend weight would push every cell toward the same target
@@ -573,8 +573,6 @@ void Map::Generate() {
             // released by maskBandRelease on the plateau, where the noise decides.
             // The equator is the deepest point of the profile by construction -
             // the poles are not pushed down here, that is polarElevationRedux.
-            // maskBandRelease currently defaults to 0.0, so this release has no
-            // effect until it is raised again.
             double profile = latitude_profile(warpedLat);
             double depth = 1.0 - profile;  // 0 on the plateau, larger toward the equator
             double maxDepth = equatorSeaDepth;
@@ -584,23 +582,11 @@ void Map::Generate() {
             e = e * (1.0 - localK) + profile * localK;
         }
 
-        // Polar archipelago effect: fragment land into islands at high latitudes
+        // Polar block: sink the land toward the poles so an open sea lane runs
+        // around each of them.
         if (lat > polarLatitudeStart && polarLatitudeStart < 89.0) {
             // Calculate polar blending factor (0.0 at polarLatitudeStart, 1.0 at pole)
             double polarAmount = (lat - polarLatitudeStart) / (90.0 - polarLatitudeStart);
-
-            // High-frequency noise creates small-scale terrain variation (islands)
-            // Polar noise deliberately keeps its own fixed octave count
-            double islandDetail = (islandNoise->cylinderFractal(2, nx, ny) + 1.0) / 2.0;
-
-            // Smooth blend between continental and island terrain
-            // polarAmount = 0.0 → pure continents
-            // polarAmount = 1.0 → archipelago effect at maximum
-            double blendFactor = polarAmount * polarIslandBlend;
-            e = e * (1.0 - blendFactor) + islandDetail * blendFactor;
-
-            // ADDITIONALLY: Lower polar elevation to increase ocean at poles
-            // This creates more water between islands
             double elevationReduction = polarAmount * polarElevationRedux;
             e *= (1.0 - elevationReduction);
         }
@@ -612,9 +598,7 @@ void Map::Generate() {
         ++hist[cell->elevation];
     }
 
-    delete islandNoise;
     delete latJitterNoise;
-    delete longVarNoise;
 
     // 1. determine sea level
     logger::write("1. determine sea level");

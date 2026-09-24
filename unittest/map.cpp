@@ -104,7 +104,7 @@ void ARegionList::SeverLandBridges(ARegionArray *pRegs) { }
 
 void ARegionList::SetRegTypes(ARegionArray *pRegs, int newType) { }
 
-void ARegionList::SetupAnchors(ARegionArray *ta) { }
+void ARegionList::SetupAnchors(ARegionArray *ta, double density) { }
 
 void ARegionList::GrowTerrain(ARegionArray *pArr, int growOcean, bool generateLakes) { }
 

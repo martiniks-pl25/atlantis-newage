@@ -1,5 +1,7 @@
 #include "game.h"
 #include "gamedata.h"
+#include <cmath>
+#include <algorithm>
 #include <string.h>
 #include "../string_filters.hpp"
 #include <iostream>
@@ -357,6 +359,24 @@ const std::string& AGetNameString(int name)
     return regionnames[name-1];
 }
 
+/**
+ * @brief Size of an underground level derived from a surface size and a scale.
+ *
+ * Rounds to an even number of regions: regions exist only where x + y is even,
+ * so an odd size would leave a half-empty edge column or row.
+ *
+ * @param surface Surface size in regions (width or height)
+ * @param scale Shrink factor from GetLevelXScale()/GetLevelYScale()
+ * @return Level size in regions, at least 8
+ * @see ARegionList::GetLevelXScale()
+ */
+static int level_size(int surface, double scale)
+{
+    int size = (int) lround(surface / scale);
+    if (size % 2) size--;
+    return std::max(8, size);
+}
+
 void Game::CreateWorld()
 {
     int nx = 0;
@@ -427,21 +447,29 @@ void Game::CreateWorld()
         // Default parameters (can be changed before compilation or at runtime)
         int default_minTemp = -45;
         int default_maxTemp = 45;
-        // Noise frequency: how many oscillations span the map, so it sets how many
-        // separate landmasses and mountain groups there are. Higher = smaller, more
-        // numerous forms. Measured on 64x48 with the simplified profile, no refusals at
-        // any value: 2.5 gives 4 masses and 25-hex ridges, 3.6 gives 6 and 15, 5.0 gives
-        // 9 and 11. Treat 3.6 as the floor - lower merges the land back together.
-        float default_frequency = 3.6;
-        float default_amplitude = 0.6;
-        float default_redistribution = 2;  // Even gentler elevation (avoid too much flat land)
-        int   default_octaves = 3;
+        // Noise shape (frequency, octaves, persistence). Frequency sets how many
+        // separate landmasses and mountain groups there are, the octaves add finer
+        // detail on top, and persistence is how loud that detail is.
+        //
+        // Retuned 2026-09-23 for 64x64 with the noise aspect correction in place:
+        // that correction slows the noise down north-south by 1.73, so the old 3.6
+        // produced blobs so large that only 1 world in 60 could seat five villages
+        // per terrain. The share of usable worlds peaks at 5.2 and falls off on both
+        // sides; lower values merge the land into fewer, larger masses. Octaves 5 with persistence 0.6 break the mountain
+        // ridges apart (18-23 separate massifs instead of 12-14, biggest 12-17 hexes
+        // instead of 24-27), which is what lifts mountain villages from 4.5 to 5.0
+        // against the floor of 5. Persistence 0.7 goes too far: the coast gets
+        // ragged but the map fills with one-hex islets (24 per world against 12).
+        float default_frequency = 5.2;
+        int   default_octaves = 5;
         float default_lacunarity = 2.0;
-        float default_persistence = 0.5;
-        float default_evoparation = 0.89;    // Maximum evaporation = maximum rainfall (ensure forests)
-        float default_waterPercent = 0.58;   // % base ocean (more moisture sources)
-        float default_mountainPercent = 0.10;  // mountain + hill
-        float default_hillPercent = 0.60;      // hill% within the mountain block (NOTE: prompt caps input at 0.50, so this default cannot be typed in)
+        float default_persistence = 0.6;
+        float default_evoparation = 0.91;    // Rainfall; swamps sit right at the settlement floor below this
+        // Share of the surface under water. Above 0.60 fewer worlds seat five villages
+        // per terrain: the extra sea eats the cold high-latitude land tundra needs.
+        float default_waterPercent = 0.60;
+        float default_mountainPercent = 0.08;  // mountain + hill
+        float default_hillPercent = 0.57;      // hill share within the mountain block
         float default_lakePercent = 0.15;  // 15% chance for lake placement
 
         // Polar block: applied after the mask, above polarLatitudeStart only.
@@ -450,14 +478,14 @@ void Game::CreateWorld()
         // plateau runs from landEdgeLatitude to the pole), so it must stay above
         // landEdgeLatitude or it drowns the plateau; measured refusals 0% at 80, 40% at
         // 72.
-        float default_polarLatitudeStart = 80.0;
-        // Island fragmentation: replaces elevation with high-frequency noise, weighted by
-        // amount*this, BEFORE the submersion multiplies it away. Off by default because it
-        // only bites when the poles are not drowned: at redux 0 it lifts polar landmasses
-        // from 6.6 to 14.4 per world, but from redux 0.40 upward rows 0-1 are already sea
-        // and the count stops responding (6.5/5.7/6.5/5.6 across blend 0..1). Raise it only
-        // if the polar sea lane is abandoned.
-        float default_polarIslandBlend = 0.0;
+        //
+        // 82 makes the block cover three region rows per pole on a 64-row map
+        // (rows 0-2 sit at 90, 87.1 and 84.3 degrees; row 3 is 81.4). Measured
+        // 2026-09-23 over 40 worlds against 80 (four rows): the outermost row is
+        // open water at both poles in every accepted world, the second row in
+        // about half of them, and one row less of drowned land leaves enough
+        // ground that 17 of 40 worlds pass the settlement verdict instead of 12.
+        float default_polarLatitudeStart = 82.0;
         // Polar submersion, elevation *= (1 - amount*this): sets the sea-lane width.
         // On 64x48: 0.40 clears the outermost row, 0.50 clears two rows, above 0.60 only
         // the third row thins. Row counts scale with map height.
@@ -465,9 +493,12 @@ void Game::CreateWorld()
 
         // Latitude-profile mask (macro-geography bias blended into elevation)
         float default_landEdgeLatitude = 33.0; // Latitude where the land ends toward the equator (degrees)
-        float default_equatorSeaDepth = 0.35;  // How far the equator is pushed down (0.0-1.0)
+        // How far the equator is pushed down (0.0-1.0). A deeper equatorial sea moves
+        // land toward the poles, which is where tundra and its villages come from;
+        // 0.40 does that, going further gains nothing.
+        float default_equatorSeaDepth = 0.40;
         // Blend weight of the profile against the noise (0 = mask off entirely, and with
-        // it the jitter/variance/release below). Measured on 64x48: below 0.45 the noise
+        // it the jitter and band release below). Measured on 64x48: below 0.45 the noise
         // wins and the equatorial sea barely forms (1-2 rows, absent in some worlds);
         // 0.45 is the threshold where it appears in every world (3-8 rows) and the two
         // hemispheres even out. Above that only the sea widens. Useful range 0.30-0.45.
@@ -481,8 +512,13 @@ void Game::CreateWorld()
         // cut by the polar block alone, which is strictly zonal - it looks knife-straight.
         // Feeding the same warped latitude to the polar block would fix that.
         float default_maskLatJitter = 0.0;
-        float default_maskLongVariance = 0.0;  // Longitudinal variance of mask strength (0.0-1.0, 0 = off)
         float default_maskBandRelease = 0.30;  // Band release of the mask inside the land band (0.0-1.0, 0 = off)
+        // How much of the hex-map aspect (1.73:1 on a square region grid) is taken out
+        // of the noise: 1 = round landmasses, 0 = the old east-west stretch.
+        // 0.80 leaves a slight east-west stretch (aspect^0.2 = 1.13). Full correction
+        // (1.0) makes landmasses round but fewer worlds pass and there are fewer
+        // liveable islands; 0 is the old unstretched noise, which produced strips.
+        float default_noiseAspectCorrection = 0.80;
 
         // Show current defaults
         logger::write("");
@@ -492,9 +528,6 @@ void Game::CreateWorld()
         logger::write("  Terrain generation:");
         logger::write("    Continent frequency: " + std::to_string(default_frequency) +
                       " (higher = MORE, smaller continents)");
-        logger::write("    Noise amplitude: " + std::to_string(default_amplitude) +
-                      " (no effect, normalised away)");
-        logger::write("    Elevation diversity: " + std::to_string(default_redistribution));
         logger::write("  Land/Water distribution:");
         logger::write("    Water: " + std::to_string((int)(default_waterPercent * 100)) + "%");
         logger::write("    Mountains: " + std::to_string((int)(default_mountainPercent * 100)) + "%");
@@ -510,13 +543,14 @@ void Game::CreateWorld()
                       " (0 = off)");
         logger::write("    Band-edge latitude jitter: " + std::to_string(default_maskLatJitter) +
                       " deg (0 = off)");
-        logger::write("    Longitudinal strength variance: " + std::to_string(default_maskLongVariance) +
-                      " (0 = off)");
         logger::write("    Band release: " + std::to_string(default_maskBandRelease) +
                       " (0 = off)");
+        logger::write("    Noise aspect correction: " + std::to_string(default_noiseAspectCorrection) +
+                      " (1 = round landmasses, 0 = east-west stretch)");
+        logger::write("    Underground water: " + std::to_string(undergroundWaterShare) +
+                      " (sea only under surface sea)");
         logger::write("  Polar shaping (polarLatitudeStart >= 89 disables it):");
         logger::write("    Latitude start: " + std::to_string(default_polarLatitudeStart) + " deg");
-        logger::write("    Island blend: " + std::to_string(default_polarIslandBlend));
         logger::write("    Elevation redux: " + std::to_string(default_polarElevationRedux));
         logger::write("");
         logger::write("Use these settings? (y/n) [y]: ");
@@ -538,18 +572,14 @@ void Game::CreateWorld()
             // Terrain generation
             map->frequency = ask_parameter_float("Continent frequency (1.0-10.0, higher = more and smaller)",
                                                 default_frequency, 1.0, 10.0);
-            map->amplitude = ask_parameter_float("Noise amplitude (no effect - normalised away, kept for sweep field order)",
-                                                default_amplitude, 0.1, 1.0);
-            map->redistribution = ask_parameter_float("Elevation curve (0.0-5.0, no effect on terrain shares)",
-                                                     default_redistribution, 0.0, 5.0);
 
             // Land/Water
             map->waterPercent = ask_parameter_float("Water percentage (0.05-0.90)",
                                                    default_waterPercent, 0.05, 0.90);
             map->mountainPercent = ask_parameter_float("Mountain percentage (0.0-0.50)",
                                                        default_mountainPercent, 0.0, 0.50);
-            map->hillPercent = ask_parameter_float("Hill percentage (0.0-0.50)",
-                                                   default_hillPercent, 0.0, 0.50);
+            map->hillPercent = ask_parameter_float("Hill share of the mountain block (0.0-0.90)",
+                                                   default_hillPercent, 0.0, 0.90);
             map->lakePercent = ask_parameter_float("Lake placement chance (0.0-1.00)",
                                                    default_lakePercent, 0.0, 1.0);
 
@@ -576,16 +606,19 @@ void Game::CreateWorld()
                                                     default_maskStrength, 0.0, 1.0);
             map->maskLatJitter = ask_parameter_float("Band-edge latitude jitter (0.0-30.0 deg, 0 = off)",
                                                      default_maskLatJitter, 0.0, 30.0);
-            map->maskLongVariance = ask_parameter_float("Longitudinal strength variance (0.0-1.0, 0 = off)",
-                                                        default_maskLongVariance, 0.0, 1.0);
             map->maskBandRelease = ask_parameter_float("Band release (0.0-1.0, 0 = off)",
                                                        default_maskBandRelease, 0.0, 1.0);
+            map->noiseAspectCorrection = ask_parameter_float("Noise aspect correction (0.0-1.0, 1 = round)",
+                                                             default_noiseAspectCorrection, 0.0, 1.0);
+            // Ruleset global rather than a Map field: the underground levels are
+            // not built by the parametric generator. Asked here so a sweep can
+            // find the value; see neworigins/rules.cpp.
+            undergroundWaterShare = ask_parameter_float("Underground water share (0.0-0.80)",
+                                                        undergroundWaterShare, 0.0, 0.80);
 
             // Polar archipelago parameters (polarLatitudeStart >= 89 disables the block)
             map->polarLatitudeStart = ask_parameter_float("Polar latitude start (0.0-90.0 deg, 89+ disables the polar block)",
                                                           default_polarLatitudeStart, 0.0, 90.0);
-            map->polarIslandBlend = ask_parameter_float("Polar island blend (0.0-1.0, higher = more fragmented)",
-                                                        default_polarIslandBlend, 0.0, 1.0);
             map->polarElevationRedux = ask_parameter_float("Polar elevation redux (0.0-1.0, higher = more ocean at poles)",
                                                            default_polarElevationRedux, 0.0, 1.0);
         } else {
@@ -593,8 +626,6 @@ void Game::CreateWorld()
             map->minTemp = default_minTemp;
             map->maxTemp = default_maxTemp;
             map->frequency = default_frequency;
-            map->amplitude = default_amplitude;
-            map->redistribution = default_redistribution;
             map->octaves = default_octaves;
             map->lacunarity = default_lacunarity;
             map->persistence = default_persistence;
@@ -606,14 +637,13 @@ void Game::CreateWorld()
             map->generateHistoricalRoads = true;
             map->generateHistoricalProductionBuildings = true;
             map->polarLatitudeStart = default_polarLatitudeStart;
-            map->polarIslandBlend = default_polarIslandBlend;
             map->polarElevationRedux = default_polarElevationRedux;
             map->landEdgeLatitude = default_landEdgeLatitude;
             map->equatorSeaDepth = default_equatorSeaDepth;
             map->maskStrength = default_maskStrength;
             map->maskLatJitter = default_maskLatJitter;
-            map->maskLongVariance = default_maskLongVariance;
             map->maskBandRelease = default_maskBandRelease;
+            map->noiseAspectCorrection = default_noiseAspectCorrection;
         }
 
         regions.create_natural_surface_level(map);
@@ -624,19 +654,19 @@ void Game::CreateWorld()
     // Create underworld levels
     int i;
     for (i = 2; i < Globals->UNDERWORLD_LEVELS+2; i++) {
-        int xs = regions.GetLevelXScale(i);
-        int ys = regions.GetLevelYScale(i);
+        int lx = level_size(xx, regions.GetLevelXScale(i));
+        int ly = level_size(yy, regions.GetLevelYScale(i));
         if (generator == 3 && i == 2) {
-            regions.create_underworld_ring_level(i, xx/xs, yy/ys, "underworld");
+            regions.create_underworld_ring_level(i, lx, ly, "underworld");
         } else {
-            regions.create_underworld_level(i, xx/xs, yy/ys, "underworld");
+            regions.create_underworld_level(i, lx, ly, "underworld");
         }
     }
     // Underdeep levels
     for (i = Globals->UNDERWORLD_LEVELS + 2; i < Globals->UNDERWORLD_LEVELS + Globals->UNDERDEEP_LEVELS + 2; i++) {
-        int xs = regions.GetLevelXScale(i);
-        int ys = regions.GetLevelYScale(i);
-        regions.create_underdeep_level(i, xx/xs, yy/ys, "underdeep");
+        int lx = level_size(xx, regions.GetLevelXScale(i));
+        int ly = level_size(yy, regions.GetLevelYScale(i));
+        regions.create_underdeep_level(i, lx, ly, "underdeep");
     }
 
     if (Globals->ABYSS_LEVEL) {
@@ -774,6 +804,91 @@ void Game::CreateWorld()
     regions.MapStatistics();
 }
 
+/**
+ * @brief Is the surface hex above this underground region water?
+ *
+ * The projection is the same proportional one the shafts use, so "above" here
+ * means the same hex a shaft dug at this spot would come out of.
+ *
+ * @param regions Region list (the surface level must already exist)
+ * @param pReg Underground region
+ * @return true when the surface hex above is ocean or lake
+ * @see ARegionList::GetLevelXScale(), ARegionList::CreateSmartShafts()
+ */
+static bool surface_above_is_water(ARegionList& regions, ARegion* pReg)
+{
+    ARegionArray* surface = regions.pRegionArrays[ARegionArray::LEVEL_SURFACE];
+    if (!surface) return false;
+
+    int x = (int) lround(pReg->xloc * regions.GetLevelXScale(pReg->zloc));
+    int y = (int) lround(pReg->yloc * regions.GetLevelYScale(pReg->zloc));
+    // Regions exist only where x + y is even; step back inside the map rather
+    // than wrapping to the opposite pole.
+    if ((x + y) % 2) y = (y + 1 < surface->y) ? y + 1 : y - 1;
+    if (x >= surface->x) x = surface->x - 1;
+    if (y >= surface->y) y = surface->y - 1;
+
+    ARegion* above = surface->GetRegion(x, y);
+    return above && TerrainDefs[above->type].similar_type == R_OCEAN;
+}
+
+static double surface_water_share(ARegionList& regions);
+
+/**
+ * @brief Should this underground anchor be sea?
+ *
+ * True only where the surface above is water, and then with the probability
+ * that makes the level come out at undergroundWaterShare overall: the offer is
+ * divided by the surface's own water share, because it is only ever made over
+ * water.
+ *
+ * @param regions Region list
+ * @param pReg Underground region being seeded
+ * @return true when this anchor should be ocean
+ * @see surface_above_is_water(), surface_water_share()
+ */
+static bool ocean_anchor_here(ARegionList& regions, ARegion* pReg)
+{
+    if (!surface_above_is_water(regions, pReg)) return false;
+
+    double surfaceWater = surface_water_share(regions);
+    double chance = (surfaceWater > 0.0) ? undergroundWaterShare / surfaceWater : 0.0;
+    if (chance > 1.0) chance = 1.0;
+    return rng::get_random(1000) < (int) lround(chance * 1000.0);
+}
+
+/**
+ * @brief Water share of the finished surface, cached after the first call.
+ *
+ * Underground ocean anchors are only kept where the surface above is water, so
+ * the roll that offers them has to be divided by this to hit
+ * undergroundWaterShare. One world is generated per process, so a single cache
+ * is enough.
+ *
+ * @param regions Region list (the surface level must already exist)
+ * @return Share of surface hexes that are ocean or lake, 0..1
+ */
+static double surface_water_share(ARegionList& regions)
+{
+    static double cached = -1.0;
+    if (cached >= 0.0) return cached;
+
+    ARegionArray* surface = regions.pRegionArrays[ARegionArray::LEVEL_SURFACE];
+    if (!surface) return 0.0;
+
+    int water = 0, total = 0;
+    for (int x = 0; x < surface->x; x++) {
+        for (int y = 0; y < surface->y; y++) {
+            ARegion* reg = surface->GetRegion(x, y);
+            if (!reg) continue;
+            total++;
+            if (TerrainDefs[reg->type].similar_type == R_OCEAN) water++;
+        }
+    }
+    cached = total ? (double) water / total : 0.0;
+    return cached;
+}
+
 int ARegionList::GetRegType( ARegion *pReg )
 {
     //
@@ -788,60 +903,32 @@ int ARegionList::GetRegType( ARegion *pReg )
     }
     if (lat < 0) lat = 0;
 
-    // Underworld region
+    // Underworld region. These are the anchor seeds GrowTerrain spreads, so the
+    // ocean share of the finished level follows the ocean share here.
+    //
+    // An ocean anchor is only kept where the surface above is water, so the
+    // underground seas lie under the surface seas and the land lies under the
+    // land. A shaft's exit sits directly below its entrance, so without this
+    // most exits under a continent fell into underground ocean and were thrown
+    // away (measured: 35 of 57 candidates on one world).
     if ((pReg->zloc > 1) && (pReg->zloc < Globals->UNDERWORLD_LEVELS+2)) {
-        int r = rng::get_random(14);
-        int result;
-        switch (r) {
-            case 0:
-            case 1:
-            case 2:
-                result = R_OCEAN;
-                break;
-            case 3:
-            case 4:
-            case 5:
-                result = R_CAVERN;
-                break;
-            case 6:
-            case 7:
-            case 8:
-                result = R_UFOREST;
-                break;
-            case 9:
-            case 10:
-            case 11:
-                result = R_TUNNELS;
-                break;
-            case 12:
-            case 13:
-                result = R_CAVERN;  // Changed from R_CHASM (55) - chasm is for underdeep, not underworld
-                break;
-            default:
-                result = R_OCEAN;  // Fallback (should never reach here)
-                break;
-        }
-        // No validation needed - all returned types are valid (0, 8, 9, 10)
-        return result;
+        if (ocean_anchor_here(*this, pReg)) return R_OCEAN;
+        int r = rng::get_random(11);
+        if (r < 5) return R_CAVERN;
+        if (r < 8) return R_UFOREST;
+        return R_TUNNELS;
     }
 
     // Underdeep region
     if ((pReg->zloc > Globals->UNDERWORLD_LEVELS+1) &&
             (pReg->zloc < Globals->UNDERWORLD_LEVELS+
                           Globals->UNDERDEEP_LEVELS+2)) {
-        int r = rng::get_random(4);
-        switch(r) {
-            case 0:
-                return R_OCEAN;
-            case 1:
-                return R_CHASM;
-            case 2:
-                return R_DFOREST;
-            case 3:
-                return R_GROTTO;
-            default:
-                return (0);
-        }
+        // Same rule as the underworld: sea only under sea (see above).
+        if (ocean_anchor_here(*this, pReg)) return R_OCEAN;
+        int r = rng::get_random(3);
+        if (r == 0) return R_CHASM;
+        if (r == 1) return R_DFOREST;
+        return R_GROTTO;
     }
 
     // surface region
@@ -891,58 +978,54 @@ int ARegionList::GetRegType( ARegion *pReg )
     return( R_OCEAN );
 }
 
-int ARegionList::GetLevelXScale(int level)
+/**
+ * @brief Horizontal shrink factor of a level relative to the surface.
+ *
+ * Level width = surface width / this factor. Used when the levels are created
+ * and by GetPlanarDistance() to project a region onto surface coordinates, so it
+ * must stay in step with the arrays a world was generated with.
+ *
+ * The factors are rational rather than whole numbers (Trident, 2026-09-22): a
+ * single underworld is 3/4 of the surface in each direction and a single
+ * underdeep 3/8, so a 64x64 surface carries a 48x48 underworld and a 24x24
+ * underdeep. Halving both had left the underworld too cramped for the shafts
+ * the surface sends down - one shaft, each with its own lair, per 13 hexes
+ * against 5-7 settlements on the whole level.
+ *
+ * @param level Level index (0 nexus, 1 surface, then underworld, then underdeep)
+ * @return 1 for nexus/surface, 4/3 for underworld levels, 8/3 for underdeep levels.
+ * @see GetLevelYScale(), level_size()
+ */
+double ARegionList::GetLevelXScale(int level)
 {
     // Surface and nexus are unscaled
-    if (level < 2) return 1;
+    if (level < 2) return 1.0;
 
-    // If we only have one underworld level it's 1/2 size
-    if (Globals->UNDERWORLD_LEVELS == 1 && Globals->UNDERDEEP_LEVELS == 0)
-        return 2;
-
-    // We have multiple underworld levels
-    if (level >= 2 && level < Globals->UNDERWORLD_LEVELS+2) {
-        // Topmost level is full size in x direction
-        if (level == 2) return 1;
-        // All other levels are 1/2 size
-        return 2;
+    if (level < Globals->UNDERWORLD_LEVELS + 2) {
+        // Underworld: 3/4 of the surface
+        return 4.0 / 3.0;
     }
-    if (level >= Globals->UNDERWORLD_LEVELS+2 &&
-            level < (Globals->UNDERWORLD_LEVELS+Globals->UNDERDEEP_LEVELS+2)){
-        // Topmost underdeep level is 1/2 size
-        if (level == Globals->UNDERWORLD_LEVELS+2) return 2;
-        // All others are 1/4 size
-        return 4;
+    if (level < Globals->UNDERWORLD_LEVELS + Globals->UNDERDEEP_LEVELS + 2) {
+        // Underdeep: 3/8 of the surface
+        return 8.0 / 3.0;
     }
     // We couldn't figure it out, assume not scaled.
-    return 1;
+    return 1.0;
 }
 
-int ARegionList::GetLevelYScale(int level)
+/**
+ * @brief Vertical shrink factor of a level relative to the surface.
+ *
+ * The same ratios as GetLevelXScale(), so the underground levels keep the
+ * surface's proportions instead of being stretched east-west.
+ *
+ * @param level Level index (0 nexus, 1 surface, then underworld, then underdeep)
+ * @return 1 for nexus/surface, 4/3 for underworld levels, 8/3 for underdeep levels.
+ * @see GetLevelXScale()
+ */
+double ARegionList::GetLevelYScale(int level)
 {
-    // Surface and nexus are unscaled
-    if (level < 2) return 1;
-
-    // If we only have one underworld level it's 1/2 size
-    if (Globals->UNDERWORLD_LEVELS == 1 && Globals->UNDERDEEP_LEVELS == 0)
-        return 2;
-
-    // We have multiple underworld levels
-    if (level >= 2 && level < Globals->UNDERWORLD_LEVELS+2) {
-        // Topmost level is 1/2 size in the y direction
-        if (level == 2) return 2;
-        // Bottommost is 1/4 size in the y direction
-        if (level == Globals->UNDERWORLD_LEVELS+1) return 4;
-        // All others are 1/2 size in the y direction
-        return 2;
-    }
-    if (level >= Globals->UNDERWORLD_LEVELS+2 &&
-            level < (Globals->UNDERWORLD_LEVELS+Globals->UNDERDEEP_LEVELS+2)){
-        // All underdeep levels are 1/4 size in the y direction.
-        return 4;
-    }
-    // We couldn't figure it out, assume not scaled.
-    return 1;
+    return GetLevelXScale(level);
 }
 
 int ARegionList::CheckRegionExit(ARegion *pFrom, ARegion *pTo )

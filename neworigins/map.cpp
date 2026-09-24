@@ -2,6 +2,7 @@
 #include <string.h>
 #include "game.h"
 #include "gamedata.h"
+#include <cmath>
 #include "../namegen.h"
 #include "rng.hpp"
 
@@ -2064,7 +2065,8 @@ void ARegionList::create_underworld_level(int level, int xSize, int ySize, const
 
     SetRegTypes(pRegionArrays[level], R_NUM);
 
-    SetupAnchors(pRegionArrays[level]);
+    // Half the usual anchor density: fewer, larger seas and caverns.
+    SetupAnchors(pRegionArrays[level], 0.5);
 
     GrowTerrain(pRegionArrays[level], 1, false);
 
@@ -2094,7 +2096,8 @@ void ARegionList::create_underdeep_level(int level, int xSize, int ySize, const 
 
     SetRegTypes(pRegionArrays[level], R_NUM);
 
-    SetupAnchors(pRegionArrays[level]);
+    // Half the usual anchor density: fewer, larger seas and caverns.
+    SetupAnchors(pRegionArrays[level], 0.5);
 
     GrowTerrain(pRegionArrays[level], 1, false);
 
@@ -2673,7 +2676,17 @@ void ARegionList::SetRegTypes(ARegionArray *pRegs, int newType)
     }
 }
 
-void ARegionList::SetupAnchors(ARegionArray *ta)
+/**
+ * @brief Seeds a level with terrain anchors that GrowTerrain then spreads.
+ *
+ * @param ta Level to seed
+ * @param density Multiplier on the per-block chance of an anchor. Below 1 the
+ *        anchors are sparser and the terrain grows into fewer, larger patches;
+ *        the underground levels use it so their seas and caverns come out as
+ *        broad areas rather than speckle.
+ * @see GrowTerrain(), ARegionList::GetRegType()
+ */
+void ARegionList::SetupAnchors(ARegionArray *ta, double density)
 {
     // Now, setup the anchors
     logger::write("Setting up the anchors");
@@ -2688,6 +2701,7 @@ void ARegionList::SetupAnchors(ARegionArray *ta)
         }
         skip = 100 * ((skip+3) * f + 2) / (skip + f - 2);
     }
+    skip = (int) lround(skip * std::max(0.05, density));
     int dotter = 0;
     for (int x=0; x<(ta->x)/f; x++) {
         for (int y=0; y<(ta->y)/(f*2); y++) {
@@ -3087,6 +3101,13 @@ void ARegionList::MakeShaftLinks(int levelFrom, int levelTo, int odds)
  * @note Neither end of a shaft may lie in a settlement: the entrance filter rejects
  *       towns, and a candidate whose exit lands in a town is dropped (logged as
  *       "town"), never nudged, so each exit stays beneath its own entrance.
+ * @note One shaft end per hex: a candidate is dropped (logged as "occupied") when
+ *       its entrance or its exit hex already holds a shaft - two exits never share
+ *       a hex, and an exit from above never doubles as the entrance further down.
+ *       Levels are linked top-down, so every shaft above already exists.
+ * @note Shaft ends keep MIN_SHAFT_GAP (2) from every other shaft end on the same
+ *       level, by coordinates (logged as "crowded"): no two shafts side by side,
+ *       which matters most where many upper hexes map onto a smaller level.
  *       Relies on every level's settlements being placed before this runs.
  * @see CreateLairsAtShafts()
  */
@@ -3149,9 +3170,41 @@ void ARegionList::CreateSmartShafts(int levelFrom, int levelTo, int minDistanceS
         return false;
     };
 
+    // Does this region hold a shaft end of any kind - an entrance, or the exit of a
+    // shaft from the level above? Both ends carry an O_SHAFT object.
+    auto has_any_shaft = [](ARegion* r) {
+        for (const auto o : r->objects)
+            if (o->type == O_SHAFT) return true;
+        return false;
+    };
+
+    // Shaft ends keep a gap on their own level: no two ends (entrance or exit, of
+    // any shaft) closer than MIN_SHAFT_GAP, measured by coordinates like every
+    // other spacing in the generator. Coordinates rather than a walk, because
+    // underground walls sever neighbour links and would hide a hex next door.
+    // Several upper hexes map onto each lower one, so without this the exits of
+    // neighbouring entrances end up side by side on a smaller level below.
+    constexpr int MIN_SHAFT_GAP = 2;
+    auto shaft_ends_on = [&](ARegionArray* arr) {
+        std::vector<graphs::Location2D> ends;
+        for (int x = 0; x < arr->x; x++)
+            for (int y = 0; y < arr->y; y++) {
+                ARegion* r = arr->GetRegion(x, y);
+                if (r && has_any_shaft(r)) ends.push_back({x, y});
+            }
+        return ends;
+    };
+    std::vector<graphs::Location2D> endsFrom = shaft_ends_on(pFrom);
+    std::vector<graphs::Location2D> endsTo = shaft_ends_on(pTo);
+    auto crowded = [](const std::vector<graphs::Location2D>& ends, graphs::Location2D p, int w) {
+        for (const auto& e : ends)
+            if (cylDistance(e, p, w) < MIN_SHAFT_GAP) return true;
+        return false;
+    };
+
     int shaftsCreated = 0;
     int rejected_ocean = 0, rejected_barren = 0, rejected_missing = 0, rejected_stair = 0;
-    int rejected_town = 0;
+    int rejected_town = 0, rejected_occupied = 0, rejected_crowded = 0;
 
     for (const auto& pos : candidates) {
         if (shaftsCreated >= maxShafts) break;
@@ -3161,14 +3214,20 @@ void ARegionList::CreateSmartShafts(int levelFrom, int levelTo, int minDistanceS
         // src is guaranteed to be land by the filter above, but safety check is fine
         if (!src) continue;
 
+        // One shaft end per hex. An entrance may not open where a shaft from the
+        // level above already comes out: the exit and the way further down stay
+        // in separate hexes.
+        if (has_any_shaft(src)) { rejected_occupied++; continue; }
+        if (crowded(endsFrom, {pos.x, pos.y}, pFrom->x)) { rejected_crowded++; continue; }
+
         // 3. STAIRWELL CHECK: do not cluster two ways down to the SAME level.
         //
         // Only shafts leading to levelTo count. The up-shafts the previous pass
         // planted on this level are dense (about one per surface settlement), and
         // this search reaches a radius-3 disc of up to 37 hexes, so letting them
         // count would choke off almost every way down. A shaft to the surface is a
-        // different thing from a shaft to the deep and must not block one; a hex
-        // serving as both is if anything a natural hub.
+        // different thing from a shaft to the deep and must not block one nearby;
+        // the same hex is excluded separately (one shaft end per hex, above).
         bool tooCloseToExisting = false;
         if (minDistanceStair > 0) {
             auto nearby = breadthFirstSearch(src, minDistanceStair);
@@ -3218,9 +3277,15 @@ void ARegionList::CreateSmartShafts(int levelFrom, int levelTo, int minDistanceS
         // dug; the exit is covered here. Both ends of a shaft get a lair
         // (CreateLairsAtShafts), and a lair must not share a hex with a town.
         if (!dst) { rejected_missing++; continue; }
-        if (dst->type == R_OCEAN)  { rejected_ocean++;  continue; }
+        // Water is rejected by similar_type, so a lake counts too: R_LAKE is its
+        // own terrain id, and testing R_OCEAN alone let exits open in lakes.
+        if (TerrainDefs[dst->type].similar_type == R_OCEAN) { rejected_ocean++; continue; }
         if (dst->type == R_BARREN) { rejected_barren++; continue; }
         if (dst->town)             { rejected_town++;   continue; }
+        // One shaft end per hex: several upper hexes map onto each lower one, so
+        // two exits could otherwise share a hex.
+        if (has_any_shaft(dst))    { rejected_occupied++; continue; }
+        if (crowded(endsTo, {targetX, targetY}, pTo->x)) { rejected_crowded++; continue; }
 
         // Create the O_SHAFT object on the upper level.
         Object* down = new Object(src);
@@ -3238,6 +3303,8 @@ void ARegionList::CreateSmartShafts(int levelFrom, int levelTo, int minDistanceS
         up->inner = src->num;
         dst->objects.push_back(up);
 
+        endsFrom.push_back({pos.x, pos.y});
+        endsTo.push_back({targetX, targetY});
         shaftsCreated++;
     }
 
@@ -3249,6 +3316,8 @@ void ARegionList::CreateSmartShafts(int levelFrom, int levelTo, int minDistanceS
         ", ocean " + std::to_string(rejected_ocean) +
         ", barren " + std::to_string(rejected_barren) +
         ", town " + std::to_string(rejected_town) +
+        ", occupied " + std::to_string(rejected_occupied) +
+        ", crowded " + std::to_string(rejected_crowded) +
         ", no region " + std::to_string(rejected_missing));
 }
 
@@ -3438,6 +3507,24 @@ void ARegionList::InitSetupGates(int level)
     logger::write("Level " + std::to_string(level) + ": Placed " + std::to_string(placed) + " gate seeds.");
 }
 
+/**
+ * @brief Does this region already hold a shaft end?
+ *
+ * Both ends of a shaft carry an O_SHAFT object, so this covers entrances and
+ * exits alike. One shaft end per hex is a rule of the generator: two ends in a
+ * hex read as one on the map and stack their lairs.
+ *
+ * @param reg Region to test
+ * @return true when the region holds a shaft object
+ * @see ARegionList::CreateSmartShafts()
+ */
+static bool has_shaft_object(const ARegion* reg)
+{
+    for (const auto o : reg->objects)
+        if (o->type == O_SHAFT) return true;
+    return false;
+}
+
 void ARegionList::FixUnconnectedRegions()
 {
     ARegion *head, *tail, *neighbors[NDIRS], *n;
@@ -3529,16 +3616,33 @@ void ARegionList::FixUnconnectedRegions()
                         n->neighbors[j] = neighbors[j];
             } else if (TerrainDefs[target->type].similar_type != R_OCEAN) {
                 // couldn't break a wall
-                // so try to put in a shaft
-                if (target->zloc > ARegionArray::LEVEL_SURFACE) {
-                    x = target->xloc * GetLevelXScale(target->zloc) / GetLevelXScale(target->zloc - 1);
-                    y = target->yloc * GetLevelYScale(target->zloc) / GetLevelYScale(target->zloc - 1);
-                    xscale = GetLevelXScale(target->zloc) / GetLevelXScale(target->zloc - 1);
-                    yscale = 2 * GetLevelYScale(target->zloc) / GetLevelYScale(target->zloc - 1);
+                // so try to put in a shaft.
+                //
+                // This fallback obeys the same rules as CreateSmartShafts, so every
+                // shaft on the map has two legal ends: neither end may be water, a
+                // settlement, the dungeon void, or a hex that already holds a shaft.
+                // Without that it dug into lakes, doubled up in one hex and even
+                // linked the dungeon level, which is meant to stay empty.
+                bool shaft_ok = target->zloc > ARegionArray::LEVEL_SURFACE
+                    && pRegionArrays[target->zloc]->levelType != ARegionArray::LEVEL_DUNGEON
+                    && target->type != R_BARREN
+                    && !target->town
+                    && !has_shaft_object(target);
+                if (shaft_ok) {
+                    double xratio = GetLevelXScale(target->zloc) / GetLevelXScale(target->zloc - 1);
+                    double yratio = GetLevelYScale(target->zloc) / GetLevelYScale(target->zloc - 1);
+                    x = (int) (target->xloc * xratio);
+                    y = (int) (target->yloc * yratio);
+                    // Search the block of upper-level regions this one covers;
+                    // ratios are rational, so round the block size up.
+                    xscale = std::max(1, (int) ceil(xratio));
+                    yscale = std::max(1, 2 * (int) ceil(yratio));
                     for (i = 0; !n && i < xscale; i++)
                         for (j = 0; !n && j < yscale; j++) {
                             n = pRegionArrays[target->zloc - 1]->GetRegion(x + i, y + j);
-                            if (n && TerrainDefs[n->type].similar_type == R_OCEAN)
+                            if (n && (TerrainDefs[n->type].similar_type == R_OCEAN
+                                      || n->type == R_BARREN || n->town
+                                      || has_shaft_object(n)))
                                 n = 0;
                         }
                     if (n) {

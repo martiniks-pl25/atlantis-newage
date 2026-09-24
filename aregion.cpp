@@ -2,6 +2,7 @@
 #include <string.h>
 #include "game.h"
 #include "gamedata.h"
+#include <cmath>
 #include "mapgen.h"
 #include "namegen.h"
 #include "indenter.hpp"
@@ -2772,11 +2773,13 @@ int ARegionList::GetPlanarDistance(ARegion *one, ARegion *two, int penalty, int 
     int maxy;
     ARegionArray *pArr = (Globals->NEXUS_EXISTS ? pRegionArrays[ARegionArray::LEVEL_SURFACE] : pRegionArrays[0]);
 
-    one_x = one->xloc * GetLevelXScale(one->zloc);
-    one_y = one->yloc * GetLevelYScale(one->zloc);
+    // Scales are rational (a level may be 3/4 of the surface), so round the
+    // projection rather than truncating it.
+    one_x = (int) lround(one->xloc * GetLevelXScale(one->zloc));
+    one_y = (int) lround(one->yloc * GetLevelYScale(one->zloc));
 
-    two_x = two->xloc * GetLevelXScale(two->zloc);
-    two_y = two->yloc * GetLevelYScale(two->zloc);
+    two_x = (int) lround(two->xloc * GetLevelXScale(two->zloc));
+    two_y = (int) lround(two->yloc * GetLevelYScale(two->zloc));
 
     if (Globals->ICOSAHEDRAL_WORLD) {
         int zdist;
@@ -2784,15 +2787,15 @@ int ARegionList::GetPlanarDistance(ARegion *one, ARegion *two, int penalty, int 
 
         start = pArr->GetRegion(one_x, one_y);
         if (start == 0) {
-            one_x += GetLevelXScale(one->zloc) - 1;
-            one_y += GetLevelYScale(one->zloc) - 1;
+            one_x += (int) GetLevelXScale(one->zloc) - 1;
+            one_y += (int) GetLevelYScale(one->zloc) - 1;
             start = pArr->GetRegion(one_x, one_y);
         }
 
         target = pArr->GetRegion(two_x, two_y);
         if (target == 0) {
-            two_x += GetLevelXScale(two->zloc) - 1;
-            two_y += GetLevelYScale(two->zloc) - 1;
+            two_x += (int) GetLevelXScale(two->zloc) - 1;
+            two_y += (int) GetLevelYScale(two->zloc) - 1;
             target = pArr->GetRegion(two_x, two_y);
         }
 
