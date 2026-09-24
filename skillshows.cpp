@@ -606,7 +606,7 @@ const std::string ShowSkill::Report(Faction *f) const
                 if (range->get().flags & RangeType::RNG_CROSS_LEVELS) {
                     str += "Coordinates of locations not on the surface are "
                         "scaled to the surface coordinates for this "
-                        "calculation. Attempting to view across different "
+                        "calculation. Attempting to teleport across different "
                         "levels increases the distance by ";
                     str += std::to_string(range->get().crossLevelPenalty);
                     str += " per level difference. ";
@@ -768,7 +768,7 @@ const std::string ShowSkill::Report(Faction *f) const
                     if (range->get().flags & RangeType::RNG_CROSS_LEVELS) {
                         str += "Coordinates of locations not on the surface "
                             "are scaled to the surface coordinates for this "
-                            "calculation. Attempting to view across "
+                            "calculation. Casting across "
                             "different levels increases the distance by ";
                         str += std::to_string(range->get().crossLevelPenalty);
                         str += " per level difference. ";
@@ -1214,9 +1214,8 @@ const std::string ShowSkill::Report(Faction *f) const
                     "engrave runes of warding on a building; these runes "
                     "will give any occupants of the building a personal "
                     "Energy Shield and Spirit Shield, both at level 3. "
-                    "A mage has a 20 percent chance per level of succeeding "
-                    "with each attempt to cast this spell. To use this "
-                    "spell, the mage should CAST Engrave_Runes_of_Warding, "
+                    "To use this spell, the mage should CAST "
+                    "Engrave_Runes_of_Warding, "
                     "and be within the building he wishes to engrave runes "
                     "upon. This spell costs 600 silver to cast.";
                 if (!(ObjectDefs[O_TOWER].flags & ObjectType::DISABLED)) {
