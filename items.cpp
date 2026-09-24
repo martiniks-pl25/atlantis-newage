@@ -3,11 +3,13 @@
 #include "skills.h"
 #include "object.h"
 #include "gamedata.h"
+#include "ruleset_config.h"
 #include "string_parser.hpp"
 #include "string_filters.hpp"
 #include "strings_util.hpp"
 #include <ranges>
 #include <cmath>
+#include <format>
 
 using namespace std;
 
@@ -1317,26 +1319,34 @@ std::string item_description(int item, int full)
                 " redeemed at the issuing mayor's hall; tokens from global bounties are accepted"
                 " at any Town Hall.";
             break;
-        case I_COMPASS:
-            temp += " A finely balanced brass compass recovered from a pirate captain."
-                " When carried during EXPLORE TMAP, it doubles the chance of successfully"
-                " locating a hidden pirate hideout from a treasure map.";
+        case I_COMPASS: {
+            const TreasureMapRules& tmap = ruleset_config().pirates.treasure_map;
+            temp += std::format(
+                " A finely balanced brass compass recovered from a pirate captain."
+                " When carried during EXPLORE TMAP, it raises the chance of locating a hidden"
+                " pirate hideout from a treasure map from {}% to {}%.",
+                tmap.chance(false), tmap.chance(true));
             break;
+        }
         case I_CROWN:
             temp += " A heavy gold crown wrested from a fallen pirate Admiral. Its bearer cannot"
                 " hide, for the crown's renown precedes them, and word of who holds it travels far."
                 " Gather three crowns to lay claim to the throne of these lands.";
             break;
-        case I_TREASURE_MAP:
-            temp += " A weathered pirate navigation chart recovered from a defeated fleet."
+        case I_TREASURE_MAP: {
+            const TreasureMapRules& tmap = ruleset_config().pirates.treasure_map;
+            temp += std::format(
+                " A weathered pirate navigation chart recovered from a defeated fleet."
                 " Use EXPLORE TMAP to spend a month deciphering it, and the unit will attempt"
                 " to locate a hidden pirate hideout carved into coastal cliffs within a few"
-                " days' journey. Carrying a compass (COMP) doubles the chance of success."
-                " The map is consumed only when a hideout is actually placed; if the charts are"
-                " read but no site can be found, the map is kept for another attempt."
-                " On failure, the salt-stained charts may fall apart."
-                " This map can only be used on the surface.";
+                " days' journey. Each month of study has a {}% chance of success, or {}% if"
+                " the same unit carries a compass (COMP). The map is consumed only when a"
+                " hideout is actually placed; if the charts are read but no site can be found,"
+                " the map is kept for another attempt. A failed attempt destroys the map {}% of"
+                " the time. This map can only be used on the surface.",
+                tmap.chance(false), tmap.chance(true), tmap.burn_on_fail);
             break;
+        }
         case I_RESOURCE_MAP:
             temp += " Ancient resource charts recovered from defeated pirate ships or dungeon"
                 " bosses. Use EXPLORE RMAP to spend a month studying them and permanently"

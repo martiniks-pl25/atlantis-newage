@@ -12,6 +12,7 @@
 #include "nexus_entry.h"
 #include "quests.h"
 #include "rng.hpp"
+#include "ruleset_config.h"
 
 using namespace std;
 
@@ -2509,10 +2510,10 @@ void Game::RunExploreOrders(ARegion *r)
                     continue;
                 }
 
-                // Compass doubles the base 25% success chance to 50%.
+                // Decipher chance per month; a carried compass multiplies it.
+                const TreasureMapRules& tmap = ruleset_config().pirates.treasure_map;
                 bool has_compass = (u->items.GetNum(I_COMPASS) > 0);
-                int chance = has_compass ? 50 : 25;
-                bool success = (rng::get_random(100) < chance);
+                bool success = (rng::get_random(100) < tmap.chance(has_compass));
 
                 if (success) {
                     // Decipher succeeded — try to place the hideout BEFORE spending the
@@ -2536,8 +2537,8 @@ void Game::RunExploreOrders(ARegion *r)
                             "explore");
                     }
                 } else {
-                    // Failed to decipher. 50% chance map is destroyed.
-                    if (rng::get_random(2) == 0) {
+                    // Failed to decipher; the charts may fall apart in the attempt.
+                    if (rng::get_random(100) < tmap.burn_on_fail) {
                         u->items.SetNum(I_TREASURE_MAP,
                             u->items.GetNum(I_TREASURE_MAP) - 1);
                         u->event(u->name + " failed to decipher the treasure map "
