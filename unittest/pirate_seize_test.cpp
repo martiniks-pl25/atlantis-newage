@@ -185,17 +185,13 @@ ut::suite<"PirateSeize"> pirate_seize_suite = [] {
         helper.initialize_game();
         helper.setup_turn();
 
-        json tune;
-        tune["pirate_seize_max_per_turn"] = 0;
-        helper.set_ruleset_specific_data(tune);
-
         ARegion *r = helper.get_region(0, 0, 0);
         r->type = R_PLAIN;
 
         Unit *pirates = helper.create_npc_pirate_fleet(r, 40);
         Object *empty  = helper.create_empty_fleet(r, I_COG);
 
-        helper.run_pirate_seize_empty_ships();
+        helper.run_pirate_seize_empty_ships(SeizeRules{ .max_per_turn = 0 });
 
         expect(pirates->object->GetNumShips(I_COG) == 1_i)
             << "a zero per-turn cap must leave the pirate fleet's hull count unchanged";
@@ -236,11 +232,6 @@ ut::suite<"PirateSeize"> pirate_seize_suite = [] {
         helper.initialize_game();
         helper.setup_turn();
 
-        // Two seizures per turn, so the second iteration re-runs the selection.
-        json data;
-        data["pirate_seize_max_per_turn"] = 2;
-        helper.set_ruleset_specific_data(data);
-
         ARegion *r = helper.get_region(0, 0, 0);
         r->type = R_PLAIN;
 
@@ -248,7 +239,8 @@ ut::suite<"PirateSeize"> pirate_seize_suite = [] {
         helper.create_empty_fleet(r, I_GALLEY);
         Object *empty_galleon = helper.create_empty_fleet(r, I_GALLEON);
 
-        helper.run_pirate_seize_empty_ships();
+        // Two seizures per turn, so the second iteration re-runs the selection.
+        helper.run_pirate_seize_empty_ships(SeizeRules{ .max_per_turn = 2 });
 
         expect(pirates->object->GetNumShips(I_GALLEY) == 1_i)
             << "the armour exception must take the Galley on the first pass";
@@ -424,10 +416,6 @@ ut::suite<"PirateSeize"> pirate_seize_suite = [] {
         helper.initialize_game();
         helper.setup_turn();
 
-        json tune;
-        tune["pirate_seize_offshore"] = 0;
-        helper.set_ruleset_specific_data(tune);
-
         ARegion *ocean = helper.get_region(1, 3, 0);
         ocean->type = R_OCEAN;
         for (int d = 0; d < NDIRS; d++) ocean->neighbors[d] = nullptr;
@@ -439,7 +427,7 @@ ut::suite<"PirateSeize"> pirate_seize_suite = [] {
         Unit *pirates = helper.create_npc_pirate_fleet(ocean, 40);
         Object *empty  = helper.create_empty_fleet(coast, I_COG);
 
-        helper.run_pirate_seize_empty_ships();
+        helper.run_pirate_seize_empty_ships(SeizeRules{ .offshore = false });
 
         expect(pirates->object->GetNumShips(I_COG) == 1_i)
             << "a disabled offshore branch must leave the pirate fleet as it was";

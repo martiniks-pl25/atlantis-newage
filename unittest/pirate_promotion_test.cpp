@@ -73,23 +73,23 @@ static void make_all_water(UnitTestHelper &helper)
     for (auto r : helper.get_regions()) r->type = R_OCEAN;
 }
 
-// Pins the promotion tuning. The unittest ruleset has none of these keys, so
-// every test sets them all; anything omitted falls back to the in-code default.
-// With make_all_water() the world has five water hexes, so
+// Pins the promotion tuning explicitly, one PromotionRules value per test, so
+// nothing depends on the ruleset's own defaults. With make_all_water() the world
+// has five water hexes, so
 //   cap      = 5 * captain_per_mille / 1000   (floored at 1)
 //   deep_max = cap * (100 - surface_share) / 100
-static json tune(int captain_per_mille = 100000, int merge = 1, int bosun_chance = 100,
-                 int surface_share = 67)
+static PromotionRules tune(const int captain_per_mille = 100000, const bool merge = true,
+                           const int bosun_chance = 100, const int surface_share = 67)
 {
-    json d;
-    d["pirate_promote_bosun_crew"] = 75;
-    d["pirate_promote_bosun_chance"] = bosun_chance;
-    d["pirate_promote_captain_crew"] = 120;
-    d["pirate_elite_captain_per_mille"] = captain_per_mille;
-    d["pirate_elite_captain_surface_share_pct"] = surface_share;
-    d["pirate_promote_cooldown"] = 6;
-    d["pirate_promote_merge"] = merge;
-    return d;
+    return PromotionRules{
+        .bosun_crew = 75,
+        .bosun_chance = bosun_chance,
+        .captain_crew = 120,
+        .elite_captain_per_mille = captain_per_mille,
+        .elite_captain_surface_share_pct = surface_share,
+        .merge = merge,
+        .cooldown = 6,
+    };
 }
 
 ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
@@ -102,13 +102,13 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-        helper.set_ruleset_specific_data(tune());
+        const PromotionRules rules = tune();
         make_all_water(helper);
 
         ARegion *r = helper.get_region(0, 2, 0);
         Unit *pirates = helper.create_npc_pirate_fleet(r, 75);
 
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
 
         expect(count_item_in_region(r, I_PIRATE_BOSUN) == 1_i)
             << "a 75-pirate crew is exactly at the bosun bar";
@@ -122,13 +122,13 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-        helper.set_ruleset_specific_data(tune());
+        const PromotionRules rules = tune();
         make_all_water(helper);
 
         ARegion *r = helper.get_region(0, 2, 0);
         Unit *pirates = helper.create_npc_pirate_fleet(r, 74);
 
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
 
         expect(count_item_in_region(r, I_PIRATE_BOSUN) == 0_i)
             << "74 pirates is one short of the bar";
@@ -145,13 +145,13 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
             UnitTestHelper helper;
             helper.initialize_game();
             helper.setup_turn();
-            helper.set_ruleset_specific_data(tune(100000, 1, 50));
+            const PromotionRules rules = tune(100000, true, 50);
             make_all_water(helper);
 
             ARegion *r = helper.get_region(0, 2, 0);
             helper.create_npc_pirate_fleet(r, 75);
             rng::seed_random(seed);
-            helper.run_pirate_promote_fleets();
+            helper.run_pirate_promote_fleets(rules);
 
             if (count_item_world(helper, I_PIRATE_BOSUN) > 0) promoted = true;
             else not_promoted = true;
@@ -164,12 +164,12 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-        helper.set_ruleset_specific_data(tune(100000, 1, 0));
+        const PromotionRules rules = tune(100000, true, 0);
         make_all_water(helper);
 
         ARegion *r = helper.get_region(0, 2, 0);
         helper.create_npc_pirate_fleet(r, 75);
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
 
         expect(count_item_in_region(r, I_PIRATE_BOSUN) == 0_i)
             << "a 0 chance must never promote a bosun";
@@ -177,12 +177,12 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         UnitTestHelper helper2;
         helper2.initialize_game();
         helper2.setup_turn();
-        helper2.set_ruleset_specific_data(tune(100000, 1, 100));
+        const PromotionRules rules2 = tune(100000, true, 100);
         make_all_water(helper2);
 
         ARegion *r2 = helper2.get_region(0, 2, 0);
         helper2.create_npc_pirate_fleet(r2, 75);
-        helper2.run_pirate_promote_fleets();
+        helper2.run_pirate_promote_fleets(rules2);
 
         expect(count_item_in_region(r2, I_PIRATE_BOSUN) == 1_i)
             << "a 100 chance must always promote a bosun";
@@ -192,14 +192,14 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-        helper.set_ruleset_specific_data(tune());
+        const PromotionRules rules = tune();
         make_all_water(helper);
 
         ARegion *r = helper.get_region(0, 2, 0);
         Unit *pirates = helper.create_npc_pirate_fleet(r, 100);
         helper.create_npc_pirate_bosun(r, pirates->object);
 
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
 
         expect(count_item_in_region(r, I_PIRATE_BOSUN) == 1_i)
             << "a bosun already aboard, no second is earned";
@@ -214,13 +214,13 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-        helper.set_ruleset_specific_data(tune(100000, 1, 0));
+        const PromotionRules rules = tune(100000, true, 0);
         make_all_water(helper);
 
         ARegion *r = helper.get_region(0, 2, 0);
         helper.create_npc_pirate_fleet(r, 200);
 
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
 
         expect(count_item_in_region(r, I_PIRATE_BOSUN) == 0_i)
             << "the bosun roll is pinned off";
@@ -232,14 +232,14 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-        helper.set_ruleset_specific_data(tune());
+        const PromotionRules rules = tune();
         make_all_water(helper);
 
         ARegion *r = helper.get_region(0, 2, 0);
         Unit *pirates = helper.create_npc_pirate_fleet(r, 119);
         helper.create_npc_pirate_bosun(r, pirates->object);
 
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
 
         expect(count_item_in_region(r, I_PIRATE_CAPTAIN) == 1_i)
             << "119 pirates plus one bosun is exactly 120 effective crew";
@@ -251,13 +251,13 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-        helper.set_ruleset_specific_data(tune());
+        const PromotionRules rules = tune();
         make_all_water(helper);
 
         ARegion *r = helper.get_region(0, 2, 0);
         Unit *pirates = helper.create_npc_pirate_fleet(r, 120);
 
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
 
         expect(count_item_in_region(r, I_PIRATE_BOSUN) == 1_i)
             << "120 crew is over the bosun bar, so a bosun is earned";
@@ -266,7 +266,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         expect(pirates->items.GetNum(I_PIRATES) == 119_i)
             << "one crew member became the bosun";
 
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
 
         expect(count_item_in_region(r, I_PIRATE_CAPTAIN) == 1_i)
             << "the next pass promotes the bosun-led 120-crew fleet to captain";
@@ -281,7 +281,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-        helper.set_ruleset_specific_data(tune(10, 1, 0));
+        const PromotionRules rules = tune(10, true, 0);
         make_all_water(helper);  // five water hexes * 10 / 1000 floors the cap to 1
 
         ARegion *born_r = helper.get_region(0, 0, 0);
@@ -292,7 +292,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         Unit *pirates = helper.create_npc_pirate_fleet(r, 119);
         helper.create_npc_pirate_bosun(r, pirates->object);
 
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
 
         expect(count_item_world(helper, I_PIRATE_CAPTAIN) == 1_i)
             << "the born captain is the one captain the cap allows";
@@ -304,7 +304,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-        helper.set_ruleset_specific_data(tune(10));
+        const PromotionRules rules = tune(10);
         make_all_water(helper);  // the tiny map has five water hexes, far below 100
 
         ARegion *r1 = helper.get_region(0, 0, 0);
@@ -317,7 +317,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         helper.create_npc_pirate_bosun(r2, p2->object);
         helper.create_npc_pirate_bosun(r3, p3->object);
 
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
 
         expect(count_item_world(helper, I_PIRATE_CAPTAIN) == 1_i)
             << "three eligible fleets, but a small world permits exactly one captain";
@@ -332,7 +332,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-        helper.set_ruleset_specific_data(tune(1200));  // cap 6, deep_max 1
+        const PromotionRules rules = tune(1200);  // cap 6, deep_max 1
         make_all_water(helper);
 
         ARegion *deep_r = helper.get_region(0, 0, 1);
@@ -346,7 +346,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         Unit *surf = helper.create_npc_pirate_fleet(surface_r, 119);
         helper.create_npc_pirate_bosun(surface_r, surf->object);
 
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
 
         expect(count_item_in_region(deep_r, I_PIRATE_CAPTAIN) == 1_i)
             << "the deep quota is already spent by the born captain";
@@ -358,7 +358,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-        helper.set_ruleset_specific_data(tune(400));  // cap 2, deep_max 0
+        const PromotionRules rules = tune(400);  // cap 2, deep_max 0
         make_all_water(helper);
 
         ARegion *r1 = helper.get_region(0, 0, 0);
@@ -368,7 +368,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         Unit *b = helper.create_npc_pirate_fleet(r2, 119);
         helper.create_npc_pirate_bosun(r2, b->object);
 
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
 
         expect(count_item_world(helper, I_PIRATE_CAPTAIN) == 2_i)
             << "two surface captains fit under the full ceiling (no surface throttle)";
@@ -378,14 +378,14 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-        helper.set_ruleset_specific_data(tune(10));  // cap 1, deep_max 0
+        const PromotionRules rules = tune(10);  // cap 1, deep_max 0
         make_all_water(helper);
 
         ARegion *deep_r = helper.get_region(0, 0, 1);
         Unit *deep = helper.create_npc_pirate_fleet(deep_r, 119);
         helper.create_npc_pirate_bosun(deep_r, deep->object);
 
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
 
         expect(count_item_in_region(deep_r, I_PIRATE_CAPTAIN) == 0_i)
             << "deep_max is zero, so a deep fleet is always blocked";
@@ -395,7 +395,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-        helper.set_ruleset_specific_data(tune(1200));  // cap 6, deep_max 1
+        const PromotionRules rules = tune(1200);  // cap 6, deep_max 1
         make_all_water(helper);
 
         ARegion *deep_r = helper.get_region(0, 0, 1);
@@ -407,7 +407,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         Unit *b = helper.create_npc_pirate_fleet(deep_r, 75);
         helper.create_npc_pirate_bosun(deep_r, b->object);
 
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
 
         expect(count_fleets(deep_r) == 3_i)
             << "the two eligible fleets do not merge when the deep quota is full";
@@ -422,7 +422,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-        helper.set_ruleset_specific_data(tune());
+        const PromotionRules rules = tune();
         make_all_water(helper);
 
         ARegion *r = helper.get_region(0, 2, 0);
@@ -436,7 +436,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         // Six blocked passes - the death turn plus five more. The tick runs at
         // the end of each pass, so the death turn does not consume a tick.
         for (int i = 0; i < 6; i++) {
-            helper.run_pirate_promote_fleets();
+            helper.run_pirate_promote_fleets(rules);
             expect(count_item_in_region(r, I_PIRATE_CAPTAIN) == 0_i)
                 << "the fleet is still inside its cooldown";
         }
@@ -444,7 +444,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
             << "six passes drain a six-turn cooldown to zero";
 
         // The seventh pass: the cooldown has expired, so the fleet re-promotes.
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
         expect(count_item_in_region(r, I_PIRATE_CAPTAIN) == 1_i)
             << "the turn after the cooldown expires the fleet earns a captain";
     };
@@ -456,7 +456,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-        helper.set_ruleset_specific_data(tune());
+        const PromotionRules rules = tune();
         make_all_water(helper);
 
         ARegion *r = helper.get_region(0, 2, 0);
@@ -464,7 +464,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         helper.create_npc_pirate_bosun(r, pirates->object);
 
         unittest_reset_pirate_hunt_quest_calls();
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
 
         Unit *captain = find_unit_holding(r, I_PIRATE_CAPTAIN);
         expect(captain != nullptr) << "the captain must exist";
@@ -478,7 +478,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-        helper.set_ruleset_specific_data(tune());
+        const PromotionRules rules = tune();
         make_all_water(helper);
 
         ARegion *r = helper.get_region(0, 2, 0);
@@ -487,7 +487,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         pirates->object->pirate_promote_timer = 6;
 
         unittest_reset_pirate_hunt_quest_calls();
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
 
         expect(count_item_in_region(r, I_PIRATE_CAPTAIN) == 0_i)
             << "the cooldown blocks the promotion";
@@ -502,7 +502,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-        helper.set_ruleset_specific_data(tune());
+        const PromotionRules rules = tune();
         make_all_water(helper);
 
         ARegion *r = helper.get_region(0, 2, 0);
@@ -513,7 +513,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         b->free = 2;  // less mature
         helper.create_npc_pirate_bosun(r, b->object);
 
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
 
         expect(count_fleets(r) == 1_i) << "the source fleet object is deleted";
         expect(a->object->GetNumShips(I_COG) == 2_i)
@@ -534,14 +534,14 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-        helper.set_ruleset_specific_data(tune());
+        const PromotionRules rules = tune();
         make_all_water(helper);
 
         ARegion *r = helper.get_region(0, 2, 0);
         helper.create_npc_pirate_fleet(r, 75);
         helper.create_npc_pirate_fleet(r, 75);
 
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
 
         expect(count_fleets(r) == 2_i)
             << "a fleet that earned a bosun this turn is not a rendezvous partner";
@@ -550,7 +550,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         expect(count_item_in_region(r, I_PIRATE_CAPTAIN) == 0_i)
             << "no merge, so no captain this turn";
 
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
 
         expect(count_fleets(r) == 1_i)
             << "with a turn-old bosun each, the pair merges on the next pass";
@@ -562,7 +562,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-        helper.set_ruleset_specific_data(tune());
+        const PromotionRules rules = tune();
         make_all_water(helper);
 
         ARegion *r = helper.get_region(0, 2, 0);
@@ -571,7 +571,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         Unit *b = helper.create_npc_pirate_fleet(r, 80);
         helper.create_npc_pirate_bosun(r, b->object);
 
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
 
         expect(count_fleets(r) == 1_i)
             << "the pair merges into one fleet";
@@ -587,7 +587,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-        helper.set_ruleset_specific_data(tune());
+        const PromotionRules rules = tune();
         make_all_water(helper);
 
         ARegion *r = helper.get_region(0, 2, 0);
@@ -599,14 +599,14 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         // First pass: the two bosun-less fleets each earn a bosun, and a fleet
         // that earned a bosun this turn is not a rendezvous partner, so nothing
         // merges yet.
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
         expect(count_fleets(r) == 3_i)
             << "a fleet that earned a bosun this turn cannot merge this turn";
         expect(count_item_in_region(r, I_PIRATE_CAPTAIN) == 0_i)
             << "no merge, so no captain this turn";
 
         // Second pass: the bosuns are a turn old, and the first eligible pair merges.
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
         expect(count_fleets(r) == 2_i)
             << "exactly one pair merges; the third is left alone";
         expect(count_item_in_region(r, I_PIRATE_CAPTAIN) == 1_i)
@@ -617,7 +617,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-        helper.set_ruleset_specific_data(tune(10, 1, 0));
+        const PromotionRules rules = tune(10, true, 0);
         make_all_water(helper);
 
         ARegion *born_r = helper.get_region(0, 0, 0);
@@ -630,7 +630,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         Unit *b = helper.create_npc_pirate_fleet(r, 75);
         helper.create_npc_pirate_bosun(r, b->object);
 
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
 
         expect(count_fleets(r) == 2_i)
             << "a full cap means no clumping";
@@ -642,7 +642,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-        helper.set_ruleset_specific_data(tune());
+        const PromotionRules rules = tune();
         make_all_water(helper);
 
         ARegion *r = helper.get_region(0, 2, 0);
@@ -651,7 +651,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         Unit *b = helper.create_npc_pirate_fleet(r, 75);
         helper.create_npc_pirate_bosun(r, b->object);
 
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
 
         expect(count_fleets(r) == 2_i)
             << "a captainled fleet is not a rendezvous partner";
@@ -663,14 +663,14 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-        helper.set_ruleset_specific_data(tune(100000, 1, 0));
+        const PromotionRules rules = tune(100000, true, 0);
         make_all_water(helper);
 
         ARegion *r = helper.get_region(0, 2, 0);
         helper.create_npc_pirate_fleet(r, 75);
         helper.create_npc_pirate_fleet(r, 75);
 
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
 
         expect(count_fleets(r) == 2_i)
             << "a bosun-less pair does not merge";
@@ -682,7 +682,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-        helper.set_ruleset_specific_data(tune(100000, 0));
+        const PromotionRules rules = tune(100000, false);
         make_all_water(helper);
 
         ARegion *r = helper.get_region(0, 2, 0);
@@ -691,10 +691,10 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         Unit *b = helper.create_npc_pirate_fleet(r, 75);
         helper.create_npc_pirate_bosun(r, b->object);
 
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
 
         expect(count_fleets(r) == 2_i)
-            << "pirate_promote_merge = 0 disables the merge";
+            << "PromotionRules::merge = false disables the merge";
         expect(count_item_in_region(r, I_PIRATE_CAPTAIN) == 0_i)
             << "and no captain is granted";
     };
@@ -703,7 +703,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-        helper.set_ruleset_specific_data(tune());
+        const PromotionRules rules = tune();
         make_all_water(helper);
 
         ARegion *r = helper.get_region(0, 2, 0);
@@ -714,7 +714,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
 
         // One partner is still inside its cooldown: no rendezvous this turn.
         a->object->pirate_promote_timer = 1;
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
 
         expect(count_fleets(r) == 2_i)
             << "a fleet inside its cooldown is not a rendezvous partner";
@@ -722,7 +722,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
             << "no merge, so no captain";
 
         // The timer drains at the end of the pass, so next turn the pair merges.
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
 
         expect(count_fleets(r) == 1_i)
             << "once the cooldown expires the pair merges";
@@ -734,7 +734,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-        helper.set_ruleset_specific_data(tune());
+        const PromotionRules rules = tune();
         make_all_water(helper);
 
         // Occupied region: create_faction drops a player unit in regions.front()
@@ -753,7 +753,7 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
         Unit *b = helper.create_npc_pirate_fleet(r_empty, 75);
         helper.create_npc_pirate_bosun(r_empty, b->object);
 
-        helper.run_pirate_promote_fleets();
+        helper.run_pirate_promote_fleets(rules);
 
         expect(count_fleets(r_held) == 2_i)
             << "a player's presence refuses the rendezvous";
@@ -766,27 +766,25 @@ ut::suite<"PiratePromotion"> pirate_promotion_suite = [] {
     };
 
     // -----------------------------------------------------------------------
-    // Born-elite spawn share: MakePirateFleet() rolls the key at generation.
+    // Born-elite spawn share: MakePirateFleet() rolls SpawnRules::elite_spawn_pct.
     // -----------------------------------------------------------------------
     "the born-elite spawn share: 0 spawns no captain, 100 spawns every captain"_test = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
 
-        helper.set_ruleset_specific_data(json{ { "pirate_elite_spawn_pct", 0 } });
         ARegion *r_plain = helper.get_region(0, 2, 0);
         r_plain->type = R_OCEAN;
-        helper.run_make_pirate_fleet(r_plain);
+        helper.run_make_pirate_fleet(r_plain, SpawnRules{ .elite_spawn_pct = 0 });
 
         expect(count_fleets(r_plain) == 1_i)
             << "the fleet still spawns at a zero share";
         expect(count_item_in_region(r_plain, I_PIRATE_CAPTAIN) == 0_i)
             << "a zero share must never spawn a born captain";
 
-        helper.set_ruleset_specific_data(json{ { "pirate_elite_spawn_pct", 100 } });
         ARegion *r_elite = helper.get_region(1, 3, 0);
         r_elite->type = R_OCEAN;
-        helper.run_make_pirate_fleet(r_elite);
+        helper.run_make_pirate_fleet(r_elite, SpawnRules{ .elite_spawn_pct = 100 });
 
         expect(count_fleets(r_elite) == 1_i)
             << "exactly one fleet spawns";

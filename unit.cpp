@@ -959,7 +959,16 @@ void Unit::ClearCastOrders()
     teleportorders = nullptr;
 }
 
-void Unit::DefaultOrders(Object *obj)
+/**
+ * @brief Gives a unit its default month order; for a wandering pirate fleet this
+ * rolls a sailing route.
+ *
+ * @param obj The object the unit is in
+ * @param route_weights Pirate route length weights, index + 1 = steps; an empty or
+ *        zero-sum table falls back to the compiled-in distribution
+ *        (default: the ruleset's pirates.route.step_weights)
+ */
+void Unit::DefaultOrders(Object *obj, std::span<const int> route_weights)
 {
     int weight, i;
     ARegion *r, *n;
@@ -969,24 +978,20 @@ void Unit::DefaultOrders(Object *obj)
         // NPC pirate fleets: owner gets a SailOrder, non-owners get nothing (carried by fleet)
         if (obj->IsFleet() && faction->is_npc) {
             if (obj->GetOwner() == this) {
-                // Route length comes from the ruleset's weight table (a ruleset
-                // global, not a GameDefs field): index + 1 is the number of
-                // steps, and the table's length is the maximum route length. Roll
-                // by cumulative weight; an empty or zero-sum table falls back to
-                // the compiled-in distribution so a misconfigured ruleset never
-                // produces an empty route.
+                // Route length comes from the ruleset's weight table: index + 1 is
+                // the number of steps, and the table's length is the maximum route
+                // length. Roll by cumulative weight; an empty or zero-sum table
+                // falls back to the compiled-in distribution so a misconfigured
+                // ruleset never produces an empty route.
                 int step_total = 0;
-                if (pirateStepWeights && pirateStepWeightsSize > 0) {
-                    for (int i = 0; i < pirateStepWeightsSize; i++)
-                        step_total += pirateStepWeights[i];
-                }
+                for (int w : route_weights) step_total += w;
                 int num_steps = 1;
                 if (step_total > 0) {
                     int roll = rng::get_random(step_total);
                     int cum = 0;
-                    for (int i = 0; i < pirateStepWeightsSize; i++) {
-                        cum += pirateStepWeights[i];
-                        if (roll < cum) { num_steps = i + 1; break; }
+                    for (size_t i = 0; i < route_weights.size(); i++) {
+                        cum += route_weights[i];
+                        if (roll < cum) { num_steps = (int)i + 1; break; }
                     }
                 } else {
                     int roll = rng::get_random(100);

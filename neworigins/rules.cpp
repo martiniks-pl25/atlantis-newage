@@ -67,12 +67,6 @@ int allowedMartialSize = sizeof(ma) / sizeof(ma[0]);
 // this to 1 so the only reachable builds are 1-1, 2-1 and 1-2.
 int factionTypeMin = 0;
 
-// Pirate fleet wandering route length: weight per step count, index + 1 = steps.
-// {30, 40, 30} = 30% one step, 40% two steps, 30% three steps.
-static int psw[] = { 30, 40, 30 };
-int *pirateStepWeights = psw;
-int pirateStepWeightsSize = sizeof(psw) / sizeof(psw[0]);
-
 // Behemoth building trample (declared in gamedefs.h). Budget per turn by maturity,
 // youngest first: young 3, great 6, ancient 9, elder 12. A small production
 // building needs maxMaintenance + 1 = 6 damage to stop working.

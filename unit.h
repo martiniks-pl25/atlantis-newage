@@ -19,6 +19,9 @@ enum class AttitudeType;
 #include "external/nlohmann/json.hpp"
 using json = nlohmann::json;
 
+#include "ruleset_config.h"
+#include <span>
+
 enum {
     GUARD_NONE,
     GUARD_GUARD,
@@ -124,7 +127,7 @@ class Unit {
 
         void ClearOrders();
         void ClearCastOrders();
-        void DefaultOrders(Object *);
+        void DefaultOrders(Object *, std::span<const int> route_weights = ruleset_config().pirates.route.step_weights);
         void set_name(const std::string& newname);
         void set_description(const std::string& newdescription);
         void PostTurn(ARegion *reg);

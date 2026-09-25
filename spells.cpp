@@ -2063,9 +2063,11 @@ void Game::RunTeleportOrders()
  *
  * @param r  Region where the caster is located
  * @param u  Casting unit (U_APPRENTICE or U_MAGE with I_BOSUN_WHISTLE)
+ * @param rules Whistle wear: break_pct is the % chance the whistle breaks after
+ *              the summon resolves (default: the ruleset's pirates.whistle)
  * @return 1 always (spell always resolves)
  */
-int Game::RunCallPirates(ARegion *r, Unit *u)
+int Game::RunCallPirates(ARegion *r, Unit *u, const WhistleRules& rules)
 {
     int level = u->GetSkill(S_CALL_PIRATES);
     int radius = (level + 1) / 2;  // skill 3→2, skill 5→3
@@ -2204,11 +2206,8 @@ int Game::RunCallPirates(ARegion *r, Unit *u)
     }
 
     // A whistle cracks after the summon has resolved: the cast that breaks it
-    // still works, but one whistle is lost. The chance is a ruleset key beside
-    // the other pirate tuning, read once per cast.
-    int break_pct = std::max(0, std::min(100,
-        rulesetSpecificData.value("pirate_whistle_break_pct", 5)));
-    if (u->items.GetNum(I_BOSUN_WHISTLE) > 0 && rng::get_random(100) < break_pct) {
+    // still works, but one whistle is lost.
+    if (u->items.GetNum(I_BOSUN_WHISTLE) > 0 && rng::get_random(100) < rules.break_pct) {
         u->items.SetNum(I_BOSUN_WHISTLE, u->items.GetNum(I_BOSUN_WHISTLE) - 1);
         u->event("The bosun's whistle cracks and falls silent.", "spell");
     }

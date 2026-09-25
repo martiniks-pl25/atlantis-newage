@@ -12,6 +12,7 @@ class Game;
 #include "rng.hpp"
 #include "indenter.hpp"
 #include "string_parser.hpp"
+#include "ruleset_config.h"
 
 #include "external/nlohmann/json.hpp"
 using json = nlohmann::json;
@@ -225,7 +226,7 @@ private:
     void CreateMayor(ARegion *pReg, Object *target = nullptr);
     int MakeWMon(ARegion *pReg);
     void MakeLMon(Object *pObj);
-    int MakePirateFleet(ARegion *pReg);
+    int MakePirateFleet(ARegion *pReg, const SpawnRules& rules = ruleset_config().pirates.spawn);
     void MakePirateLair(Object *pObj);
 
     // Generation-time tuning report; see GENERATION_TUNING_STATS.
@@ -622,7 +623,8 @@ public:
     // cells of the shared LEVEL_DUNGEON grid — the range check is plain
     // coordinate distance and knows nothing about instance boundaries.
     int find_dungeon_instance_for_region(int region_num);
-    void UpdateMapChanceRamp();  // battle.cpp — see docs/PIRATE_MAP_CHANCE_RAMP_PLAN.md
+    // battle.cpp — see docs/PIRATE_MAP_CHANCE_RAMP_PLAN.md
+    void UpdateMapChanceRamp(const MapDropRules& rules = ruleset_config().pirates.map_drop);
     void try_spawn_dungeon();
     ARegion* find_entrance_spot();
     bool region_has_dungeon_exit(const ARegion *r);
@@ -651,7 +653,7 @@ public:
     // A behemoth tramples production buildings and roads; its damage budget grows with maturity
     void BehemothTrampleBuildings(ARegion *r, Unit *u);
     // Pirates recruit new crew when docked on land (before movement phase)
-    void PirateRecruitLandCrew();
+    void PirateRecruitLandCrew(const RecruitRules& rules = ruleset_config().pirates.recruit);
 
     // Pirate activity context collected during turn processing for AI gazette content.
     // Elite = named ships with a captain (I_PIRATE_CAPTAIN).
@@ -663,11 +665,11 @@ public:
     // gazette. Consumed (and cleared) by WriteWorldEvents() -> "monster_raid_context".
     std::vector<std::string> monster_raid_context;
     // Pirates seize empty ships docked in the same non-ocean region
-    void PirateSeizeEmptyShips();
+    void PirateSeizeEmptyShips(const SeizeRules& rules = ruleset_config().pirates.seize);
     // Pirates mature into officers (bosun, captain) and captainless fleets that
     // meet in one region merge under a newly promoted captain. Runs once per turn
     // before EnsureElitePirateQuests(). See docs/PIRATE_PROMOTION_AND_ELITE_AI_DESIGN.md.
-    void PromotePirateFleets();
+    void PromotePirateFleets(const PromotionRules& rules = ruleset_config().pirates.promotion);
     // Create a HUNT_PIRATE quest for the given captain (unconditional).
     void TryCreatePirateHuntQuest(Unit *cap);
     // Each turn: fill open HUNT_PIRATE quest slots from uncovered captains (unconditional).

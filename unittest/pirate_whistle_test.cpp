@@ -440,7 +440,7 @@ ut::suite<"PirateWhistle"> pirate_whistle_suite = [] {
     };
 
     // -----------------------------------------------------------------------
-    // Whistle break: a 10% chance by default, tunable via the ruleset key.
+    // Whistle break: WhistleRules::break_pct (5% in the ruleset), passed explicitly here.
     // Pinned to 100 the whistle is gone after one cast (and the summon still
     // happened that turn); pinned to 0 it survives repeated casts.
     // -----------------------------------------------------------------------
@@ -448,7 +448,6 @@ ut::suite<"PirateWhistle"> pirate_whistle_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-        helper.set_ruleset_specific_data(json{ { "pirate_whistle_break_pct", 100 } });
 
         ARegion *r_caster = helper.get_region(0, 0, 0);
         ARegion *r_fleet = helper.get_region(1, 1, 0);
@@ -464,7 +463,7 @@ ut::suite<"PirateWhistle"> pirate_whistle_suite = [] {
         auto *random_so = new SailOrder;
         pirates->monthorders = random_so;
 
-        helper.activate_spell(S_CALL_PIRATES, { r_caster, caster, nullptr, 0, 0 });
+        helper.run_call_pirates(r_caster, caster, WhistleRules{ .break_pct = 100 });
 
         expect(caster->items.GetNum(I_BOSUN_WHISTLE) == 0_i)
             << "a 100 break chance consumes the whistle after one cast";
@@ -482,7 +481,6 @@ ut::suite<"PirateWhistle"> pirate_whistle_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-        helper.set_ruleset_specific_data(json{ { "pirate_whistle_break_pct", 0 } });
 
         ARegion *r_caster = helper.get_region(0, 0, 0);
         ARegion *r_fleet = helper.get_region(1, 1, 0);
@@ -497,7 +495,7 @@ ut::suite<"PirateWhistle"> pirate_whistle_suite = [] {
         helper.create_npc_pirate_fleet(r_fleet, 5);
 
         for (int i = 0; i < 5; i++)
-            helper.activate_spell(S_CALL_PIRATES, { r_caster, caster, nullptr, 0, 0 });
+            helper.run_call_pirates(r_caster, caster, WhistleRules{ .break_pct = 0 });
 
         expect(caster->items.GetNum(I_BOSUN_WHISTLE) == 1_i)
             << "a 0 break chance never consumes the whistle";

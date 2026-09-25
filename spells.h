@@ -61,5 +61,5 @@ int RunEnchant(ARegion *,Unit *, int, int);
 int RunMindReading(ARegion *,Unit *);
 int RunTransmutation(ARegion *,Unit *);
 int RunBlasphemousRitual(ARegion *,Unit *);
-int RunCallPirates(ARegion *,Unit *);
+int RunCallPirates(ARegion *,Unit *, const WhistleRules& rules = ruleset_config().pirates.whistle);
 #endif
