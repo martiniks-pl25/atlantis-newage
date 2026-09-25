@@ -24,8 +24,9 @@ struct DungeonTypeDef {
 
     int rooms_min, rooms_max;   // R_DUNGEON room count range (8×8 cell has 32 hexes)
 
-    // Wandering monster composition per non-entry/non-boss room.
-    // First entry is the primary (always spawned); remaining entries are added with 50% chance.
+    // Wandering monster composition per non-entry/non-boss room. All entries are
+    // always spawned, stacked onto one unit (see Game::populate_dungeon). In the
+    // entry room only the first (primary) entry applies, at half count.
     std::vector<DungeonMobDef> wander_mobs;
     const char *wander_unit_name;   // unit display name, e.g. "Undead"
 
@@ -51,6 +52,18 @@ struct DungeonTypeDef {
 
     // Maximum lifetime from spawn (turns). Dungeon starts DYING even if boss is alive.
     int max_lifetime_turns;
+
+    // Entry room guard composition, used only by populate_pirate_hideout_impl()
+    // in dungeon.cpp. Empty (the default, i.e. every type except the pirate
+    // hideout) — the generic Game::populate_dungeon() never reads this field;
+    // it always guards its entry room with wander_mobs[0] at half count.
+    std::vector<DungeonMobDef> entry_mobs;
+
+    // Named officers placed FLAG_BEHIND the boss room's crew, one unit per head.
+    // Empty (the default) means no named escort. Only the pirate hideout uses
+    // this — its boss room has named officers instead of the generic single
+    // boss unit (see populate_pirate_hideout_impl in dungeon.cpp).
+    std::vector<DungeonMobDef> boss_escort;
 };
 
 // Type table — defined in dungeon.cpp, indexed by DungeonType enum.

@@ -15,6 +15,8 @@
 #include <queue>
 #include <algorithm>
 #include <sstream>
+#include <format>
+#include <span>
 
 // ---------------------------------------------------------------------------
 // Dungeon type table — add new themes here.
@@ -66,17 +68,27 @@ const std::vector<DungeonTypeDef> DungeonTypeDefs = {
     },
     {   // DUNGEON_PIRATE_HIDEOUT — triggered by EXPLORE TMAP; never auto-spawns (weight=0)
         // Coastal cave carved into cliff faces; narrow corridors (DFS), few dead ends.
-        // Custom population via populate_pirate_hideout() — two units in boss room
-        // (pirates in front, King+officers FLAG_BEHIND).
-        "Sea Cave", "Hidden Cove Entrance",
-        6, 9,
-        { {I_PIRATES,40,50}, {I_PIRATE_BOSUN,1,2} }, "Pirates",
-        { {I_PIRATES,80,100} }, "Admiral",
-        I_PIRATE_KING,
-        DungeonGenStyle::DFS_CORRIDOR, 15,
-        0, 0,    // never auto-spawns
-        8,       // dying_turns: grace to clear/leave the cove
-        12       // max_lifetime_turns: victory-critical, give time to muster and assault
+        // Custom population via populate_pirate_hideout_impl(): unlike the generic
+        // types, every mob entry below is always spawned (no primary/half-count
+        // rule), and every non-crew (non I_PIRATES) entry becomes one named unit
+        // per head, placed FLAG_BEHIND the crew.
+        .name                = "Sea Cave",
+        .entrance_name       = "Hidden Cove Entrance",
+        .rooms_min           = 6,
+        .rooms_max           = 9,
+        .wander_mobs         = { {I_PIRATES,40,50}, {I_PIRATE_BOSUN,1,2} },
+        .wander_unit_name    = "Pirates",
+        .boss_mobs           = { {I_PIRATES,80,100} },
+        .boss_unit_name      = "Admiral",
+        .boss_kill_item      = I_PIRATE_KING,
+        .gen_style           = DungeonGenStyle::DFS_CORRIDOR,
+        .branch_chance       = 15,
+        .weight_early        = 0,    // never auto-spawns
+        .weight_late         = 0,    // never auto-spawns
+        .dying_turns         = 8,    // grace to clear/leave the cove
+        .max_lifetime_turns  = 12,   // victory-critical, give time to muster and assault
+        .entry_mobs          = { {I_PIRATES,20,30} },
+        .boss_escort         = { {I_PIRATE_KING,1,1}, {I_PIRATE_BOSUN,2,3}, {I_PIRATE_CAPTAIN,1,2} },
     },
 };
 
@@ -997,11 +1009,23 @@ ARegion* Game::find_pirate_hideout_spot(ARegion* origin)
 }
 
 // ---------------------------------------------------------------------------
-// Game::populate_pirate_hideout
-// Custom population for DUNGEON_PIRATE_HIDEOUT.
+// Pirate hideout population (DUNGEON_PIRATE_HIDEOUT)
 // Every named NPC (bosun, captain, king) is a separate unit with its own name,
 // matching the MakePirateFleet pattern. Crew units remain anonymous ("Pirates").
 // ---------------------------------------------------------------------------
+
+/**
+ * @brief Creates one monster-faction pirate unit in a hideout room.
+ *
+ * @param g Game that owns the new unit
+ * @param mfac Monster faction
+ * @param r Room the unit is placed in (its dummy object)
+ * @param unit_name Display name ("Pirates" for crew, a personal name for officers)
+ * @param item Monster item (I_PIRATES, I_PIRATE_BOSUN, ...)
+ * @param count How many of item the unit holds
+ * @param behind Whether the unit fights from the back line (FLAG_BEHIND)
+ * @return The new unit: fully mature (free = 0), not guarding
+ */
 static Unit *make_pirate_mob(Game *g, Faction *mfac, ARegion *r,
                               const char *unit_name, int item, int count,
                               bool behind)
@@ -1016,9 +1040,79 @@ static Unit *make_pirate_mob(Game *g, Faction *mfac, ARegion *r,
     return u;
 }
 
+/**
+ * @brief Rolls how many of a mob entry spawn.
+ *
+ * @param m Mob entry with an inclusive min..max range
+ * @return A count in m.min..m.max; no RNG is consumed when min == max, so fixed
+ *         counts (exactly one king) keep the random sequence unchanged
+ */
+static int roll_mob_count(const DungeonMobDef &m)
+{
+    return m.max > m.min ? m.min + rng::get_random(m.max - m.min + 1) : m.min;
+}
+
+/**
+ * @brief Builds a room's anonymous "Pirates" front-line unit.
+ *
+ * The first entry makes the unit; any further entries are stacked onto it. The
+ * count is rolled before the unit is created.
+ *
+ * @param g Game that owns the new unit
+ * @param mfac Monster faction
+ * @param r Room the crew is placed in
+ * @param mobs Crew entries; empty spawns nothing
+ */
+static void spawn_pirate_crew(Game *g, Faction *mfac, ARegion *r,
+                               std::span<const DungeonMobDef> mobs)
+{
+    if (mobs.empty()) return;
+    const int count = roll_mob_count(mobs.front());
+    Unit *u = make_pirate_mob(g, mfac, r, "Pirates", mobs.front().item, count, false);
+    for (const auto &m : mobs.subspan(1))
+        u->items.SetNum(m.item, roll_mob_count(m));
+}
+
+/**
+ * @brief Spawns named officers behind a room's crew, one unit per head.
+ *
+ * @param g Game that owns the new units
+ * @param mfac Monster faction
+ * @param r Room the officers are placed in
+ * @param mobs Officer entries, each rolled with roll_mob_count()
+ * @param king_name Name for I_PIRATE_KING (pre-generated for the dungeon); every
+ *        other officer gets a fresh getPirateName()
+ */
+static void spawn_pirate_officers(Game *g, Faction *mfac, ARegion *r,
+                                   std::span<const DungeonMobDef> mobs,
+                                   const std::string &king_name)
+{
+    for (const auto &m : mobs) {
+        const int count = roll_mob_count(m);
+        for (int i = 0; i < count; i++) {
+            const std::string name = (m.item == I_PIRATE_KING) ? king_name : getPirateName();
+            make_pirate_mob(g, mfac, r, name.c_str(), m.item, 1, true);
+        }
+    }
+}
+
+/**
+ * @brief Fills every room of a new pirate hideout from its DungeonTypeDefs row.
+ *
+ * Boss room: boss_mobs as the crew, boss_escort as named officers behind it.
+ * Entry room: entry_mobs as the crew, no officers. Corridor rooms: the first
+ * wander_mobs entry as the crew, the rest as named officers. Every entry always
+ * spawns (unlike Game::populate_dungeon's half-count entry guard).
+ *
+ * @param g Game that owns the new units
+ * @param d The hideout instance (rooms, entry and boss room numbers, type)
+ * @param king_name Name for the Admiral in the boss room
+ * @see spawn_pirate_hideout()
+ */
 static void populate_pirate_hideout_impl(Game *g, const DungeonInstance &d,
                                           const std::string &king_name)
 {
+    const auto &td = DungeonTypeDefs[(int)d.type];
     Faction *mfac = GetFaction(g->factions, g->monfaction);
 
     for (int rnum : d.room_nums) {
@@ -1026,36 +1120,19 @@ static void populate_pirate_hideout_impl(Game *g, const DungeonInstance &d,
         if (!r) continue;
 
         if (rnum == d.boss_region_num) {
-            // Front: heavy crew.
-            int pira = 80 + rng::get_random(21);  // 80–100
-            make_pirate_mob(g, mfac, r, "Pirates", I_PIRATES, pira, false);
-
-            // Behind: Dread Admiral (king).
-            make_pirate_mob(g, mfac, r, king_name.c_str(), I_PIRATE_KING, 1, true);
-
-            // Behind: 2–3 named bosuns.
-            int n_bos = 2 + rng::get_random(2);
-            for (int i = 0; i < n_bos; i++)
-                make_pirate_mob(g, mfac, r, getPirateName().c_str(), I_PIRATE_BOSUN, 1, true);
-
-            // Behind: 1–2 named captains.
-            int n_cap = 1 + rng::get_random(2);
-            for (int i = 0; i < n_cap; i++)
-                make_pirate_mob(g, mfac, r, getPirateName().c_str(), I_PIRATE_CAPTAIN, 1, true);
+            // Front: heavy crew. Behind: named officers (king, bosuns, captains).
+            spawn_pirate_crew(g, mfac, r, td.boss_mobs);
+            spawn_pirate_officers(g, mfac, r, td.boss_escort, king_name);
 
         } else if (rnum == d.entry_region_num) {
             // Entry room: light guard, no named officers.
-            int pira = 20 + rng::get_random(11);  // 20–30
-            make_pirate_mob(g, mfac, r, "Pirates", I_PIRATES, pira, false);
+            spawn_pirate_crew(g, mfac, r, td.entry_mobs);
 
-        } else {
-            // Corridor room: crew + 1–2 named bosuns (each separate unit).
-            int pira = 40 + rng::get_random(11);  // 40–50
-            make_pirate_mob(g, mfac, r, "Pirates", I_PIRATES, pira, false);
-
-            int n_bos = 1 + rng::get_random(2);   // 1–2
-            for (int i = 0; i < n_bos; i++)
-                make_pirate_mob(g, mfac, r, getPirateName().c_str(), I_PIRATE_BOSUN, 1, true);
+        } else if (!td.wander_mobs.empty()) {
+            // Corridor room: crew (first entry) + named officers (remaining entries).
+            const std::span<const DungeonMobDef> wander(td.wander_mobs);
+            spawn_pirate_crew(g, mfac, r, wander.first(1));
+            spawn_pirate_officers(g, mfac, r, wander.subspan(1), king_name);
         }
     }
 }
@@ -1126,7 +1203,8 @@ bool Game::spawn_pirate_hideout(ARegion *origin, Unit *u)
             ent->describe = "Discovered in " + MonthNames[sm] + ", Year "
                 + std::to_string(sy)
                 + ". A hidden pirate stronghold carved into the cliff face."
-                " The pirates will receive word and evacuate within 8 turns.";
+                + std::format(" The pirates will receive word and abandon the cove within {} turns.",
+                               DungeonTypeDefs[(int)DungeonType::DUNGEON_PIRATE_HIDEOUT].max_lifetime_turns);
         }
         surface_r->objects.push_back(ent);
         d.entrance_object_num = ent->num;
