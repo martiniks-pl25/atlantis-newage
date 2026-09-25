@@ -59,12 +59,9 @@ static int count_pirate_hulls(ARegion *r)
 // rolls Army::Lose() made. Same device as pirate_map_chance_ramp_test.cpp.
 static void force_guaranteed_tmap(UnitTestHelper &helper)
 {
-    json data;
-    data["map_chance_cap"] = 100;
-    helper.set_ruleset_specific_data(data);
     helper.game_object().year = 9;
     helper.game_object().month = 3;  // TurnNumber() == 100
-    helper.game_object().UpdateMapChanceRamp();
+    helper.game_object().UpdateMapChanceRamp(MapDropRules{ .chance_cap = 100 });
 }
 
 // An attacker armed far past what the fight needs: a squadron that routs leaves
@@ -186,11 +183,6 @@ ut::suite<"PirateSeizeSpoils"> pirate_seize_spoils_suite = [] {
         helper.setup_turn();
         force_guaranteed_tmap(helper);
 
-        // Keep the crew "crowded" at 1% and raise the per-turn cap so a single
-        // turn absorbs all three hulls; the ramp keys above are untouched.
-        helper.game_object().rulesetSpecificData["pirate_seize_fill_pct"] = 1;
-        helper.game_object().rulesetSpecificData["pirate_seize_max_per_turn"] = 3;
-
         ARegion *r = helper.get_region(0, 2, 0);
         r->type = R_PLAIN;  // seizure only happens off the water
 
@@ -200,7 +192,9 @@ ut::suite<"PirateSeizeSpoils"> pirate_seize_spoils_suite = [] {
         helper.create_empty_fleet(r, I_COG, "Ship B");
         helper.create_empty_fleet(r, I_COG, "Ship C");
 
-        helper.run_pirate_seize_empty_ships();
+        // Keep the crew "crowded" at 1% and raise the per-turn cap so a single
+        // turn absorbs all three hulls; the map-drop rules set above are untouched.
+        helper.run_pirate_seize_empty_ships(SeizeRules{ .fill_pct = 1, .max_per_turn = 3 });
 
         expect(count_pirate_hulls(r) == 1_i)
             << "three merged prizes plus the fleet must read as one hull";

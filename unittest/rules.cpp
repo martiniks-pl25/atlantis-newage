@@ -59,13 +59,6 @@ int volcanoMinMountains = 2;
 int volcanoUplandNeeded = 4;    // 4 + 2d3 - 2 = 4-8, the old 2d3+2 window
 int volcanoExclusionRadius = 2; // was the hardcoded 2
 
-// Pirate fleet wandering route length: weight per step count, index + 1 = steps.
-// Mirrors neworigins/rules.cpp; tests that exercise a specific table override
-// this pointer/size and restore it.
-static int psw[] = { 30, 40, 30 };
-int *pirateStepWeights = psw;
-int pirateStepWeightsSize = sizeof(psw) / sizeof(psw[0]);
-
 // Behemoth building trample. Mirrors neworigins/rules.cpp; tests that exercise
 // other values override these and restore them.
 static int btd[] = { 3, 6, 9, 12 };

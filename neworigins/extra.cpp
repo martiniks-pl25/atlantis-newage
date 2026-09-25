@@ -894,78 +894,11 @@ void Game::ModifyTablesPerRuleset(void)
     rulesetSpecificData["crowns_to_win"]    = 3;
     rulesetSpecificData["coronation_turns"] = 5;
 
-    // Pirate map-drop tuning: the mature crew's per-vessel map chance and the TMAP
-    // share both ramp as "turn N = N%", capped at map_chance_cap; the hideout-supply
-    // throttle floors the TMAP share at tmap_share_floor. Active on both Arcanum (dev)
-    // and Trident (prod), unlike the coronation flag above. See
-    // docs/PIRATE_MAP_CHANCE_RAMP_PLAN.md.
-    rulesetSpecificData["map_chance_cap"]           = 60;
-    rulesetSpecificData["tmap_share_floor"]         = 10;
-    rulesetSpecificData["hideout_soft_cap_percent"] = 7;
-
-    // Pirate press-gang tuning - how a fleet takes on crew, read once per turn
-    // in Game::PirateRecruitLandCrew().
-    //   intake_up / intake_down - the per-turn intake ceiling is
-    //       Object::GetFleetSize() + rng(up) - rng(down), so at 4 and 2 a cog that
-    //       needs six hands signs on five to nine, six to eight most months
-    //   pop_cost                - people the region loses per hand actually kept;
-    //       1 costs a region exactly what a player's recruiter costs it
-    //   offshore_pct            - percent of the land intake an offshore fleet gets
-    //       (0 disables offshore recruitment entirely - no separate boolean)
-    rulesetSpecificData["pirate_recruit_intake_up"]    = 4;
-    rulesetSpecificData["pirate_recruit_intake_down"]  = 2;
-    rulesetSpecificData["pirate_recruit_pop_cost"]     = 2;
-    rulesetSpecificData["pirate_recruit_offshore_pct"] = 50;
-
-    // Pirate ship seizure tuning - how a docked fleet absorbs abandoned ships,
-    // read once per turn in Game::PirateSeizeEmptyShips(). The land pass uses the
-    // first four; pirate_seize_offshore is consumed by the offshore follow-up.
-    //   min_crew     - crew required before the fleet boards anything
-    //   fill_pct     - "crowded" threshold, percent of the hull's crew capacity
-    //   max_per_turn - ships merged per pirate fleet per turn
-    //   allow_slower - 1 = also take ships slower than the fleet (e.g. a Raft)
-    //   offshore     - 1 = let a fleet in the water seize from land neighbours
-    rulesetSpecificData["pirate_seize_min_crew"]     = 20;
-    rulesetSpecificData["pirate_seize_fill_pct"]     = 50;
-    rulesetSpecificData["pirate_seize_max_per_turn"] = 1;
-    rulesetSpecificData["pirate_seize_allow_slower"] = 0;
-    rulesetSpecificData["pirate_seize_offshore"]     = 1;
-
-    // Pirate promotion tuning - how a fleet matures into officers and how two
-    // captainless fleets that meet merge, read once per turn in
-    // Game::PromotePirateFleets() (the cooldown is also read once per battle in
-    // Game::RunBattle). Thresholds are absolute crew counts, officers included,
-    // so promoting one pirate into an officer never drops a fleet back under its
-    // own bar.
-    //   bosun_crew      - effective crew at which a fleet can earn a bosun
-    //   bosun_chance    - per-fleet-per-turn percent roll for that promotion; it paces
-    //       how fast the queue of eligible fleets drains, not how many fleets
-    //       eventually carry a bosun
-    //   captain_crew    - effective crew at which a fleet with a bosun earns a captain
-    //   captain_per_mille - captain ceiling = max(1, water_hexes * this / 1000)
-    //   captain_surface_share_pct - share of the ceiling reserved for the surface;
-    //       the deep holds the rest (deep_max = cap * (100 - this) / 100)
-    //   cooldown        - turns a fleet waits after its captain died (set in Army::Lose)
-    //   merge           - 1 = let two eligible captainless fleets merge (0 disables)
-    rulesetSpecificData["pirate_promote_bosun_crew"]      = 75;
-    rulesetSpecificData["pirate_promote_bosun_chance"]    = 30;
-    rulesetSpecificData["pirate_promote_captain_crew"]    = 120;
-    rulesetSpecificData["pirate_elite_captain_per_mille"] = 10;
-    rulesetSpecificData["pirate_elite_captain_surface_share_pct"] = 67;
-    rulesetSpecificData["pirate_promote_cooldown"]        = 6;
-    rulesetSpecificData["pirate_promote_merge"]           = 1;
-
-    // Born-elite spawn share: percent of MakePirateFleet() spawns that are elite
-    // (Galley, triple crew, a captain and a bosun). 0 = no born elites, 100 = all.
-    rulesetSpecificData["pirate_elite_spawn_pct"]         = 10;
+    // Pirate tuning lives in RulesetConfig (neworigins/ruleset_config.cpp).
 
     // Lair crew multiplier (MakePirateLair): 100 = unchanged. Trident doubles the
     // pirates a lair spawns so the lair is a real garrison, not a speed bump.
     rulesetSpecificData["pirate_lair_spawn_mult"]         = 200;
-
-    // Bosun's whistle break chance: percent roll each time S_CALL_PIRATES is
-    // cast, checked after the summon resolves (the cast that breaks still works).
-    rulesetSpecificData["pirate_whistle_break_pct"]       = 5;
 
     EnableItem(I_CAMEL);
     EnableItem(I_MCROSSBOW);

@@ -357,18 +357,16 @@ bool pirate_avoids_city_ring(const ARegion *r)
  * via getPirateName(). Rank prefixes are added in GetMonsterDisplayName().
  *
  * @param pReg Ocean region where the fleet is created
+ * @param rules Spawn tuning: elite_spawn_pct is the % chance the fleet is born
+ *              elite (default: the ruleset's pirates.spawn)
  * @return 1 on success
  */
-int Game::MakePirateFleet(ARegion *pReg)
+int Game::MakePirateFleet(ARegion *pReg, const SpawnRules& rules)
 {
     auto pmon = find_monster(ItemDefs[I_PIRATES].abr, false)->get();
     Faction *monfac = GetFaction(factions, monfaction);
-    // Born-elite share, clamped to [0,100]: 0 spawns no elite fleets, 100 makes
-    // every spawned fleet elite. Fallback 10 keeps rulesets without the key and
-    // the unittest build behaving exactly as today.
-    int elite_pct = std::max(0, std::min(100,
-        rulesetSpecificData.value("pirate_elite_spawn_pct", 10)));
-    bool elite = (rng::get_random(100) < elite_pct);
+    // Born-elite share: 0 spawns no elite fleets, 100 makes every spawned fleet elite.
+    const bool elite = (rng::get_random(100) < rules.elite_spawn_pct);
 
     int pira_count = (pmon.number + rng::get_random(pmon.number) + 1) / 2;
     if (elite) pira_count *= 3;
@@ -628,16 +626,26 @@ bool fleet_has_captain(Object *fleet)
     return false;
 }
 
-void Game::PirateRecruitLandCrew()
+/**
+ * @brief Pirate fleets press-gang crew from the land they sit on or next to.
+ *
+ * A docked fleet recruits from its own hex; a fleet offshore recruits from the
+ * richest land neighbour at offshore_pct of the land intake. The per-turn intake
+ * ceiling is Object::GetFleetSize() + rng(intake_up) - rng(intake_down), and every
+ * hand kept costs the region pop_cost people.
+ *
+ * @param rules Press-gang tuning (default: the ruleset's pirates.recruit)
+ */
+void Game::PirateRecruitLandCrew(const RecruitRules& rules)
 {
     // Ruleset tuning, read once for the whole pass. The defaults keep an
     // unconfigured ruleset sane: the intake ceiling then sits exactly on the
     // ship's sailor requirement, and a kept hand costs the region one person,
     // the same as a player's recruiter does.
-    int intake_up = std::max(1, rulesetSpecificData.value("pirate_recruit_intake_up", 1));
-    int intake_down = std::max(1, rulesetSpecificData.value("pirate_recruit_intake_down", 1));
-    int pop_cost = std::max(1, rulesetSpecificData.value("pirate_recruit_pop_cost", 1));
-    int offshore_pct = std::max(0, rulesetSpecificData.value("pirate_recruit_offshore_pct", 50));
+    const int intake_up = rules.intake_up;
+    const int intake_down = rules.intake_down;
+    const int pop_cost = rules.pop_cost;
+    const int offshore_pct = rules.offshore_pct;
 
     // Stage 1: what each land hex gives up in a month is what a recruiter could
     // hire out of it: one market unit per MEN_PER_MARKET_UNIT people. Built up
@@ -801,18 +809,19 @@ void Game::PirateRecruitLandCrew()
  * deleted.
  *
  * Called once per turn after PirateRecruitLandCrew(), before movement.
+ *
+ * @param rules Seizure tuning: crew floor, crowding threshold, ships per turn,
+ *              slower hulls, offshore seizure (default: the ruleset's pirates.seize)
  */
-void Game::PirateSeizeEmptyShips()
+void Game::PirateSeizeEmptyShips(const SeizeRules& rules)
 {
-    // Ruleset tuning, read once for the whole pass. min_crew, fill_pct and
-    // max_per_turn floor at 0, so a ruleset that sets max_per_turn to 0
-    // disables seizure entirely - the per-turn loop never runs. allow_slower
-    // and offshore are read raw: any nonzero value enables them.
-    int min_crew = std::max(0, rulesetSpecificData.value("pirate_seize_min_crew", 20));
-    int fill_pct = std::max(0, rulesetSpecificData.value("pirate_seize_fill_pct", 50));
-    int max_per_turn = std::max(0, rulesetSpecificData.value("pirate_seize_max_per_turn", 1));
-    int allow_slower = rulesetSpecificData.value("pirate_seize_allow_slower", 0);
-    int offshore_enabled = rulesetSpecificData.value("pirate_seize_offshore", 1);
+    // Ruleset tuning, read once for the whole pass. max_per_turn at 0 disables
+    // seizure entirely - the per-turn loop never runs.
+    const int min_crew = rules.min_crew;
+    const int fill_pct = rules.fill_pct;
+    const int max_per_turn = rules.max_per_turn;
+    const bool allow_slower = rules.allow_slower;
+    const bool offshore_enabled = rules.offshore;
 
     // A ship type's hull protection (ObjectDefs protect), guarded against a
     // negative lookup: an unknown item simply shelters nobody.
@@ -1058,19 +1067,21 @@ static bool pirate_fleet_has_bosun(Object *fleet)
  *
  * @note Officers spawn at the crew unit's own `free`, FLAG_BEHIND, named via
  *       getPirateName() - the same way MakePirateFleet builds a born captain.
+ *
+ * @param rules Promotion tuning: crew thresholds, bosun roll, captain ceiling,
+ *              rendezvous switch (default: the ruleset's pirates.promotion)
  */
-void Game::PromotePirateFleets()
+void Game::PromotePirateFleets(const PromotionRules& rules)
 {
     // Ruleset tuning, read once for the whole pass. The defaults keep an
     // unconfigured ruleset sane: the bosun bar sits on a Cog's full crew, the
     // captain bar on a Galley's, and the cap follows 1% of the world's water.
-    int bosun_crew = std::max(1, rulesetSpecificData.value("pirate_promote_bosun_crew", 75));
-    int bosun_chance = std::max(0, rulesetSpecificData.value("pirate_promote_bosun_chance", 30));
-    int captain_crew = std::max(1, rulesetSpecificData.value("pirate_promote_captain_crew", 120));
-    int captain_per_mille = std::max(0, rulesetSpecificData.value("pirate_elite_captain_per_mille", 10));
-    int merge_enabled = rulesetSpecificData.value("pirate_promote_merge", 1);
-    int surface_share = std::max(0, std::min(100,
-        rulesetSpecificData.value("pirate_elite_captain_surface_share_pct", 67)));
+    const int bosun_crew = rules.bosun_crew;
+    const int bosun_chance = rules.bosun_chance;
+    const int captain_crew = rules.captain_crew;
+    const int captain_per_mille = rules.elite_captain_per_mille;
+    const bool merge_enabled = rules.merge;
+    const int surface_share = rules.elite_captain_surface_share_pct;
 
     // Whether a region lies below the surface: underworld, underdeep and dungeon
     // levels all count as deep. The deep gets its own sub-ceiling of the captain

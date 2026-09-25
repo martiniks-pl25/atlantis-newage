@@ -91,13 +91,15 @@ public:
     // Behemoth building trample (Game::BehemothTrampleBuildings)
     void run_behemoth_trample(ARegion *r, Unit *u);
     // Run pirate land crew recruitment for all fleets
-    void run_pirate_recruit_land_crew();
+    void run_pirate_recruit_land_crew(const RecruitRules& rules = ruleset_config().pirates.recruit);
     // Run pirate empty ship seizure for all regions
-    void run_pirate_seize_empty_ships();
+    void run_pirate_seize_empty_ships(const SeizeRules& rules = ruleset_config().pirates.seize);
     // Run pirate promotion (bosun/captain/rendezvous) for all regions
-    void run_pirate_promote_fleets();
+    void run_pirate_promote_fleets(const PromotionRules& rules = ruleset_config().pirates.promotion);
     // Spawn one pirate fleet via the real generation path (Game::MakePirateFleet)
-    void run_make_pirate_fleet(ARegion *region);
+    void run_make_pirate_fleet(ARegion *region, const SpawnRules& rules = ruleset_config().pirates.spawn);
+    // CAST CALL_PIRATES with explicit whistle rules (activate_spell uses the ruleset's)
+    void run_call_pirates(ARegion *region, Unit *caster, const WhistleRules& rules);
     // Spawn pirates into a lair object via the real path (Game::MakePirateLair)
     void run_make_pirate_lair(Object *obj);
     // Create an empty fleet (no units) in region with the given ship type and name

@@ -98,12 +98,6 @@ int volcanoMinMountains = 2;    // R_MOUNTAIN hexes required in the neighbourhoo
 int volcanoUplandNeeded = 4;    // upland (mountain+hill+volcano) base; + 2d3 - 2 = 4-8
 int volcanoExclusionRadius = 4; // no other volcano within this radius (was 2)
 
-// Pirate fleet wandering route length: weight per step count, index + 1 = steps.
-// {30, 40, 30} = 30% one step, 40% two steps, 30% three steps.
-static int psw[] = { 30, 40, 30 };
-int *pirateStepWeights = psw;
-int pirateStepWeightsSize = sizeof(psw) / sizeof(psw[0]);
-
 // Behemoth building trample (declared in gamedefs.h). Budget per turn by maturity,
 // youngest first: young 3, great 6, ancient 9, elder 12. A small production
 // building needs maxMaintenance + 1 = 6 damage to stop working.

@@ -533,12 +533,13 @@ ut::suite<"PirateCourseInertia"> pirate_course_inertia_suite = [] {
     };
 
     // ------------------------------------------------------------------
-    // 13. Route length comes from a ruleset-global weight table (index + 1 =
-    //     steps, declared in gamedefs.h, valued per ruleset in rules.cpp).
-    //     The table's length is the maximum route length; an empty or zero-sum
-    //     table falls back to a compiled-in default rather than an empty route.
+    // 13. Route length comes from a weight table (index + 1 = steps) passed
+    //     directly to DefaultOrders (ruleset_config().pirates.route.step_weights
+    //     is the production default). The table's length is the maximum route
+    //     length; an empty or zero-sum table falls back to a compiled-in
+    //     default rather than an empty route.
     // ------------------------------------------------------------------
-    "Route length honours the ruleset weight table"_test = [&] {
+    "Route length honours the given weight table"_test = [&] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
@@ -546,49 +547,40 @@ ut::suite<"PirateCourseInertia"> pirate_course_inertia_suite = [] {
         auto hex = wire_ocean_ring(helper);
         Unit *pirates = helper.create_npc_pirate_fleet(hex[0], 3);
 
-        int *saved_weights = pirateStepWeights;
-        int saved_size = pirateStepWeightsSize;
-
         // Draws routes under the given table and returns the step count of each.
-        auto lengths_for = [&](int *w, int n) {
-            pirateStepWeights = w;
-            pirateStepWeightsSize = n;
+        const auto lengths_for = [&](const std::span<const int> weights) {
             std::vector<int> lens;
             for (int seed = 0; seed < 60; seed++) {
                 rng::seed_random(seed);
-                pirates->DefaultOrders(pirates->object);
+                pirates->DefaultOrders(pirates->object, weights);
                 auto *so = dynamic_cast<SailOrder *>(pirates->monthorders);
                 if (so) lens.push_back((int)so->dirs.size());
             }
             return lens;
         };
-        auto all_are = [](const std::vector<int> &v, int n) {
+        const auto all_are = [](const std::vector<int> &v, const int n) {
             if (v.empty()) return false;
             for (int x : v) if (x != n) return false;
             return true;
         };
-        auto any_is = [](const std::vector<int> &v, int n) {
+        const auto any_is = [](const std::vector<int> &v, const int n) {
             for (int x : v) if (x == n) return true;
             return false;
         };
 
-        int w1[] = { 0, 0, 100 };
-        expect(all_are(lengths_for(w1, 3), 3))
+        std::array<int, 3> w1{ 0, 0, 100 };
+        expect(all_are(lengths_for(w1), 3))
             << "all weight on the last entry makes every route three steps";
 
-        int w2[] = { 100, 0, 0 };
-        expect(all_are(lengths_for(w2, 3), 1))
+        std::array<int, 3> w2{ 100, 0, 0 };
+        expect(all_are(lengths_for(w2), 1))
             << "all weight on the first entry makes every route one step";
 
-        int w4[] = { 0, 0, 0, 100 };
-        expect(any_is(lengths_for(w4, 4), 4))
+        std::array<int, 4> w4{ 0, 0, 0, 100 };
+        expect(any_is(lengths_for(w4), 4))
             << "a four-entry table allows four-step routes";
 
-        int w0[] = { 0 };
-        expect(!any_is(lengths_for(w0, 0), 0))
+        expect(!any_is(lengths_for(std::span<const int>{}), 0))
             << "an empty table falls back to the default, never an empty route";
-
-        pirateStepWeights = saved_weights;
-        pirateStepWeightsSize = saved_size;
     };
 };

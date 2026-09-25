@@ -33,11 +33,22 @@ int pirate_officer_chance(bool had_captain, bool had_bosun, bool had_admiral)
     return (had_captain ? 20 : 0) + (had_bosun ? 20 : 0) + (had_admiral ? 20 : 0);
 }
 
-void Game::UpdateMapChanceRamp()
+/**
+ * @brief Computes this turn's pirate map-drop odds once, before any battle.
+ *
+ * The mature crew's per-vessel map chance and the treasure-map share both ramp as
+ * "turn N = N%", capped at chance_cap (0 leaves the ramp dormant at 10/10); the
+ * TMAP share is then throttled by live hideouts against hideout_soft_cap_percent,
+ * never below tmap_share_floor. Results are cached on Game for Army::Lose.
+ *
+ * @param rules Map-drop tuning (default: the ruleset's pirates.map_drop)
+ * @see compute_map_chance_ramp(), apply_hideout_supply_throttle()
+ */
+void Game::UpdateMapChanceRamp(const MapDropRules& rules)
 {
-    int cap                   = rulesetSpecificData.value("map_chance_cap", 0);
-    int floorShare            = rulesetSpecificData.value("tmap_share_floor", 10);
-    int hideoutSoftCapPercent = rulesetSpecificData.value("hideout_soft_cap_percent", 0);
+    const int cap                   = rules.chance_cap;
+    const int floorShare            = rules.tmap_share_floor;
+    const int hideoutSoftCapPercent = rules.hideout_soft_cap_percent;
 
     MapChanceRamp ramp = compute_map_chance_ramp(TurnNumber(), cap);
 
@@ -1572,7 +1583,7 @@ int Game::RunBattle(ARegion * r,Unit * attacker,Unit * target,int ass,
     Battle *b = new Battle;
     b->trigger = trigger;
     b->phase = current_battle_phase;
-    b->pirate_promote_cooldown = std::max(0, rulesetSpecificData.value("pirate_promote_cooldown", 6));
+    b->pirate_promote_cooldown = ruleset_config().pirates.promotion.cooldown;
     if (!(r->level && r->level->levelType == ARegionArray::LEVEL_DUNGEON)) {
         b->crewMapChance = cachedCrewMapChance;
         b->tmapShare = cachedTmapShare;

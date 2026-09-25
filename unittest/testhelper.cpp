@@ -137,20 +137,24 @@ void UnitTestHelper::run_behemoth_trample(ARegion *r, Unit *u) {
     game.BehemothTrampleBuildings(r, u);
 }
 
-void UnitTestHelper::run_pirate_recruit_land_crew() {
-    game.PirateRecruitLandCrew();
+void UnitTestHelper::run_pirate_recruit_land_crew(const RecruitRules& rules) {
+    game.PirateRecruitLandCrew(rules);
 }
 
-void UnitTestHelper::run_pirate_seize_empty_ships() {
-    game.PirateSeizeEmptyShips();
+void UnitTestHelper::run_pirate_seize_empty_ships(const SeizeRules& rules) {
+    game.PirateSeizeEmptyShips(rules);
 }
 
-void UnitTestHelper::run_pirate_promote_fleets() {
-    game.PromotePirateFleets();
+void UnitTestHelper::run_pirate_promote_fleets(const PromotionRules& rules) {
+    game.PromotePirateFleets(rules);
 }
 
-void UnitTestHelper::run_make_pirate_fleet(ARegion *region) {
-    game.MakePirateFleet(region);
+void UnitTestHelper::run_make_pirate_fleet(ARegion *region, const SpawnRules& rules) {
+    game.MakePirateFleet(region, rules);
+}
+
+void UnitTestHelper::run_call_pirates(ARegion *region, Unit *caster, const WhistleRules& rules) {
+    game.RunCallPirates(region, caster, rules);
 }
 
 void UnitTestHelper::run_make_pirate_lair(Object *obj) {

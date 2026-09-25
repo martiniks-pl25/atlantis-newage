@@ -264,10 +264,6 @@ ut::suite<"PirateRecruit"> pirate_recruit_suite = [] {
         helper.initialize_game();
         helper.setup_turn();
 
-        json tune;
-        tune["pirate_recruit_pop_cost"] = 2;
-        helper.set_ruleset_specific_data(tune);
-
         ARegion *r = helper.get_region(0, 0, 0);
         r->type = R_PLAIN;
         r->population = 2 * MEN_PER_MARKET_UNIT - 1;   // one market unit, no more
@@ -278,7 +274,7 @@ ut::suite<"PirateRecruit"> pirate_recruit_suite = [] {
         Unit *pirates = helper.create_npc_pirate_fleet(r, 20);
         int before = pirates->items.GetNum(I_PIRATES);
 
-        helper.run_pirate_recruit_land_crew();
+        helper.run_pirate_recruit_land_crew(RecruitRules{ .pop_cost = 2 });
 
         expect(pirates->items.GetNum(I_PIRATES) == before)
             << "one market unit cannot pay for a hand that costs two people";
@@ -293,12 +289,6 @@ ut::suite<"PirateRecruit"> pirate_recruit_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-
-        json tune;
-        tune["pirate_recruit_intake_up"] = 4;
-        tune["pirate_recruit_intake_down"] = 2;
-        tune["pirate_recruit_pop_cost"] = 2;
-        helper.set_ruleset_specific_data(tune);
 
         ARegion *r = helper.get_region(0, 0, 0);
         r->type = R_PLAIN;
@@ -322,7 +312,7 @@ ut::suite<"PirateRecruit"> pirate_recruit_suite = [] {
         expect(fleet->capacity / ItemDefs[I_PIRATES].weight > 200_i)
             << "and it must have room left, or the gap would be doing the limiting";
 
-        helper.run_pirate_recruit_land_crew();
+        helper.run_pirate_recruit_land_crew(RecruitRules{ .intake_up = 4, .intake_down = 2, .pop_cost = 2 });
 
         int gained = pirates->items.GetNum(I_PIRATES) - 200;
         expect(gained >= 1) << "a crowded coast must yield somebody";
@@ -339,10 +329,6 @@ ut::suite<"PirateRecruit"> pirate_recruit_suite = [] {
         helper.initialize_game();
         helper.setup_turn();
 
-        json tune;
-        tune["pirate_recruit_pop_cost"] = 2;
-        helper.set_ruleset_specific_data(tune);
-
         ARegion *r = helper.get_region(0, 0, 0);
         r->type = R_PLAIN;
         // 200 people = 8 per turn = 4 hands at two people each, for the whole hex.
@@ -354,7 +340,7 @@ ut::suite<"PirateRecruit"> pirate_recruit_suite = [] {
         Unit *first  = helper.create_npc_pirate_fleet(r, 60);
         Unit *second = helper.create_npc_pirate_fleet(r, 60);
 
-        helper.run_pirate_recruit_land_crew();
+        helper.run_pirate_recruit_land_crew(RecruitRules{ .pop_cost = 2 });
 
         int total = (first->items.GetNum(I_PIRATES) - 60)
                   + (second->items.GetNum(I_PIRATES) - 60);
@@ -377,10 +363,6 @@ ut::suite<"PirateRecruit"> pirate_recruit_suite = [] {
         int saved = Globals->DYNAMIC_POPULATION;
         Globals->DYNAMIC_POPULATION = 1;
 
-        json tune;
-        tune["pirate_recruit_pop_cost"] = 2;
-        helper.set_ruleset_specific_data(tune);
-
         ARegion *r = helper.get_region(0, 0, 0);
         r->type = R_PLAIN;
         r->population = 1000;
@@ -392,7 +374,7 @@ ut::suite<"PirateRecruit"> pirate_recruit_suite = [] {
         int before_crew = pirates->items.GetNum(I_PIRATES);
         int before_pop  = r->population;
 
-        helper.run_pirate_recruit_land_crew();
+        helper.run_pirate_recruit_land_crew(RecruitRules{ .pop_cost = 2 });
 
         int gained = pirates->items.GetNum(I_PIRATES) - before_crew;
         int lost   = before_pop - r->population;
@@ -468,17 +450,11 @@ ut::suite<"PirateRecruit"> pirate_recruit_suite = [] {
         helper.initialize_game();
         helper.setup_turn();
 
-        // Pin the tuning the played rulesets ship (neworigins/extra.cpp) so the
-        // unittest defaults don't leak in: pop_cost 2, intake spread 1/1, and the
-        // offshore half. At 1/1 the ceiling is exactly GetFleetSize() (rng(1) is
-        // always 0), and supply below demand and ceiling keeps the intake fixed.
-        json tune;
-        tune["pirate_recruit_pop_cost"] = 2;
-        tune["pirate_recruit_intake_up"] = 1;
-        tune["pirate_recruit_intake_down"] = 1;
-        tune["pirate_recruit_offshore_pct"] = 50;
-        helper.set_ruleset_specific_data(tune);
-
+        // Pin the tuning explicitly: pop_cost 2 and the offshore half as NewOrigins
+        // ships them (neworigins/ruleset_config.cpp), but an intake spread of 1/1
+        // instead of the played 4/2. At 1/1 the ceiling is exactly GetFleetSize()
+        // (rng(1) is always 0), and supply below demand and ceiling keeps the
+        // intake fixed.
         ARegion *ocean = helper.get_region(1, 3, 0);
         ocean->type = R_OCEAN;
         for (int d = 0; d < NDIRS; d++) ocean->neighbors[d] = nullptr;
@@ -497,7 +473,7 @@ ut::suite<"PirateRecruit"> pirate_recruit_suite = [] {
         Unit *docked   = helper.create_npc_pirate_fleet(land, 40);
         Unit *offshore = helper.create_npc_pirate_fleet(ocean, 40);
 
-        helper.run_pirate_recruit_land_crew();
+        helper.run_pirate_recruit_land_crew(RecruitRules{ .intake_up = 1, .intake_down = 1, .pop_cost = 2, .offshore_pct = 50 });
 
         int docked_gained   = docked->items.GetNum(I_PIRATES) - 40;
         int offshore_gained = offshore->items.GetNum(I_PIRATES) - 40;
@@ -512,13 +488,6 @@ ut::suite<"PirateRecruit"> pirate_recruit_suite = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
-
-        json tune;
-        tune["pirate_recruit_pop_cost"] = 2;
-        tune["pirate_recruit_intake_up"] = 1;
-        tune["pirate_recruit_intake_down"] = 1;
-        tune["pirate_recruit_offshore_pct"] = 50;
-        helper.set_ruleset_specific_data(tune);
 
         ARegion *ocean = helper.get_region(1, 3, 0);
         ocean->type = R_OCEAN;
@@ -538,7 +507,7 @@ ut::suite<"PirateRecruit"> pirate_recruit_suite = [] {
         Unit *docked   = helper.create_npc_pirate_fleet(land, 40);
         Unit *offshore = helper.create_npc_pirate_fleet(ocean, 40);
 
-        helper.run_pirate_recruit_land_crew();
+        helper.run_pirate_recruit_land_crew(RecruitRules{ .intake_up = 1, .intake_down = 1, .pop_cost = 2, .offshore_pct = 50 });
 
         int docked_gained   = docked->items.GetNum(I_PIRATES) - 40;
         int offshore_gained = offshore->items.GetNum(I_PIRATES) - 40;
@@ -557,13 +526,6 @@ ut::suite<"PirateRecruit"> pirate_recruit_suite = [] {
 
         int saved = Globals->DYNAMIC_POPULATION;
         Globals->DYNAMIC_POPULATION = 1;
-
-        json tune;
-        tune["pirate_recruit_pop_cost"] = 2;
-        tune["pirate_recruit_intake_up"] = 1;
-        tune["pirate_recruit_intake_down"] = 1;
-        tune["pirate_recruit_offshore_pct"] = 50;
-        helper.set_ruleset_specific_data(tune);
 
         ARegion *ocean = helper.get_region(1, 3, 0);
         ocean->type = R_OCEAN;
@@ -584,7 +546,7 @@ ut::suite<"PirateRecruit"> pirate_recruit_suite = [] {
         Unit *offshore = helper.create_npc_pirate_fleet(ocean, 40);
         int rich_before = rich->population;
 
-        helper.run_pirate_recruit_land_crew();
+        helper.run_pirate_recruit_land_crew(RecruitRules{ .intake_up = 1, .intake_down = 1, .pop_cost = 2, .offshore_pct = 50 });
 
         expect(offshore->items.GetNum(I_PIRATES) > 40) << "the fleet must recruit somebody";
         expect(rich->population < rich_before) << "the richer coast loses people";
@@ -605,13 +567,6 @@ ut::suite<"PirateRecruit"> pirate_recruit_suite = [] {
         int saved = Globals->DYNAMIC_POPULATION;
         Globals->DYNAMIC_POPULATION = 1;
 
-        json tune;
-        tune["pirate_recruit_pop_cost"] = 2;
-        tune["pirate_recruit_intake_up"] = 1;
-        tune["pirate_recruit_intake_down"] = 1;
-        tune["pirate_recruit_offshore_pct"] = 50;
-        helper.set_ruleset_specific_data(tune);
-
         ARegion *ocean = helper.get_region(1, 3, 0);
         ocean->type = R_OCEAN;
         for (int d = 0; d < NDIRS; d++) ocean->neighbors[d] = nullptr;
@@ -626,7 +581,7 @@ ut::suite<"PirateRecruit"> pirate_recruit_suite = [] {
         Unit *second = helper.create_npc_pirate_fleet(ocean, 40);
         int coast_before = coast->population;
 
-        helper.run_pirate_recruit_land_crew();
+        helper.run_pirate_recruit_land_crew(RecruitRules{ .intake_up = 1, .intake_down = 1, .pop_cost = 2, .offshore_pct = 50 });
 
         // Supply is the binding term in both passes: the first fleet sees supply
         // 5 (below the 6-10 demand and the 6 ceiling), keeps 5*50/100 = 2 and
@@ -651,13 +606,6 @@ ut::suite<"PirateRecruit"> pirate_recruit_suite = [] {
         helper.initialize_game();
         helper.setup_turn();
 
-        json tune;
-        tune["pirate_recruit_pop_cost"] = 2;
-        tune["pirate_recruit_intake_up"] = 1;
-        tune["pirate_recruit_intake_down"] = 1;
-        tune["pirate_recruit_offshore_pct"] = 50;
-        helper.set_ruleset_specific_data(tune);
-
         ARegion *coast = helper.get_region(0, 2, 0);
         coast->type = R_PLAIN;
         coast->population = 100;   // allowance 4, supply 2
@@ -671,7 +619,7 @@ ut::suite<"PirateRecruit"> pirate_recruit_suite = [] {
         Unit *docked   = helper.create_npc_pirate_fleet(coast, 40);
         Unit *offshore = helper.create_npc_pirate_fleet(ocean, 40);
 
-        helper.run_pirate_recruit_land_crew();
+        helper.run_pirate_recruit_land_crew(RecruitRules{ .intake_up = 1, .intake_down = 1, .pop_cost = 2, .offshore_pct = 50 });
 
         int docked_gained   = docked->items.GetNum(I_PIRATES) - 40;
         int offshore_gained = offshore->items.GetNum(I_PIRATES) - 40;
@@ -687,10 +635,6 @@ ut::suite<"PirateRecruit"> pirate_recruit_suite = [] {
         helper.initialize_game();
         helper.setup_turn();
 
-        json tune;
-        tune["pirate_recruit_offshore_pct"] = 0;
-        helper.set_ruleset_specific_data(tune);
-
         ARegion *ocean = helper.get_region(1, 3, 0);
         ocean->type = R_OCEAN;
         for (int d = 0; d < NDIRS; d++) ocean->neighbors[d] = nullptr;
@@ -702,7 +646,7 @@ ut::suite<"PirateRecruit"> pirate_recruit_suite = [] {
 
         Unit *offshore = helper.create_npc_pirate_fleet(ocean, 40);
 
-        helper.run_pirate_recruit_land_crew();
+        helper.run_pirate_recruit_land_crew(RecruitRules{ .offshore_pct = 0 });
 
         expect(offshore->items.GetNum(I_PIRATES) == 40_i)
             << "a zero offshore percentage must disable offshore recruitment";
@@ -718,13 +662,6 @@ ut::suite<"PirateRecruit"> pirate_recruit_suite = [] {
 
         int saved = Globals->DYNAMIC_POPULATION;
         Globals->DYNAMIC_POPULATION = 1;
-
-        json tune;
-        tune["pirate_recruit_pop_cost"] = 2;
-        tune["pirate_recruit_intake_up"] = 1;
-        tune["pirate_recruit_intake_down"] = 1;
-        tune["pirate_recruit_offshore_pct"] = 50;
-        helper.set_ruleset_specific_data(tune);
 
         ARegion *ocean = helper.get_region(1, 3, 0);
         ocean->type = R_OCEAN;
@@ -745,7 +682,7 @@ ut::suite<"PirateRecruit"> pirate_recruit_suite = [] {
         helper.create_npc_pirate_fleet(ocean, 40);
         int north_before = north->population;
 
-        helper.run_pirate_recruit_land_crew();
+        helper.run_pirate_recruit_land_crew(RecruitRules{ .intake_up = 1, .intake_down = 1, .pop_cost = 2, .offshore_pct = 50 });
 
         expect(north->population < north_before) << "the tie goes to the lowest direction index";
         expect(south->population == 100) << "the other equal coast is left alone";

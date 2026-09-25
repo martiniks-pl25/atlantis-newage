@@ -103,12 +103,7 @@ extern double undergroundWaterShare;
 extern int volcanoMinMountains;
 extern int volcanoUplandNeeded;
 extern int volcanoExclusionRadius;
-// Pirate fleet wandering route length: a weight table where index + 1 is the
-// number of steps, ruleset-set like the allowed* arrays — NOT a GameDefs struct
-// field. An empty or zero-sum table falls back to a compiled-in default.
-extern int *pirateStepWeights;
-extern int pirateStepWeightsSize;
-// Behemoth building trample, ruleset-set like pirateStepWeights - NOT GameDefs
+// Behemoth building trample, ruleset-set like the allowed* arrays - NOT GameDefs
 // struct fields. See Game::BehemothTrampleBuildings in game.cpp:
 //   behemothTrampleDamage         - damage budget per turn by maturity, youngest
 //                                   first; the monster's free counter (3 = young,
