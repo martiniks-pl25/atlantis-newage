@@ -2834,25 +2834,40 @@ void Game::ProcessJoinOrder(Unit *u, parser::string_parser& parser, orders_check
     u->joinorders = ord;
 }
 
-// Syntax: QUEST [amount] [RESOURCE|EQUIPMENT]
-//   amount   — tokens to turn in (default 1 if omitted or <= 0)
-//   RESOURCE — reward from resource pool only (mithril, ironwood, etc.)
-//   EQUIPMENT — reward from weapon/armor pool only
-//   (no keyword) — full pool: 1/3 chance magic, 2/3 chance advanced
-// Preconditions checked at run time in RunQuestOrders.
+/**
+ * @brief Parses QUEST [amount] [RESOURCE|EQUIPMENT] [DISCOUNT], words in any order.
+ *
+ *  - amount    : tokens to turn in; default 1, a number <= 0 also means 1
+ *  - RESOURCE  : reward from the resource pool only (mithril, ironwood, etc.)
+ *  - EQUIPMENT : reward from the weapon/armor pool only
+ *  - no category: magic pool 1 time in quests.reward.magic_one_in, otherwise advanced
+ *  - DISCOUNT  : tokens not covered by debt are paid at quests.reward.discount_pct
+ *
+ * Any other word rejects the whole order, so a typo never turns into a plain
+ * redemption. Preconditions are checked at run time in RunQuestOrders.
+ *
+ * @example QUEST 5 DISCOUNT, QUEST DISCOUNT 3 EQP, QUEST RESOURCE (1 token)
+ */
 void Game::ProcessQuestOrder(Unit *unit, parser::string_parser& parser, orders_check *checker)
 {
-    auto tok = parser.get_token();
-    int amt = tok.get_number().value_or(0);
-    if (amt <= 0) amt = 1;
-
+    int amt = 1;
     QuestOrder::Category cat = QuestOrder::CAT_ANY;
-    auto cat_tok = parser.get_token();
-    if (cat_tok) {
-        if (cat_tok == "resource" || cat_tok == "res")
+    bool discount = false;
+
+    while (const auto tok = parser.get_token()) {
+        if (const auto n = tok.get_number()) {
+            amt = *n > 0 ? *n : 1;
+        } else if (tok == "resource" || tok == "res") {
             cat = QuestOrder::CAT_RESOURCE;
-        else if (cat_tok == "equipment" || cat_tok == "eqp")
+        } else if (tok == "equipment" || tok == "eqp") {
             cat = QuestOrder::CAT_EQUIPMENT;
+        } else if (tok == "discount") {
+            discount = true;
+        } else {
+            parse_error(checker, unit, 0, "QUEST: Unknown keyword '" + tok.get_string() +
+                        "'. Use QUEST [amount] [RESOURCE|EQUIPMENT] [DISCOUNT].");
+            return;
+        }
     }
 
     if (checker) return;
@@ -2860,6 +2875,7 @@ void Game::ProcessQuestOrder(Unit *unit, parser::string_parser& parser, orders_c
     QuestOrder *order = new QuestOrder;
     order->amount   = amt;
     order->category = cat;
+    order->discount = discount;
     // Multiple QUEST orders per unit are allowed; each is a separate redemption
     // (own amount and reward category), processed in order in RunQuestOrders.
     unit->questorders.push_back(order);

@@ -600,6 +600,7 @@ void Battle::GetSpoils(std::list<Location *>& losers, ItemList& spoils, int ass,
                 // reports the last one, so num/issuer_region/tokens/global stay consistent
                 // with each other; every completion still gets its own messages[] line.
                 quest_tokens = tokens;
+                if (tokens > 0) quest_tokens_total += tokens;
                 this->quest_rewards         = quest_rewards;
                 this->quest_rewards_unaware = quest_rewards_unaware;
             }

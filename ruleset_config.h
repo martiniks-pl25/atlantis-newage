@@ -166,9 +166,66 @@ struct PirateRules {
         && p.whistle.break_pct >= 0 && p.whistle.break_pct <= 100;
 }
 
+/**
+ * @brief QUEST order: what a bounty token buys (Game::RunQuestOrders, runorders.cpp).
+ *
+ * Budget is counted in hundredths of a token: a full-value token is 100, a token
+ * turned in with DISCOUNT is discount_pct.
+ */
+struct QuestRewardRules {
+    int token_value    = 1000; ///< silver of purchasing power per full-value token
+    int token_variance = 500;  ///< random bonus per full-value token, 0..token_variance
+    int magic_one_in   = 3;    ///< an order without a category draws from the magic pool 1 time in N
+    int discount_pct   = 50;   ///< % value of a token not covered by debt, QUEST ... DISCOUNT
+};
+
+/**
+ * @brief Mayor quest board (quest_generator.cpp).
+ */
+struct QuestGenerationRules {
+    int ttl         = 12; ///< turns before an unfinished local quest expires
+    int per_mayor   = 5;  ///< active local quests per mayor
+    int dungeon_cap = 1;  ///< dungeon quests per mayor
+    int hunt_cap    = 2;  ///< hunt / lair quests per mayor
+    int infra_cap   = 1;  ///< road / tower / inn quests per mayor
+    int road_tokens  = 1; ///< reward for a road quest
+    int tower_tokens = 1; ///< reward for a watchtower quest
+    int inn_tokens   = 1; ///< reward for an inn quest
+    int domain_water_limit = 16; ///< water hexes kept in a mayor's domain, closest first
+    int domain_min_land    = 24; ///< the domain grows until it has this many land hexes...
+    int domain_max_depth   = 4;  ///< ...or reaches this radius (it starts at 2)
+    int road_search_min = 3;     ///< nearest settlement a road quest may link to
+    int road_search_max = 10;    ///< farthest settlement a road quest may link to
+};
+
+/// Quest tunables.
+struct QuestRules {
+    QuestRewardRules reward;
+    QuestGenerationRules generation;
+};
+
+/**
+ * @brief Range checks for quest values, run at compile time by each ruleset
+ * (`static_assert(valid(config.quests))`).
+ * @note discount_pct is 1..99: 100 would make debt meaningless, 0 would burn tokens.
+ */
+[[nodiscard]] consteval bool valid(const QuestRules& q) noexcept
+{
+    const QuestRewardRules& r = q.reward;
+    const QuestGenerationRules& g = q.generation;
+    return r.token_value >= 1 && r.token_variance >= 0 && r.magic_one_in >= 1
+        && r.discount_pct >= 1 && r.discount_pct <= 99
+        && g.ttl >= 1 && g.per_mayor >= 0
+        && g.dungeon_cap >= 0 && g.hunt_cap >= 0 && g.infra_cap >= 0
+        && g.road_tokens >= 1 && g.tower_tokens >= 1 && g.inn_tokens >= 1
+        && g.domain_water_limit >= 0 && g.domain_min_land >= 0 && g.domain_max_depth >= 2
+        && g.road_search_min >= 1 && g.road_search_max >= g.road_search_min;
+}
+
 /// All typed ruleset parameters.
 struct RulesetConfig {
     PirateRules pirates;
+    QuestRules quests;
 };
 
 /**

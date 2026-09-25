@@ -193,6 +193,8 @@ class Battle
                                                // ItemList locals in Run() and GetSpoils()
         std::vector<std::string> messages;   // post-battle lines (quest, undead rise, loot notes)
         int quest_tokens = -1;               // bounty tokens granted; -1 = no quest target killed
+        int quest_tokens_total = 0;          // tokens granted by every quest kill in this battle;
+                                             // Army::Win credits debt for this many and no more
         bool quest_global = false;           // GLOBAL_BOSS_HUNT vs local bounty
 
         // Appends a structured event to the round currently being played. Every call site

@@ -5,5 +5,6 @@ const RulesetConfig& ruleset_config()
 {
     static constexpr RulesetConfig config {};
     static_assert(valid(config.pirates));
+    static_assert(valid(config.quests));
     return config;
 }

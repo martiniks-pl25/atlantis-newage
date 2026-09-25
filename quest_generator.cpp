@@ -10,6 +10,7 @@
 #include "gamedata.h"
 #include "quests.h"
 #include "quest_data.h"
+#include "ruleset_config.h"
 #include "dungeon.h"
 #include "rng.hpp"
 #include <algorithm>
@@ -19,19 +20,7 @@
 
 using namespace std;
 
-// ---------------------------------------------------------------------------
-// Tuning constants (GM-adjustable; candidates for GameDefs if needed).
-// ---------------------------------------------------------------------------
-static constexpr int LOCAL_QUESTS_PER_MAYOR  = 5;   // max active quests per mayor
-static constexpr int DUNGEON_QUEST_CAP       = 1;   // at most 1 dungeon quest per mayor
-static constexpr int HUNT_QUEST_CAP          = 2;   // at most 2 hunt/lair quests per mayor
-static constexpr int INFRA_QUEST_CAP         = 1;   // at most 1 infrastructure quest (road / tower / inn)
-static constexpr int LOCAL_QUEST_WATER_LIMIT  = 16;  // max water hexes in domain
-static constexpr int MIN_LAND_REGIONS         = 24;  // expand radius if domain has fewer land hexes
-static constexpr int MAX_DOMAIN_DEPTH         = 4;   // never go deeper than this
-static constexpr int ROAD_SEARCH_MIN_DIST     = 3;   // start looking for settlements at this radius
-static constexpr int ROAD_SEARCH_MAX_DIST     = 10;  // give up searching beyond this radius
-// LOCAL_QUEST_TTL = 12, ROAD_QUEST_TOKENS = 3 — defined in quest_data.h
+// Tuning values live in RulesetConfig quests.generation (ruleset_config.h).
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -140,7 +129,8 @@ void Game::UpdateQuestAwareness() {
 
 // ---------------------------------------------------------------------------
 // ComputeMayorDomain — adaptive BFS radius, see plan §4.18.
-// Starts at depth 2; expands to MAX_DOMAIN_DEPTH if land count < MIN_LAND_REGIONS.
+// Starts at depth 2; expands to quests.generation.domain_max_depth while the land
+// count is below quests.generation.domain_min_land.
 // ---------------------------------------------------------------------------
 
 // Collect all unique region->name values reachable from city within `depth` hops
@@ -169,6 +159,7 @@ static void collect_names_bfs(ARegion *city, int mayor_level, int depth,
 }
 
 set<int> Game::ComputeMayorDomain(ARegion *city) {
+    const QuestGenerationRules& gen = ruleset_config().quests.generation;
     int mayor_level = city->level->levelType;
 
     set<int>       domain;
@@ -176,7 +167,7 @@ set<int> Game::ComputeMayorDomain(ARegion *city) {
     int            land_count = 0;
     int            depth_used = 2;
 
-    for (int depth = 2; depth <= MAX_DOMAIN_DEPTH; depth++) {
+    for (int depth = 2; depth <= gen.domain_max_depth; depth++) {
         depth_used = depth;
         domain.clear();
         water_cands.clear();
@@ -194,7 +185,7 @@ set<int> Game::ComputeMayorDomain(ARegion *city) {
             land_count++;
         }
 
-        if (land_count >= MIN_LAND_REGIONS) break;
+        if (land_count >= gen.domain_min_land) break;
         // Too few land regions — expand and try again.
         logger::write("[quest] domain depth " + to_string(depth) +
                       " gives only " + to_string(land_count) +
@@ -202,7 +193,7 @@ set<int> Game::ComputeMayorDomain(ARegion *city) {
                       " — expanding radius");
     }
 
-    // Water cap — keep closest LOCAL_QUEST_WATER_LIMIT hexes by BFS distance.
+    // Water cap — keep the closest quests.generation.domain_water_limit hexes by BFS distance.
     if (!water_cands.empty()) {
         auto dist = region_bfs_dist(city);
         sort(water_cands.begin(), water_cands.end(),
@@ -211,7 +202,7 @@ set<int> Game::ComputeMayorDomain(ARegion *city) {
             });
         int taken = 0;
         for (auto *wr : water_cands) {
-            if (taken >= LOCAL_QUEST_WATER_LIMIT) break;
+            if (taken >= gen.domain_water_limit) break;
             domain.insert(wr->num);
             taken++;
         }
@@ -249,7 +240,7 @@ void Game::ExpireLocalQuests() {
 }
 
 // ---------------------------------------------------------------------------
-// GenerateLocalQuestsForMayor — fill up to LOCAL_QUESTS_PER_MAYOR.
+// GenerateLocalQuestsForMayor — fill up to quests.generation.per_mayor.
 // Picks candidates from wandering monsters (LOCAL_HUNT), simple lairs
 // (LOCAL_LAIR_CLEAR), and dungeon entrances (LOCAL_LAIR_CLEAR).
 // Adding new quest subtypes: add a new candidate-collection block below and
@@ -291,6 +282,7 @@ static bool is_dungeon_slot_quest(const Quest& q) {
 }
 
 void Game::GenerateLocalQuestsForMayor(ARegion *city, Unit *mayor) {
+    const QuestGenerationRules& gen = ruleset_config().quests.generation;
     // Only an invested mayor speaks for the town. The cornucopia is his seal of
     // office, handed over by AdjustCityMon the turn after he takes the hall, so a
     // mayor who has just replaced a killed predecessor issues nothing until the
@@ -311,7 +303,7 @@ void Game::GenerateLocalQuestsForMayor(ARegion *city, Unit *mayor) {
         else
             hunt_active++;  // LOCAL_HUNT or non-dungeon LOCAL_LAIR_CLEAR
     }
-    if (active >= LOCAL_QUESTS_PER_MAYOR) return;
+    if (active >= gen.per_mayor) return;
 
     set<int> domain = ComputeMayorDomain(city);
 
@@ -409,18 +401,18 @@ void Game::GenerateLocalQuestsForMayor(ARegion *city, Unit *mayor) {
     }
 
     // LOCAL_BUILD_ROAD candidates.
-    // BFS finds all settlements at radius ROAD_SEARCH_MIN_DIST..ROAD_SEARCH_MAX_DIST.
+    // BFS finds all settlements at radius road_search_min..road_search_max.
     // For each, the full path is reconstructed via parent links. We walk from city and
     // find the FIRST MISSING road segment. Quest: build that specific segment.
     // If all segments are already built toward a settlement, no quest for that direction.
     {
         int mayor_level = city->level->levelType;
-        auto bfs = bfs_with_first_dir(city, mayor_level, ROAD_SEARCH_MAX_DIST);
+        auto bfs = bfs_with_first_dir(city, mayor_level, gen.road_search_max);
 
         // Collect (dist, settlement) pairs, nearest first.
         vector<pair<int, ARegion *>> settlement_cands;
         for (auto& [rnum, entry] : bfs) {
-            if (entry.dist < ROAD_SEARCH_MIN_DIST) continue;
+            if (entry.dist < gen.road_search_min) continue;
             ARegion *r = regions.GetRegion(rnum);
             if (r && r->town) settlement_cands.push_back({entry.dist, r});
         }
@@ -480,7 +472,7 @@ void Game::GenerateLocalQuestsForMayor(ARegion *city, Unit *mayor) {
             cand.subtype       = Quest::LOCAL_BUILD_ROAD;
             cand.region        = city;
             cand.target        = nullptr;
-            cand.tokens        = ROAD_QUEST_TOKENS;
+            cand.tokens        = gen.road_tokens;
             cand.lair_type     = road_type;     // road object type (O_ROADN etc.)
             cand.target_region = build_r->num;  // region where road needs to be built
             cand.dest_name     = dname;         // destination settlement name for description
@@ -498,7 +490,7 @@ void Game::GenerateLocalQuestsForMayor(ARegion *city, Unit *mayor) {
             if (o->type == O_TOWER || o->type == O_MTOWER) { has_tower = true; break; }
         }
         if (has_tower) continue;
-        pool.push_back({ Quest::LOCAL_BUILD_TOWER, city, nullptr, TOWER_QUEST_TOKENS,
+        pool.push_back({ Quest::LOCAL_BUILD_TOWER, city, nullptr, gen.tower_tokens,
                          O_TOWER, rnum, 0, false, false });
     }
 
@@ -514,7 +506,7 @@ void Game::GenerateLocalQuestsForMayor(ARegion *city, Unit *mayor) {
             if (o->type == O_INN) { has_inn = true; break; }
         }
         if (has_inn) continue;
-        pool.push_back({ Quest::LOCAL_BUILD_INN, city, nullptr, INN_QUEST_TOKENS,
+        pool.push_back({ Quest::LOCAL_BUILD_INN, city, nullptr, gen.inn_tokens,
                          O_INN, rnum, 0, false, false });
     }
 
@@ -570,7 +562,7 @@ void Game::GenerateLocalQuestsForMayor(ARegion *city, Unit *mayor) {
     // If the infra slot is free and several infra types have candidates, pick exactly one
     // type uniformly at random and drop the others — prevents the type with most candidates
     // (typically INN, one per domain region) from drowning out road/tower by sheer count.
-    if (infra_active < INFRA_QUEST_CAP) {
+    if (infra_active < gen.infra_cap) {
         std::vector<Quest::Subtype> present;
         for (const auto& c : pool) {
             if (c.subtype != Quest::LOCAL_BUILD_ROAD &&
@@ -595,7 +587,7 @@ void Game::GenerateLocalQuestsForMayor(ARegion *city, Unit *mayor) {
 
     // --- Pick random candidates until the mayor's budget is full ---
     int new_hunt_this_run = 0;  // at most 1 new hunt slot filled per turn
-    while (active < LOCAL_QUESTS_PER_MAYOR && !pool.empty()) {
+    while (active < gen.per_mayor && !pool.empty()) {
         int idx = rng::get_random(static_cast<int>(pool.size()));
         QuestCandidate c = pool[idx];   // copy before erase — reference would dangle
         pool.erase(pool.begin() + idx);
@@ -604,12 +596,12 @@ void Game::GenerateLocalQuestsForMayor(ARegion *city, Unit *mayor) {
         if (c.subtype == Quest::LOCAL_BUILD_ROAD ||
             c.subtype == Quest::LOCAL_BUILD_TOWER ||
             c.subtype == Quest::LOCAL_BUILD_INN) {
-            if (infra_active >= INFRA_QUEST_CAP) continue;
+            if (infra_active >= gen.infra_cap) continue;
         } else if (c.is_dungeon) {
-            if (dungeon_active >= DUNGEON_QUEST_CAP) continue;
+            if (dungeon_active >= gen.dungeon_cap) continue;
         } else {
             // LOCAL_HUNT or non-dungeon LOCAL_LAIR_CLEAR.
-            if (hunt_active >= HUNT_QUEST_CAP) continue;
+            if (hunt_active >= gen.hunt_cap) continue;
             if (new_hunt_this_run >= 1) continue;  // fill only 1 hunt slot per turn
         }
 
@@ -619,7 +611,7 @@ void Game::GenerateLocalQuestsForMayor(ARegion *city, Unit *mayor) {
         if (c.target && c.is_ocean && ocean_active >= 1) continue;
 
         int turn = TurnNumber();
-        int std_expires = turn + LOCAL_QUEST_TTL;
+        int std_expires = turn + gen.ttl;
 
         auto q           = make_shared<Quest>();
         q->num           = questseq++;

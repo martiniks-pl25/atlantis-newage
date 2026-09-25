@@ -1339,6 +1339,11 @@ void Army::Win(Battle * b, ItemList& spoils)
         else s->Dead();
     }
 
+    // The spoils pot mixes quest grants with tokens looted from the dead. Only the
+    // grants are a debt the mayor owes; they are handed out first, round-robin, so
+    // several winners share the debt the way they share the tokens.
+    int quest_debt_left = b->quest_tokens_total;
+
     for(auto i : spoils) {
         if (i && na) {
             int ns;
@@ -1374,13 +1379,15 @@ void Army::Win(Battle * b, ItemList& spoils)
                             u->items.SetNum(i->type, u->items.GetNum(i->type) + chunk);
                             u->faction->DiscoverItem(i->type, 0, 1);
                             i->num -= chunk;
-                            if (i->type == I_BOUNTY) {
-                                int debt_key = (b->quest_issuer_region != -1) ? b->quest_issuer_region : -1;
-                                u->faction->quest_debts[debt_key] += chunk;
+                            if (i->type == I_BOUNTY && quest_debt_left > 0) {
+                                const int owed = std::min(chunk, quest_debt_left);
+                                quest_debt_left -= owed;
+                                // -1 = global pool (global bounty)
+                                u->faction->quest_debts[b->quest_issuer_region] += owed;
                                 // Differentiated text: factions that read the notice board get
                                 // the standard "quest completed" line; others get a discovery line.
-                                bool knew = (b->quest_num != -1) &&
-                                            u->faction->known_local_quests.count(b->quest_num);
+                                const bool knew = (b->quest_num != -1) &&
+                                                  u->faction->known_local_quests.count(b->quest_num);
                                 u->event(knew ? b->quest_rewards : b->quest_rewards_unaware, "quest");
                             }
                             ++it;
@@ -1399,11 +1406,11 @@ void Army::Win(Battle * b, ItemList& spoils)
                         u->items.SetNum(i->type, u->items.GetNum(i->type) + 1);
                         u->faction->DiscoverItem(i->type, 0, 1);
                         i->num--;
-                        if (i->type == I_BOUNTY) {
-                            int debt_key = (b->quest_issuer_region != -1) ? b->quest_issuer_region : -1;
-                            u->faction->quest_debts[debt_key] += 1;
-                            bool knew = (b->quest_num != -1) &&
-                                        u->faction->known_local_quests.count(b->quest_num);
+                        if (i->type == I_BOUNTY && quest_debt_left > 0) {
+                            quest_debt_left--;
+                            u->faction->quest_debts[b->quest_issuer_region] += 1;
+                            const bool knew = (b->quest_num != -1) &&
+                                              u->faction->known_local_quests.count(b->quest_num);
                             u->event(knew ? b->quest_rewards : b->quest_rewards_unaware, "quest");
                         }
                     } else {

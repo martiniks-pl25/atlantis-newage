@@ -4,6 +4,7 @@
 #include "namegen.h"
 #include "quests.h"
 #include "quest_data.h"
+#include "ruleset_config.h"
 #include "items.h"
 #include "rng.hpp"
 #include "string_filters.hpp"
@@ -3639,65 +3640,96 @@ void Game::RunSacrificeOrders() {
     }
 }
 
-// Pick one reward item from the appropriate pool for `paid` tokens.
-// Returns an Item with type=-1 if the pool is empty or all items exceed budget.
-// budget = paid * QUEST_TOKEN_VALUE + random variance.
-// Category::CAT_ANY: rolls d3 — 0 → magic pool, 1-2 → equipment+resource pool.
-// The chosen item's quantity = budget / baseprice (minimum 1).
-static Item pick_quest_reward(QuestOrder::Category category, int paid)
+/**
+ * @brief Picks the reward for one QUEST redemption.
+ *
+ * Budget, in silver: units * token_value / 100 + rng(units * token_variance / 100 + 1),
+ * where units counts hundredths of a token (a full-value token is 100, a discounted one
+ * is discount_pct). An order without a category draws from the magic pool 1 time in
+ * magic_one_in, otherwise from equipment + resources; when the magic pool has nothing
+ * within budget it falls back to equipment + resources. Quantity = budget / baseprice,
+ * at least 1.
+ *
+ * @param rules    quest reward tunables
+ * @param category the order's reward category
+ * @param units    tokens in hundredths (see above), > 0
+ * @return the item and quantity, or type -1 when nothing in the pool fits the budget
+ * @note No side effects besides RNG, so the caller can refuse without refunding anything.
+ * @example 3 full tokens: units 300, budget 3000..4500.
+ * @example 1 token with DISCOUNT at 50: units 50, budget 500..750.
+ */
+static Item pick_quest_reward(const QuestRewardRules& rules, QuestOrder::Category category, int units)
 {
     Item result;
     result.type = -1;
     result.num  = 0;
 
-    int budget = paid * QUEST_TOKEN_VALUE
-                 + rng::get_random(paid * QUEST_TOKEN_VARIANCE + 1);
+    const int budget = units * rules.token_value / 100
+                       + rng::get_random(units * rules.token_variance / 100 + 1);
 
-    // Determine which pool(s) to use.
-    const std::vector<int> *pool = nullptr;
-    std::vector<int> combined;  // used for CAT_ANY advanced branch
+    std::vector<int> advanced;
+    advanced.insert(advanced.end(), quest_pool_equipment.begin(), quest_pool_equipment.end());
+    advanced.insert(advanced.end(), quest_pool_resource.begin(),  quest_pool_resource.end());
 
+    const std::vector<int> *pool = &advanced;
+    bool magic = false;
     if (category == QuestOrder::CAT_RESOURCE) {
         pool = &quest_pool_resource;
     } else if (category == QuestOrder::CAT_EQUIPMENT) {
         pool = &quest_pool_equipment;
-    } else {
-        // CAT_ANY: 1/3 magic, 2/3 advanced (equipment + resource combined)
-        if (rng::get_random(3) == 0) {
-            pool = &quest_pool_magic;
-        } else {
-            combined.insert(combined.end(),
-                            quest_pool_equipment.begin(), quest_pool_equipment.end());
-            combined.insert(combined.end(),
-                            quest_pool_resource.begin(),  quest_pool_resource.end());
-            pool = &combined;
+    } else if (rng::get_random(rules.magic_one_in) == 0) {
+        pool = &quest_pool_magic;
+        magic = true;
+    }
+
+    // Pool items are GM-curated via AddReward*() and always enabled in production.
+    const auto affordable = [budget](const std::vector<int>& from) {
+        std::vector<int> out;
+        for (const int idx : from) {
+            if (idx < 0 || idx >= NITEMS) continue;
+            if (ItemDefs[idx].baseprice <= 0) continue;
+            if (ItemDefs[idx].baseprice <= budget) out.push_back(idx);
         }
-    }
+        return out;
+    };
 
-    // Filter: items within budget. Pool items are GM-curated via AddReward*()
-    // and are always enabled in production; no DISABLED check needed here.
-    std::vector<int> eligible;
-    for (int idx : *pool) {
-        if (idx < 0 || idx >= NITEMS) continue;
-        if (ItemDefs[idx].baseprice <= 0) continue;
-        if (ItemDefs[idx].baseprice <= budget) eligible.push_back(idx);
-    }
-
+    std::vector<int> eligible = affordable(*pool);
+    if (eligible.empty() && magic) eligible = affordable(advanced);
     if (eligible.empty()) return result;
 
-    int chosen = eligible[rng::get_random(eligible.size())];
+    const int chosen = eligible[rng::get_random(eligible.size())];
     result.type = chosen;
     result.num  = std::max(1, budget / ItemDefs[chosen].baseprice);
     return result;
 }
 
-// Process QUEST orders.  Each unit's `questorders` is consumed here: validate
-// preconditions (Town Hall + alive mayor + acceptable stance), compute payout =
-// min(requested amount, total faction debt at this hall, tokens available in
-// the unit), decrement debts (local first, GLOBAL pool second) and the unit's
-// I_BOUNTY inventory, then issue a reward item and emit a faction event.
+/**
+ * @brief Processes QUEST orders: bounty tokens turned in at a Town Hall for a reward item.
+ *
+ * Each unit's `questorders` is consumed here. Per order:
+ *  1. The region needs a completed Town Hall with a living mayor who regards the unit
+ *     as at least NEUTRAL; otherwise the order fails and nothing is spent.
+ *  2. offered = min(requested, tokens the unit carries).
+ *  3. Debt first, at full value: this mayor's local debt, then the global pool (-1).
+ *  4. With DISCOUNT the remainder is paid at quests.reward.discount_pct; without it the
+ *     remainder stays with the unit and the event says so. DISCOUNT never lowers the
+ *     value of a token covered by debt.
+ *  5. The reward is picked before anything is debited: no reward fits -> refusal,
+ *     tokens and debt untouched.
+ *
+ * @note Several QUEST orders on one unit run in order; tokens and debt are re-read for each.
+ * @see pick_quest_reward, QuestRewardRules
+ * @example 10 tokens, local debt 4, global 2, QUEST 10 DISCOUNT -> 6 at full value,
+ *          4 at 50 percent: one reward worth 8 tokens.
+ */
 void Game::RunQuestOrders()
 {
+    const QuestRewardRules& rules = ruleset_config().quests.reward;
+    const std::string pct = std::to_string(rules.discount_pct) + " percent";
+    const auto tokens_str = [](int n) {
+        return std::to_string(n) + " Bounty Token" + (n == 1 ? "" : "s");
+    };
+
     for (const auto r : regions) {
         // Find the active Town Hall and its mayor in this region (if any).
         Object   *hall  = nullptr;
@@ -3749,68 +3781,73 @@ void Game::RunQuestOrders()
 
                     // Re-read tokens and debt for each order: earlier orders in this
                     // unit's list may have already spent tokens / cleared debt.
-                    int tokens_in_unit = u->items.GetNum(I_BOUNTY);
+                    const int tokens_in_unit = u->items.GetNum(I_BOUNTY);
                     if (tokens_in_unit <= 0) {
                         u->error("QUEST: You carry no Bounty Tokens.");
                         delete o;
                         continue;
                     }
 
-                    int local_debt  = f->quest_debts.count(r->num) ? f->quest_debts[r->num] : 0;
-                    int global_debt = f->quest_debts.count(-1)     ? f->quest_debts[-1]     : 0;
-                    int total_debt  = local_debt + global_debt;
-                    if (total_debt <= 0) {
-                        u->error("QUEST: The mayor has no outstanding bounty for your faction.");
-                        delete o;
-                        continue;
-                    }
+                    const int local_debt  = f->quest_debts.count(r->num) ? f->quest_debts[r->num] : 0;
+                    const int global_debt = f->quest_debts.count(-1)     ? f->quest_debts[-1]     : 0;
 
-                    // requested is always >= 1 (parser default); cap by available tokens and debt.
-                    int paid = std::min(requested, std::min(tokens_in_unit, total_debt));
+                    // Debt first (local, then global) at full value; DISCOUNT only adds
+                    // the remainder at discount_pct, it never lowers a covered token.
+                    const int offered     = std::min(requested, tokens_in_unit);
+                    const int from_local  = std::min(offered, std::max(local_debt, 0));
+                    const int from_global = std::min(offered - from_local, std::max(global_debt, 0));
+                    const int full        = from_local + from_global;
+                    const int discounted  = o->discount ? offered - full : 0;
+                    const int paid        = full + discounted;
+
                     if (paid <= 0) {
-                        u->error("QUEST: Nothing to turn in.");
+                        u->error("QUEST: The mayor has no outstanding bounty for your faction. "
+                                 "Use QUEST <n> DISCOUNT to turn tokens in at " + pct + " value.");
                         delete o;
                         continue;
                     }
 
-                    // Decrement local debt first, GLOBAL pool second.
-                    int from_local  = std::min(paid, local_debt);
-                    int from_global = paid - from_local;
+                    // Pick first: a refusal must leave tokens and debt untouched.
+                    const Item reward = pick_quest_reward(rules, o->category,
+                                                          full * 100 + discounted * rules.discount_pct);
+                    if (reward.type == -1) {
+                        u->error("QUEST: The mayor has no reward worth that few tokens; "
+                                 "nothing was turned in.");
+                        delete o;
+                        continue;
+                    }
+
                     if (from_local > 0) {
-                        int remaining = local_debt - from_local;
+                        const int remaining = local_debt - from_local;
                         if (remaining > 0) f->quest_debts[r->num] = remaining;
                         else               f->quest_debts.erase(r->num);
                     }
                     if (from_global > 0) {
-                        int remaining = global_debt - from_global;
+                        const int remaining = global_debt - from_global;
                         if (remaining > 0) f->quest_debts[-1] = remaining;
                         else               f->quest_debts.erase(-1);
                     }
                     u->items.SetNum(I_BOUNTY, tokens_in_unit - paid);
+                    u->items.SetNum(reward.type, u->items.GetNum(reward.type) + reward.num);
 
-                    // Issue reward item.
-                    Item reward = pick_quest_reward(o->category, paid);
-                    std::string reward_str;
-                    if (reward.type != -1) {
-                        u->items.SetNum(reward.type,
-                                        u->items.GetNum(reward.type) + reward.num);
-                        reward_str = "Receives: " +
-                                     item_string(reward.type, reward.num) + ".";
-                    } else {
-                        // Pool empty or all items exceed budget — shouldn't normally happen.
-                        reward_str = "No suitable reward found for this token count.";
-                    }
+                    std::string msg = "Turns in " + tokens_str(paid) + " at the Town Hall of " + r->name;
+                    if (discounted > 0 && full == 0)
+                        msg += " at " + pct + " value (no bounty owed)";
+                    else if (discounted > 0)
+                        msg += ": " + std::to_string(full) + " against bounty owed, " +
+                               std::to_string(discounted) + " at " + pct + " value";
+                    msg += ". Receives: " + item_string(reward.type, reward.num) + ".";
 
-                    // Faction event.
-                    std::string msg = "Turns in " + std::to_string(paid) +
-                                      " Bounty Token" + (paid == 1 ? "" : "s") +
-                                      " at the Town Hall of " + r->name + ". " +
-                                      reward_str;
-                    int remaining_local  = f->quest_debts.count(r->num) ? f->quest_debts[r->num] : 0;
-                    int remaining_global = f->quest_debts.count(-1)     ? f->quest_debts[-1]     : 0;
+                    const int kept = offered - paid;
+                    if (kept > 0)
+                        msg += " " + tokens_str(kept) + " not covered by bounty owed " +
+                               (kept == 1 ? "was" : "were") + " kept; add DISCOUNT to the QUEST "
+                               "order to turn them in at " + pct + " value.";
+
+                    const int remaining_local  = f->quest_debts.count(r->num) ? f->quest_debts[r->num] : 0;
+                    const int remaining_global = f->quest_debts.count(-1)     ? f->quest_debts[-1]     : 0;
                     if (remaining_local > 0 || remaining_global > 0) {
-                        msg += " Outstanding bounty: " +
-                               std::to_string(remaining_local) + " here";
+                        msg += " Outstanding bounty: " + std::to_string(remaining_local) + " here";
                         if (remaining_global > 0)
                             msg += ", " + std::to_string(remaining_global) + " (any mayor)";
                         msg += ".";

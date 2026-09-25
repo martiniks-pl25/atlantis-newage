@@ -1313,12 +1313,17 @@ std::string item_description(int item, int full)
         case I_HEALPOTION:
             temp += " This item allows its possessor to heal wounded units after battle. No skill is necessary to use this item; it will be used automatically when the possessor is involved in a battle. It can heal up to 1 casualties, with a 75 percent success rate. Healing consumes an item.";
             break;
-        case I_BOUNTY:
+        case I_BOUNTY: {
+            const QuestRewardRules& qr = ruleset_config().quests.reward;
             temp += " A proof of deed issued by the quest system. Present these tokens to a mayor"
-                " at a Town Hall to claim your reward. Tokens earned for local quests must be"
-                " redeemed at the issuing mayor's hall; tokens from global bounties are accepted"
-                " at any Town Hall.";
+                " at a Town Hall with the QUEST order. A mayor pays full value for tokens covered"
+                " by bounty owed to your faction: by that town for its own quests, or by any mayor"
+                " for global bounties. Adding DISCOUNT to the QUEST order also turns in tokens not"
+                " covered by bounty owed, at " + std::to_string(qr.discount_pct) + " percent value,"
+                " at any Town Hall whose mayor is not hostile to you. Tokens can be given,"
+                " transported and stolen, and are always dropped when their carrier is defeated.";
             break;
+        }
         case I_COMPASS: {
             const TreasureMapRules& tmap = ruleset_config().pirates.treasure_map;
             temp += std::format(

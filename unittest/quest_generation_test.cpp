@@ -3,6 +3,7 @@
 #include "gamedata.h"
 #include "quests.h"
 #include "quest_data.h"
+#include "ruleset_config.h"
 #include "object.h"
 #include "unit.h"
 #include "testhelper.hpp"
@@ -115,7 +116,7 @@ ut::suite<"QuestGeneration"> quest_generation_suite = [] {
                 // Validate wolf quest fields.
                 if (q->tokens <= 0) wolf_quest_valid = false;
                 if (q->issuer_region != r->num) wolf_quest_valid = false;
-                if (q->expires_turn != helper.turn_number() + LOCAL_QUEST_TTL)
+                if (q->expires_turn != helper.turn_number() + ruleset_config().quests.generation.ttl)
                     wolf_quest_valid = false;
             }
         }
@@ -127,9 +128,9 @@ ut::suite<"QuestGeneration"> quest_generation_suite = [] {
     };
 
     // -----------------------------------------------------------------------
-    // Test 3: Mayor budget cap — max LOCAL_QUESTS_PER_MAYOR quests per mayor
+    // Test 3: Mayor budget cap — max quests.generation.per_mayor quests per mayor
     // -----------------------------------------------------------------------
-    "mayor budget capped at LOCAL_QUESTS_PER_MAYOR"_test = [] {
+    "mayor budget capped at quests.generation.per_mayor"_test = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
@@ -144,7 +145,7 @@ ut::suite<"QuestGeneration"> quest_generation_suite = [] {
         helper.run_generate_quests_for_mayor(r, mayor);
 
         expect(count_mayor_quests(mayor->num) <= 3)
-            << "must not exceed LOCAL_QUESTS_PER_MAYOR=3";
+            << "must not exceed 3 quests";
     };
 
     // -----------------------------------------------------------------------
@@ -342,8 +343,8 @@ ut::suite<"QuestGeneration"> quest_generation_suite = [] {
 
         for (const auto& q : quests) {
             if (q->scope != Quest::SCOPE_LOCAL) continue;
-            expect(q->expires_turn == turn_before + LOCAL_QUEST_TTL)
-                << "expires_turn must equal created_turn + LOCAL_QUEST_TTL";
+            expect(q->expires_turn == turn_before + ruleset_config().quests.generation.ttl)
+                << "expires_turn must equal created_turn + quests.generation.ttl";
         }
     };
 
