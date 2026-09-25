@@ -442,6 +442,7 @@ class QuestOrder : public Order {
         CAT_EQUIPMENT = 2,  // weapon/armor sub-pool only
     };
     Category category = CAT_ANY;
+    bool discount = false;  // DISCOUNT: tokens not covered by debt are paid at discount_pct
 };
 
 class ExploreOrder : public Order {

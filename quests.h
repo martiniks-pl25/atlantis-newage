@@ -80,7 +80,7 @@ class Quest
         int amount_so_far   = 0;            // LOCAL_HARVEST accumulator
 
         // Absolute turn on which this quest expires (0 = no expiry).
-        // LOCAL quests: created_turn + LOCAL_QUEST_TTL.
+        // LOCAL quests: created_turn + quests.generation.ttl (RulesetConfig).
         // Dungeon LOCAL quests: min(created_turn + TTL, spawn + lifetime + dying).
         // GLOBAL quests: 0 (no TTL).
         int expires_turn = 0;

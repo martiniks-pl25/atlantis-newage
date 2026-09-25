@@ -50,11 +50,6 @@ void AddHarvestTarget(int resource_item, int amount_threshold, int tokens, int l
 void AddBossTarget   (int monster_type,  int tokens, int level_mask = -1);
 void ClearQuestCandidates();
 
-static constexpr int LOCAL_QUEST_TTL     = 12;  // turns before an unfinished quest expires
-static constexpr int ROAD_QUEST_TOKENS   = 1;
-static constexpr int TOWER_QUEST_TOKENS  = 1;
-static constexpr int INN_QUEST_TOKENS    = 1;
-
 // Returns boss_targets[monster_type].tokens, or `fallback` if the monster is not in the table.
 int LookupBossTokens(int monster_type, int fallback);
 
@@ -63,10 +58,7 @@ int LookupBossTokens(int monster_type, int fallback);
 // Populated by the ruleset setup hook; engine reads them in RunQuestOrders.
 // ---------------------------------------------------------------------------
 
-// 1 token = QUEST_TOKEN_VALUE silver; quantity = budget / baseprice.
-// budget = tokens * VALUE + rng::get_random(tokens * VARIANCE + 1)
-static constexpr int QUEST_TOKEN_VALUE    = 1000;
-static constexpr int QUEST_TOKEN_VARIANCE =  500;
+// Token value, variance and the magic-pool odds: RulesetConfig quests.reward.
 
 // Items explicitly listed in each pool (ItemDefs indices).
 // Pool items must be enabled (not DISABLED) and have baseprice > 0.

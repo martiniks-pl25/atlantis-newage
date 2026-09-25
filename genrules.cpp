@@ -5016,21 +5016,32 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
     if (Globals->TOWNS_EXIST) {
         f << enclose(class_tag("div", "rule"), true) << '\n' << enclose("div", false);
         f << anchor("quest") << '\n';
+        const QuestRewardRules& qr = ruleset_config().quests.reward;
+        const std::string pct = std::to_string(qr.discount_pct) + " percent";
         f << enclose("h4", true) << "QUEST\n" << enclose("h4", false);
         f << enclose("h4", true) << "QUEST [tokens]\n" << enclose("h4", false);
         f << enclose("h4", true) << "QUEST [tokens] RESOURCE\n" << enclose("h4", false);
         f << enclose("h4", true) << "QUEST [tokens] EQUIPMENT\n" << enclose("h4", false);
+        f << enclose("h4", true) << "QUEST [tokens] [RESOURCE|EQUIPMENT] DISCOUNT\n" << enclose("h4", false);
         f << enclose("p", true)
           << "Redeem Bounty Tokens at the Town Hall in the current region. "
           << "The unit must be in a region that has an active Town Hall with a living mayor, "
           << "and the mayor must regard your faction as at least NEUTRAL. "
-          << "The mayor must also have an outstanding bounty debt to your faction (earned by completing quests).\n"
+          << "Tokens covered by bounty the mayor owes your faction (earned by completing quests "
+          << "for this town; global bounties are owed by any mayor) are paid at full value. "
+          << "Without DISCOUNT, tokens not covered by bounty owed stay with the unit.\n"
           << enclose("p", false);
         f << enclose("p", true)
           << "The optional " << enclose("em", true) << "tokens" << enclose("em", false)
           << " argument specifies how many Bounty Tokens to turn in. "
           << "If omitted, exactly 1 token is spent. "
-          << "The actual number spent is capped by the tokens your unit carries and the total debt the mayor owes your faction.\n"
+          << "The actual number spent is capped by the tokens your unit carries.\n"
+          << enclose("p", false);
+        f << enclose("p", true)
+          << "With the " << enclose("b", true) << "DISCOUNT" << enclose("b", false)
+          << " keyword, tokens not covered by bounty owed are also accepted, at " << pct
+          << " of their value, at any Town Hall whose mayor is not hostile to you. "
+          << "Tokens covered by bounty owed are always paid in full, DISCOUNT or not.\n"
           << enclose("p", false);
         f << enclose("p", true)
           << "The optional category argument controls the reward pool:\n"
@@ -5046,20 +5057,28 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
           << enclose("li", false);
         f << enclose("li", true)
           << "No category — the pool is chosen randomly each time: "
-          << "1-in-3 chance (≈33%) of drawing from the magic pool (artifacts, staves, rings, and other rare items), "
-          << "2-in-3 chance of drawing from the combined equipment and resource pool.\n"
+          << "1-in-" << qr.magic_one_in << " chance of drawing from the magic pool "
+          << "(artifacts, staves, rings, and other rare items), otherwise from the combined "
+          << "equipment and resource pool. If no magic item fits the budget, the reward comes "
+          << "from the equipment and resource pool instead.\n"
           << enclose("li", false);
         f << enclose("ul", false);
         f << enclose("p", true)
-          << "Each token provides 1,000 silver of purchasing power, plus a random bonus of up to 500 silver per token. "
+          << "Each token provides " << qr.token_value << " silver of purchasing power, "
+          << "plus a random bonus of up to " << qr.token_variance << " silver per token; "
+          << "a token turned in with DISCOUNT counts at " << pct << " of both. "
           << "The game selects a random item from the chosen pool whose base price fits within that budget; "
-          << "you receive as many units of it as the budget allows.\n"
+          << "you receive as many units of it as the budget allows. "
+          << "If no item in the pool fits the budget, nothing is turned in.\n"
+          << enclose("p", false);
+        f << enclose("p", true)
+          << "The words after QUEST may come in any order; an unknown word rejects the order.\n"
           << enclose("p", false);
         f << enclose("p", true) << "Examples:\n" << enclose("p", false);
         f << example_start("Turn in 1 Bounty Token (any category).")
           << "QUEST\n"
           << example_end();
-        f << example_start("Turn in 5 tokens (any category; 33% chance of a magic item).")
+        f << example_start("Turn in 5 tokens (any category; a chance of a magic item).")
           << "QUEST 5\n"
           << example_end();
         f << example_start("Turn in 5 tokens and request raw materials.")
@@ -5067,6 +5086,9 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
           << example_end();
         f << example_start("Turn in 5 tokens and request weapons or armor.")
           << "QUEST 5 EQUIPMENT\n"
+          << example_end();
+        f << example_start("Turn in 5 tokens; any not covered by bounty owed are paid at " + pct + " value.")
+          << "QUEST 5 DISCOUNT\n"
           << example_end();
     }
 
