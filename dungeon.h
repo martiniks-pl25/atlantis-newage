@@ -41,8 +41,8 @@ struct DungeonTypeDef {
     DungeonGenStyle gen_style;
     int branch_chance;  // % chance to add each additional neighbor as a branch/dead-end
 
-    // Spawn weight at turn 1 and turn 50+. Interpolated linearly between these points.
-    // At each turn the weight for this type is: early + (late - early) * min(turn,50)/50
+    // Spawn weight at turn 1 and turn 40+. Interpolated linearly between these points.
+    // At each turn the weight for this type is: early + (late - early) * min(turn,40)/40
     int weight_early;
     int weight_late;
 
@@ -99,7 +99,7 @@ struct DungeonInstance {
     DungeonSlotState state       = DungeonSlotState::FREE;
     int              phase_turn  = 0;       // turn when transitioned to DYING
 
-    int cell_x = 0, cell_y = 0;            // grid cell in dungeon level (0..7, 0..5)
+    int cell_x = 0, cell_y = 0;            // grid cell in dungeon level (0..width/CELL_SIZE-1, 0..height/CELL_SIZE-1)
 
     int surface_region_num  = -1;           // LEVEL_SURFACE entrance region
     int entrance_object_num = -1;           // O_DUNGEON_ENTRANCE on surface (-1 after DYING)

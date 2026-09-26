@@ -222,10 +222,58 @@ struct QuestRules {
         && g.road_search_min >= 1 && g.road_search_max >= g.road_search_min;
 }
 
+/**
+ * @brief Size of the shared dungeon level (create_dungeon_level, neworigins/map.cpp).
+ *
+ * Every dungeon instance lives in its own dungeon::CELL_SIZE x CELL_SIZE cell of this
+ * level, so the cell count (width / 8) * (height / 8) is also the ceiling on dungeons
+ * alive at once (ProcessDungeons, dungeon.cpp). The shape does not matter to the
+ * game; a wide, low level fits a monitor in any map client.
+ * Read only when a world is created or migrated: the size is saved with the world.
+ */
+struct DungeonLevelRules {
+    int width  = 0; ///< grid width in x coordinates; 0 = the surface width
+    int height = 0; ///< grid height in y coordinates; 0 = the surface height
+
+    /**
+     * @brief Level width for a world whose surface is surface_width wide.
+     * @return width, or surface_width when width is 0
+     */
+    [[nodiscard]] constexpr int width_for(const int surface_width) const noexcept {
+        return width > 0 ? width : surface_width;
+    }
+
+    /**
+     * @brief Level height for a world whose surface is surface_height tall.
+     * @return height, or surface_height when height is 0
+     */
+    [[nodiscard]] constexpr int height_for(const int surface_height) const noexcept {
+        return height > 0 ? height : surface_height;
+    }
+};
+
+/// Dungeon tunables.
+struct DungeonRules {
+    DungeonLevelRules level;
+};
+
+/**
+ * @brief Range checks for dungeon values, run at compile time by each ruleset
+ * (`static_assert(valid(config.dungeons))`).
+ * @note A set size must be a whole number of 8x8 cells (dungeon::CELL_SIZE); a
+ * remainder would be hexes no dungeon can ever use.
+ */
+[[nodiscard]] consteval bool valid(const DungeonRules& d) noexcept
+{
+    const auto whole_cells = [](const int n) { return n == 0 || (n >= 8 && n % 8 == 0); };
+    return whole_cells(d.level.width) && whole_cells(d.level.height);
+}
+
 /// All typed ruleset parameters.
 struct RulesetConfig {
     PirateRules pirates;
     QuestRules quests;
+    DungeonRules dungeons;
 };
 
 /**

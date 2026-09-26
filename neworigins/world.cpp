@@ -675,7 +675,8 @@ void Game::CreateWorld()
 
     if (Globals->DUNGEON_LEVEL) {
         int dungeon_idx = 2 + Globals->UNDERWORLD_LEVELS + Globals->UNDERDEEP_LEVELS + Globals->ABYSS_LEVEL;
-        regions.create_dungeon_level(dungeon_idx, xx, yy, "dungeon");
+        const DungeonLevelRules& level = ruleset_config().dungeons.level;
+        regions.create_dungeon_level(dungeon_idx, level.width_for(xx), level.height_for(yy), "dungeon");
     }
 
     CountNames();

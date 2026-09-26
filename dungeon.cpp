@@ -29,7 +29,7 @@ const std::vector<DungeonTypeDef> DungeonTypeDefs = {
         { {I_KOBOLD,30,80}, {I_TROLL,5,15}, {I_ETTIN,2,5} }, "Warden",
         I_ETTIN,
         DungeonGenStyle::BFS_NETWORK, 50,
-        75, 25,  // turn 1: 75%;  turn 50+: 25%
+        75, 25,  // turn 1: 75%;  turn 40+: 25%
         8,       // dying_turns (+2): BFS/small — 5 rooms max dist, 3 moves + margin
         12       // max_lifetime_turns: collapses after 12 turns even if boss alive
     },
@@ -40,7 +40,7 @@ const std::vector<DungeonTypeDef> DungeonTypeDefs = {
         { {I_SKELETON,80,200}, {I_UNDEAD,10,30}, {I_LICH,2,5} }, "Warden",
         I_LICH,
         DungeonGenStyle::DFS_CORRIDOR, 20,
-        25, 25,  // turn 1: 25%;  turn 50+: 25%
+        25, 25,  // turn 1: 25%;  turn 40+: 25%
         12,      // dying_turns (+2): DFS/medium — up to 10 rooms deep
         12       // max_lifetime_turns
     },
@@ -51,7 +51,7 @@ const std::vector<DungeonTypeDef> DungeonTypeDefs = {
         { {I_IMP,50,150}, {I_DEMON,10,25}, {I_DEVIL,1,1} }, "Warden",
         I_DEVIL,
         DungeonGenStyle::BFS_NETWORK, 50,
-        0, 25,   // turn 1: 0%;   turn 50+: 25%
+        0, 25,   // turn 1: 0%;   turn 40+: 25%
         10,      // dying_turns (+2): BFS/medium — open network, shorter paths
         12       // max_lifetime_turns
     },
@@ -62,7 +62,7 @@ const std::vector<DungeonTypeDef> DungeonTypeDefs = {
         { {I_LIZARD,10,20}, {I_WYVERN,3,7}, {I_DRAGON,1,2} }, "Warden",
         I_DRAGON,
         DungeonGenStyle::DFS_CORRIDOR, 30,
-        0, 25,   // turn 1: 0%;   turn 50+: 25%
+        0, 25,   // turn 1: 0%;   turn 40+: 25%
         12,      // dying_turns (+2): DFS/large — up to 14 rooms deep
         12       // max_lifetime_turns
     },

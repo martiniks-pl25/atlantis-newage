@@ -522,7 +522,9 @@ int Game::OpenGame()
         !regions.get_first_region_array_of_type(ARegionArray::LEVEL_DUNGEON)) {
         logger::write("Migrating: adding dungeon level to existing world...");
         ARegionArray *surface = regions.get_first_region_array_of_type(ARegionArray::LEVEL_SURFACE);
-        regions.add_dungeon_level_to_existing_world(surface->x, surface->y);
+        const DungeonLevelRules& level = ruleset_config().dungeons.level;
+        regions.add_dungeon_level_to_existing_world(level.width_for(surface->x),
+                                                    level.height_for(surface->y));
     }
 
     // read in quests
