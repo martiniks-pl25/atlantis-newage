@@ -10,8 +10,10 @@ const RulesetConfig& ruleset_config()
             .recruit = { .intake_up = 4, .intake_down = 2, .pop_cost = 2 },
             .map_drop = { .chance_cap = 60, .hideout_soft_cap_percent = 7 },
         },
+        .dungeons = { .level = { .width = 128, .height = 32 } },
     };
     static_assert(valid(config.pirates));
     static_assert(valid(config.quests));
+    static_assert(valid(config.dungeons));
     return config;
 }
