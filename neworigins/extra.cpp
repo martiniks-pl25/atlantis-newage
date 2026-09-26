@@ -1449,14 +1449,14 @@ void Game::ModifyTablesPerRuleset(void)
     // wandering monsters
     ModifyTerrainWMons(R_OCEAN,5,I_PIRATES,I_KRAKEN,I_MERFOLK);
 
-    ModifyTerrainWMons(R_PLAIN,2,I_LION,I_BEHEMOTH,I_CENTAUR);
+    ModifyTerrainWMons(R_PLAIN,3,I_LION,I_BEHEMOTH,I_CENTAUR);
     ModifyTerrainWMons(R_FOREST,3,I_WOLF,I_TRENT,I_KOBOLD);
-    ModifyTerrainWMons(R_MOUNTAIN,6,I_GBEAR,I_WYVERN,I_OGRE);
+    ModifyTerrainWMons(R_MOUNTAIN,5,I_GBEAR,I_WYVERN,I_OGRE);
     ModifyTerrainWMons(R_HILL,3,I_GBEAR,I_ROC,I_OGRE);
-    ModifyTerrainWMons(R_SWAMP,6,I_CROCODILE,I_BTHING,I_TROLL);
+    ModifyTerrainWMons(R_SWAMP,4,I_CROCODILE,I_BTHING,I_TROLL);
     ModifyTerrainWMons(R_JUNGLE,3,I_ANACONDA,I_KONG,I_WMEN);
-    ModifyTerrainWMons(R_DESERT,6,I_SCORPION,I_SPHINX,I_SANDLING);
-    ModifyTerrainWMons(R_TUNDRA,6,I_PBEAR,I_IWURM,I_YETI);
+    ModifyTerrainWMons(R_DESERT,4,I_SCORPION,I_SPHINX,I_SANDLING);
+    ModifyTerrainWMons(R_TUNDRA,4,I_PBEAR,I_IWURM,I_YETI);
 
     ModifyTerrainWMons(R_VOLCANO,12,I_IMP,I_IFRIT,I_DEMON);
     ModifyTerrainWMons(R_LAKE,4,I_MERFOLK,I_ELEMENTAL,I_MERFOLK);
@@ -1510,7 +1510,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainLair(R_HILL, 4, O_MAGETOWER);
     ModifyTerrainLair(R_HILL, 5, O_CRYPT);
 
-    ModifyTerrainLairChance(R_SWAMP, 15);
+    ModifyTerrainLairChance(R_SWAMP, 12);
     ModifyTerrainLair(R_SWAMP, 0, O_LAIR);
     ModifyTerrainLair(R_SWAMP, 1, O_RUIN);
     ModifyTerrainLair(R_SWAMP, 2, O_LAIR);
@@ -1534,7 +1534,7 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainLair(R_DESERT, 4, O_BOG);
     ModifyTerrainLair(R_DESERT, 5, O_CRYPT);
 
-    ModifyTerrainLairChance(R_TUNDRA, 15);
+    ModifyTerrainLairChance(R_TUNDRA, 12);
     ModifyTerrainLair(R_TUNDRA, 0, O_BOG);
     ModifyTerrainLair(R_TUNDRA, 1, O_ICECAVE);
     ModifyTerrainLair(R_TUNDRA, 2, O_GIANTCASTLE);
@@ -1610,14 +1610,14 @@ void Game::ModifyTablesPerRuleset(void)
     // Natural wandering monsters
     modify_monster_threat("LION",  4,   20);  // Pride of Lions
     modify_monster_threat("WOLF",  10,  20);  // Wolf Pack
-    modify_monster_threat("GRIZ",  3,   20);  // Grizzly Bears
-    modify_monster_threat("CROC",  6,   20);  // Crocodiles
-    modify_monster_threat("ANAC",  6,   20);  // Anacondas
+    modify_monster_threat("GRIZ",  4,   20);  // Grizzly Bears
+    modify_monster_threat("CROC",  8,   20);  // Crocodiles
+    modify_monster_threat("ANAC",  8,   20);  // Anacondas
     modify_monster_threat("SCOR",  8,   20);  // Giant Scorpions
-    modify_monster_threat("POLA",  3,   20);  // Polar Bears
+    modify_monster_threat("POLA",  4,   20);  // Polar Bears
     modify_monster_threat("GRAT",  30,  20);  // Pack of Rats
     modify_monster_threat("GSPI",  4,   20);  // Giant Spiders
-    modify_monster_threat("GLIZ",  3,   25);  // Giant Lizards
+    modify_monster_threat("GLIZ",  4,   25);  // Giant Lizards
     modify_monster_threat("TREN",  7,   30);  // Living Trees
     modify_monster_threat("ROC",   2,   50);  // Giant Birds
     modify_monster_threat("BOGT",  2,   30);  // Swamp Creatures
@@ -1640,8 +1640,8 @@ void Game::ModifyTablesPerRuleset(void)
     modify_monster_threat("ETTI",  2,   25);  // Ettins
 
     // Summoned / undead monsters
-    modify_monster_threat("SKEL",  100, 20);  // Skeleton
-    modify_monster_threat("UNDE",  10,  50); // Undead
+    modify_monster_threat("SKEL",  120, 20);  // Skeleton
+    modify_monster_threat("UNDE",  15,  30); // Undead
     modify_monster_threat("LICH",  1,   50);  // Lich
     modify_monster_threat("IMP",   50,  20);  // Imp
     modify_monster_threat("DEMO",  10,  50);  // Demon
@@ -1649,7 +1649,7 @@ void Game::ModifyTablesPerRuleset(void)
     modify_monster_threat("EAGL",  1,   20);  // Eagle
 
     // Sea creatures
-    modify_monster_threat("PIRA",  25,  30);  // Pirates        (default: num=20, hostile=50%)
+    modify_monster_threat("PIRA",  30,  30);  // Pirates        (default: num=20, hostile=50%)
     modify_monster_threat("PCAP",  1,   30);  // Pirate Captain (default: num=1,  hostile=50%)
     modify_monster_threat("PBOS",  1,   30);  // Pirate Bosun   (default: num=1,  hostile=50%)
     modify_monster_threat("PKIN",  1,  100);  // Pirate King    — always attacks
@@ -1661,12 +1661,12 @@ void Game::ModifyTablesPerRuleset(void)
     modify_monster_threat("HYDR",  1,   50);  // Hydra
     modify_monster_threat("IDRA",  1,   50);  // Ice Dragon
     modify_monster_threat("ILLY",  1,   50);  // Illyrthid
-    modify_monster_threat("STGI",  1,   50);  // Storm Giant
-    modify_monster_threat("CLGI",  1,   50);  // Cloud Giant
+    modify_monster_threat("STGI",  1,   80);  // Storm Giant
+    modify_monster_threat("CLGI",  1,   80);  // Cloud Giant
     modify_monster_threat("DEVL",  1,   80); // Devil
-    modify_monster_threat("WARR",  30,  100); // Evil Warriors
-    modify_monster_threat("DMAG",  1,   100); // Dark Mage
-    modify_monster_threat("MAGI",  2,   100); // Evil Magicians
+    modify_monster_threat("WARR",  50,  50); // Evil Warriors
+    modify_monster_threat("DMAG",  1,   80); // Dark Mage
+    modify_monster_threat("MAGI",  2,   80); // Evil Magicians
 
     // --- Monster loot drops (modify_monster_spoils) ---
     // Format: modify_monster_spoils(abbr, silver, spoiltype)
@@ -1676,7 +1676,7 @@ void Game::ModifyTablesPerRuleset(void)
     // Pool system: max 4 distinct item types per unit; 5th+ monsters add qty to existing types.
 
     // Natural wandering monsters — mostly animal, no item drops
-    modify_monster_spoils("LION",  200,  IT_NORMAL);           // Pride of Lions      (default: 200, -1)
+    modify_monster_spoils("LION",  150,  IT_NORMAL);           // Pride of Lions      (default: 200, -1)
     modify_monster_spoils("WOLF",  120,  IT_NORMAL);           // Wolf Pack           (default: 120, -1)
     modify_monster_spoils("GRIZ",  450,  IT_NORMAL);           // Grizzly Bears       (default: 450, -1)
     modify_monster_spoils("CROC",  120,  IT_NORMAL);           // Crocodiles          (default: 120, -1)

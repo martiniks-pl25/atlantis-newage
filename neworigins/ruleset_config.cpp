@@ -9,6 +9,7 @@ const RulesetConfig& ruleset_config()
             .treasure_map = { .decipher_chance = 30 },
             .recruit = { .intake_up = 4, .intake_down = 2, .pop_cost = 2 },
             .map_drop = { .chance_cap = 60, .hideout_soft_cap_percent = 7 },
+            .spawn = { .elite_spawn_pct = 4 },
         },
         .dungeons = { .level = { .width = 128, .height = 32 } },
     };
