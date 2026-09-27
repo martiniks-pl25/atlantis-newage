@@ -95,6 +95,12 @@ std::optional<std::reference_wrapper<MonType>> find_monster(const strings::ci_st
     return std::nullopt;
 }
 
+int battle_regen(const MonType& monster)
+{
+    if (!Globals->MONSTER_BATTLE_REGEN) return 0;
+    return std::max(monster.regen, 0);
+}
+
 std::optional<std::reference_wrapper<ManType>> find_race(const strings::ci_string& abbr)
 {
     if (abbr.empty()) return std::nullopt;
@@ -866,7 +872,7 @@ std::string item_description(int item, int full)
         if (full) {
             int hits = monster.hits;
             int atts = monster.numAttacks;
-            int regen = monster.regen;
+            int regen = battle_regen(monster);
             if (!hits) hits = 1;
             if (!atts) atts = 1;
             temp += " This monster has " + std::to_string(atts) + " melee " +
@@ -880,7 +886,7 @@ std::string item_description(int item, int full)
             temp += ".";
 
             if (regen > 0) {
-                temp += " This monsters regenerates " + std::to_string(regen) + " hits per round of battle.";
+                temp += " This monster regenerates " + std::to_string(regen) + " hits per round of battle.";
             }
             temp += " This monster has a tactics score of " + std::to_string(monster.tactics) +
                 ", a stealth score of " + std::to_string(monster.stealth) +
@@ -908,7 +914,7 @@ std::string item_description(int item, int full)
         if (full) {
             int hits = monster.hits;
             int atts = monster.numAttacks;
-            int regen = monster.regen;
+            int regen = battle_regen(monster);
             if (!hits) hits = 1;
             if (!atts) atts = 1;
             temp += " This FMI has " + std::to_string(atts) + " melee " +
