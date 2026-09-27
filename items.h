@@ -449,6 +449,21 @@ extern std::optional<std::reference_wrapper<ArmorType>> find_armor(const strings
 extern std::optional<std::reference_wrapper<WeaponType>> find_weapon(const strings::ci_string& abbr);
 extern std::optional<std::reference_wrapper<MountType>> find_mount(const strings::ci_string& abbr);
 extern std::optional<std::reference_wrapper<MonType>> find_monster(const strings::ci_string& abbr, int illusion);
+
+/**
+ * @brief Hits a monster regenerates per battle round under the current ruleset
+ *
+ * The single source for in-battle regeneration: the battle Soldier, the item
+ * description and the report JSON all read it, so the text a player sees cannot
+ * promise regeneration the battle does not perform.
+ *
+ * @param monster Monster definition from MonDefs
+ * @return monster.regen (negative clamped to 0) when GameDefs::MONSTER_BATTLE_REGEN
+ *         is set, otherwise 0
+ * @see Soldier::Soldier, Army::Regenerate, item_description
+ */
+extern int battle_regen(const MonType& monster);
+
 extern std::optional<std::reference_wrapper<ManType>> find_race(const strings::ci_string& abbr);
 extern std::string attack_type(int atype);
 

@@ -293,10 +293,7 @@ Soldier::Soldier(Unit * u,Object * o,int regtype,int r,int ass)
         if (!attacks) attacks = 1;
         special = mp.special;
         slevel = mp.specialLevel;
-        if (Globals->MONSTER_BATTLE_REGEN) {
-            regen = mp.regen;
-            if (regen < 0) regen = 0;
-        }
+        regen = battle_regen(mp);
         return;
     }
 
