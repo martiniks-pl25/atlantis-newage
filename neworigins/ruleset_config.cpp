@@ -12,9 +12,11 @@ const RulesetConfig& ruleset_config()
             .spawn = { .elite_spawn_pct = 4 },
         },
         .dungeons = { .level = { .width = 128, .height = 32 } },
+        .map = { .ocean_naming = { .enabled = true } },
     };
     static_assert(valid(config.pirates));
     static_assert(valid(config.quests));
     static_assert(valid(config.dungeons));
+    static_assert(valid(config.map));
     return config;
 }

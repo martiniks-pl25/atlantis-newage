@@ -460,14 +460,17 @@ void Game::CreateWorld()
         // instead of 24-27), which is what lifts mountain villages from 4.5 to 5.0
         // against the floor of 5. Persistence 0.7 goes too far: the coast gets
         // ragged but the map fills with one-hex islets (24 per world against 12).
-        float default_frequency = 5.2;
+        // 5.5 is the picked look for the Trident world (2026-09-28): more, smaller
+        // landmasses than 5.2 with water 0.58 and aspect correction 0.95.
+        float default_frequency = 5.5;
         int   default_octaves = 5;
         float default_lacunarity = 2.0;
         float default_persistence = 0.6;
         float default_evoparation = 0.91;    // Rainfall; swamps sit right at the settlement floor below this
         // Share of the surface under water. Above 0.60 fewer worlds seat five villages
         // per terrain: the extra sea eats the cold high-latitude land tundra needs.
-        float default_waterPercent = 0.60;
+        // Below 0.58 the land bands merge and one island holds too many settlements.
+        float default_waterPercent = 0.58;
         float default_mountainPercent = 0.08;  // mountain + hill
         float default_hillPercent = 0.57;      // hill share within the mountain block
         float default_lakePercent = 0.15;  // 15% chance for lake placement
@@ -501,8 +504,9 @@ void Game::CreateWorld()
         // it the jitter and band release below). Measured on 64x48: below 0.45 the noise
         // wins and the equatorial sea barely forms (1-2 rows, absent in some worlds);
         // 0.45 is the threshold where it appears in every world (3-8 rows) and the two
-        // hemispheres even out. Above that only the sea widens. Useful range 0.30-0.45.
-        float default_maskStrength = 0.45;
+        // hemispheres even out. Above that only the sea widens. Useful range 0.30-0.55;
+        // 0.55 is the picked Trident look (2026-09-28).
+        float default_maskStrength = 0.55;
         // Latitude jitter: each cell reads the profile at lat + this * noise(x,y), so the
         // coastline wanders instead of following a parallel. Measured on 64x48: coast
         // raggedness rises 3.70 -> 4.39 from 0 to 10 degrees and then stops, so 5-10 is
@@ -518,7 +522,8 @@ void Game::CreateWorld()
         // 0.80 leaves a slight east-west stretch (aspect^0.2 = 1.13). Full correction
         // (1.0) makes landmasses round but fewer worlds pass and there are fewer
         // liveable islands; 0 is the old unstretched noise, which produced strips.
-        float default_noiseAspectCorrection = 0.80;
+        // 0.95 (aspect^0.05 = 1.03, nearly round) is the picked Trident look (2026-09-28).
+        float default_noiseAspectCorrection = 0.95;
 
         // Show current defaults
         logger::write("");

@@ -15,8 +15,12 @@
 #include <cassert>
 #include <unordered_set>
 #include <queue>
+#include <functional>
+#include <map>
 #include "scoped_enum.hpp"
 #include "strings_util.hpp"
+#include "ocean_naming.hpp"
+#include "ruleset_config.h"
 
 #ifndef M_PI
     #define M_PI 3.14159265358979323846
@@ -5355,6 +5359,127 @@ void assertAllRegionsHaveName(const int w, const int h, ARegionArray* arr) {
     }
 }
 
+/**
+ * @brief Renames the surface water as separate oceans and seas (OceanNamingRules).
+ *
+ * giveNames() names water by connectivity, which on these maps leaves one ocean for
+ * nearly all the water. This pass runs after it and replaces those names with the
+ * parts from ocean_naming::partition(): basins split along the narrows (a watershed on
+ * the distance to land), named by where their open water lies - equatorial and polar
+ * oceans, and seas, gulfs, straits and bays in the land bands. Rivers and small
+ * isolated water keep their names; terrain is never touched.
+ *
+ * Names:
+ * - equatorial ocean: "<Ethnic> Ocean"; polar ocean (one per pole): a name from a
+ *   pirate-themed pool ("Ocean of Sunken Galleons"), "<Ethnic> Ice Ocean" once it is used up;
+ * - sea "<Ethnic> Sea", gulf "Gulf of <Ethnic>", strait "<Ethnic> Strait", bay "<Ethnic> Bay";
+ * the ethnic stem comes from the most common race on the part's shore.
+ *
+ * @param arr the surface level
+ * @param rivers river hexes (keep their river names)
+ * @param edge_lat latitude where the land band ends toward the equator (Map::landEdgeLatitude)
+ * @note Draws names from the shared generator but restores its state afterwards, so
+ *       everything generated later (settlements, products, lairs) is identical to a
+ *       world generated with the rule off.
+ */
+static void nameSurfaceWater(
+    ARegionArray* arr, const std::unordered_map<ARegion*, int>& rivers,
+    const int w, const int h, const double edge_lat
+) {
+    const OceanNamingRules& rules = ruleset_config().map.ocean_naming;
+    if (!rules.enabled) return;
+
+    const std::mt19937 saved = rng::generator();
+
+    ocean_naming::Grid grid { w, h, std::vector<ocean_naming::Tile>(w * h, ocean_naming::Tile::none) };
+    std::unordered_set<std::string> usedNames;
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            if ((x + y) % 2) continue;
+            ARegion* reg = arr->GetRegion(x, y);
+            if (!reg) continue;
+            usedNames.insert(reg->name);
+            if (reg->type != R_OCEAN) {
+                grid.tiles[y * w + x] = ocean_naming::Tile::land;
+            } else if (!rivers.contains(reg)) {
+                grid.tiles[y * w + x] = ocean_naming::Tile::water;
+            }
+        }
+    }
+
+    const ocean_naming::Params params {
+        .polar_lat = double(rules.polar_lat), .edge_lat = edge_lat,
+        .ocean_target = rules.ocean_target, .bay_min = rules.bay_min, .strait_max = rules.strait_max,
+        .neck_depth = rules.neck_depth, .ocean_min = rules.ocean_min,
+    };
+
+    std::vector<std::string> polarPool = {
+        "Ocean of Sunken Galleons", "Dead Mans Ocean", "Frostbone Ocean", "Ocean of the Drowned Crown",
+        "Keelgrave Ocean", "Blackwake Ocean", "Brine Coffin Ocean", "Skullfrost Ocean",
+        "Ocean of Frozen Oaths", "Ocean of Lost Sails", "Rimewraith Ocean", "Widowmaker Ocean",
+    };
+    std::shuffle(polarPool.begin(), polarPool.end(), rng::generator());
+
+    const auto unique_name = [&](const std::function<std::string()>& make) {
+        std::string name = make();
+        for (int tries = 0; usedNames.contains(name) && tries < 100; tries++) name = make();
+        usedNames.insert(name);
+        return name;
+    };
+
+    for (const ocean_naming::Part& part : ocean_naming::partition(grid, params)) {
+        std::map<int, int> shoreRaces;
+        for (const int c : part.cells) {
+            for (const int nb : ocean_naming::neighbours(grid, c)) {
+                if (grid.tiles[nb] != ocean_naming::Tile::land) continue;
+                ARegion* shore = arr->GetRegion(nb % w, nb / w);
+                if (shore) shoreRaces[static_cast<int>(getRegionEtnos(shore))]++;
+            }
+        }
+        Ethnicity etnos = Ethnicity::NONE;
+        if (!shoreRaces.empty()) {
+            etnos = static_cast<Ethnicity>(std::max_element(shoreRaces.begin(), shoreRaces.end(),
+                [](const auto& a, const auto& b) { return a.second < b.second; })->first);
+        }
+
+        std::string name;
+        switch (part.kind) {
+            case ocean_naming::Kind::polar_ocean:
+                while (!polarPool.empty() && usedNames.contains(polarPool.back())) polarPool.pop_back();
+                if (!polarPool.empty()) {
+                    name = polarPool.back();
+                    polarPool.pop_back();
+                    usedNames.insert(name);
+                } else {
+                    name = unique_name([&] { return getEthnicName(etnos) + " Ice Ocean"; });
+                }
+                break;
+            case ocean_naming::Kind::ocean:
+                name = unique_name([&] { return getEthnicName(etnos) + " Ocean"; });
+                break;
+            case ocean_naming::Kind::sea:
+                name = unique_name([&] { return getEthnicName(etnos) + " Sea"; });
+                break;
+            case ocean_naming::Kind::gulf:
+                name = unique_name([&] { return "Gulf of " + getEthnicName(etnos); });
+                break;
+            case ocean_naming::Kind::strait:
+                name = unique_name([&] { return getEthnicName(etnos) + " Strait"; });
+                break;
+            case ocean_naming::Kind::bay:
+                name = unique_name([&] { return getEthnicName(etnos) + " Bay"; });
+                break;
+        }
+
+        logger::write("Water part: " + name + " (" + std::to_string(part.cells.size()) + " regions)");
+        for (const int c : part.cells) {
+            arr->GetRegion(c % w, c / w)->set_name(name);
+        }
+    }
+
+    rng::generator() = saved;
+}
+
 void ARegionList::create_natural_surface_level(Map* map) {
     static const int level = 1;
 
@@ -5401,6 +5526,7 @@ void ARegionList::create_natural_surface_level(Map* map) {
     GrowRaces(arr);
 
     giveNames(arr, waterBodies, rivers, w, h);
+    nameSurfaceWater(arr, rivers, w, h, map->landEdgeLatitude);
     assertAllRegionsHaveName(w, h, arr);
 
     // Game::CreateWorld() is a ruleset entry point with a void signature, so the

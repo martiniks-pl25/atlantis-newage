@@ -269,11 +269,48 @@ struct DungeonRules {
     return whole_cells(d.level.width) && whole_cells(d.level.height);
 }
 
+/**
+ * @brief Naming of the surface water by the parametric generator (ocean_naming.hpp).
+ *
+ * Off: every connected water body gets one name, which on a map with polar sea lanes
+ * and an equatorial sea means one ocean for nearly all the water. On: that water is
+ * split along its narrows into oceans (equatorial and polar) and seas (the water
+ * between the landmasses), so a player can tell which ocean a fleet sails in.
+ * Only the names change: terrain, rivers and the random-number stream are untouched.
+ * Read only when a world is created.
+ */
+struct OceanNamingRules {
+    bool enabled     = false;
+    int polar_lat    = 80;   ///< latitude (degrees) from which water counts as a polar ocean
+    int ocean_target = 180;  ///< hexes per ocean; an ocean or sea stretch is cut into size / this parts
+    int bay_min      = 6;    ///< parts smaller than this fold into their neighbour
+    int strait_max   = 14;   ///< band parts up to this size are straits (2+ landmasses) or bays (1)
+    int neck_depth   = 2;    ///< a narrows splits two basins only if it is this many hexes shallower than both
+    int ocean_min    = 60;   ///< an ocean (equatorial or polar) smaller than this folds into a neighbouring ocean
+};
+
+/// World generation tunables.
+struct MapRules {
+    OceanNamingRules ocean_naming;
+};
+
+/**
+ * @brief Range checks for map values, run at compile time by each ruleset
+ * (`static_assert(valid(config.map))`).
+ */
+[[nodiscard]] consteval bool valid(const MapRules& m) noexcept
+{
+    const OceanNamingRules& o = m.ocean_naming;
+    return o.polar_lat > 0 && o.polar_lat <= 90 && o.ocean_target >= 1
+        && o.bay_min >= 1 && o.strait_max >= o.bay_min && o.neck_depth >= 1 && o.ocean_min >= o.bay_min;
+}
+
 /// All typed ruleset parameters.
 struct RulesetConfig {
     PirateRules pirates;
     QuestRules quests;
     DungeonRules dungeons;
+    MapRules map;
 };
 
 /**

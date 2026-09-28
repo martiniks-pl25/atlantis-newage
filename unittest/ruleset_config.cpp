@@ -7,5 +7,6 @@ const RulesetConfig& ruleset_config()
     static_assert(valid(config.pirates));
     static_assert(valid(config.quests));
     static_assert(valid(config.dungeons));
+    static_assert(valid(config.map));
     return config;
 }
