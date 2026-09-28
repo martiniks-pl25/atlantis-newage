@@ -5,6 +5,7 @@
 #include <cmath>
 #include "../namegen.h"
 #include "rng.hpp"
+#include "../underworld_tunnels.hpp"
 
 #include <algorithm>
 #include <list>
@@ -25,6 +26,7 @@ std::vector<graphs::Location2D> getPoints(
 // Forward declarations for underground settlement generation
 void placeLakes(ARegionArray* arr, const int w, const int h, double lakePercent);
 Ethnicity getRegionEtnos(ARegion* reg);
+void nameUndergroundWater(ARegionArray* arr);
 
 enum ZoneType {
     UNDECIDED,  // zone type not yet determined
@@ -1896,6 +1898,9 @@ static void economy_underground(ARegionArray* arr, const int w, const int h)
             reg->assign_generated_name(arr->levelType);
         }
     }
+    // Every sea above got the level's one name; split it into named basins (off unless
+    // OceanNamingRules::underground). Leaves the random-number stream as it found it.
+    nameUndergroundWater(arr);
 
     logger::write("Setting underground settlements");
 
@@ -2042,6 +2047,133 @@ static void economy_underground(ARegionArray* arr, const int w, const int h)
     }
 }
 
+/**
+ * @brief Turns a grown underworld level into chambers joined by tunnel corridors, and walls it.
+ *
+ * Replaces MakeUWMaze() on the underworld when UnderworldTunnelRules::enabled. Feeds
+ * the level to underworld_tunnels as a graph (patch id = the name id GrowTerrain
+ * spread through reg->wages), gives each chamber one name, turns each planned corridor
+ * into R_TUNNELS under a name of its own, then cuts the planned links on both sides.
+ * Runs after placeLakes() so corridors route around lakes, and before shafts and
+ * settlements exist, so both land on the finished layout.
+ *
+ * @param arr the underworld level, after GrowTerrain(), AssignTypes() and placeLakes()
+ * @see underworld_tunnels.hpp, UnderworldTunnelRules
+ */
+static void carve_underworld_tunnels(ARegionArray* arr)
+{
+    using namespace underworld_tunnels;
+    const UnderworldTunnelRules& rules = ruleset_config().map.underworld_tunnels;
+    const Params params {
+        .max_share_pct = rules.max_share_pct,
+        .half_length = rules.half_length,
+        .min_chamber = rules.min_chamber,
+        .extra_link_pct = rules.extra_link_pct,
+        .chamber_cut = rules.chamber_cut,
+        .wall_cut = rules.wall_cut,
+        .coast_cut = rules.coast_cut,
+    };
+
+    const int w = arr->x;
+    const int h = arr->y;
+    const auto index = [w](const ARegion* r) { return r->yloc * w + r->xloc; };
+    Level lv;
+    lv.tile.assign(w * h, Tile::none);
+    lv.seed.assign(w * h, -1);
+    lv.nbr.assign(w * h, { -1, -1, -1, -1, -1, -1 });
+    std::vector<ARegion*> at(w * h, nullptr);
+    for (int x = 0; x < w; x++) {
+        for (int y = 0; y < h; y++) {
+            ARegion* reg = arr->GetRegion(x, y);
+            if (!reg) continue;
+            const int i = index(reg);
+            at[i] = reg;
+            if (reg->type == R_LAKE) {
+                lv.tile[i] = Tile::lake;
+            } else if (TerrainDefs[reg->type].similar_type == R_OCEAN) {
+                lv.tile[i] = Tile::sea;
+            } else {
+                lv.tile[i] = Tile::land;
+                lv.seed[i] = reg->wages;
+            }
+            for (int d = 0; d < NDIRS; d++) {
+                if (reg->neighbors[d]) lv.nbr[i][d] = index(reg->neighbors[d]);
+            }
+        }
+    }
+
+    const Random rnd = [](const int n) { return rng::get_random(n); };
+    const std::vector<int> chamber = chambers(lv, params);
+
+    // A folded-in patch takes its host's name: one chamber, one name.
+    std::vector<int> chamber_name(detail::chamber_count(chamber), -1);
+    for (int i = 0; i < w * h; i++) {
+        if (chamber[i] < 0) continue;
+        if (chamber_name[chamber[i]] < 0) chamber_name[chamber[i]] = at[i]->wages;
+        at[i]->wages = chamber_name[chamber[i]];
+    }
+
+    const std::vector<Corridor> corridors = plan_corridors(lv, chamber, params, rnd);
+    int carved = 0;
+    for (const Corridor& cor : corridors) {
+        ARegion* first = at[cor.cells.front()];
+        first->type = R_TUNNELS;
+        const int name = AGetName(0, first);
+        for (const int c : cor.cells) {
+            at[c]->type = R_TUNNELS;
+            at[c]->wages = name;
+        }
+        carved += static_cast<int>(cor.cells.size());
+    }
+
+    const std::vector<Cut> cuts = plan_walls(lv, chamber, corridors, params, rnd);
+    for (const Cut& cut : cuts) {
+        ARegion* reg = at[cut.cell];
+        ARegion* other = reg->neighbors[cut.dir];
+        if (!other) continue;
+        other->neighbors[reg->GetRealDirComp(cut.dir)] = nullptr;
+        reg->neighbors[cut.dir] = nullptr;
+    }
+
+    logger::write("Underworld tunnels: " + std::to_string(chamber_name.size()) + " chambers, " +
+                  std::to_string(corridors.size()) + " corridors, " + std::to_string(carved) +
+                  " tunnel hexes, " + std::to_string(cuts.size()) + " links cut");
+}
+
+/**
+ * @brief Turns every underground sea hex with no water neighbour into a lake.
+ *
+ * Late in GrowTerrain() an unset hex can roll its own terrain (ODD_TERRAIN); under the
+ * surface sea that roll may be sea, and by then the land around it has grown, so it
+ * stays a single hex of ocean shut in by land. Such a hex becomes R_LAKE and takes a
+ * lake name, as placeLakes() gives one. No other hex changes: a converted hex had no
+ * water neighbour, so no neighbour's test depends on it.
+ * Runs before the maze, while every hex still has all its neighbour links.
+ *
+ * @param arr an underworld or underdeep level, after placeLakes()
+ * @see UndergroundLakeRules
+ */
+static void landlocked_seas_to_lakes(ARegionArray* arr)
+{
+    if (!ruleset_config().map.underground_lakes.landlocked_seas) return;
+
+    int turned = 0;
+    for (int x = 0; x < arr->x; x++) {
+        for (int y = 0; y < arr->y; y++) {
+            ARegion* reg = arr->GetRegion(x, y);
+            if (!reg || reg->type != R_OCEAN) continue;
+            const bool water_next = std::ranges::any_of(reg->neighbors, [](const ARegion* n) {
+                return n && TerrainDefs[n->type].similar_type == R_OCEAN;
+            });
+            if (water_next) continue;
+            reg->type = R_LAKE;
+            reg->wages = AGetName(0, reg);
+            turned++;
+        }
+    }
+    logger::write("Landlocked sea hexes turned into lakes: " + std::to_string(turned));
+}
+
 // TODO: port underworld/underdeep generation to the parametric surface pipeline
 // (generator=2). The current path is the legacy chain:
 //   SetRegTypes -> GrowTerrain -> AssignTypes -> MakeUWMaze -> FinalSetup -> SetupPop
@@ -2074,7 +2206,13 @@ void ARegionList::create_underworld_level(int level, int xSize, int ySize, const
 
     if (Globals->LAKES) placeLakes(pRegionArrays[level], xSize, ySize, 0.10);
 
-    MakeUWMaze(pRegionArrays[level]);
+    landlocked_seas_to_lakes(pRegionArrays[level]);
+
+    if (ruleset_config().map.underworld_tunnels.enabled) {
+        carve_underworld_tunnels(pRegionArrays[level]);
+    } else {
+        MakeUWMaze(pRegionArrays[level]);
+    }
 
     if (Globals->LAKES) RemoveCoastalLakes(pRegionArrays[level]);
 
@@ -2104,6 +2242,8 @@ void ARegionList::create_underdeep_level(int level, int xSize, int ySize, const 
     AssignTypes(pRegionArrays[level]);
 
     if (Globals->LAKES) placeLakes(pRegionArrays[level], xSize, ySize, 0.10);
+
+    landlocked_seas_to_lakes(pRegionArrays[level]);
 
     MakeUWMaze(pRegionArrays[level]);
 

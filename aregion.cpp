@@ -5360,6 +5360,26 @@ void assertAllRegionsHaveName(const int w, const int h, ARegionArray* arr) {
 }
 
 /**
+ * @brief Ethnicity of the most common race on a water part's shore.
+ * @param arr the level the grid was built from
+ * @return Ethnicity::NONE when no shore hex has a race
+ */
+static Ethnicity shoreEthnicity(ARegionArray* arr, const ocean_naming::Grid& grid, const ocean_naming::Part& part)
+{
+    std::map<int, int> shoreRaces;
+    for (const int c : part.cells) {
+        for (const int nb : ocean_naming::neighbours(grid, c)) {
+            if (grid.tiles[nb] != ocean_naming::Tile::land) continue;
+            ARegion* shore = arr->GetRegion(nb % grid.width, nb / grid.width);
+            if (shore) shoreRaces[static_cast<int>(getRegionEtnos(shore))]++;
+        }
+    }
+    if (shoreRaces.empty()) return Ethnicity::NONE;
+    const auto most = std::ranges::max_element(shoreRaces, {}, [](const auto& race) { return race.second; });
+    return static_cast<Ethnicity>(most->first);
+}
+
+/**
  * @brief Renames the surface water as separate oceans and seas (OceanNamingRules).
  *
  * giveNames() names water by connectivity, which on these maps leaves one ocean for
@@ -5470,6 +5490,80 @@ static void nameSurfaceWater(
                 name = unique_name([&] { return getEthnicName(etnos) + " Bay"; });
                 break;
         }
+
+        logger::write("Water part: " + name + " (" + std::to_string(part.cells.size()) + " regions)");
+        for (const int c : part.cells) {
+            arr->GetRegion(c % w, c / w)->set_name(name);
+        }
+    }
+
+    rng::generator() = saved;
+}
+
+/**
+ * @brief Names the water of an underground level by basin (OceanNamingRules::underground).
+ *
+ * assign_generated_name() gives every sea hex of a level one name ("The Undersea",
+ * "The Deep Undersea"). This splits that water with the same watershed as the surface,
+ * ocean_naming::partition(), but without latitude belts (ocean_naming::without_belts):
+ * a basin is set apart only by its narrows. Water the partition leaves out - an
+ * isolated pocket smaller than bay_min - is named too, one name per connected pocket.
+ *
+ * Only two kinds of name, by size; "Deep" marks the underdeep:
+ * - underground_sea_min hexes or more: "<Ethnic> Undersea" / "<Ethnic> Deep Sea";
+ * - smaller: "<Ethnic> Sump" / "<Ethnic> Deep Sump".
+ * The ethnic stem comes from the most common race on the water's shore. Lakes (R_LAKE)
+ * are not touched.
+ *
+ * @param arr an underworld or underdeep level, after GrowRaces() and assign_generated_name()
+ * @note Draws names from the shared generator but restores its state afterwards, like
+ *       nameSurfaceWater(), so the settlements placed next are unchanged.
+ */
+void nameUndergroundWater(ARegionArray* arr)
+{
+    const OceanNamingRules& rules = ruleset_config().map.ocean_naming;
+    if (!rules.enabled || !rules.underground) return;
+
+    const std::mt19937 saved = rng::generator();
+
+    const int w = arr->x;
+    const int h = arr->y;
+    ocean_naming::Grid grid { w, h, std::vector<ocean_naming::Tile>(w * h, ocean_naming::Tile::none) };
+    std::unordered_set<std::string> usedNames;
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            if ((x + y) % 2) continue;
+            ARegion* reg = arr->GetRegion(x, y);
+            if (!reg) continue;
+            usedNames.insert(reg->name);
+            grid.tiles[y * w + x] = reg->type == R_OCEAN ? ocean_naming::Tile::water : ocean_naming::Tile::land;
+        }
+    }
+
+    const ocean_naming::Params params = ocean_naming::without_belts({
+        .ocean_target = rules.ocean_target, .bay_min = rules.bay_min, .strait_max = rules.strait_max,
+        .neck_depth = rules.neck_depth, .ocean_min = rules.ocean_min,
+    });
+    const bool deep = arr->levelType == ARegionArray::LEVEL_UNDERDEEP;
+    const std::string sea = deep ? " Deep Sea" : " Undersea";
+    const std::string sump = deep ? " Deep Sump" : " Sump";
+
+    std::vector<ocean_naming::Part> parts = ocean_naming::partition(grid, params);
+    std::vector<char> left(w * h, 0);
+    for (int i = 0; i < w * h; i++) left[i] = grid.tiles[i] == ocean_naming::Tile::water;
+    for (const ocean_naming::Part& part : parts) {
+        for (const int c : part.cells) left[c] = 0;
+    }
+    for (auto& pocket : ocean_naming::components(grid, left)) {
+        parts.push_back({ ocean_naming::Kind::sea, std::move(pocket) });
+    }
+
+    for (const ocean_naming::Part& part : parts) {
+        const Ethnicity etnos = shoreEthnicity(arr, grid, part);
+        const std::string& suffix = static_cast<int>(part.cells.size()) >= rules.underground_sea_min ? sea : sump;
+        std::string name = getEthnicName(etnos) + suffix;
+        for (int tries = 0; usedNames.contains(name) && tries < 100; tries++) name = getEthnicName(etnos) + suffix;
+        usedNames.insert(name);
 
         logger::write("Water part: " + name + " (" + std::to_string(part.cells.size()) + " regions)");
         for (const int c : part.cells) {

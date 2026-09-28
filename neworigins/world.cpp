@@ -919,6 +919,11 @@ int ARegionList::GetRegType( ARegion *pReg )
     // away (measured: 35 of 57 candidates on one world).
     if ((pReg->zloc > 1) && (pReg->zloc < Globals->UNDERWORLD_LEVELS+2)) {
         if (ocean_anchor_here(*this, pReg)) return R_OCEAN;
+        // With carved tunnels the anchors seed only chambers, in the old 5:3 ratio;
+        // the corridors are cut through the walls between them afterwards.
+        if (ruleset_config().map.underworld_tunnels.enabled) {
+            return rng::get_random(8) < 5 ? R_CAVERN : R_UFOREST;
+        }
         int r = rng::get_random(11);
         if (r < 5) return R_CAVERN;
         if (r < 8) return R_UFOREST;

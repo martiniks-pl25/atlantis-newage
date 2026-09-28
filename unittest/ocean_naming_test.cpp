@@ -153,4 +153,19 @@ ut::suite<"Ocean Naming"> ocean_naming_suite = [] {
         for (const auto& part : parts) covered += part.cells.size();
         expect(eq(covered, count_water(g)));
     };
+
+    // The underground names basins without latitude belts: a part is never an ocean,
+    // and the polar rows are split by their narrows like any other water.
+    "without belts no part is an ocean and every water cell is still named"_test = [] {
+        const Grid g = make_grid();
+        const auto parts = ocean_naming::partition(g, ocean_naming::without_belts({}));
+        size_t covered = 0;
+        for (const auto& part : parts) {
+            expect(part.kind != ocean_naming::Kind::ocean);
+            expect(part.kind != ocean_naming::Kind::polar_ocean);
+            covered += part.cells.size();
+        }
+        expect(parts.size() > 1_ul);
+        expect(eq(covered, count_water(g)));
+    };
 };

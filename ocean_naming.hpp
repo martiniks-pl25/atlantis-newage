@@ -65,6 +65,20 @@ struct Params {
     int ocean_min = 60;
 };
 
+/**
+ * @brief The same tunables with the latitude belts switched off, for the underground.
+ *
+ * No hex reaches polar_lat and none lies below edge_lat, so every basin is a band
+ * basin: basins merge or split only by their narrows, nothing joins a polar ocean,
+ * and each part comes out a sea, gulf, strait or bay - never an ocean.
+ */
+[[nodiscard]] inline Params without_belts(Params p)
+{
+    p.polar_lat = 1000.0;
+    p.edge_lat = -1.0;
+    return p;
+}
+
 /// The hex grid in region coordinates: a hex exists where (x + y) is even; x wraps.
 struct Grid {
     int width = 0;

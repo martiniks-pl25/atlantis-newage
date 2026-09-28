@@ -287,11 +287,54 @@ struct OceanNamingRules {
     int strait_max   = 14;   ///< band parts up to this size are straits (2+ landmasses) or bays (1)
     int neck_depth   = 2;    ///< a narrows splits two basins only if it is this many hexes shallower than both
     int ocean_min    = 60;   ///< an ocean (equatorial or polar) smaller than this folds into a neighbouring ocean
+    /// Also name the underground water by basin, with the same numbers but no latitude
+    /// belts: a basin of underground_sea_min hexes or more is a sea ("X Undersea",
+    /// "X Deep Sea"), a smaller one or an isolated pocket a sump ("X Sump", "X Deep Sump").
+    bool underground = false;
+    int underground_sea_min = 10;  ///< smallest underground basin named a sea rather than a sump
+};
+
+/**
+ * @brief Underworld chambers joined by tunnel corridors (underworld_tunnels.hpp,
+ * carve_underworld_tunnels() in neworigins/map.cpp).
+ *
+ * Off: tunnels are seeded like any other terrain and grow into patches, and
+ * MakeUWMaze() cuts links at random, tunnels most of all. On: the anchors seed only
+ * cavern and underforest, each grown patch is a chamber, and tunnels are carved as
+ * short corridors through the wall between two chambers. Links between chambers are
+ * mostly cut, links along a corridor never, and every piece of land that was connected
+ * before the cuts stays connected. The underdeep is unaffected.
+ * Read only when a world is created.
+ */
+struct UnderworldTunnelRules {
+    bool enabled       = false;
+    int max_share_pct  = 18;  ///< corridor budget: tunnel hexes as % of the level's land
+    int half_length    = 3;   ///< most hexes a corridor reaches into each of its two chambers
+    int min_chamber    = 6;   ///< a chamber smaller than this folds into its neighbour
+    int extra_link_pct = 25;  ///< % a neighbouring chamber pair beyond the spanning tree also gets a corridor
+    int chamber_cut    = 15;  ///< % a link inside one chamber is cut
+    int wall_cut       = 90;  ///< % a link between two chambers, not through their corridor, is cut
+    int coast_cut      = 60;  ///< % a land-sea link is cut; every coastal chamber keeps one open
+};
+
+/**
+ * @brief Underground water that the anchors leave as a single hex of sea shut in by land
+ * (landlocked_seas_to_lakes() in neworigins/map.cpp).
+ *
+ * Off: it stays sea, a one-hex ocean no ship can reach or leave. On: it becomes a lake
+ * and takes a lake name like any other. Underworld and underdeep only; the surface is
+ * built by another generator and is never touched.
+ * Read only when a world is created.
+ */
+struct UndergroundLakeRules {
+    bool landlocked_seas = false;  ///< turn a sea hex with no water neighbour into a lake
 };
 
 /// World generation tunables.
 struct MapRules {
     OceanNamingRules ocean_naming;
+    UnderworldTunnelRules underworld_tunnels;
+    UndergroundLakeRules underground_lakes;
 };
 
 /**
@@ -301,8 +344,13 @@ struct MapRules {
 [[nodiscard]] consteval bool valid(const MapRules& m) noexcept
 {
     const OceanNamingRules& o = m.ocean_naming;
+    const UnderworldTunnelRules& t = m.underworld_tunnels;
+    const auto pct = [](const int v) { return v >= 0 && v <= 100; };
     return o.polar_lat > 0 && o.polar_lat <= 90 && o.ocean_target >= 1
-        && o.bay_min >= 1 && o.strait_max >= o.bay_min && o.neck_depth >= 1 && o.ocean_min >= o.bay_min;
+        && o.bay_min >= 1 && o.strait_max >= o.bay_min && o.neck_depth >= 1 && o.ocean_min >= o.bay_min
+        && o.underground_sea_min >= 1
+        && pct(t.max_share_pct) && t.half_length >= 1 && t.min_chamber >= 1
+        && pct(t.extra_link_pct) && pct(t.chamber_cut) && pct(t.wall_cut) && pct(t.coast_cut);
 }
 
 /// All typed ruleset parameters.
