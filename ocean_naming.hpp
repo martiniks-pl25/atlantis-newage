@@ -28,9 +28,10 @@
  *   shallower than both of them, or their deepest points lie in different belts
  *   (polar, equatorial, the land bands between); the belt of a basin is the latitude of
  *   its deepest hex, so a border never follows a latitude line;
- * - each polar lane is one ocean: every hex at or above polar_lat, and every basin whose
- *   open water is polar, joins its hemisphere's polar ocean (a lane is a ring around the
- *   pole, so there its latitude line is the natural edge);
+ * - each polar lane is one ocean: exactly the water at or above polar_lat of its
+ *   hemisphere (a lane is a ring around the pole, so its latitude line is the natural
+ *   edge); it is taken out before the watershed, so a gulf opening onto the lane is its
+ *   own sea rather than part of the polar ocean;
  * - a basin holding more than 1.5 * ocean_target hexes is cut by longitude into about
  *   size / ocean_target parts, the cuts on the columns with the least water - the one
  *   place left where open water has no narrows to follow (the equatorial sea);
@@ -283,8 +284,8 @@ struct Part {
  * bay_min that touches no other water part: those are left out and keep the name the
  * generator gave them (lagoons, tarns). Parts are connected and at least bay_min hexes.
  *
- * The kind of a part comes from the latitude of its basin's deepest hex: polar ocean at
- * or above polar_lat, ocean below edge_lat, otherwise a band part. A band part up to
+ * A polar ocean is the water at or above polar_lat; any other part is an ocean when its
+ * basin's deepest hex lies below edge_lat, otherwise a band part. A band part up to
  * strait_max hexes touching two or more landmasses is a strait and one touching a
  * single landmass a bay; larger, a part enclosed by one landmass is a gulf, else a sea.
  *
@@ -293,18 +294,29 @@ struct Part {
 [[nodiscard]] inline std::vector<Part> partition(const Grid& g, const Params& p)
 {
     const int n = g.width * g.height;
-    const std::vector<int> dist = distance_to_land(g);
 
-    enum class Belt { polar, equator, band };
+    // The polar lanes are taken out first: every water hex at or above polar_lat is its
+    // hemisphere's polar ocean, and nothing more. The watershed runs on the rest, so a
+    // gulf that opens onto a lane becomes its own sea instead of dragging the polar ocean
+    // down toward the equator.
+    Grid rest = g;
+    std::vector<char> lane_north(n, 0), lane_south(n, 0);
+    for (int i = 0; i < n; i++) {
+        if (g.tiles[i] != Tile::water || latitude(i / g.width, g.height) < p.polar_lat) continue;
+        (i / g.width < g.height / 2 ? lane_north : lane_south)[i] = 1;
+        rest.tiles[i] = Tile::none;
+    }
+    const std::vector<int> dist = distance_to_land(rest);
+
+    enum class Belt { equator, band };
     const auto belt_of = [&](const int cell) {
-        const double lat = latitude(cell / g.width, g.height);
-        return lat >= p.polar_lat ? Belt::polar : lat < p.edge_lat ? Belt::equator : Belt::band;
+        return latitude(cell / g.width, g.height) < p.edge_lat ? Belt::equator : Belt::band;
     };
 
     // Flood order: deepest first; ties by index so the result is deterministic.
     std::vector<int> order;
     for (int i = 0; i < n; i++) {
-        if (g.tiles[i] == Tile::water) order.push_back(i);
+        if (rest.tiles[i] == Tile::water) order.push_back(i);
     }
     std::stable_sort(order.begin(), order.end(), [&](int a, int b) { return dist[a] > dist[b]; });
 
@@ -351,32 +363,19 @@ struct Part {
         }
     }
 
-    // Collect basins. Each polar lane is kept whole as one ocean: every hex at or above
-    // polar_lat, and every basin whose open water is polar, joins its hemisphere's polar
-    // group. The other basins are split by longitude when large.
-    constexpr int north = -2;  // group keys below any basin id
-    constexpr int south = -1;
-    std::map<int, std::vector<int>> cells_of;  // basin ids follow creation = depth order
-    for (const int c : order) {
-        const int root = find(basin[c]);
-        const int anchor = latitude(c / g.width, g.height) >= p.polar_lat ? c
-                         : belt_of(peak_cell[root]) == Belt::polar ? peak_cell[root] : -1;
-        const int key = anchor < 0 ? root : (anchor / g.width) < g.height / 2 ? north : south;
-        cells_of[key].push_back(c);
-    }
+    // Collect: one polar ocean per lane (a piece per ring if land breaks it), then the
+    // basins, the large ones split by longitude.
     std::vector<Part> parts;
-    for (auto& [key, cells] : cells_of) {
-        const bool polar = key < 0;
-        const Kind kind = polar ? Kind::polar_ocean
-                        : belt_of(peak_cell[key]) == Belt::equator ? Kind::ocean : Kind::sea;
-        // Pulling the polar hexes out can leave a basin in pieces: name each piece.
-        std::vector<char> in_group(n, 0);
-        for (const int c : cells) in_group[c] = 1;
-        for (auto& comp : components(g, in_group)) {
-            const double share = double(comp.size()) / p.ocean_target;
-            const int k = !polar && share > 1.5 ? static_cast<int>(std::lround(share)) : 1;
-            for (auto& piece : split_by_longitude(g, comp, k)) parts.push_back({ kind, std::move(piece) });
-        }
+    for (const auto* lane : { &lane_north, &lane_south }) {
+        for (auto& comp : components(g, *lane)) parts.push_back({ Kind::polar_ocean, std::move(comp) });
+    }
+    std::map<int, std::vector<int>> cells_of;  // basin ids follow creation = depth order
+    for (const int c : order) cells_of[find(basin[c])].push_back(c);
+    for (auto& [root, cells] : cells_of) {
+        const Kind kind = belt_of(peak_cell[root]) == Belt::equator ? Kind::ocean : Kind::sea;
+        const double share = double(cells.size()) / p.ocean_target;
+        const int k = share > 1.5 ? static_cast<int>(std::lround(share)) : 1;
+        for (auto& piece : split_by_longitude(g, cells, k)) parts.push_back({ kind, std::move(piece) });
     }
 
     // Fold small parts into a neighbour, smallest first, until every part is big enough
