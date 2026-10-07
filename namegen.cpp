@@ -372,6 +372,7 @@ std::vector<std::string> aDwarfTroll = { "throg", "olog", "urak", "grond", "thro
 std::vector<std::string> aDwarfUndead = { "gul", "morgul", "dushgoi", "nazgul", "barrow", "tumun" };
 std::vector<std::string> aDwarfCentaur = { "taur", "rath", "rundak", "kevar", "horath", "durath" };
 std::vector<std::string> aDwarfBeast = { "karak", "uruk", "ghul", "baraz", "tharg", "durak" };
+std::vector<std::string> aDwarfPirate = { "reaver", "skarn", "brinak", "grukar", "hargrim", "drekk" };
 
 // Dwarven lair type words
 std::vector<std::string> aDwarfCave = { "dum", "grond", "zad", "aghan", "khazad", "nurn" };
@@ -389,6 +390,7 @@ std::vector<std::string> aElfTroll = { "torog", "olog", "draugluin", "carcharoth
 std::vector<std::string> aElfUndead = { "gul", "morgul", "uvanimor", "fea", "houseless", "barrow" };
 std::vector<std::string> aElfCentaur = { "rocco", "taur", "rath", "rond", "celeb", "galad" };
 std::vector<std::string> aElfBeast = { "rauko", "uruk", "narmos", "lhang", "angulok", "carak" };
+std::vector<std::string> aElfPirate = { "corsar", "rhaeg", "morneth", "salhir", "lhunraeg", "nailor" };
 
 // Elven lair type words
 std::vector<std::string> aElfCave = { "rond", "groth", "roth", "fela", "gondolin", "nargothrond" };
@@ -406,6 +408,7 @@ std::vector<std::string> aOrcTroll = { "throg", "stonegit", "rockhead", "mountai
 std::vector<std::string> aOrcUndead = { "gul", "deadgit", "bonewraith", "rotlord", "corpse", "deathspawn" };
 std::vector<std::string> aOrcCentaur = { "halfgit", "horsemeat", "prancegit", "hoofhead", "taur", "galop" };
 std::vector<std::string> aOrcBeast = { "claw", "fang", "bloodmaw", "killer", "slasher", "ripper" };
+std::vector<std::string> aOrcPirate = { "pirate", "raider", "plunderer", "seagit", "saltgit", "looter" };
 
 // Orcish lair type words
 std::vector<std::string> aOrcCave = { "hai", "snaga", "hole", "burz", "ghash", "durbul" };
@@ -423,6 +426,7 @@ std::vector<std::string> aHumanTroll = { "troll", "giant", "ogre", "brute", "beh
 std::vector<std::string> aHumanUndead = { "wraith", "ghost", "specter", "phantom", "revenant", "shade" };
 std::vector<std::string> aHumanCentaur = { "centaur", "halfling", "horseman", "wildrunner", "plainsfolk", "horsefolk" };
 std::vector<std::string> aHumanBeast = { "beast", "creature", "monster", "predator", "stalker", "hunter" };
+std::vector<std::string> aHumanPirate = { "pirate", "corsair", "raider", "buccaneer", "reaver", "freebooter" };
 
 // Human lair type words
 std::vector<std::string> aHumanCave = { "cave", "cavern", "hollow", "grotto", "den", "warren" };
@@ -430,7 +434,7 @@ std::vector<std::string> aHumanLair = { "lair", "den", "nest", "dwelling", "haun
 std::vector<std::string> aHumanRuin = { "ruins", "wreck", "remains", "rubble", "fallen", "forsaken" };
 std::vector<std::string> aHumanPit = { "pit", "abyss", "chasm", "hellgate", "maw", "depths" };
 std::vector<std::string> aHumanCrypt = { "crypt", "tomb", "grave", "barrow", "cairn", "sepulcher" };
-std::vector<std::string> aHumanShaft = { "shaft", "mine", "delve", "tunnel", "passage", "dungeon" };
+std::vector<std::string> aHumanShaft = { "shaft", "mine", "delve", "tunnel", "passage", "adit" };
 
 //---------------------------------------------------------------------------
 // Personal name tables (for AutoNameSoloUnits — see docs/UNIT_NAMING_SYSTEM.md)
@@ -1539,6 +1543,7 @@ std::string getLairName(int lairType, int monsterType, int race) {
                 case I_UNDEAD:
                 case I_LICH:        monsterWord = rng::one_of(aDwarfUndead); break;
                 case I_CENTAUR:     monsterWord = rng::one_of(aDwarfCentaur); break;
+                case I_PIRATES:     monsterWord = rng::one_of(aDwarfPirate); break;
                 default:            monsterWord = rng::one_of(aDwarfBeast); break;
             }
 
@@ -1580,6 +1585,7 @@ std::string getLairName(int lairType, int monsterType, int race) {
                 case I_UNDEAD:
                 case I_LICH:        monsterWord = rng::one_of(aElfUndead); break;
                 case I_CENTAUR:     monsterWord = rng::one_of(aElfCentaur); break;
+                case I_PIRATES:     monsterWord = rng::one_of(aElfPirate); break;
                 default:            monsterWord = rng::one_of(aElfBeast); break;
             }
 
@@ -1620,6 +1626,7 @@ std::string getLairName(int lairType, int monsterType, int race) {
                 case I_UNDEAD:
                 case I_LICH:        monsterWord = rng::one_of(aOrcUndead); break;
                 case I_CENTAUR:     monsterWord = rng::one_of(aOrcCentaur); break;
+                case I_PIRATES:     monsterWord = rng::one_of(aOrcPirate); break;
                 default:            monsterWord = rng::one_of(aOrcBeast); break;
             }
 
@@ -1668,6 +1675,7 @@ std::string getLairName(int lairType, int monsterType, int race) {
                 case I_UNDEAD:
                 case I_LICH:        monsterWord = rng::one_of(aHumanUndead); break;
                 case I_CENTAUR:     monsterWord = rng::one_of(aHumanCentaur); break;
+                case I_PIRATES:     monsterWord = rng::one_of(aHumanPirate); break;
                 default:            monsterWord = rng::one_of(aHumanBeast); break;
             }
 
@@ -1683,6 +1691,14 @@ std::string getLairName(int lairType, int monsterType, int race) {
                 case O_CRYPT:       lairWord = rng::one_of(aHumanCrypt); break;
                 case O_SHAFT:       lairWord = rng::one_of(aHumanShaft); break;
                 case O_BOG:         lairWord = rng::one_of(aHumanLair); break;
+                // Fixed words, no RNG draw: lairs are named during map generation,
+                // so an extra draw would change the map a given seed produces.
+                case O_ISLE:        lairWord = "isle"; break;
+                case O_DERELICT:    lairWord = "wreck"; break;
+                case O_WHIRL:       lairWord = "maelstrom"; break;
+                case O_MAGETOWER:   lairWord = "tower"; break;
+                case O_DARKTOWER:   lairWord = "spire"; break;
+                case O_GIANTCASTLE: lairWord = "keep"; break;
                 default:            lairWord = "dungeon";
             }
 
