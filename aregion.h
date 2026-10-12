@@ -5,6 +5,7 @@
 class ARegion;
 class ARegionList;
 class ARegionArray;
+class DungeonReportIndex;
 
 #include "gamedefs.h"
 #include "logger.hpp"
@@ -285,7 +286,8 @@ class ARegion
         int CanMakeAdv(Faction *, int);
         int HasItem(Faction *, int);
         json basic_region_data();
-        void build_json_report(json& j, Faction *fac, int month, ARegionList& regions);
+        void build_json_report(json& j, Faction *fac, int month, ARegionList& regions,
+                               const DungeonReportIndex *dungeons = nullptr);
 
         std::string short_print();
         std::string print();

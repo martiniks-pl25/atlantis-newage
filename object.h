@@ -3,6 +3,7 @@
 #define OBJECT_H
 
 class Object;
+class DungeonReportIndex;
 
 #include "gamedefs.h"
 #include "faction.h"
@@ -94,7 +95,8 @@ class Object
 
         void Readin(std::istream& f, std::list<Faction *>& facs, ATL_VER eVersion);
         void Writeout(std::ostream& f);
-        void build_json_report(json& j, Faction *, int, int, int, int, int, int, int);
+        void build_json_report(json& j, Faction *, int, int, int, int, int, int, int,
+                               const DungeonReportIndex *dungeons = nullptr);
 
         void set_name(const std::string& newname, Unit *actor = nullptr);
         void set_description(const std::string& newdescription);

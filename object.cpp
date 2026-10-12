@@ -2,6 +2,7 @@
 #include "items.h"
 #include "skills.h"
 #include "gamedata.h"
+#include "dungeon.h"
 #include "unit.h"
 #include "indenter.hpp"
 #include "string_parser.hpp"
@@ -238,7 +239,8 @@ Unit *Object::GetOwner()
 }
 
 void Object::build_json_report(json& j, Faction *fac, int obs, int truesight,
-    int detfac, int passobs, int passtrue, int passdetfac, int present)
+    int detfac, int passobs, int passtrue, int passdetfac, int present,
+    const DungeonReportIndex *dungeons)
 {
     // Exit early if no observable.
     if ((type != O_DUMMY) && !present) {
@@ -255,6 +257,18 @@ void Object::build_json_report(json& j, Faction *fac, int obs, int truesight,
         container["number"] = num;
         container["type"] = ob.name;
         if (!describe.empty()) container["description"] = describe;
+
+        // Dungeon identity (JSON 1.2.0): the surface entrance and the inner exit
+        // object each name the dungeon they open into. Object numbers restart per
+        // region, so region and number must match together (see DungeonReportIndex).
+        if (dungeons) {
+            if (const DungeonInstance *d = dungeons->object(region->num, num)) {
+                container["dungeon"] = {
+                    { "id", d->id },
+                    { "type", DungeonTypeDefs[(int)d->type].name }
+                };
+            }
+        }
 
         if (IsFleet()) {
             container["fleet"] = true;

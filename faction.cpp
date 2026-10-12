@@ -476,7 +476,8 @@ void Faction::build_gm_json_report(json& j, Game *game) {
     j["number"] = num;
     j["date"] = {
         { "month", MonthNames[game->month] },
-        { "year", game->year }
+        { "year", game->year },
+        { "turn", game->TurnNumber() }
     };
 
     json skills = json::array();
@@ -699,9 +700,10 @@ void Faction::build_gm_json_report(json& j, Game *game) {
         present_regions.push_back(reg);
     }
     json regions = json::array();
+    DungeonReportIndex dungeons(game->activeDungeons);
     for (const auto& reg: present_regions) {
         json region;
-        reg->build_json_report(region, this, game->month, game->regions);
+        reg->build_json_report(region, this, game->month, game->regions, &dungeons);
         regions.push_back(region);
     }
     j["regions"] = regions;
@@ -762,7 +764,8 @@ void Faction::build_json_report(json& j, Game *game, size_t **citems) {
     }
     j["date"] = {
         { "month", MonthNames[game->month] },
-        { "year", game->year }
+        { "year", game->year },
+        { "turn", game->TurnNumber() }
     };
 
     if ((Globals->FACTION_LIMIT_TYPE == GameDefs::FACLIM_MAGE_COUNT)
@@ -1259,9 +1262,10 @@ void Faction::build_json_report(json& j, Game *game, size_t **citems) {
 
     // regions
     json regions = json::array();
+    DungeonReportIndex dungeons(game->activeDungeons);
     for (const auto& reg: present_regions) {
         json region;
-        reg->build_json_report(region, this, game->month, game->regions);
+        reg->build_json_report(region, this, game->month, game->regions, &dungeons);
         regions.push_back(region);
     }
     j["regions"] = regions;
