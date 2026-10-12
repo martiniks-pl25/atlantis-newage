@@ -89,6 +89,53 @@ ut::suite<"JSON Report"> json_report_suite = []
     expect(r_set["engine"]["world_id"] == std::string("arcanum"));
   };
 
+  "levels give geometry of reached levels to players, all levels to the GM"_test = []
+  {
+    // Test world (unittest/world.cpp): z=0 surface 2x4 (no name). It also builds an
+    // underworld at index 1 but declares only one level (create_levels(1)), so
+    // numLevels is 1 and the GM sees one level.
+    UnitTestHelper helper;
+    helper.initialize_game();
+    helper.setup_turn();
+    Faction *faction = helper.create_faction("Test Faction");
+    helper.setup_reports();
+    Game &game = helper.game_object();
+
+    // Player: the surface, where the faction stands.
+    json player;
+    faction->build_json_report(player, &game, nullptr);
+    expect(player["levels"].is_array()) << "levels is an array";
+    expect(player["levels"].size() == 1_ul) << "a player sees only levels with reported regions";
+    if (player["levels"].size() == 1) {
+      const json &surface = player["levels"][0];
+      expect(surface["z"] == 0_i);
+      expect(surface["label"] == "surface") << "an unnamed level reads as surface, like coordinates.label";
+      expect(surface["width"] == 2_i);
+      expect(surface["height"] == 4_i);
+      expect(surface["wraps_x"] == true);
+    }
+    expect(player["engine"]["json_report_version"] == "1.2.0");
+
+    // A level is not revealed without a reported region on it.
+    Faction *other = helper.create_faction("Other Faction");
+    helper.setup_reports();
+    other->present_regions.clear();
+    json hidden;
+    other->build_json_report(hidden, &game, nullptr);
+    expect(hidden["levels"].is_array() && hidden["levels"].empty())
+      << "no reported regions, no levels";
+
+    // GM: every declared level.
+    Faction *gm = helper.get_faction(1);
+    int saved = Globals->GM_REPORT;
+    Globals->GM_REPORT = 1;
+    json gm_report;
+    gm->build_json_report(gm_report, &game, nullptr);
+    Globals->GM_REPORT = saved;
+    expect(gm_report["levels"].size() == static_cast<size_t>(game.regions.numLevels))
+      << "the GM report lists every level";
+  };
+
   "Errors are reported"_test = []
   {
     UnitTestHelper helper;

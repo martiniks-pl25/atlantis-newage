@@ -26,7 +26,7 @@ using json = nlohmann::json;
 #include <iosfwd>
 
 #define CURRENT_ATL_VER MAKE_ATL_VER(5, 2, 11) // 5.2.11: Object::pirate_promote_timer (pirate promotion cooldown)
-#define JSON_REPORT_VERSION MAKE_ATL_VER(1, 1, 0) // 1.1.0: GM report gets engine/name/number/date; O_NONE removed; clean semver; object_reports structured fields
+#define JSON_REPORT_VERSION MAKE_ATL_VER(1, 2, 0) // 1.2.0: top-level levels geometry. 1.1.0: GM report gets engine/name/number/date; O_NONE removed; clean semver; object_reports structured fields
 
 // Object number namespaces: buildings use 1..(FLEET_NUM_START-1), fleets use FLEET_NUM_START+.
 // TODO: raise to 200 on next server restart (update shipseq init and BUILD scan limit together).
