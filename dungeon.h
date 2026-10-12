@@ -1,6 +1,8 @@
 #pragma once
 
 #include <vector>
+#include <utility>
+#include <unordered_map>
 #include <iosfwd>
 
 // Dynamic Dungeon System — types, constants, dungeon type table.
@@ -109,6 +111,36 @@ struct DungeonInstance {
     int spawn_turn          = -1;           // TurnNumber() when spawned (-1 = legacy/unknown)
 
     std::vector<int> room_nums;             // all R_DUNGEON region nums in this dungeon
+};
+
+// ---------------------------------------------------------------------------
+// JSON report lookup — region_num (and object_num) -> live dungeon instance.
+//
+// Built once per report from Game::activeDungeons, so the per-region emitters
+// (ARegion::build_json_report, Object::build_json_report) resolve a room or an
+// entrance/exit object in O(1). The GM report walks every region, so a linear
+// rescan of the dungeon list per region would be quadratic.
+//
+// Only ACTIVE and DYING instances are indexed: a FREE or COLLAPSING cell is a
+// recycled slot, and whatever new dungeon appears on those coordinates must
+// never be confused with the one that used to hold them.
+// ---------------------------------------------------------------------------
+class DungeonReportIndex {
+public:
+    explicit DungeonReportIndex(const std::vector<DungeonInstance> &instances);
+
+    // Instance whose room this region is, or nullptr. Feeds regions[].dungeon.
+    const DungeonInstance *room(int region_num) const;
+
+    // Instance whose surface entrance (entrance_object_num) or inner exit
+    // (exit_object_num) is this object of this region, or nullptr. Object
+    // numbers restart at 0 per region, so the region must match too.
+    const DungeonInstance *object(int region_num, int object_num) const;
+
+private:
+    std::unordered_map<int, const DungeonInstance *> rooms;
+    // region_num -> [(object_num, instance)], entrance and exit objects alike.
+    std::unordered_map<int, std::vector<std::pair<int, const DungeonInstance *>>> objects;
 };
 
 // ---------------------------------------------------------------------------

@@ -136,6 +136,82 @@ ut::suite<"JSON Report"> json_report_suite = []
       << "the GM report lists every level";
   };
 
+  "date carries the turn number in player and GM reports"_test = []
+  {
+    UnitTestHelper helper;
+    helper.initialize_game();
+    helper.setup_turn();
+    Faction *faction = helper.create_faction("Test Faction");
+    helper.setup_reports();
+    Game &game = helper.game_object();
+
+    // setup_turn() advances the calendar the way PreProcessTurn does, so the
+    // month/year the report is built from already name the turn it belongs to
+    // and TurnNumber() is that same turn. First test turn: Year 1, January.
+    expect(game.TurnNumber() == 1_i) << "first turn of the test calendar";
+
+    json player;
+    faction->build_json_report(player, &game, nullptr);
+    expect(player["date"]["turn"] == game.TurnNumber())
+      << "player date.turn matches the engine's turn number";
+    expect(player["date"]["month"] == "January");
+    expect(player["date"]["year"] == 1_i);
+
+    int saved = Globals->GM_REPORT;
+    Globals->GM_REPORT = 1;
+    json gm_report;
+    helper.get_faction(1)->build_json_report(gm_report, &game, nullptr);
+    Globals->GM_REPORT = saved;
+    expect(gm_report["date"]["turn"] == game.TurnNumber())
+      << "GM date.turn matches the engine's turn number";
+  };
+
+  "region observation says how the faction saw it: present, farsight or transit"_test = []
+  {
+    UnitTestHelper helper;
+    helper.initialize_game();
+    helper.setup_turn();
+    helper.setup_reports();
+    ARegionList& regions = helper.get_regions();
+    ARegion *region = helper.get_region(0, 2, 0);
+
+    // A unit in the region: present.
+    Faction *stands = helper.create_faction("Standing Faction");
+    helper.create_unit(stands, region);
+    json present;
+    region->build_json_report(present, stands, helper.get_month(), regions);
+    expect(present["present"] == true);
+    expect(present["observation"] == "present");
+
+    // No unit, a farsight: farsight. A farsight wins over a pass in the same turn.
+    Faction *watcher = helper.create_faction("Watching Faction");
+    Farsight sight;
+    sight.faction = watcher;
+    Farsight pass;
+    pass.faction = watcher;
+    region->farsees.push_back(&sight);
+    region->passers.push_back(&pass);
+    json seen;
+    region->build_json_report(seen, watcher, helper.get_month(), regions);
+    expect(seen["present"] == false);
+    expect(seen["observation"] == "farsight");
+
+    // No unit, only a pass: transit.
+    region->farsees.remove(&sight);
+    json passed;
+    region->build_json_report(passed, watcher, helper.get_month(), regions);
+    expect(passed["present"] == false);
+    expect(passed["observation"] == "transit");
+    region->passers.remove(&pass);
+
+    // The GM sees every region in full: present is false, observation is present.
+    Faction *gm = helper.get_faction(1);
+    json gm_region;
+    region->build_json_report(gm_region, gm, helper.get_month(), regions);
+    expect(gm_region["present"] == false);
+    expect(gm_region["observation"] == "present");
+  };
+
   "Errors are reported"_test = []
   {
     UnitTestHelper helper;

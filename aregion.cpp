@@ -1150,7 +1150,8 @@ json ARegion::basic_region_data() {
     return j;
 }
 
-void ARegion::build_json_report(json& j, Faction *fac, int month, ARegionList& regions) {
+void ARegion::build_json_report(json& j, Faction *fac, int month, ARegionList& regions,
+                                const DungeonReportIndex *dungeons) {
     Farsight *farsight = GetFarsight(farsees, fac);
     Farsight *passer = GetFarsight(passers, fac);
     bool present = (Present(fac) == 1) || fac->is_npc;
@@ -1160,6 +1161,25 @@ void ARegion::build_json_report(json& j, Faction *fac, int month, ARegionList& r
 
     j = basic_region_data();
     j["present"] = present && !fac->is_npc;
+    // How the region was seen: TRANSIT_REPORT limits what a passer sees (units, ships),
+    // so a client must not read a missing unit in a transit region as "gone".
+    // The GM sees everything, so the GM report reads as present.
+    j["observation"] = present ? "present" : (farsight ? "farsight" : "transit");
+
+    // Dungeon identity (JSON 1.2.0): a room of a live dungeon names the dungeon it
+    // belongs to, so a client can group one dungeon's rooms together and tell a
+    // recycled cell (a new dungeon on the same coordinates) from the old one.
+    // Only regions this faction can see reach here at all — the early return above
+    // drops the rest — so a room it has not seen is never named.
+    if (dungeons) {
+        if (const DungeonInstance *d = dungeons->room(num)) {
+            j["dungeon"] = {
+                { "id", d->id },
+                { "type", DungeonTypeDefs[(int)d->type].name },
+                { "state", d->state == DungeonSlotState::ACTIVE ? "open" : "closing" }
+            };
+        }
+    }
 
     if (Population() && (present || farsight || (Globals->TRANSIT_REPORT & GameDefs::REPORT_SHOW_PEASANTS))) {
         j["population"] = { { "amount", Population() } };
@@ -1372,7 +1392,8 @@ void ARegion::build_json_report(json& j, Faction *fac, int month, ARegionList& r
     }
 
     for(const auto o : objects) {
-        o->build_json_report(j, fac, obs, truesight, detfac, passobs, passtrue, passdetfac, present || farsight);
+        o->build_json_report(j, fac, obs, truesight, detfac, passobs, passtrue, passdetfac, present || farsight,
+                             dungeons);
     }
 }
 

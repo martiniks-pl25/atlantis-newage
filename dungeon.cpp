@@ -561,6 +561,39 @@ int Game::find_dungeon_instance_for_region(int region_num)
 }
 
 // ---------------------------------------------------------------------------
+// DungeonReportIndex — see dungeon.h for why only ACTIVE/DYING are indexed.
+// ---------------------------------------------------------------------------
+DungeonReportIndex::DungeonReportIndex(const std::vector<DungeonInstance> &instances)
+{
+    for (const auto &d : instances) {
+        if (d.state != DungeonSlotState::ACTIVE && d.state != DungeonSlotState::DYING)
+            continue;
+
+        for (int room_num : d.room_nums) rooms[room_num] = &d;
+
+        if (d.surface_region_num >= 0 && d.entrance_object_num >= 0)
+            objects[d.surface_region_num].push_back({ d.entrance_object_num, &d });
+        if (d.entry_region_num >= 0 && d.exit_object_num >= 0)
+            objects[d.entry_region_num].push_back({ d.exit_object_num, &d });
+    }
+}
+
+const DungeonInstance *DungeonReportIndex::room(int region_num) const
+{
+    auto it = rooms.find(region_num);
+    return it == rooms.end() ? nullptr : it->second;
+}
+
+const DungeonInstance *DungeonReportIndex::object(int region_num, int object_num) const
+{
+    auto it = objects.find(region_num);
+    if (it == objects.end()) return nullptr;
+    for (const auto &entry : it->second)
+        if (entry.first == object_num) return entry.second;
+    return nullptr;
+}
+
+// ---------------------------------------------------------------------------
 // Game::ProcessDungeons — main entry point called each turn.
 // ---------------------------------------------------------------------------
 void Game::ProcessDungeons()
