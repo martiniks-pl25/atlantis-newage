@@ -434,6 +434,32 @@ static json object_build_json(int obj) {
     return b;
 }
 
+// Geometry of every level that holds at least one of `regions` (JSON report 1.2.0).
+// A player gets only the levels of the regions in their report, so a level is not
+// revealed before the faction reaches it; the GM report passes every region.
+// width/height are the region array size in engine coordinates (x columns, doubled
+// y rows). Standard maps wrap in x on every level wider than one column; the
+// icosahedral topology is not described by wraps_x, so it reports false there.
+static json levels_json(ARegionList& list, const std::vector<ARegion *>& regions) {
+    std::vector<bool> seen(list.numLevels, false);
+    for (const auto reg : regions) {
+        if (reg->zloc >= 0 && reg->zloc < list.numLevels) seen[reg->zloc] = true;
+    }
+    json levels = json::array();
+    for (int z = 0; z < list.numLevels; z++) {
+        ARegionArray *arr = list.pRegionArrays[z];
+        if (!seen[z] || !arr) continue;
+        levels.push_back({
+            { "z", z },
+            { "label", arr->strName.empty() ? "surface" : arr->strName },
+            { "width", arr->x },
+            { "height", arr->y },
+            { "wraps_x", !Globals->ICOSAHEDRAL_WORLD && arr->x > 1 }
+        });
+    }
+    return levels;
+}
+
 void Faction::build_gm_json_report(json& j, Game *game) {
     GmData data = collect_gm_data();
 
@@ -679,6 +705,7 @@ void Faction::build_gm_json_report(json& j, Game *game) {
         regions.push_back(region);
     }
     j["regions"] = regions;
+    j["levels"] = levels_json(game->regions, present_regions);
     present_regions.clear();
 
     errors.clear();
@@ -1238,6 +1265,7 @@ void Faction::build_json_report(json& j, Game *game, size_t **citems) {
         regions.push_back(region);
     }
     j["regions"] = regions;
+    j["levels"] = levels_json(game->regions, present_regions);
 }
 
 void Faction::WriteFacInfo(std::ostream &f)
