@@ -270,6 +270,92 @@ struct DungeonRules {
 }
 
 /**
+ * @brief Settlement garrison skill levels by town type (TOWN_VILLAGE / TOWN_TOWN / TOWN_CITY).
+ *
+ * The single source for every place that creates or upgrades guards (CreateCityMon,
+ * CreateGuardMelee/Ranged/Mage*, CreateGuardCommander, CreateMayor, AdjustCityMon), so
+ * a guard restored after a battle or upgraded when its settlement grows gets the same
+ * levels as one created with the world. With the defaults:
+ *
+ *   militia COMB / archers LBOW        2 / 3 / 4   fighter_skill()
+ *   every guard unit's OBSE            3 / 4 / 5   observation()
+ *   energy shield mage (FORC + ESHI)   3 / 4 / 5   mage_level(..., true, ...)
+ *   force shield / fire mage           2 / 3 / 4   mage_level(..., false, ...)
+ *
+ * Starting cities and the Nexus count as TOWN_CITY.
+ */
+struct GuardRules {
+    int fighter_base     = 2;  ///< militia / archer combat skill = towntype + fighter_base
+    int observation_base = 3;  ///< guard OBSE = towntype + observation_base
+    int mage_base        = 2;  ///< garrison mage FORC and spell = towntype + mage_base
+    int eshi_bonus       = 1;  ///< extra levels for the energy shield mage, the garrison's main protection
+
+    /**
+     * @brief Combat skill (COMB or LBOW) of militia and archers.
+     * @param towntype TOWN_VILLAGE, TOWN_TOWN or TOWN_CITY
+     * @return towntype + fighter_base
+     */
+    [[nodiscard]] constexpr int fighter_skill(const int towntype) const noexcept {
+        return towntype + fighter_base;
+    }
+
+    /**
+     * @brief Observation of every guard unit: militia, archers, mages, commander, mayor.
+     * @param towntype TOWN_VILLAGE, TOWN_TOWN or TOWN_CITY
+     * @return towntype + observation_base
+     * @note Observation doubles as the unit's rank: a name is upgraded when it grows.
+     */
+    [[nodiscard]] constexpr int observation(const int towntype) const noexcept {
+        return towntype + observation_base;
+    }
+
+    /**
+     * @brief FORC and combat spell level of a garrison mage.
+     *
+     * Base towntype + mage_base, raised to start_city_mages in a starting city or the
+     * Nexus when that is higher; the energy shield mage adds eshi_bonus on top.
+     *
+     * @param towntype         TOWN_VILLAGE, TOWN_TOWN or TOWN_CITY
+     * @param energy_shield    the mage's combat spell is ENERGY_SHIELD
+     * @param start_city_mages minimum base level (GameDefs START_CITY_MAGES); 0 outside
+     *                         starting cities and the Nexus
+     * @return the level for both FORC and the combat spell
+     * @example mage_level(TOWN_CITY, true, 0) == 5, mage_level(TOWN_CITY, false, 6) == 6
+     */
+    [[nodiscard]] constexpr int mage_level(const int towntype, const bool energy_shield,
+                                           const int start_city_mages) const noexcept {
+        const int base = std::max(towntype + mage_base, start_city_mages);
+        return energy_shield ? base + eshi_bonus : base;
+    }
+
+    /**
+     * @brief Observation of a militia/archer unit, following the highest tier it reached.
+     *
+     * The combat skill is never lowered, so it records the highest tier the settlement
+     * reached; Observation is set to that tier's level. It survives a shrinking
+     * settlement, and anything above it is lowered.
+     *
+     * @param towntype      current TOWN_VILLAGE, TOWN_TOWN or TOWN_CITY
+     * @param fighter_level the unit's COMB or LBOW after the tier upgrade
+     * @return observation(towntype) + (fighter_level - fighter_skill(towntype))
+     * @example a town that shrank to a village: reached_observation(TOWN_VILLAGE, 3) == 4
+     */
+    [[nodiscard]] constexpr int reached_observation(const int towntype,
+                                                    const int fighter_level) const noexcept {
+        return observation(towntype) + fighter_level - fighter_skill(towntype);
+    }
+};
+
+/**
+ * @brief Range checks for garrison values, run at compile time by each ruleset
+ * (`static_assert(valid(config.guards))`).
+ */
+[[nodiscard]] consteval bool valid(const GuardRules& g) noexcept
+{
+    return g.fighter_base >= 1 && g.observation_base >= 0 && g.mage_base >= 1 && g.eshi_bonus >= 0;
+}
+
+/**
  * @brief Naming of the surface water by the parametric generator (ocean_naming.hpp).
  *
  * Off: every connected water body gets one name, which on a map with polar sea lanes
@@ -358,6 +444,7 @@ struct RulesetConfig {
     PirateRules pirates;
     QuestRules quests;
     DungeonRules dungeons;
+    GuardRules guards;
     MapRules map;
 };
 

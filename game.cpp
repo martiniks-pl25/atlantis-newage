@@ -2754,22 +2754,36 @@ void Game::CreateNPCFactions()
         factionseq = Globals->PLAYER_FACTION_NUM_START;
 }
 
+/**
+ * @brief Level of a garrison mage casting combat_spell (GuardRules::mage_level).
+ * @param towntype     TOWN_VILLAGE, TOWN_TOWN or TOWN_CITY
+ * @param combat_spell S_ENERGY_SHIELD, S_FORCE_SHIELD or S_FIRE
+ * @param start_city   the settlement is a starting city or the Nexus: START_CITY_MAGES applies
+ * @return the level for both FORC and the combat spell
+ */
+static int guard_mage_level(const int towntype, const int combat_spell, const bool start_city)
+{
+    return ruleset_config().guards.mage_level(towntype, combat_spell == S_ENERGY_SHIELD,
+                                              start_city ? Globals->START_CITY_MAGES : 0);
+}
+
 void Game::CreateGuardMelee(ARegion *region, int percent)
 {
     if (!region->town && region->type != R_NEXUS) return;
 
-    int skilllevel;
+    int towntype;
     int AC = 0;
     int num;
 
     if (region->type == R_NEXUS || region->IsStartingCity()) {
-        skilllevel = TOWN_CITY + 2;
+        towntype = TOWN_CITY;
         AC = 1;
         num = Globals->AMT_START_CITY_GUARDS;
     } else {
-        skilllevel = region->town->TownType() + 2;
-        num = Globals->CITY_GUARD * (region->town->TownType() + 1);
+        towntype = region->town->TownType();
+        num = Globals->CITY_GUARD * (towntype + 1);
     }
+    int skilllevel = ruleset_config().guards.fighter_skill(towntype);
     num = num * percent / 100;
 
     Faction *fac = GetFaction(factions, guardfaction);
@@ -2847,7 +2861,7 @@ void Game::CreateGuardMelee(ARegion *region, int percent)
         if (Globals->START_CITY_TACTICS)
             u->SetSkill(S_TACTICS, Globals->START_CITY_TACTICS);
     } else {
-        u->SetSkill(S_OBSERVATION, skilllevel + 2);  // towntype + 3
+        u->SetSkill(S_OBSERVATION, ruleset_config().guards.observation(towntype));
     }
 
     u->SetFlag(FLAG_HOLDING, 1);
@@ -2859,18 +2873,19 @@ void Game::CreateGuardRanged(ARegion *region, int percent)
     if (!region->town && region->type != R_NEXUS) return;
     if (Globals->GUARDS_USE_LEADERS || region->type == R_NEXUS) return; // Ranged only for non-leader guards
 
-    int skilllevel;
+    int towntype;
     int AC = 0;
     int num;
 
     if (region->type == R_NEXUS || region->IsStartingCity()) {
-        skilllevel = TOWN_CITY + 2;
+        towntype = TOWN_CITY;
         AC = 1;
         num = Globals->AMT_START_CITY_GUARDS;
     } else {
-        skilllevel = region->town->TownType() + 2;
-        num = Globals->CITY_GUARD * (region->town->TownType() + 1);
+        towntype = region->town->TownType();
+        num = Globals->CITY_GUARD * (towntype + 1);
     }
+    int skilllevel = ruleset_config().guards.fighter_skill(towntype);
     num = num * percent / 100;
 
     Faction *fac = GetFaction(factions, guardfaction);
@@ -2908,7 +2923,7 @@ void Game::CreateGuardRanged(ARegion *region, int percent)
     u->type = U_GUARD;
     u->guard = GUARD_GUARD;
     u->reveal = REVEAL_FACTION;
-    u->SetSkill(S_OBSERVATION, skilllevel + 2);  // towntype + 3
+    u->SetSkill(S_OBSERVATION, ruleset_config().guards.observation(towntype));
     u->SetFlag(FLAG_HOLDING, 1);
     u->MoveUnit(region->GetDummy());
 }
@@ -2917,22 +2932,20 @@ void Game::CreateGuardMageESHI(ARegion *region)
 {
     if (!region->town && region->type != R_NEXUS) return;
 
-    int skilllevel;
+    int towntype;
     int AC = 0;
     int IV = 0;
 
     if (region->type == R_NEXUS || region->IsStartingCity()) {
-        skilllevel = TOWN_CITY + 1;
+        towntype = TOWN_CITY;
         if (Globals->SAFE_START_CITIES || (region->type == R_NEXUS))
             IV = 1;
         AC = 1;
     } else {
-        skilllevel = region->town->TownType() + 1;
+        towntype = region->town->TownType();
     }
 
-    int magelevel = skilllevel + 1;  // ESHI gets +1 bonus level
-    if (AC && Globals->START_CITY_MAGES > magelevel)
-        magelevel = Globals->START_CITY_MAGES;
+    int magelevel = guard_mage_level(towntype, S_ENERGY_SHIELD, AC);
 
     Faction *fac = GetFaction(factions, guardfaction);
     Unit *u = GetNewUnit(fac);
@@ -2965,6 +2978,7 @@ void Game::CreateGuardMageESHI(ARegion *region)
     u->SetMoney(Globals->GUARD_MONEY);
     u->SetSkill(S_FORCE, magelevel);
     u->SetSkill(S_ENERGY_SHIELD, magelevel);
+    u->SetSkill(S_OBSERVATION, ruleset_config().guards.observation(towntype));
     u->guard = GUARD_NONE;
     u->SetFlag(FLAG_BEHIND, 1);
     u->SetFlag(FLAG_HOLDING, 1);
@@ -2976,22 +2990,20 @@ void Game::CreateGuardMageFSHI(ARegion *region)
 {
     if (!region->town && region->type != R_NEXUS) return;
 
-    int skilllevel;
+    int towntype;
     int AC = 0;
     int IV = 0;
 
     if (region->type == R_NEXUS || region->IsStartingCity()) {
-        skilllevel = TOWN_CITY + 1;
+        towntype = TOWN_CITY;
         if (Globals->SAFE_START_CITIES || (region->type == R_NEXUS))
             IV = 1;
         AC = 1;
     } else {
-        skilllevel = region->town->TownType() + 1;
+        towntype = region->town->TownType();
     }
 
-    int magelevel = skilllevel;
-    if (AC && Globals->START_CITY_MAGES > magelevel)
-        magelevel = Globals->START_CITY_MAGES;
+    int magelevel = guard_mage_level(towntype, S_FORCE_SHIELD, AC);
 
     Faction *fac = GetFaction(factions, guardfaction);
     Unit *u = GetNewUnit(fac);
@@ -3018,6 +3030,7 @@ void Game::CreateGuardMageFSHI(ARegion *region)
     u->SetMoney(Globals->GUARD_MONEY);
     u->SetSkill(S_FORCE, magelevel);
     u->SetSkill(S_FORCE_SHIELD, magelevel);
+    u->SetSkill(S_OBSERVATION, ruleset_config().guards.observation(towntype));
     u->guard = GUARD_NONE;
     u->SetFlag(FLAG_BEHIND, 1);
     u->SetFlag(FLAG_HOLDING, 1);
@@ -3029,22 +3042,20 @@ void Game::CreateGuardMageFIRE(ARegion *region)
 {
     if (!region->town && region->type != R_NEXUS) return;
 
-    int skilllevel;
+    int towntype;
     int AC = 0;
     int IV = 0;
 
     if (region->type == R_NEXUS || region->IsStartingCity()) {
-        skilllevel = TOWN_CITY + 1;
+        towntype = TOWN_CITY;
         if (Globals->SAFE_START_CITIES || (region->type == R_NEXUS))
             IV = 1;
         AC = 1;
     } else {
-        skilllevel = region->town->TownType() + 1;
+        towntype = region->town->TownType();
     }
 
-    int magelevel = skilllevel;
-    if (AC && Globals->START_CITY_MAGES > magelevel)
-        magelevel = Globals->START_CITY_MAGES;
+    int magelevel = guard_mage_level(towntype, S_FIRE, AC);
 
     Faction *fac = GetFaction(factions, guardfaction);
     Unit *u = GetNewUnit(fac);
@@ -3066,6 +3077,7 @@ void Game::CreateGuardMageFIRE(ARegion *region)
     u->SetMoney(Globals->GUARD_MONEY);
     u->SetSkill(S_FORCE, magelevel);
     u->SetSkill(S_FIRE, magelevel);
+    u->SetSkill(S_OBSERVATION, ruleset_config().guards.observation(towntype));
     u->guard = GUARD_NONE;
     u->SetFlag(FLAG_BEHIND, 1);
     u->SetFlag(FLAG_HOLDING, 1);
@@ -3075,20 +3087,21 @@ void Game::CreateGuardMageFIRE(ARegion *region)
 
 void Game::CreateCityMon(ARegion *region, int percent, int needmage)
 {
-    int skilllevel;
+    int towntype;
     int AC = 0;
     int IV = 0;
     int num;
     if (region->type == R_NEXUS || region->IsStartingCity()) {
-        skilllevel = TOWN_CITY + 1;
+        towntype = TOWN_CITY;
         if (Globals->SAFE_START_CITIES || (region->type == R_NEXUS))
             IV = 1;
         AC = 1;
         num = Globals->AMT_START_CITY_GUARDS;
     } else {
-        skilllevel = region->town->TownType() + 2;
-        num = Globals->CITY_GUARD * (region->town->TownType() + 1);
+        towntype = region->town->TownType();
+        num = Globals->CITY_GUARD * (towntype + 1);
     }
+    int skilllevel = ruleset_config().guards.fighter_skill(towntype);
     num = num * percent / 100;
     Faction *fac = GetFaction(factions, guardfaction);
     Unit *u = GetNewUnit(fac);
@@ -3213,7 +3226,7 @@ void Game::CreateCityMon(ARegion *region, int percent, int needmage)
         if (Globals->START_CITY_TACTICS)
             u->SetSkill(S_TACTICS, Globals->START_CITY_TACTICS);
     } else {
-        u->SetSkill(S_OBSERVATION, skilllevel + 2);  // towntype + 3
+        u->SetSkill(S_OBSERVATION, ruleset_config().guards.observation(towntype));
     }
     u->SetFlag(FLAG_HOLDING,1);
     u->MoveUnit(region->GetDummy());
@@ -3229,10 +3242,9 @@ void Game::CreateCityMon(ARegion *region, int percent, int needmage)
     CreateMayor(region);
 
     if (needmage) {
-        int magelevel = skilllevel; // towntype + 1: Village=1, Town=2, City=3
-        // For starting cities, use START_CITY_MAGES if higher
-        if (AC && Globals->START_CITY_MAGES > magelevel)
-            magelevel = Globals->START_CITY_MAGES;
+        int eshi_level = guard_mage_level(towntype, S_ENERGY_SHIELD, AC);
+        int fshi_level = guard_mage_level(towntype, S_FORCE_SHIELD, AC);
+        int fire_level = guard_mage_level(towntype, S_FIRE, AC);
 
         int tt = (region->type == R_NEXUS) ? TOWN_CITY :
                  (region->town ? region->town->TownType() : TOWN_CITY);
@@ -3245,8 +3257,9 @@ void Game::CreateCityMon(ARegion *region, int percent, int needmage)
         u->SetMen(I_LEADERS, 1);
         if (IV) u->items.SetNum(I_AMULETOFI, 1);
         u->SetMoney(Globals->GUARD_MONEY);
-        u->SetSkill(S_FORCE, magelevel + 1);
-        u->SetSkill(S_ENERGY_SHIELD, magelevel + 1);  // +1 bonus for ESHI
+        u->SetSkill(S_FORCE, eshi_level);
+        u->SetSkill(S_ENERGY_SHIELD, eshi_level);
+        u->SetSkill(S_OBSERVATION, ruleset_config().guards.observation(towntype));
         u->guard = GUARD_NONE;
         u->SetFlag(FLAG_BEHIND, 1);
         u->SetFlag(FLAG_HOLDING, 1);
@@ -3262,8 +3275,9 @@ void Game::CreateCityMon(ARegion *region, int percent, int needmage)
             u->SetMen(I_LEADERS, 1);
             if (IV) u->items.SetNum(I_AMULETOFI, 1);
             u->SetMoney(Globals->GUARD_MONEY);
-            u->SetSkill(S_FORCE, magelevel);
-            u->SetSkill(S_FORCE_SHIELD, magelevel);
+            u->SetSkill(S_FORCE, fshi_level);
+            u->SetSkill(S_FORCE_SHIELD, fshi_level);
+            u->SetSkill(S_OBSERVATION, ruleset_config().guards.observation(towntype));
             u->guard = GUARD_NONE;
             u->SetFlag(FLAG_BEHIND, 1);
             u->SetFlag(FLAG_HOLDING, 1);
@@ -3280,8 +3294,9 @@ void Game::CreateCityMon(ARegion *region, int percent, int needmage)
             u->SetMen(I_LEADERS, 1);
             if (IV) u->items.SetNum(I_AMULETOFI, 1);
             u->SetMoney(Globals->GUARD_MONEY);
-            u->SetSkill(S_FORCE, magelevel);
-            u->SetSkill(S_FIRE, magelevel);
+            u->SetSkill(S_FORCE, fire_level);
+            u->SetSkill(S_FIRE, fire_level);
+            u->SetSkill(S_OBSERVATION, ruleset_config().guards.observation(towntype));
             u->guard = GUARD_NONE;
             u->SetFlag(FLAG_BEHIND, 1);
             u->SetFlag(FLAG_HOLDING, 1);
@@ -3610,7 +3625,7 @@ void Game::AdjustCityMon(ARegion *r, Unit *u)
 
         // S_OBSERVATION 3/4/5 — rank indicator (upgrade only)
         int cur_obs = u->GetRealSkill(S_OBSERVATION);
-        u->SetSkill(S_OBSERVATION, std::max(cur_obs, tt + 3));
+        u->SetSkill(S_OBSERVATION, std::max(cur_obs, ruleset_config().guards.observation(tt)));
 
         u->SetFlag(FLAG_BEHIND, 1);
         u->SetFlag(FLAG_HOLDING, 1);
@@ -3623,7 +3638,7 @@ void Game::AdjustCityMon(ARegion *r, Unit *u)
         }
 
         // Name + level-up bonus: fires on town tier upgrade (obs rank tracks tier)
-        if (tt + 3 > cur_obs) {
+        if (ruleset_config().guards.observation(tt) > cur_obs) {
             // Town leveled up: add 1000 silver bonus (same as per-level step)
             u->SetMoney(u->GetMoney() + MAYOR_TREASURY_PER_LEVEL);
             std::string tn = r->town ? r->town->name : "City";
@@ -3735,12 +3750,12 @@ void Game::AdjustCityMon(ARegion *r, Unit *u)
         u->SetSkill(S_COMBAT,  std::max(u->GetRealSkill(S_COMBAT),  comb));
         // Observation 3/4/5 — also serves as rank indicator for name protection
         int cur_obs = u->GetRealSkill(S_OBSERVATION);
-        u->SetSkill(S_OBSERVATION, std::max(cur_obs, tt + 3));
+        u->SetSkill(S_OBSERVATION, std::max(cur_obs, ruleset_config().guards.observation(tt)));
         u->SetFlag(FLAG_BEHIND, 1);
         u->SetFlag(FLAG_HOLDING, 1);
         u->guard = GUARD_GUARD;
         // Update name only if town rank increased (obs-based, never downgrade)
-        if (tt + 3 > cur_obs) {
+        if (ruleset_config().guards.observation(tt) > cur_obs) {
             std::string tn = r->town ? r->town->name : "City";
             std::string nm;
             if (r->type == R_NEXUS)         nm = "City General";
@@ -3919,40 +3934,23 @@ void Game::AdjustCityMon(ARegion *r, Unit *u)
     if (IV) u->items.SetNum(I_AMULETOFI,men);
 
     if (u->type == U_GUARDMAGE) {
-        int magelevel = towntype + 1;
-        // For starting cities, use START_CITY_MAGES if higher
-        if (AC && Globals->START_CITY_MAGES > magelevel)
-            magelevel = Globals->START_CITY_MAGES;
+        // Fire Arcanist and Shield Warden/Shieldmaster keep their spell; any other
+        // garrison mage is a Flameguard (energy shield).
+        if (u->combat != S_FIRE && u->combat != S_FORCE_SHIELD) u->combat = S_ENERGY_SHIELD;
+        int spell = u->combat;
+        int magelevel = guard_mage_level(towntype, spell, AC);
 
         // Don't lower skills - keep maximum level
-        int current_force = u->GetRealSkill(S_FORCE);
-        // ESHI gets +1 bonus to all magic skills
-        int force_level = (u->combat == S_ENERGY_SHIELD) ? magelevel + 1 : magelevel;
-        u->SetSkill(S_FORCE, std::max(current_force, force_level));
+        u->SetSkill(S_FORCE, std::max(u->GetRealSkill(S_FORCE), magelevel));
+        u->SetSkill(spell, std::max(u->GetRealSkill(spell), magelevel));
 
-        // Update skills based on combat spell (already set in CreateCityMon)
-        if (u->combat == S_FIRE) {
-            // Fire Arcanist: fire attack
-            int current_fire = u->GetRealSkill(S_FIRE);
-            u->SetSkill(S_FIRE, std::max(current_fire, magelevel));
-        } else if (u->combat == S_FORCE_SHIELD) {
-            // Shieldmaster: force shield
-            int current_fshi = u->GetRealSkill(S_FORCE_SHIELD);
-            u->SetSkill(S_FORCE_SHIELD, std::max(current_fshi, magelevel));
-        } else {
-            // Flameguard (ESHI): energy shield gets +1 bonus
-            int eshi_level = magelevel + 1;
-            int current_eshi = u->GetRealSkill(S_ENERGY_SHIELD);
-            u->SetSkill(S_ENERGY_SHIELD, std::max(current_eshi, eshi_level));
-            if (u->combat != S_ENERGY_SHIELD) u->combat = S_ENERGY_SHIELD;
-        }
         // Observation 3/4/5 — also serves as rank indicator for name protection
         int cur_obs = u->GetRealSkill(S_OBSERVATION);
-        u->SetSkill(S_OBSERVATION, std::max(cur_obs, towntype + 3));
+        u->SetSkill(S_OBSERVATION, std::max(cur_obs, ruleset_config().guards.observation(towntype)));
         u->SetFlag(FLAG_BEHIND, 1);
         u->SetMoney(Globals->GUARD_MONEY);
         // Update name only if town rank increased (obs-based, never downgrade)
-        if (towntype + 3 > cur_obs) {
+        if (ruleset_config().guards.observation(towntype) > cur_obs) {
             std::string tn = r->town ? r->town->name : "City";
             std::string nm;
             if (r->type == R_NEXUS) {
@@ -3974,16 +3972,19 @@ void Game::AdjustCityMon(ARegion *r, Unit *u)
     } else {
         int money = men * (Globals->GUARD_MONEY * men / maxmen);
         u->SetMoney(money);
-        // Upgrade combat skill by town type (never downgrade): village=2, town=3, city=4
-        u->SetSkill(skill, std::max(sl, towntype + 2));
+        // Upgrade combat skill by town type (never downgrade): village=2, town=3, city=4.
+        // It therefore records the highest tier this unit has reached.
+        int new_sl = std::max(sl, ruleset_config().guards.fighter_skill(towntype));
+        u->SetSkill(skill, new_sl);
         int current_obs = u->GetRealSkill(S_OBSERVATION);
         if (AC) {
             u->SetSkill(S_OBSERVATION,10);
             if (Globals->START_CITY_TACTICS)
                 u->SetSkill(S_TACTICS, Globals->START_CITY_TACTICS);
         } else {
-            // Don't lower Observation - keep maximum level
-            u->SetSkill(S_OBSERVATION, std::max(current_obs, towntype + 3));
+            // Observation follows the same highest tier: it survives a shrinking settlement,
+            // and anything above that tier's level is lowered to it.
+            u->SetSkill(S_OBSERVATION, ruleset_config().guards.reached_observation(towntype, new_sl));
         }
         // Rank-issued kit is replicated to the current men count uniformly for
         // weapon, armor and shield. START_CITY_GUARDS_PLATE governs which armor a
@@ -3999,8 +4000,9 @@ void Game::AdjustCityMon(ARegion *r, Unit *u)
         if (shield != -1) {
             u->items.SetNum(shield,men);
         }
-        // Update name only if town rank increased (obs-based, never downgrade)
-        if (towntype + 3 > current_obs) {
+        // Update name only if town rank increased (never downgrade): the fighter skill
+        // was just raised, or Observation is below the tier's level.
+        if (new_sl > sl || ruleset_config().guards.observation(towntype) > current_obs) {
             std::string tn = r->town ? r->town->name : "City";
             std::string nm;
             if (r->type == R_NEXUS) {
@@ -4072,7 +4074,7 @@ void Game::CreateGuardCommander(ARegion *r)
     u->SetSkill(S_TACTICS,      tact);
     u->SetSkill(S_RIDING,       ridi);
     u->SetSkill(S_COMBAT,       comb);
-    u->SetSkill(S_OBSERVATION,  tt + 3);
+    u->SetSkill(S_OBSERVATION,  ruleset_config().guards.observation(tt));
     u->SetFlag(FLAG_BEHIND, 1);
     u->SetFlag(FLAG_HOLDING, 1);
     // Equipment (axe/armor/shield/horse) delivered by AdjustCityMon next turn
@@ -4119,7 +4121,7 @@ void Game::CreateMayor(ARegion *r, Object *target)
     u->guard = GUARD_AVOID;            // doesn't attack, but defends same-faction (see GetSides)
     u->reveal = REVEAL_FACTION;
     u->SetMen(I_LEADERS, 1);
-    u->SetSkill(S_OBSERVATION, tt + 3);
+    u->SetSkill(S_OBSERVATION, ruleset_config().guards.observation(tt));
     u->SetFlag(FLAG_BEHIND, 1);
     u->SetFlag(FLAG_HOLDING, 1);
     u->MoveUnit(target ? target : r->GetDummy());
