@@ -1641,16 +1641,14 @@ void Game::DoAutoAttack(ARegion *r, Unit *u) {
 
 int Game::CountWMonTars(ARegion *r, Unit *mon) {
     int retval = 0;
-    // Danger zones: underground, surface with shaft, or volcano - no grace period applies
-    bool dangerZone = (r->level->levelType != ARegionArray::LEVEL_SURFACE)
-                   || r->HasShaft()
-                   || r->type == R_VOLCANO;
+    // Danger zones (underground, shaft hex, volcano) ignore the grace period.
+    bool dangerZone = r->IsMonsterDangerZone();
     for(const auto o : r->objects) {
         for(const auto u : o->units) {
             if (u->type == U_NORMAL || u->type == U_MAGE || u->type == U_APPRENTICE) {
                 // Per-faction grace period: new factions are immune to monster attacks
                 // for MONSTER_HOSTILE_GRACE_PERIOD turns after joining.
-                // Does not apply in danger zones (underground, shafts, volcanoes).
+                // Does not apply in danger zones (underground, shaft hexes, volcanoes).
                 int age = TurnNumber() - u->faction->startturn;
                 if (!dangerZone && Globals->MONSTER_HOSTILE_GRACE_PERIOD > 0 && age < Globals->MONSTER_HOSTILE_GRACE_PERIOD) continue;
                 if (mon->CanSee(r, u) && mon->CanCatch(r, u)) {
@@ -1663,16 +1661,14 @@ int Game::CountWMonTars(ARegion *r, Unit *mon) {
 }
 
 Unit *Game::GetWMonTar(ARegion *r, int tarnum, Unit *mon) {
-    // Danger zones: underground, surface with shaft, or volcano - no grace period applies
-    bool dangerZone = (r->level->levelType != ARegionArray::LEVEL_SURFACE)
-                   || r->HasShaft()
-                   || r->type == R_VOLCANO;
+    // Danger zones (underground, shaft hex, volcano) ignore the grace period.
+    bool dangerZone = r->IsMonsterDangerZone();
     for(const auto o : r->objects) {
         for(const auto u : o->units) {
             if (u->type == U_NORMAL || u->type == U_MAGE || u->type == U_APPRENTICE) {
                 // Per-faction grace period: new factions are immune to monster attacks
                 // for MONSTER_HOSTILE_GRACE_PERIOD turns after joining.
-                // Does not apply in danger zones (underground, shafts, volcanoes).
+                // Does not apply in danger zones (underground, shaft hexes, volcanoes).
                 int age = TurnNumber() - u->faction->startturn;
                 if (!dangerZone && Globals->MONSTER_HOSTILE_GRACE_PERIOD > 0 && age < Globals->MONSTER_HOSTILE_GRACE_PERIOD) continue;
                 if (mon->CanSee(r, u) && mon->CanCatch(r, u)) {
@@ -1694,7 +1690,8 @@ Unit *Game::GetWMonTar(ARegion *r, int tarnum, Unit *mon) {
  * - Turn GRACE_PERIOD+1 onwards: hostility increases by INCREASE_RATE per turn
  * - Capped at baseHostile (100%)
  *
- * Danger zones (underground, regions with shafts, volcanoes):
+ * Danger zones (underground, surface hexes with an O_SHAFT, volcanoes; see
+ * ARegion::IsMonsterDangerZone() - a dungeon entrance is not a danger zone):
  * - Immediate full hostility, no grace period or progression.
  *
  * @param r Region where potential attack occurs
@@ -1723,11 +1720,9 @@ void Game::CheckWMonAttack(ARegion *r, Unit *u) {
     int baseHostile = u->Hostile();
     int turn = TurnNumber();
 
-    // Danger zones: underground, surface with shaft, or volcano.
-    // Monsters attack at full hostility immediately with no grace period or progression.
-    bool dangerZone = (r->level->levelType != ARegionArray::LEVEL_SURFACE)
-                   || r->HasShaft()
-                   || r->type == R_VOLCANO;
+    // Danger zones (underground, shaft hex, volcano): full hostility immediately,
+    // no grace period or progression.
+    bool dangerZone = r->IsMonsterDangerZone();
 
     int effectiveHostile = 0;
     if (dangerZone) {
