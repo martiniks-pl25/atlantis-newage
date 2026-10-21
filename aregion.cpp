@@ -1710,6 +1710,31 @@ int ARegion::HasShaft()
     return 0;
 }
 
+/**
+ * @brief Whether wandering monsters ignore the hostility grace period here
+ *
+ * A danger zone is any region off the surface, a volcano, or a surface region
+ * with a real level transition (O_SHAFT). In a danger zone wandering monsters
+ * attack at full hostility from turn 1: no per-faction grace, no ramp-up, and
+ * the attack roll is always out of 100.
+ *
+ * A dungeon entrance is NOT a danger zone even though it has an inner location:
+ * the hex around it keeps the normal surface grace and ramp. HasShaft() is
+ * broader on purpose (any inner location) and stays a mapping helper.
+ *
+ * @return true for underground/dungeon levels, volcanoes and shaft hexes
+ * @see Game::CheckWMonAttack(), Game::CountWMonTars(), Game::GetWMonTar()
+ */
+bool ARegion::IsMonsterDangerZone()
+{
+    if (level->levelType != ARegionArray::LEVEL_SURFACE) return true;
+    if (type == R_VOLCANO) return true;
+    for (const auto o : objects) {
+        if (o->type == O_SHAFT) return true;
+    }
+    return false;
+}
+
 int ARegion::IsGuarded()
 {
     for(const auto o : objects) {

@@ -338,6 +338,7 @@ class ARegion
         int IsSafeRegion();
         int CanBeStartingCity(ARegionArray *pRA);
         int HasShaft();
+        bool IsMonsterDangerZone();
 
         // AS
         int HasRoad();
