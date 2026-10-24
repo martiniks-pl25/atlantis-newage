@@ -82,6 +82,48 @@ std::optional<std::reference_wrapper<MountType>> find_mount(const strings::ci_st
     return std::nullopt;
 }
 
+int mount_bonus_cap(const int item, const int terrain, const MountRules& rules)
+{
+    if (item < 0 || item >= NITEMS || !(ItemDefs[item].type & IT_MOUNT)) return -1;
+    const auto found = find_mount(ItemDefs[item].abr);
+    if (!found) return -1;
+    const MountType& mount = found->get();
+    const ItemType& def = ItemDefs[item];
+
+    const int flags = TerrainDefs[terrain].flags;
+    const bool can_fly = flags & TerrainType::FLYINGMOUNTS;
+    const bool can_ride = flags & TerrainType::RIDINGMOUNTS;
+
+    int cap = -1;
+    if (can_fly) {
+        if (def.fly || can_ride) cap = mount.maxBonus;
+    } else if (can_ride && def.ride) {
+        cap = def.fly ? std::min(mount.maxBonus, mount.maxHamperedBonus) : mount.maxBonus;
+    }
+
+    if (TerrainDefs[terrain].similar_type == R_OCEAN)
+        cap = std::max(cap, rules.water_cap(def.abr));
+    return cap;
+}
+
+int mount_bonus_cap(const int item, const int terrain)
+{
+    return mount_bonus_cap(item, terrain, ruleset_config().mounts);
+}
+
+std::vector<int> mount_rules_terrains()
+{
+    std::vector<int> terrains;
+    std::vector<std::string_view> names;
+    for (int t = 0; t < R_NUM; t++) {
+        const bool listed = (TerrainDefs[t].flags & TerrainType::SHOW_RULES) || t == R_DUNGEON;
+        if (!listed || std::ranges::find(names, TerrainDefs[t].name) != names.end()) continue;
+        names.emplace_back(TerrainDefs[t].name);
+        terrains.push_back(t);
+    }
+    return terrains;
+}
+
 std::optional<std::reference_wrapper<MonType>> find_monster(const strings::ci_string& abbr, int illusion)
 {
     if (abbr.empty()) return std::nullopt;
@@ -1210,7 +1252,13 @@ std::string item_description(int item, int full)
         }
 
         if (full) {
-            if (ItemDefs[item].fly) {
+            // The hampered cap only applies where riders may ride but not fly; say nothing
+            // about it in a world that has no such terrain.
+            const auto rides_only = [](const int t) {
+                const int fl = TerrainDefs[t].flags;
+                return (fl & TerrainType::RIDINGMOUNTS) && !(fl & TerrainType::FLYINGMOUNTS);
+            };
+            if (ItemDefs[item].fly && std::ranges::any_of(mount_rules_terrains(), rides_only)) {
                 temp += " This mount gives a maximum bonus of +";
                 if (Globals->HALF_RIDING_BONUS) {
                     temp += std::to_string((mount.maxHamperedBonus + 1) / 2) + " when ridden into combat in ";

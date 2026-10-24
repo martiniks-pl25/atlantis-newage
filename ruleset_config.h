@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <string_view>
 
 /**
  * @file ruleset_config.h
@@ -269,11 +270,51 @@ struct DungeonRules {
     return whole_cells(d.level.width) && whole_cells(d.level.height);
 }
 
+/// One mount that also gives its riding bonus in water.
+struct WaterMount {
+    std::string_view tag;  ///< mount item tag, e.g. "TURT"; empty marks an unused slot
+    int max_bonus = 0;     ///< highest riding bonus it gives in water terrain
+};
+
+/**
+ * @brief Combat mounts that fight in water (ocean, lake, deadwater).
+ *
+ * On land and in the air the mount table (MountDefs) decides: a ridden mount gives its
+ * bonus where the terrain allows ridden mounts, a flying one where it allows flying
+ * mounts. Water allows only flying mounts, so a swimming mount gives nothing there
+ * unless it is listed here. The engine default lists none.
+ *
+ * Read by mount_bonus_cap() (items.cpp), and through it by battle, the rules and the
+ * JSON report.
+ */
+struct MountRules {
+    std::array<WaterMount, 4> water {};
+
+    /// @return the water cap of the mount with this tag, or -1 when it is not listed
+    [[nodiscard]] constexpr int water_cap(const std::string_view tag) const noexcept {
+        for (const WaterMount& w : water)
+            if (!w.tag.empty() && w.tag == tag) return w.max_bonus;
+        return -1;
+    }
+};
+
+/**
+ * @brief Range checks for mount values, run at compile time by each ruleset
+ * (`static_assert(valid(config.mounts))`).
+ */
+[[nodiscard]] consteval bool valid(const MountRules& m) noexcept
+{
+    return std::ranges::all_of(m.water, [](const WaterMount& w) {
+        return w.tag.empty() || (w.max_bonus >= 1 && w.max_bonus <= 5);
+    });
+}
+
 /// All typed ruleset parameters.
 struct RulesetConfig {
     PirateRules pirates;
     QuestRules quests;
     DungeonRules dungeons;
+    MountRules mounts;
 };
 
 /**

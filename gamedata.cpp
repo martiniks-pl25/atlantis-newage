@@ -5291,7 +5291,7 @@ std::vector<TerrainType> TerrainDefs = {
      30,{O_DEMONPIT,O_GIANTCASTLE,-1,-1,-1,-1}},
     // NewOrigins: Can appear on Surface Level 1 (if LAKES enabled)
      {"lake", "lakes", "lake", '-', R_OCEAN,
-      TerrainType::BARREN | TerrainType::SHOW_RULES | TerrainType::NO_LEADERS,
+      TerrainType::BARREN | TerrainType::FLYINGMOUNTS | TerrainType::SHOW_RULES | TerrainType::NO_LEADERS,
       50,0,0,1,
       {{I_FISH,100,20},{I_ADMANTIUM,15,2},{I_MITHRIL,15,2},{-1,0,0},
        {-1,0,0},{-1,0,0},{-1,0,0}},

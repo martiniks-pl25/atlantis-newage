@@ -2824,46 +2824,39 @@ int Unit::get_armor(const std::string &item, int ass)
     return item_num;
 }
 
-int Unit::get_mount(const std::string &item, int canFly, int canRide, int &bonus)
+/**
+ * @brief Takes one mount of this type for a soldier fighting in a terrain.
+ *
+ * @param item    mount item tag
+ * @param terrain region type (R_*) of the battle
+ * @param bonus   out: the riding bonus, the rider's skill capped by mount_bonus_cap();
+ *                0 for a mount that needs no skill
+ * @return the mount item, now taken from the unit, or -1 when the unit has none, the
+ *         mount gives no bonus in this terrain, or the rider lacks the skill for it
+ * @note A rider who gets the mount practices its skill.
+ * @see mount_bonus_cap()
+ */
+int Unit::get_mount(const std::string &item, const int terrain, int &bonus)
 {
     bonus = 0;
 
-    // This region doesn't allow riding or flying, so no mounts, bail
-    if (!canFly && !canRide) return -1;
-
-    int item_num = lookup_item(item);
-    auto pMnt = find_mount(ItemDefs[item_num].abr).value().get();
-
-    int num = items.GetNum(item_num);
+    const int item_num = lookup_item(item);
+    const int num = items.GetNum(item_num);
     if (num < 1) return -1;
 
-    if (canFly) {
-        // If the mount cannot fly, and the region doesn't allow
-        // riding mounts, bail
-        if (!ItemDefs[item_num].fly && !canRide) return -1;
-    } else {
-        // This region allows riding mounts, so if the mount
-        // can not carry at a riding level, bail
-        if (!ItemDefs[item_num].ride) return -1;
-    }
+    const int cap = mount_bonus_cap(item_num, terrain);
+    if (cap < 0) return -1;
 
+    const MountType& pMnt = find_mount(ItemDefs[item_num].abr).value().get();
     if (pMnt.skill) {
-        int sk = lookup_skill(pMnt.skill);
+        const int sk = lookup_skill(pMnt.skill);
         bonus = GetSkill(sk);
         if (bonus < pMnt.minBonus) {
             // Unit isn't skilled enough for this mount
             bonus = 0;
             return -1;
         }
-        // Limit to max mount bonus;
-        if (bonus > pMnt.maxBonus) bonus = pMnt.maxBonus;
-        // If the mount can fly and the terrain doesn't allow
-        // flying mounts, limit the bonus to the maximum hampered
-        // bonus allowed by the mount
-        if (ItemDefs[item_num].fly && !canFly) {
-            if (bonus > pMnt.maxHamperedBonus)
-                bonus = pMnt.maxHamperedBonus;
-        }
+        bonus = std::min(bonus, cap);
 
         // Practice the mount's skill
         Practice(sk);

@@ -114,7 +114,7 @@ ut::suite<"JSON Report"> json_report_suite = []
       expect(surface["height"] == 4_i);
       expect(surface["wraps_x"] == true);
     }
-    expect(player["engine"]["json_report_version"] == "1.2.0");
+    expect(player["engine"]["json_report_version"] == "1.3.0");
 
     // A level is not revealed without a reported region on it.
     Faction *other = helper.create_faction("Other Faction");

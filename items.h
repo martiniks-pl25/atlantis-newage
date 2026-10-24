@@ -448,6 +448,37 @@ extern std::optional<std::reference_wrapper<ItemType>> find_item(const strings::
 extern std::optional<std::reference_wrapper<ArmorType>> find_armor(const strings::ci_string& abbr);
 extern std::optional<std::reference_wrapper<WeaponType>> find_weapon(const strings::ci_string& abbr);
 extern std::optional<std::reference_wrapper<MountType>> find_mount(const strings::ci_string& abbr);
+
+struct MountRules;
+
+/**
+ * @brief Highest riding bonus a mount can give in combat in a terrain.
+ *
+ * The one rule for where mounts work; battle (Unit::get_mount), the rules and the JSON
+ * report all read it. The rider's RIDI level is capped by the result.
+ * - terrain allows flying mounts: any mount that flies, or any mount at all when the
+ *   terrain also allows ridden mounts, gets maxBonus;
+ * - terrain allows ridden mounts only: a mount that can carry a rider gets maxBonus,
+ *   or maxHamperedBonus when it is a flier;
+ * - water terrain (similar to ocean): a mount listed in MountRules::water also gets its
+ *   water cap, whichever of the two is higher.
+ *
+ * @param item    mount item (IT_MOUNT); any other item gives -1
+ * @param terrain region type (R_*)
+ * @param rules   water mounts; the active ruleset's by default
+ * @return the cap, or -1 when the mount gives no bonus in this terrain
+ * @see Unit::get_mount(), mount_rules_terrains()
+ */
+[[nodiscard]] int mount_bonus_cap(int item, int terrain, const MountRules& rules);
+[[nodiscard]] int mount_bonus_cap(int item, int terrain);
+
+/**
+ * @brief Terrains the rules and the JSON report describe mounts for, in TerrainDefs order.
+ *
+ * Every terrain shown in the rules (SHOW_RULES), one per name, plus dungeon rooms, where
+ * players fight but which the rules do not list among the regions.
+ */
+[[nodiscard]] std::vector<int> mount_rules_terrains();
 extern std::optional<std::reference_wrapper<MonType>> find_monster(const strings::ci_string& abbr, int illusion);
 
 /**

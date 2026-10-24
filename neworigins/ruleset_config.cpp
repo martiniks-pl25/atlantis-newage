@@ -11,9 +11,11 @@ const RulesetConfig& ruleset_config()
             .map_drop = { .chance_cap = 60, .hideout_soft_cap_percent = 7 },
         },
         .dungeons = { .level = { .width = 128, .height = 32 } },
+        .mounts = { .water = {{ { .tag = "TURT", .max_bonus = 1 } }} },
     };
     static_assert(valid(config.pirates));
     static_assert(valid(config.quests));
     static_assert(valid(config.dungeons));
+    static_assert(valid(config.mounts));
     return config;
 }
