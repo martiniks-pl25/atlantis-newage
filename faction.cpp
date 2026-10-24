@@ -360,6 +360,25 @@ static json mount_stats_json(const int item) {
     return mount;
 }
 
+/**
+ * @brief Where a race lives, the `_stats.found_in` object of the JSON report.
+ *
+ * @param race a race item (IT_MAN)
+ * @return {"anywhere": [terrain names], "coast": [terrain names]} from race_terrains(),
+ *         or null when the race is found in no terrain (leaders, disabled races)
+ * @example fairy -> {"anywhere": ["lake"], "coast": []}
+ */
+static json race_found_in_json(const int race) {
+    const RaceTerrains found = race_terrains(race);
+    if (found.anywhere.empty() && found.coast.empty()) return nullptr;
+    const auto names = [](const std::vector<int>& terrains) {
+        json list = json::array();
+        for (const int t : terrains) list.push_back(TerrainDefs[t].name);
+        return list;
+    };
+    return {{"anywhere", names(found.anywhere)}, {"coast", names(found.coast)}};
+}
+
 // Builds a JSON array of items that can be produced using a given skill at a given level.
 // Includes normal production (pSkill/pLevel) and magical production (mSkill/mLevel).
 // Each entry: { "item": "PARM", "output": 1, "man_months": 2, "materials": [{"item":"IRON","amount":2}] }
@@ -694,6 +713,8 @@ void Faction::build_gm_json_report(json& j, Game *game) {
                 item_stats["special_level"]   = r.speciallevel;
                 item_stats["default_level"]   = r.defaultlevel;
                 item_stats["size"]            = r.size;
+                json found_in = race_found_in_json(ii);
+                if (!found_in.is_null()) item_stats["found_in"] = std::move(found_in);
             }
         }
 
@@ -1265,6 +1286,8 @@ void Faction::build_json_report(json& j, Game *game, size_t **citems) {
                 item_stats["special_level"]   = r.speciallevel;
                 item_stats["default_level"]   = r.defaultlevel;
                 item_stats["size"]            = r.size;
+                json found_in = race_found_in_json(ii);
+                if (!found_in.is_null()) item_stats["found_in"] = std::move(found_in);
             }
         }
 

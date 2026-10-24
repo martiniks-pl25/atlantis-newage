@@ -85,6 +85,50 @@ class TerrainType
 
  extern std::vector<TerrainType> TerrainDefs;
 
+/**
+ * @brief Number of faces of the die that picks a hex's race at world creation.
+ * @param coastal true for a hex by water: it rolls over races[] and coastal_races[]
+ * @return std::size(races) inland, std::size(races) + std::size(coastal_races) by water
+ * @see race_for_roll()
+ */
+[[nodiscard]] int race_roll_faces(bool coastal);
+
+/**
+ * @brief The race a roll of the habitat die gives in a terrain.
+ *
+ * The one mapping of die faces to race slots, used by ARegion::SetupHabitat(),
+ * ARegion::SetupEditRegion() and race_terrains(). Faces 0-3 are races[0-3]. A coastal
+ * face n >= 4 maps to coastal_races[n - 5]: face 4 gives races[3] again and
+ * coastal_races[2] is never reached. Worlds were generated with this mapping, so it
+ * stays as it is.
+ *
+ * @param terrain terrain of the hex
+ * @param n       face rolled, 0 <= n < race_roll_faces(coastal)
+ * @return the race item, or -1 for an empty slot (the caller rolls again)
+ * @see docs/COASTAL_RACES_ANALYSIS.md
+ */
+[[nodiscard]] int race_for_roll(const TerrainType& terrain, int n);
+
+/// Terrains a race can be found in, as race_terrains() reports them.
+struct RaceTerrains {
+    std::vector<int> anywhere;  ///< terrains where any hex can hold the race
+    std::vector<int> coast;     ///< terrains where only a hex by water can hold it
+};
+
+/**
+ * @brief Where a race can appear when a world is created.
+ *
+ * Tries every face of the habitat die (race_for_roll()) on every terrain the rules list
+ * (SHOW_RULES, one per name) that has population. A terrain is in `anywhere` when an
+ * inland roll can give the race, in `coast` when only a coastal roll can. Disabled races
+ * are rolled again by the picker, so they are found nowhere.
+ *
+ * @param race race item (IT_MAN)
+ * @return both lists in TerrainDefs order; empty when the race is never picked
+ * @see race_for_roll(), Faction JSON `_stats.found_in`, rules "Table of Races"
+ */
+[[nodiscard]] RaceTerrains race_terrains(int race);
+
 class Location
 {
     public:

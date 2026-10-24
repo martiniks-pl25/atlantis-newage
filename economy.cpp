@@ -2,6 +2,9 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <algorithm>
+#include <string_view>
+#include <type_traits>
 #include "game.h"
 #include "gamedata.h"
 
@@ -114,6 +117,46 @@ void ARegion::AddLeadersMarket() {
     markets.push_back(m);
 }
 
+int race_roll_faces(const bool coastal)
+{
+    constexpr int inland = static_cast<int>(std::extent_v<decltype(TerrainType::races)>);
+    constexpr int shore = static_cast<int>(std::extent_v<decltype(TerrainType::coastal_races)>);
+    return coastal ? inland + shore : inland;
+}
+
+int race_for_roll(const TerrainType& terrain, const int n)
+{
+    const int inland = race_roll_faces(false);
+    if (n < inland) return terrain.races[n];
+    // Face `inland` lands one slot before coastal_races, which is races[last].
+    const int slot = n - inland - 1;
+    return slot < 0 ? terrain.races[inland - 1] : terrain.coastal_races[slot];
+}
+
+RaceTerrains race_terrains(const int race)
+{
+    RaceTerrains found;
+    if (race < 0 || race >= NITEMS || (ItemDefs[race].flags & ItemType::DISABLED)) return found;
+
+    std::vector<std::string_view> names;
+    for (int t = 0; t < R_NUM; t++) {
+        const TerrainType& terrain = TerrainDefs[t];
+        if (!(terrain.flags & TerrainType::SHOW_RULES) || terrain.pop == 0) continue;
+        if (std::ranges::find(names, terrain.name) != names.end()) continue;
+        names.emplace_back(terrain.name);
+
+        const auto rolls_race = [&](const int from, const int to) {
+            for (int n = from; n < to; n++)
+                if (race_for_roll(terrain, n) == race) return true;
+            return false;
+        };
+        const int inland = race_roll_faces(false);
+        if (rolls_race(0, inland)) found.anywhere.push_back(t);
+        else if (rolls_race(inland, race_roll_faces(true))) found.coast.push_back(t);
+    }
+    return found;
+}
+
 void ARegion::SetupHabitat(TerrainType* terrain) {
     if (habitat > 1) habitat *= 5;
     if ((habitat < 100) && (terrain->similar_type != R_OCEAN)) habitat = 100;
@@ -137,17 +180,10 @@ void ARegion::SetupHabitat(TerrainType* terrain) {
     // Only select race here if it hasn't been set during Race Growth
     // in the World Creation process.
     if ((race == -1) || (!Globals->GROW_RACES)) {
-        int noncoastalraces = sizeof(terrain->races) / sizeof(terrain->races[0]);
-        int allraces =
-            noncoastalraces + sizeof(terrain->coastal_races) / sizeof(terrain->coastal_races[0]);
-
         race = -1;
         while (race == -1 || (ItemDefs[race].flags & ItemType::DISABLED)) {
-            int n = rng::get_random(IsCoastal() ? allraces : noncoastalraces);
-            if (n > noncoastalraces-1) {
-                race = terrain->coastal_races[n-noncoastalraces-1];
-            } else
-                race = terrain->races[n];
+            const int n = rng::get_random(race_roll_faces(IsCoastal()));
+            race = race_for_roll(*terrain, n);
         }
     }
 
@@ -1087,17 +1123,10 @@ void ARegion::SetupEditRegion()
     // Only select race here if it hasn't been set during Race Growth
     // in the World Creation process.
     if ((race == -1) || (!Globals->GROW_RACES)) {
-        int noncoastalraces = sizeof(typer->races)/sizeof(typer->races[0]);
-        int allraces =
-            noncoastalraces + sizeof(typer->coastal_races)/sizeof(typer->coastal_races[0]);
-
         race = -1;
         while (race == -1 || (ItemDefs[race].flags & ItemType::DISABLED)) {
-            int n = rng::get_random(IsCoastal() ? allraces : noncoastalraces);
-            if (n > noncoastalraces-1) {
-                race = typer->coastal_races[n-noncoastalraces-1];
-            } else
-                race = typer->races[n];
+            const int n = rng::get_random(race_roll_faces(IsCoastal()));
+            race = race_for_roll(*typer, n);
         }
     }
 
