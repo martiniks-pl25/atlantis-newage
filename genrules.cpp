@@ -1914,6 +1914,7 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
         f << enclose("th", true) << "Listed Skills\n" << enclose("th", false);
         f << enclose("th", true) << "Max Level (listed skills)\n" << enclose("th", false);
         f << enclose("th", true) << "Max Level (all other skills)\n" << enclose("th", false);
+        f << enclose("th", true) << "Found in\n" << enclose("th", false);
         f << enclose("tr", false);
         for (int i = 0; i < NITEMS; i++) {
             if (ItemDefs[i].flags & ItemType::DISABLED) continue;
@@ -1945,6 +1946,20 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
             f << enclose("td align=\"left\" nowrap", true) << (spec ? to_string(mt.speciallevel) : "--") << '\n'
               << enclose("td", false);
             f << enclose("td align=\"left\" nowrap", true) << mt.defaultlevel << '\n' << enclose("td", false);
+            {
+                // Same source as the JSON report: race_terrains() mirrors the habitat roll.
+                const RaceTerrains found = race_terrains(i);
+                const auto names = [](const std::vector<int>& terrains) {
+                    std::vector<std::string> list;
+                    for (const int t : terrains) list.push_back(TerrainDefs[t].name);
+                    return strings::join(list, ", ");
+                };
+                std::string where = names(found.anywhere);
+                if (!found.coast.empty())
+                    where += (where.empty() ? "" : "; ") + std::string("coast of: ") + names(found.coast);
+                f << enclose("td align=\"left\"", true) << (where.empty() ? "-" : where) << '\n'
+                  << enclose("td", false);
+            }
             f << enclose("tr", false);
         }
         f << enclose("table", false);
