@@ -3301,9 +3301,45 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
     f << enclose("p", true) << " Possession of a mount, and the appropriate skill to use that mount will also "
       << "confer a bonus to the effective Combat skill. The amount of the bonus will depend on the level of the "
       << "appropriate skill and the mount in question.  Some mounts are better than others, and may provide better "
-      << "bonus, but may also require higher levels of skill to get any bonus at all.  Some terrain might not allow "
-      << "mounts to give a combat advantage.\n"
+      << "bonus, but may also require higher levels of skill to get any bonus at all.  Not every terrain lets a "
+      << "mount give its bonus: the table below shows the highest bonus each mount can give in each terrain, and "
+      << "a dash means no bonus there.  The rider's skill is capped by that number.  Only the terrain of the "
+      << "region counts; it does not matter whether the unit fights in the open, in a building or aboard a ship.\n"
       << enclose("p", false);
+    {
+        // One mount per enabled mount item; the cells come from mount_bonus_cap(), the rule
+        // battle uses, so the table cannot drift from the mechanics.
+        std::vector<int> mounts;
+        for (int i = 0; i < NITEMS; i++) {
+            if (ItemDefs[i].flags & ItemType::DISABLED) continue;
+            if (!(ItemDefs[i].type & IT_MOUNT) || (ItemDefs[i].type & IT_MAN)) continue;
+            if (find_mount(ItemDefs[i].abr)) mounts.push_back(i);
+        }
+        if (!mounts.empty()) {
+            f << anchor("combat_mount_terrain") << '\n';
+            f << enclose("center", true);
+            f << enclose("table border=\"1\"", true);
+            f << enclose("tr", true);
+            f << enclose("th", true) << "Terrain\n" << enclose("th", false);
+            for (const int m : mounts)
+                f << enclose("th", true) << ItemDefs[m].names << '\n' << enclose("th", false);
+            f << enclose("tr", false);
+            for (const int t : mount_rules_terrains()) {
+                f << enclose("tr", true);
+                f << enclose("td align=\"left\" nowrap", true) << TerrainDefs[t].name << '\n'
+                  << enclose("td", false);
+                for (const int m : mounts) {
+                    int cap = mount_bonus_cap(m, t);
+                    if (cap > 0 && Globals->HALF_RIDING_BONUS) cap = (cap + 1) / 2;
+                    f << enclose("td align=\"center\"", true)
+                      << (cap < 0 ? std::string("-") : "+" + std::to_string(cap)) << '\n' << enclose("td", false);
+                }
+                f << enclose("tr", false);
+            }
+            f << enclose("table", false);
+            f << enclose("center", false);
+        }
+    }
     f << enclose("p", true) << "Certain weapons may provide different attack and defense bonuses, or have "
       << "additional attack bonuses against mounted opponents or other special characteristics. These bonuses will "
       << "be listed in the item descriptions in the turn reports.\n"

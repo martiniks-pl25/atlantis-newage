@@ -206,7 +206,7 @@ class Unit {
         void CopyFlags(Unit *);
         int get_battle_item(const std::string &item);
         int get_armor(const std::string &item, int ass);
-        int get_mount(const std::string &item, int canFly, int canRide, int &bonus);
+        int get_mount(const std::string &item, int terrain, int &bonus);
         int get_weapon(
             const std::string &item, int riding, int ridingBonus, int &attackBonus, int &defenseBonus,
             int &attacks, int &hitDamage

@@ -324,6 +324,42 @@ static inline GmData collect_gm_data() {
     return data;
 }
 
+/**
+ * @brief Combat mount stats of an item, the `_stats.mount` object of the JSON report.
+ *
+ * `combat_terrain` lists every terrain of mount_rules_terrains() where the mount gives
+ * a riding bonus, with that terrain's cap from mount_bonus_cap(), the same rule battle
+ * uses. A terrain left out means no bonus there.
+ *
+ * @param item an IT_MOUNT item
+ * @return the object, or null when the item is not in MountDefs
+ * @example horse -> {"skill":"RIDI","min_skill":1,"max_bonus":3,
+ *                    "combat_terrain":[{"terrain":"plain","max_bonus":3}, ...]}
+ */
+static json mount_stats_json(const int item) {
+    const auto found = find_mount(ItemDefs[item].abr);
+    if (!found) return nullptr;
+    const MountType& m = found->get();
+
+    json terrains = json::array();
+    for (const int t : mount_rules_terrains()) {
+        const int cap = mount_bonus_cap(item, t);
+        if (cap >= 0) terrains.push_back({{"terrain", TerrainDefs[t].name}, {"max_bonus", cap}});
+    }
+
+    json mount = {
+        {"min_skill",      m.minBonus},
+        {"max_bonus",      m.maxBonus},
+        {"combat_terrain", terrains},
+    };
+    if (m.skill) mount["skill"] = m.skill;
+    if (m.mountSpecial) {
+        mount["special"] = m.mountSpecial;
+        mount["special_level"] = m.specialLev;
+    }
+    return mount;
+}
+
 // Builds a JSON array of items that can be produced using a given skill at a given level.
 // Includes normal production (pSkill/pLevel) and magical production (mSkill/mLevel).
 // Each entry: { "item": "PARM", "output": 1, "man_months": 2, "materials": [{"item":"IRON","amount":2}] }
@@ -638,6 +674,12 @@ void Faction::build_gm_json_report(json& j, Game *game) {
                     {"attack_penalty", b.attackPenalty},
                 };
             }
+        }
+
+        // Mount stats (IT_MOUNT can coexist with IT_MAN, e.g. centaurs)
+        if (itype & IT_MOUNT) {
+            json mount = mount_stats_json(ii);
+            if (!mount.is_null()) item_stats["mount"] = std::move(mount);
         }
 
         // Race stats (IT_MAN can coexist with other flags)
@@ -1203,6 +1245,12 @@ void Faction::build_json_report(json& j, Game *game, size_t **citems) {
                     {"attack_penalty", b.attackPenalty},
                 };
             }
+        }
+
+        // Mount stats (IT_MOUNT can coexist with IT_MAN, e.g. centaurs)
+        if (itype & IT_MOUNT) {
+            json mount = mount_stats_json(ii);
+            if (!mount.is_null()) item_stats["mount"] = std::move(mount);
         }
 
         // Race stats (IT_MAN can coexist with other flags)

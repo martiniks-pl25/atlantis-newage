@@ -326,25 +326,20 @@ Soldier::Soldier(Unit * u,Object * o,int regtype,int r,int ass)
     }
 
     //
-    // Check if this unit is mounted
+    // Check if this unit is mounted. Which mounts work in this terrain is decided
+    // by mount_bonus_cap() inside get_mount().
     //
-    int terrainflags = TerrainDefs[regtype].flags;
-    int canFly = (terrainflags & TerrainType::FLYINGMOUNTS);
-    int canRide = (terrainflags & TerrainType::RIDINGMOUNTS);
     int ridingBonus = 0;
-    if (canFly || canRide) {
-        //
-        // Mounts of some type _are_ allowed in this region
-        //
+    {
         int item = -1;
         if (ItemDefs[race].type & IT_MOUNT) {
             // If the man is a mount (Centaurs), then the only option
             // they have for riding is the built-in one
-            item = unit->get_mount(ItemDefs[race].abr, canFly, canRide, ridingBonus);
+            item = unit->get_mount(ItemDefs[race].abr, regtype, ridingBonus);
         } else {
             for (const auto& mount : MountDefs) {
                 // See if this mount is an option
-                item = unit->get_mount(mount.abbr, canFly, canRide, ridingBonus);
+                item = unit->get_mount(mount.abbr, regtype, ridingBonus);
                 if (item == -1) continue;
                 // No riding other men in combat
                 if (ItemDefs[item].type & IT_MAN) {

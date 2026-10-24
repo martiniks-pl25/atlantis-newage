@@ -17,11 +17,13 @@ const RulesetConfig& ruleset_config()
             .underworld_tunnels = { .enabled = true },
             .underground_lakes = { .landlocked_seas = true },
         },
+        .mounts = { .water = {{ { .tag = "TURT", .max_bonus = 1 } }} },
     };
     static_assert(valid(config.pirates));
     static_assert(valid(config.quests));
     static_assert(valid(config.dungeons));
     static_assert(valid(config.guards));
     static_assert(valid(config.map));
+    static_assert(valid(config.mounts));
     return config;
 }

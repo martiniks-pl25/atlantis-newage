@@ -9,5 +9,6 @@ const RulesetConfig& ruleset_config()
     static_assert(valid(config.dungeons));
     static_assert(valid(config.guards));
     static_assert(valid(config.map));
+    static_assert(valid(config.mounts));
     return config;
 }
