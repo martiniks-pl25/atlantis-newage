@@ -633,6 +633,24 @@ static std::string spoil_tier_list(int spoiltype)
     return out;
 }
 
+/**
+ * @brief Builds the player-facing description of an item.
+ *
+ * Feeds SHOW ITEM and the "description" field of the report JSON (not the
+ * rules HTML, which genrules.cpp builds on its own). Wording rules for combat
+ * modifiers:
+ * - defense modifiers of armor and weapons, the riding bonus included, apply
+ *   to dskill[ATTACK_COMBAT] only (Soldier::Soldier), so they say
+ *   "melee defense";
+ * - attack modifiers apply to askill, used by every weapon, so they say
+ *   "combat attack";
+ * - a penalty prints its magnitude: "imposes a penalty of 1".
+ *
+ * @param item Item index (I_* constant)
+ * @param full 1 for the long form, 0 for the short one
+ * @return Description text, empty when the item is disabled
+ * @see attack_type(), Army::DoAnAttack
+ */
 std::string item_description(int item, int full)
 {
     int i;
@@ -1009,10 +1027,12 @@ std::string item_description(int item, int full)
                 " on attack";
             flag = true;
         }
+        // The weapon's own defense bonus lands on dskill[ATTACK_COMBAT]
+        // (Soldier::Soldier), so the text calls it melee defense.
         if (weapon.defenseBonus != 0) {
             if (flag) {
                 if (weapon.attackBonus == weapon.defenseBonus) {
-                    temp += " and defense.";
+                    temp += " and melee defense.";
                     flag = false;
                 } else {
                     temp += " and a ";
@@ -1023,7 +1043,7 @@ std::string item_description(int item, int full)
             }
             if (flag) {
                 temp += (weapon.defenseBonus > 0 ? "bonus of " : "penalty of ") + std::to_string(std::abs(weapon.defenseBonus)) +
-                    " on defense.";
+                    " on melee defense.";
                 flag = false;
             }
         }
@@ -1042,10 +1062,12 @@ std::string item_description(int item, int full)
         else if (weapon.flags & WeaponType::NOMOUNT)
             temp += " Only foot troops may use this weapon.";
 
+        // The riding bonus to defense lands on dskill[ATTACK_COMBAT]
+        // (Soldier::Soldier), so the text calls it melee defense.
         if (weapon.flags & WeaponType::RIDINGBONUS) {
-            temp += " Wielders of this weapon, if mounted, get their riding skill bonus on combat attack and defense.";
+            temp += " Wielders of this weapon, if mounted, get their riding skill bonus on combat attack and melee defense.";
         } else if (weapon.flags & WeaponType::RIDINGBONUSDEFENSE) {
-            temp += " Wielders of this weapon, if mounted, get their riding skill bonus on combat defense.";
+            temp += " Wielders of this weapon, if mounted, get their riding skill bonus on melee defense.";
         }
 
         if (weapon.flags & WeaponType::NODEFENSE) {
@@ -1139,21 +1161,23 @@ std::string item_description(int item, int full)
             temp += std::to_string(percent) + "% of the time versus " + weapon_class(i) + " attacks";
         }
         temp += ".";
-        // Combat attack skill modifier
+        // Attack modifier: askill is used by every weapon, ranged included,
+        // so the text says "combat attack". A penalty prints its magnitude.
         if (armor.attackBonus > 0) {
             temp += " This armor grants a +" + std::to_string(armor.attackBonus) +
                     " bonus to combat attack skill due to increased mobility.";
         } else if (armor.attackBonus < 0) {
-            temp += " This armor imposes a " + std::to_string(armor.attackBonus) +
-                    " penalty to combat attack skill due to reduced mobility.";
+            temp += " This armor imposes a penalty of " + std::to_string(std::abs(armor.attackBonus)) +
+                    " to combat attack skill due to reduced mobility.";
         }
-        // Combat defense skill modifier
+        // Defense modifier: lands on dskill[ATTACK_COMBAT] only
+        // (Soldier::Soldier), so the text calls it melee defense.
         if (armor.defenseBonus > 0) {
             temp += " This armor grants a +" + std::to_string(armor.defenseBonus) +
-                    " bonus to combat defense skill due to increased mobility.";
+                    " bonus to melee defense skill due to increased mobility.";
         } else if (armor.defenseBonus < 0) {
-            temp += " This armor imposes a " + std::to_string(std::abs(armor.defenseBonus)) +
-                    " penalty to combat defense skill due to reduced mobility.";
+            temp += " This armor imposes a penalty of " + std::to_string(std::abs(armor.defenseBonus)) +
+                    " to melee defense skill due to reduced mobility.";
         }
         if (full) {
             if (armor.flags & ArmorType::USEINASSASSINATE) {
@@ -1485,10 +1509,11 @@ std::string item_description(int item, int full)
             else
                 temp += " This item can cast ";
             temp += show_special(bt->get().special ? bt->get().special : "", bt->get().skillLevel, 1, bt->get().flags & BattleItemType::SHIELD);
-            // Shield attack penalty description
+            // Shield attack penalty: applies to askill, i.e. to every weapon,
+            // so "combat attack". A penalty prints its magnitude.
             if ((bt->get().flags & BattleItemType::SHIELD) && bt->get().attackPenalty != 0) {
-                temp += " This shield imposes a " + std::to_string(bt->get().attackPenalty) +
-                        " penalty to combat attack skill due to reduced mobility.";
+                temp += " This shield imposes a penalty of " + std::to_string(std::abs(bt->get().attackPenalty)) +
+                        " to combat attack skill due to reduced mobility.";
             }
         }
     } else if (ItemDefs[item].type & IT_MAGEONLY) {
