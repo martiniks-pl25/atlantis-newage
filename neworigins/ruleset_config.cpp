@@ -8,7 +8,7 @@ const RulesetConfig& ruleset_config()
         .pirates = {
             .treasure_map = { .decipher_chance = 30 },
             .recruit = { .intake_up = 4, .intake_down = 2, .pop_cost = 2 },
-            .promotion = { .bosun_chance = 20 },
+            .promotion = { .bosun_chance = 10 },
             .map_drop = { .chance_cap = 60, .hideout_soft_cap_percent = 7 },
             .spawn = { .elite_spawn_pct = 4 },
         },
