@@ -419,7 +419,9 @@ void Battle::DoAttack(int round, Soldier *a, Army *attackers, Army *def,
 
     int numAttacks = a->attacks;
     if (a->attacks < 0) {
-        numAttacks = (round % ( -1 * a->attacks ) == 1) ? 1 : 0;
+        // Rounds are 1-based: -N means one attack every N rounds. N == 1 must
+        // fire in every round, which a `round % N == 1` test can never match.
+        numAttacks = ((round - 1) % ( -1 * a->attacks ) == 0) ? 1 : 0;
     } else if (ass && (Globals->MAX_ASSASSIN_FREE_ATTACKS > 0) && (numAttacks > Globals->MAX_ASSASSIN_FREE_ATTACKS)) {
         numAttacks = Globals->MAX_ASSASSIN_FREE_ATTACKS;
     }
