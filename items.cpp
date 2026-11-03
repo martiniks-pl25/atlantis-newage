@@ -7,6 +7,7 @@
 #include "string_parser.hpp"
 #include "string_filters.hpp"
 #include "strings_util.hpp"
+#include <algorithm>
 #include <ranges>
 #include <cmath>
 #include <format>
@@ -634,6 +635,23 @@ static std::string spoil_tier_list(int spoiltype)
 }
 
 /**
+ * @brief Names a physical size for item descriptions.
+ *
+ * Size decides how often a soldier is picked as a target (SIZE_WEIGHTS in
+ * army.cpp) and whether HIT_NOLARGEMONSTER specials can hit it.
+ *
+ * @param size ManType::size or MonType::size; out-of-range values are
+ *             clamped to 1..5
+ * @return "tiny", "human-scale", "large", "huge" or "colossal"
+ * @example size_name(4) -> "huge"
+ */
+static std::string size_name(int size)
+{
+    static const char* const names[] = { "tiny", "human-scale", "large", "huge", "colossal" };
+    return names[std::clamp(size, 1, 5) - 1];
+}
+
+/**
  * @brief Builds the player-facing description of an item.
  *
  * Feeds SHOW ITEM and the "description" field of the report JSON (not the
@@ -819,25 +837,13 @@ std::string item_description(int item, int full)
         } else {
             temp += "all skills to level " + std::to_string(mt.defaultlevel) + ".";
         }
-        {
-            const char* sizeNames[] = { "", "tiny", "human-scale", "large", "huge", "colossal" };
-            int sz = mt.size;
-            if (sz < 1) sz = 1;
-            if (sz > 5) sz = 5;
-            temp += std::string(" This is a ") + sizeNames[sz] + " race.";
-        }
+        temp += " This is a " + size_name(mt.size) + " race.";
     }
 
     if ((ItemDefs[item].type & IT_MONSTER) && !(ItemDefs[item].flags & ItemType::MANPRODUCE)) {
         temp += " This is a monster.";
         auto monster = find_monster(ItemDefs[item].abr, (ItemDefs[item].type & IT_ILLUSION))->get();
-        {
-            const char* sizeNames[] = { "", "tiny", "human-scale", "large", "huge", "colossal" };
-            int sz = monster.size;
-            if (sz < 1) sz = 1;
-            if (sz > 5) sz = 5;
-            temp += std::string(" It is a ") + sizeNames[sz] + " monster.";
-        }
+        temp += " It is a " + size_name(monster.size) + " monster.";
         temp += " This monster attacks with a combat skill of " + std::to_string(monster.attackLevel);
 
         for (int c = 0; c < NUM_ATTACK_TYPES; c++) {
@@ -961,6 +967,7 @@ std::string item_description(int item, int full)
     if(ItemDefs[item].flags & ItemType::MANPRODUCE) {
         temp += " This is a free-moving-item (FMI).";
         auto monster = find_monster(ItemDefs[item].abr, (ItemDefs[item].type & IT_ILLUSION))->get();
+        temp += " It is a " + size_name(monster.size) + " FMI.";
         temp += " This FMI attacks with a combat skill of " + std::to_string(monster.attackLevel) + ".";
 
         for (int c = 0; c < NUM_ATTACK_TYPES; c++) {
