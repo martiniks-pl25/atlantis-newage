@@ -3228,6 +3228,8 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
       << "faction cannot be identified by the attacking faction.  A unit which was explicitly attacked will be "
       << "involved anyway, regardless of Avoid Combat. "
       << (has_stea ? "(This means that Avoid Combat is mostly useful for high stealth scouts.) " : "")
+      << "Monsters are the exception: every monster in a region defends the one that was attacked, whether or "
+      << "not the attacker can see it, so scout a region before attacking there. "
       << "Also, all non-avoiding units located in the target region belonging to factions allied with the defending "
       << "unit will join in on the defending side"
       << (Globals->ALLIES_NOAID
@@ -4153,8 +4155,10 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
     f << anchor("avoid") << '\n';
     f << enclose("h4", true) << "AVOID [flag]\n" << enclose("h4", false);
     f << enclose("p", true) << "AVOID 1 instructs the unit to avoid combat wherever possible. The unit will "
-      << "not enter combat unless it issues an ATTACK order, or the unit's faction is attacked in the unit's "
-      << "hex. AVOID 0 cancels this.\n"
+      << "not enter combat unless it issues an ATTACK order, it is attacked itself, or its faction is attacked "
+      << "in the unit's hex by an enemy who can identify that faction and catch the unit (see "
+      << url("#com_muster", "who takes part in a battle")
+      << "). AVOID 0 cancels this.\n"
       << enclose("p", false);
     f << enclose("p", true) << "The Guard and Avoid Combat flags are mutually exclusive; setting one "
       << "automatically cancels the other.\n"

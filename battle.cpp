@@ -1280,6 +1280,30 @@ int Game::CanAttack(ARegion *r, std::set<Faction *>& afacs, Unit * u)
     return 0;
 }
 
+/**
+ * @brief Collects the units that fight on each side of a battle
+ *
+ * Walks the battle region and its neighbours and fills @p atts / @p defs with
+ * Location records. Defender rule for a same-faction unit with AVOID set:
+ * it joins only if it is the target itself, or an attacking faction can both
+ * identify it and catch it (CanAttack), or it is a monster sharing the
+ * target's object, or it is a monster-crewed hull when a monster fleet is the
+ * target (squadron rule). A player unit that the attacker cannot identify
+ * stays out of the fight wherever it stands - open field, building or ship.
+ *
+ * @param r      Region where the battle takes place
+ * @param afacs  Attacking factions (from GetAFacs)
+ * @param dfacs  Defending factions (from GetDFacs)
+ * @param atts   Out: attacking units; may already hold units added by GetAFacs
+ * @param defs   Out: defending units
+ * @param att    Unit that started the attack
+ * @param tar    Unit that was attacked
+ * @param ass    Non-zero for an assassination: only att and tar take part
+ * @param adv    Non-zero when the attack comes from an ADVANCE move
+ * @note All monsters in a hex defend one another whether or not the attacker
+ *       sees them; scouting tells a player what an attack will face.
+ * @see Game::CanAttack, Faction::CanSee, Faction::CanCatch, Game::GetAFacs
+ */
 void Game::GetSides(
     ARegion *r, std::set<Faction *>& afacs, std::set<Faction *>& dfacs, std::list<Location *>& atts,
     std::list<Location *>& defs, Unit *att, Unit *tar, int ass, int adv
@@ -1364,9 +1388,8 @@ void Game::GetSides(
 #define ADD_ATTACK 1
 #define ADD_DEFENSE 2
                 /* First, can the unit be involved in the battle at all?
-                 * Units in the same fleet/object as the target always qualify,
-                 * even if FLAG_HOLDING is set — they fight as part of the fleet. */
-                if ((i==-1 || u->GetFlag(FLAG_HOLDING) == 0 || o == tar->object) && u->IsAlive()) {
+                 * HOLD only keeps a unit from joining a fight in a neighbouring region. */
+                if ((i==-1 || u->GetFlag(FLAG_HOLDING) == 0) && u->IsAlive()) {
                     if(afacs.find(u->faction) != afacs.end()) {
                         /*
                          * The unit is on the attacking side, check if the
@@ -1417,11 +1440,16 @@ void Game::GetSides(
                                          * want to be in the battle if he can
                                          * avoid it
                                          */
-                                        // Same fleet as target: no CanAttack check needed —
-                                        // attacker is already engaging the fleet directly.
+                                        // A monster sharing the target's object - the
+                                        // open field, a lair, a ship - always joins, so
+                                        // a crew and its officers fight together and
+                                        // hidden monsters can ambush. Player units only
+                                        // join when the attacker can identify and catch
+                                        // them (CanAttack).
                                         if (u == tar ||
                                             (u->faction == tar->faction && i == -1 && CanAttack(r, afacs,u)) ||
-                                            (u->faction == tar->faction && o == tar->object) ||
+                                            (u->faction == tar->faction && u->type == U_WMON &&
+                                             o == tar->object) ||
                                             (u->faction == tar->faction && i == -1 && targetIsMonsterFleet &&
                                              u->type == U_WMON && o->IsFleet())) {
                                             add = ADD_DEFENSE;
