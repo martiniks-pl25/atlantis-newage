@@ -52,6 +52,27 @@ int count_mayor_quests(int mayor_num) {
     return n;
 }
 
+// Hand-built LOCAL quest issued by mayor_num from city r, with a unique number.
+// A road quest needs no monster target, so completion is driven directly.
+shared_ptr<Quest> make_issued_road_quest(int num, int mayor_num, ARegion *r, int road_type) {
+    auto q = make_shared<Quest>();
+    q->num           = num;
+    q->type          = -1;
+    q->scope         = Quest::SCOPE_LOCAL;
+    q->subtype       = Quest::LOCAL_BUILD_ROAD;
+    q->tokens        = 1;
+    q->issuer_unit   = mayor_num;
+    q->issuer_region = r->num;
+    q->created_turn  = 1;
+    q->expires_turn  = 99;
+    q->target        = -1;
+    q->regionnum     = r->num;
+    q->building      = road_type;
+    q->regionname    = "Testburg";
+    quests.push_back(q);
+    return q;
+}
+
 } // anonymous namespace
 
 // ---------------------------------------------------------------------------
@@ -285,15 +306,13 @@ ut::suite<"QuestGeneration"> quest_generation_suite = [] {
         helper.create_unit(fac, r);
         helper.run_update_quest_awareness();
 
-        // Kill mayor — triggers quest cleanup via AdjustCityMons path.
+        // Kill the mayor the way a battle does: his men drop to zero and
+        // DeleteEmptyUnits takes the unit out of the region long before the
+        // end-of-turn sweep runs.
         int mayor_num = mayor->num;
         mayor->SetMen(I_LEADERS, 0);
-        // Simulate the cleanup that happens in AdjustCityMons.
-        vector<shared_ptr<Quest>> to_purge;
-        for (const auto& q : quests)
-            if (q->scope == Quest::SCOPE_LOCAL && q->issuer_unit == mayor_num)
-                to_purge.push_back(q);
-        for (auto& q : to_purge) quests.erase_with_cleanup(q, &helper.get_factions());
+        helper.run_delete_empty_units();
+        helper.run_expire_local_quests();
 
         expect(count_mayor_quests(mayor_num) == 0)
             << "all mayor quests must be erased on death";
@@ -307,6 +326,88 @@ ut::suite<"QuestGeneration"> quest_generation_suite = [] {
         }
         expect(!still_aware)
             << "faction awareness must be purged for erased quests";
+    };
+
+    // -----------------------------------------------------------------------
+    // Test 8b: a quest completed in the turn its mayor died is still paid.
+    //
+    // The sweep runs at the end of the turn, after every player action: the
+    // builder's completion (and the debt it records) happens first, and the
+    // debt is untouched by the sweep. Quests nobody completed are erased.
+    // -----------------------------------------------------------------------
+    "quest completed in the turn the mayor died keeps its debt"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        ARegion *r = helper.get_region(0, 0, 0);
+        auto [hall, mayor] = setup_hall_with_mayor(helper, r);
+        expect(mayor != nullptr) << "mayor must exist";
+        const int mayor_num = mayor->num;
+
+        make_issued_road_quest(7001, mayor_num, r, O_ROADSE);   // will be completed
+        make_issued_road_quest(7002, mayor_num, r, O_ROADNE);   // will not
+
+        Faction *fac = helper.create_faction("Builders");
+        Unit *builder = helper.create_unit(fac, r);
+
+        // Combat phase: the mayor dies and his unit leaves the region.
+        mayor->SetMen(I_LEADERS, 0);
+        helper.run_delete_empty_units();
+
+        // Month phase: the builder finishes the road after the mayor is dead.
+        string rewards;
+        int done = quests.check_road_quest(r, O_ROADSE, builder, &rewards, helper.get_regions());
+        expect(done == 1) << "a dead mayor must not stop the quest from completing";
+        expect(fac->quest_debts.count(r->num) > 0) << "debt must be recorded";
+        expect(fac->quest_debts.at(r->num) == 1) << "debt owes the quest's token";
+
+        // End of turn: the sweep removes what is left, and only that.
+        helper.run_expire_local_quests();
+        expect(count_mayor_quests(mayor_num) == 0)
+            << "the unfinished quest of the dead mayor must be erased";
+        expect(fac->quest_debts.count(r->num) > 0 && fac->quest_debts.at(r->num) == 1)
+            << "the sweep must not touch faction debts";
+        expect(builder->items.GetNum(I_BOUNTY) == 1) << "the builder keeps the token";
+    };
+
+    // -----------------------------------------------------------------------
+    // Test 8c: the sweep drops only the dead mayor's quests.
+    //
+    // A living mayor outside the Town Hall (he stands in the dummy object) is a
+    // mayor all the same; a replacement is a new unit and inherits nothing.
+    // -----------------------------------------------------------------------
+    "sweep spares a living mayor and drops his dead predecessor's quests"_test = [] {
+        UnitTestHelper helper;
+        helper.initialize_game();
+        helper.setup_turn();
+
+        ARegion *r = helper.get_region(0, 0, 0);
+        auto [hall, old_mayor] = setup_hall_with_mayor(helper, r);
+        expect(old_mayor != nullptr) << "mayor must exist";
+        const int old_num = old_mayor->num;
+
+        // Replacement mayor in the dummy object (no empty hall to move into).
+        old_mayor->SetMen(I_LEADERS, 0);
+        helper.run_delete_empty_units();
+        helper.spawn_mayor(r);
+        Unit *new_mayor = nullptr;
+        for (const auto o : r->objects)
+            for (const auto u : o->units)
+                if (u->type == U_MAYOR && u->GetMen() > 0) new_mayor = u;
+        expect(new_mayor != nullptr) << "replacement mayor must exist";
+        if (!new_mayor) return;
+        expect(new_mayor->num != old_num) << "replacement is a new unit";
+
+        make_issued_road_quest(7101, old_num, r, O_ROADSE);
+        make_issued_road_quest(7102, new_mayor->num, r, O_ROADNE);
+
+        helper.run_expire_local_quests();
+
+        expect(count_mayor_quests(old_num) == 0)
+            << "the predecessor's quest must be erased";
+        expect(count_mayor_quests(new_mayor->num) == 1)
+            << "the living mayor's quest must stay, wherever he stands";
     };
 
     // -----------------------------------------------------------------------

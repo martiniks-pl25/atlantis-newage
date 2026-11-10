@@ -403,7 +403,7 @@ ut::suite<"Mayor Town Hall"> mayor_town_hall_suite = [] {
         expect(find_mayor(r) == nullptr);
     };
 
-    "Mayor killed in combat has quests cleaned up by AdjustCityMons"_test = [] {
+    "Mayor killed in combat has quests cleaned up at the end of the turn"_test = [] {
         UnitTestHelper helper;
         helper.initialize_game();
         helper.setup_turn();
@@ -432,16 +432,19 @@ ut::suite<"Mayor Town Hall"> mayor_town_hall_suite = [] {
                 had_quests = true;
         expect(had_quests) << "mayor must have quests before test";
 
-        // Simulate combat kill: set men to 0 (unit stays in list until DeleteEmptyUnits)
+        // Combat kill, then the engine's own order: DeleteEmptyUnits removes the
+        // dead mayor right after the fighting, long before PostProcessTurn runs
+        // AdjustCityMons and then ExpireLocalQuests.
         mayor->SetMen(I_LEADERS, 0);
-
+        helper.run_delete_empty_units();
         helper.run_adjust_city_mons(r);
+        helper.run_expire_local_quests();
 
         bool quests_remain = false;
         for (const auto& q : quests)
             if (q->scope == Quest::SCOPE_LOCAL && q->issuer_unit == mayor_num)
                 quests_remain = true;
-        expect(!quests_remain) << "quests must be purged when combat-killed mayor found by AdjustCityMons";
+        expect(!quests_remain) << "a combat-killed mayor's quests must be gone after the end-of-turn sweep";
     };
 
     "Fleeing mayor takes all gear — nothing leaks to the city guards"_test = [] {

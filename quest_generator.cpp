@@ -217,24 +217,74 @@ set<int> Game::ComputeMayorDomain(ARegion *city) {
 }
 
 // ---------------------------------------------------------------------------
-// ExpireLocalQuests — remove LOCAL quests past their TTL.
+// ExpireLocalQuests — remove LOCAL quests past their TTL or left without a mayor.
 // ---------------------------------------------------------------------------
+
+/**
+ * @brief True when region r holds a living mayor with unit number mayor_num.
+ *
+ * Searches every object of the region, not only the Town Hall: a mayor without
+ * a hall stands in the dummy object. A mayor reduced to zero men counts as dead
+ * even while his unit is still listed, because DeleteEmptyUnits has not swept it yet.
+ *
+ * @param r          Region to search; nullptr yields false.
+ * @param mayor_num  Unit number the quest recorded as its issuer.
+ */
+static bool has_living_mayor(const ARegion *r, int mayor_num) {
+    if (!r) return false;
+    for (const auto o : r->objects) {
+        for (const auto u : o->units) {
+            if (u->type == U_MAYOR && u->num == mayor_num && u->GetMen() > 0)
+                return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * @brief Removes LOCAL quests that ran out their TTL or whose issuing mayor is gone.
+ *
+ * Runs from PostProcessTurn, after every player action and after AdjustCityMons,
+ * so a quest completed in the turn its mayor died has already been paid out (debt
+ * credited to the faction) before this sweep erases it. A replacement mayor is a
+ * new unit with a new number and does not inherit his predecessor's quests.
+ *
+ * Only the quests are erased. Faction quest_debts are never touched: the debt is
+ * owed per region and a later mayor of the same hall honours it.
+ *
+ * @note Quests without an issuer unit (issuer_unit < 0) are left to the TTL rule.
+ * @see QUEST_SYSTEM_ALGORITHM.md section 11
+ */
 void Game::ExpireLocalQuests() {
     int turn = TurnNumber();
-    vector<shared_ptr<Quest>> to_erase;
+    // The issuer's region, or nullptr when the recorded number is out of range.
+    const auto issuer_region_of = [this](const Quest& q) -> ARegion * {
+        if (q.issuer_region < 0 || static_cast<size_t>(q.issuer_region) >= regions.size())
+            return nullptr;
+        return regions.GetRegion(q.issuer_region);
+    };
+
+    vector<pair<shared_ptr<Quest>, bool>> to_erase;   // {quest, orphaned}
     for (const auto& q : quests) {
         if (q->scope != Quest::SCOPE_LOCAL) continue;
-        if (q->expires_turn > 0 && turn >= q->expires_turn)
-            to_erase.push_back(q);
+        if (q->expires_turn > 0 && turn >= q->expires_turn) {
+            to_erase.emplace_back(q, false);
+            continue;
+        }
+        if (q->issuer_unit < 0) continue;
+        if (!has_living_mayor(issuer_region_of(*q), q->issuer_unit))
+            to_erase.emplace_back(q, true);
     }
-    for (auto& q : to_erase) {
-        ARegion *r = regions.GetRegion(q->issuer_region);
+    for (auto& [q, orphaned] : to_erase) {
+        ARegion *r = issuer_region_of(*q);
         string rname = r ? r->short_print() : "region#" + to_string(q->issuer_region);
-        logger::write("[quest] expire quest #" + to_string(q->num) +
+        logger::write("[quest] " + string(orphaned ? "drop orphaned" : "expire") +
+                      " quest #" + to_string(q->num) +
                       " subtype=" + to_string(q->subtype) +
                       " target=" + to_string(q->target) +
                       " region=" + rname +
-                      " (TTL=" + to_string(turn - q->created_turn) + " turns)");
+                      (orphaned ? " (issuer mayor gone)"
+                                : " (TTL=" + to_string(turn - q->created_turn) + " turns)"));
         quests.erase_with_cleanup(q, &factions);
     }
 }
