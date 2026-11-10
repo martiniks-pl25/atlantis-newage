@@ -232,6 +232,7 @@ int QuestList::check_road_quest(ARegion *r, int road_type, Unit *u, std::string 
 
     int tok = found->tokens;
     u->items.SetNum(I_BOUNTY, u->items.GetNum(I_BOUNTY) + tok);
+    u->faction->DiscoverItem(I_BOUNTY, 0, 1);
     u->faction->quest_debts[found->issuer_region] += tok;
 
     // Find the mayor's settlement name from the issuer region.
@@ -270,6 +271,7 @@ int QuestList::check_tower_quest(ARegion *r, Unit *u, std::string *quest_rewards
 
     int tok = found->tokens;
     u->items.SetNum(I_BOUNTY, u->items.GetNum(I_BOUNTY) + tok);
+    u->faction->DiscoverItem(I_BOUNTY, 0, 1);
     u->faction->quest_debts[found->issuer_region] += tok;
 
     // q->regionname holds the mayor's settlement name (set at quest creation).
@@ -310,6 +312,7 @@ int QuestList::check_inn_quest(ARegion *r, Unit *u, std::string *quest_rewards, 
 
     int tok = found->tokens;
     u->items.SetNum(I_BOUNTY, u->items.GetNum(I_BOUNTY) + tok);
+    u->faction->DiscoverItem(I_BOUNTY, 0, 1);
     u->faction->quest_debts[found->issuer_region] += tok;
 
     // q->regionname holds the mayor's settlement name (set at quest creation).
