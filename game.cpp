@@ -3365,16 +3365,6 @@ void Game::AdjustCityMons(ARegion *r)
                 has_mayor = true;
                 mayor_unit = u;
             }
-
-            if (u->type == U_MAYOR && u->GetMen() == 0) {
-                // Mayor killed in combat this turn — clean up their quests now.
-                std::vector<std::shared_ptr<Quest>> to_purge;
-                for (const auto& q : quests) {
-                    if (q->scope == Quest::SCOPE_LOCAL && q->issuer_unit == u->num)
-                        to_purge.push_back(q);
-                }
-                for (auto& q : to_purge) quests.erase_with_cleanup(q, &factions);
-            }
         }
     }
 

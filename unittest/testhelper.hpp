@@ -181,6 +181,8 @@ public:
         }
     }
     void run_expire_local_quests()    { game.ExpireLocalQuests(); }
+    // Sweep units reduced to zero men out of every region, as the engine does after combat.
+    void run_delete_empty_units()     { game.DeleteEmptyUnits(); }
     void run_update_quest_awareness() { game.UpdateQuestAwareness(); }
     void run_quest_orders()           { game.RunQuestOrders(); }
     std::set<int> compute_mayor_domain(ARegion *r) { return game.ComputeMayorDomain(r); }
