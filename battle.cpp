@@ -1312,7 +1312,7 @@ void Game::GetSides(
     // When the target of an advance attack is a guard unit, all other city guard units
     // should join the defense (they fight together). This also prevents BATTLE_IMPOSSIBLE
     // when HOSTILE/UNFRIENDLY guards Forbid an advancing player.
-    const bool targetIsGuard = (tar->type == U_GUARD || tar->type == U_GUARDMAGE);
+    const bool targetIsGuard = tar->is_city_guard();
 
     // Monster crews aboard ships fight as one squadron: attacking any hull in the
     // region brings in every other monster-crewed hull there. Loose monsters get
@@ -1410,19 +1410,14 @@ void Game::GetSides(
                          * defensive side
                          */
                         if (!(i != -1 && noaidd)) {
-                            if (u->type == U_GUARD) {
-                                /* The unit is a city guardsman */
-                                // In advance battles (adv=1): all guards join when any guard is
-                                // the target (targetIsGuard). This ensures city guard units fight
-                                // together, and prevents BATTLE_IMPOSSIBLE when guards Forbid
-                                // an advancing unit.
-                                if (i == -1 && (adv == 0 || targetIsGuard)) {
-                                    if (targetIsGuard || u->GetAttitude(r, tar) >= AttitudeType::NEUTRAL) {
-                                        add = ADD_DEFENSE;
-                                    }
-                                }
-                            } else if (u->type == U_GUARDMAGE) {
-                                /* the unit is a city guard support mage */
+                            if (u->is_city_guard()) {
+                                /* The unit belongs to the city garrison: guardsman, mage or commander */
+                                // Only guards standing in the battle hex take part. They defend
+                                // any target the guard faction holds at NEUTRAL or better.
+                                // In advance battles (adv=1) they join only when one of them is
+                                // the target (targetIsGuard): the garrison fights together, and
+                                // this prevents BATTLE_IMPOSSIBLE when guards Forbid an
+                                // advancing unit.
                                 if (i == -1 && (adv == 0 || targetIsGuard)) {
                                     if (targetIsGuard || u->GetAttitude(r, tar) >= AttitudeType::NEUTRAL) {
                                         add = ADD_DEFENSE;

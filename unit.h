@@ -148,6 +148,7 @@ class Unit {
         void ConsumeSharedMoney(int);
         int IsAlive();
         bool is_npc_unit() const;
+        bool is_city_guard() const;
 
         int MaintCost(ARegionList& regions, ARegion *current_region);
         void Short(int, int);
