@@ -1764,8 +1764,7 @@ int ARegion::HasCityGuards()
 {
     for (const auto o : objects) {
         for (const auto u : o->units) {
-            if ((u->type == U_GUARD || u->type == U_GUARDMAGE || u->type == U_GUARDCOMMANDER) &&
-                u->IsAlive()) {
+            if (u->is_city_guard() && u->IsAlive()) {
                 return 1;
             }
         }
@@ -1784,8 +1783,7 @@ Unit* ARegion::GetCityGuard()
 {
     for (const auto o : objects) {
         for (const auto u : o->units) {
-            if ((u->type == U_GUARD || u->type == U_GUARDMAGE || u->type == U_GUARDCOMMANDER) &&
-                u->IsAlive()) {
+            if (u->is_city_guard() && u->IsAlive()) {
                 return u;
             }
         }

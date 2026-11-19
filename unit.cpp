@@ -2012,6 +2012,26 @@ bool Unit::is_npc_unit() const
         type == U_GUARDCOMMANDER || type == U_MAYOR;
 }
 
+/**
+ * @brief Returns true for the fighting garrison of a settlement.
+ *
+ * The garrison is the rank and file (melee and archers), the guard mages and
+ * the guard commander. They defend anyone in their hex whom the guard faction
+ * holds at NEUTRAL or better, and they fight together when one of them is
+ * attacked. The mayor is not part of the garrison: holding GUARD_AVOID, they
+ * fight only when their own faction is attacked.
+ *
+ * Keep this the single place that enumerates the garrison types, so a new
+ * guard type cannot fall out of the battle and region checks that use it.
+ *
+ * @return true for U_GUARD, U_GUARDMAGE, U_GUARDCOMMANDER
+ * @see Game::GetSides, ARegion::HasCityGuards, ARegion::GetCityGuard, Unit::is_npc_unit
+ */
+bool Unit::is_city_guard() const
+{
+    return type == U_GUARD || type == U_GUARDMAGE || type == U_GUARDCOMMANDER;
+}
+
 int Unit::MaintCost(ARegionList& regions, ARegion *current_region)
 {
     int retval = 0;
