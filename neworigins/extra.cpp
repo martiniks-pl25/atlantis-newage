@@ -2,6 +2,7 @@
 #include "gamedata.h"
 #include "quests.h"
 #include "quest_data.h"
+#include "wmon_table.h"
 #include <cmath>
 #include <string>
 #include <iterator>
@@ -1422,28 +1423,10 @@ void Game::ModifyTablesPerRuleset(void)
     ModifyTerrainCoastRace(R_DFOREST, 2, I_ORC);
     ModifyTerrainEconomy(R_DFOREST, 250, 11, 12, 2);
 
-    // wandering monsters
-    ModifyTerrainWMons(R_OCEAN,8,I_PIRATES,I_KRAKEN,I_MERFOLK);
-
-    ModifyTerrainWMons(R_PLAIN,2,I_LION,I_BEHEMOTH,I_CENTAUR);
-    ModifyTerrainWMons(R_FOREST,3,I_WOLF,I_TRENT,I_KOBOLD);
-    ModifyTerrainWMons(R_MOUNTAIN,8,I_GBEAR,I_WYVERN,I_OGRE);
-    ModifyTerrainWMons(R_HILL,3,I_GBEAR,I_ROC,I_OGRE);
-    ModifyTerrainWMons(R_SWAMP,8,I_CROCODILE,I_BTHING,I_TROLL);
-    ModifyTerrainWMons(R_JUNGLE,3,I_ANACONDA,I_KONG,I_WMEN);
-    ModifyTerrainWMons(R_DESERT,8,I_SCORPION,I_SPHINX,I_SANDLING);
-    ModifyTerrainWMons(R_TUNDRA,8,I_PBEAR,I_IWURM,I_YETI);
-
-    ModifyTerrainWMons(R_VOLCANO,12,I_IMP,I_IFRIT,I_DEMON);
-    ModifyTerrainWMons(R_LAKE,4,I_MERFOLK,I_ELEMENTAL,I_MERFOLK);
-
-    ModifyTerrainWMons(R_CAVERN,12,I_RAT,I_DRAGON,I_GOBLIN);
-    ModifyTerrainWMons(R_UFOREST,12,I_SPIDER,I_DRAGON,I_TROLL);
-    ModifyTerrainWMons(R_TUNNELS,12,I_LIZARD,I_WYVERN,I_ETTIN);
-
-    ModifyTerrainWMons(R_GROTTO,24,I_DEMON,I_DRAGON,I_IFRIT);
-    ModifyTerrainWMons(R_DFOREST,24,I_LMEN,I_DRAGON,I_TROLL);
-    ModifyTerrainWMons(R_CHASM,24,I_DEMON,I_DEVIL,I_ETTIN);
+    // wandering monsters: the table lives in wmon_table.h so the habitat
+    // invariant test (unittest/wmon_habitat_test.cpp) sees the same data
+    for (const auto &slot : NewOriginsWMons)
+        ModifyTerrainWMons(slot.terrain, slot.freq, slot.small, slot.big, slot.humanoid);
 
     // monster lairs
     ModifyTerrainLairChance(R_OCEAN, 10);
