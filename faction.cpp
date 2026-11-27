@@ -267,6 +267,98 @@ void Faction::set_address(const std::string& strNewAddress)
     address = strNewAddress;
 }
 
+/**
+ * @brief True when an item is a raw resource
+ *
+ * A raw resource is produced by a production skill from no inputs: iron, wood,
+ * stone, fur, herbs, mithril and the like. Crafted goods (a wagon needs wood)
+ * and artefacts (no production skill at all) are not raw resources.
+ *
+ * @param item ItemDefs index
+ * @return true if the item has a production skill and every input slot is empty
+ */
+static bool is_raw_resource(int item) {
+    auto& def = ItemDefs[item];
+    if (!def.pSkill || !def.pSkill[0]) return false;
+    for (const auto& input : def.pInput) {
+        if (input.item != -1) return false;
+    }
+    return true;
+}
+
+/**
+ * @brief Report section an item belongs to, first matching rule wins
+ *
+ * Rules run in a fixed order because items carry several type bits at once
+ * (a pick is IT_NORMAL|IT_WEAPON|IT_TOOL, a centaur is IT_MAN|IT_MOUNT).
+ * Monsters are split by the MANPRODUCE flag: man-produced ones are free-moving
+ * items (FMI), the rules call those "war engines"; the rest are monsters.
+ *
+ * @param item ItemDefs index
+ * @return Section rung used for sorting; see StatRung
+ */
+static StatRung item_stat_rung(int item) {
+    const int type = ItemDefs[item].type;
+    if (type & IT_MONEY)  return StatRung::Silver;
+    if (type & IT_LEADER) return StatRung::Leader;
+    if (type & IT_MAN)    return StatRung::Race;
+    if (type & IT_MONSTER) {
+        return (ItemDefs[item].flags & ItemType::MANPRODUCE)
+            ? StatRung::WarEngine
+            : StatRung::Monster;
+    }
+    if (type & IT_TRADE)  return StatRung::TradeGood;
+    if (type & IT_WEAPON) return StatRung::Weapon;
+    if (type & IT_ARMOR)  return StatRung::Armor;
+    // Shields and other wargear are IT_BATTLE; magic items that are also
+    // IT_BATTLE (staves, amulets) stay in the magic section.
+    if ((type & IT_BATTLE) && !(type & IT_MAGIC)) return StatRung::Shield;
+    if (type & IT_MOUNT)  return StatRung::Mount;
+    if (type & IT_TOOL)   return StatRung::Tool;
+    if (type & IT_MAGIC)  return StatRung::Magic;
+    if (type & IT_FOOD)   return StatRung::Food;
+    if (is_raw_resource(item)) return StatRung::Resource;
+    return StatRung::Other;
+}
+
+/**
+ * @brief Sort tier of an item within its section
+ *
+ * Plain goods come first, then advanced, then magic; anything carrying no tier
+ * bit goes last. The order mirrors SPOIL_TIER_ORDER in army.cpp.
+ *
+ * @param item ItemDefs index
+ * @return 0 plain, 1 advanced, 2 magic, 3 trade, 4 no tier
+ */
+static int item_stat_tier(int item) {
+    const int type = ItemDefs[item].type;
+    if (type & IT_NORMAL)   return 0;
+    if (type & IT_ADVANCED) return 1;
+    if (type & IT_MAGIC)    return 2;
+    if (type & IT_TRADE)    return 3;
+    return 4;
+}
+
+const char *stat_rung_label(StatRung rung) {
+    switch (rung) {
+    case StatRung::Silver:    return "Silver";
+    case StatRung::Leader:
+    case StatRung::Race:      return "Races";
+    case StatRung::Monster:   return "Monsters";
+    case StatRung::WarEngine: return "War engines";
+    case StatRung::TradeGood: return "Trade goods";
+    case StatRung::Weapon:    return "Weapons";
+    case StatRung::Armor:     return "Armor";
+    case StatRung::Shield:    return "Shields";
+    case StatRung::Mount:     return "Mounts";
+    case StatRung::Tool:      return "Tools";
+    case StatRung::Magic:     return "Magic items";
+    case StatRung::Food:      return "Food";
+    case StatRung::Resource:  return "Resources";
+    default:                  return "Other";
+    }
+}
+
 std::vector<FactionStatistic> Faction::compute_faction_statistics(Game *game, size_t **citems) {
     std::vector<FactionStatistic> stats;
     // To allow testing, just return an empty vector if we don't have any item arrays inbound
@@ -292,11 +384,23 @@ std::vector<FactionStatistic> Faction::compute_faction_statistics(Game *game, si
         std::string name = ItemDefs[i].name;
         std::string tag = ItemDefs[i].abr;
         std::string plural = ItemDefs[i].names;
+        const StatRung rung = item_stat_rung(i);
         stats.push_back({
             .name = name, .tag = tag, .plural = plural, .amount = amt,
-            .rank = place, .max = max, .total = total, .illusion = illusory
+            .rank = place, .max = max, .total = total, .illusion = illusory,
+            .category = stat_rung_label(rung), .rung = rung, .tier = item_stat_tier(i)
         });
     }
+
+    // Section, then tier, then amount; the tag breaks remaining ties so the
+    // order is deterministic and does not drift between turns.
+    std::sort(stats.begin(), stats.end(),
+        [](const FactionStatistic &a, const FactionStatistic &b) {
+            if (a.rung != b.rung) return a.rung < b.rung;
+            if (a.tier != b.tier) return a.tier < b.tier;
+            if (a.amount != b.amount) return a.amount > b.amount;
+            return a.tag < b.tag;
+        });
     return stats;
 }
 

@@ -88,6 +88,38 @@ enum FactionActivity
     TRADE = 2
 };
 
+/**
+ * @brief Report section of the faction statistics table ("Treasury")
+ *
+ * Enumerator order is the display order of the sections: the statistics array
+ * is sorted by rung first, so the JSON and the text report share one order.
+ * An item is placed by the first matching rule in item_stat_rung().
+ *
+ * @note Adjacent rungs may share a section title (Leader and Race are both
+ *       reported under "Races").
+ * @see item_stat_rung(), stat_rung_label()
+ */
+enum class StatRung {
+    Silver = 0,  ///< Money items (silver)
+    Leader,      ///< IT_LEADER; reported together with races
+    Race,        ///< Other IT_MAN races
+    Monster,     ///< IT_MONSTER without the MANPRODUCE flag
+    WarEngine,   ///< IT_MONSTER with MANPRODUCE - free-moving items (catapult, steel defender)
+    TradeGood,   ///< IT_TRADE
+    Weapon,      ///< IT_WEAPON
+    Armor,       ///< IT_ARMOR
+    Shield,      ///< IT_BATTLE without IT_MAGIC
+    Mount,       ///< IT_MOUNT
+    Tool,        ///< IT_TOOL
+    Magic,       ///< IT_MAGIC
+    Food,        ///< IT_FOOD
+    Resource,    ///< Raw resource: produced by a skill from no inputs
+    Other        ///< Everything else
+};
+
+/// @brief Section title printed above a rung, e.g. "Races", "Trade goods"
+const char *stat_rung_label(StatRung rung);
+
 // Collect the faction statistics for display in the report
 struct FactionStatistic {
     std::string name;
@@ -98,6 +130,9 @@ struct FactionStatistic {
     size_t max;
     size_t total;
     bool illusion;
+    std::string category;              ///< Report section title; serialized as "category"
+    StatRung rung = StatRung::Other;   ///< Sort key: section order (not serialized)
+    int tier = 0;                      ///< Sort key: plain, advanced, magic, none (not serialized)
 
     // This needs to be a friend function so that the json library can call it.  This can only work for simple
     // objects/structs that require no additional parameters to be passed in.  On the other hand, for simple
@@ -106,7 +141,7 @@ struct FactionStatistic {
     friend void to_json(json &j, const FactionStatistic &s) {
         j = json{
             {"amount", s.amount}, {"name", s.name}, {"plural", s.plural}, {"tag", s.tag},
-            {"rank", s.rank}, {"max", s.max}, {"total", s.total}
+            {"rank", s.rank}, {"max", s.max}, {"total", s.total}, {"category", s.category}
         };
         if (s.illusion) j["illusion"] = true;
     };
