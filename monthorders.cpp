@@ -373,6 +373,7 @@ Location *Game::Do1SailOrder(ARegion *reg, Object *fleet, Unit *cap)
     }
 
     if (nomove) {
+        cap->error("SAIL: Unable to sail due to combat losses aboard.");
         stop = 1;
     } else if (!o->dirs.size()) {
         stop = 1;

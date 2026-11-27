@@ -1704,7 +1704,9 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
         f << enclose("p", true) << "A fleet can only move if the total weight of everything aboard does not "
           << "exceed the fleet's capacity (the rules do not prevent an overloaded fleet from staying afloat, only "
           << "from moving).  Also, there must be enough sailors aboard (using the " << url("#sail", "SAIL")
-          << " order), to sail the fleet, or it will not go anywhere.  Note that the sailing skill increases the "
+          << " order), to sail the fleet, or it will not go anywhere.  A fleet also cannot sail in a turn when a "
+          << "unit aboard is not allowed to move after a battle (see the section on combat).  Note that the sailing "
+          << "skill increases the "
           << "usefulness of a unit proportionally; thus, a 1 man unit with level "
           << num_to_word(ItemDefs[I_LONGSHIP].weight / 50) << " sailing skill can sail a "
           << ItemDefs[I_LONGSHIP].name << " alone.  (See the section on skills for further details on skills.)  "
@@ -3419,7 +3421,8 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
     f << enclose("h3", true) << "Victory!\n" << enclose("h3", false);
     f << enclose("p", true) << "Combat rounds continue until one side has accrued more than 50% losses.  The "
       << "victorious side is then awarded one free round of attacks, after which the battle is over.  If both sides "
-      << "have more than 50% losses, the battle is a draw, and neither side gets a free round.\n"
+      << "have more than 50% losses, the battle is a draw, and neither side gets a free round.  A battle that "
+      << "lasts 100 rounds without either side breaking is also a draw.\n"
       << enclose("p", false);
 
     /* XXX -- Here is where to put the ROUT information */
@@ -3450,7 +3453,9 @@ int Game::generate_rules(const std::string& rules, const std::string& css, const
         f << "any casualties ";
     }
     f << "in the battle, any units on this side will not be allowed to move, or attack again for the "
-      << " rest of the turn.\n"
+      << " rest of the turn. After a draw, the surviving units of both sides will not be allowed to move, or "
+      << "attack again for the rest of the turn, and no casualties are healed. A fleet carrying such a unit "
+      << "cannot sail that turn either, even if its sailors stayed out of the battle.\n"
       << enclose("p", false);
     if (has_stea || has_obse) {
         f << anchor("stealthobs") << '\n';
