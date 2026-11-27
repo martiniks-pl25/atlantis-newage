@@ -228,6 +228,10 @@ private:
     void MakeLMon(Object *pObj);
     int MakePirateFleet(ARegion *pReg, const SpawnRules& rules = ruleset_config().pirates.spawn);
     void MakePirateLair(Object *pObj);
+    // The pirates of a pirate lair fight as one crew (GUARD_NONE).
+    // RallyPirateLairs() applies it to every lair, once per turn from PreProcessTurn().
+    void RallyPirateLair(Object *lair);
+    void RallyPirateLairs();
 
     // Generation-time tuning report; see GENERATION_TUNING_STATS.
     void MonsterStatistics();

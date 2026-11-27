@@ -102,6 +102,8 @@ public:
     void run_call_pirates(ARegion *region, Unit *caster, const WhistleRules& rules);
     // Spawn pirates into a lair object via the real path (Game::MakePirateLair)
     void run_make_pirate_lair(Object *obj);
+    // Apply the lair crew rule to every object (Game::RallyPirateLairs)
+    void run_rally_pirate_lairs() { game.RallyPirateLairs(); }
     // Create an empty fleet (no units) in region with the given ship type and name
     Object *create_empty_fleet(ARegion *region, int ship_type, const std::string& fleet_name = "Ship");
     // Create an empty fleet (no units) holding several ship types at once
