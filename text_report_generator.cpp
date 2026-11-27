@@ -531,7 +531,16 @@ void TextReportGenerator::output(ostream& f, const json& report, bool show_regio
         f << ";\n";
         f << ";Item                                      Rank  Max        Total\n";
         f << ";=====================================================================\n";
+        // Sections are emitted lazily: a heading appears only when the section
+        // has at least one item, so empty sections leave no trace in the report.
+        std::string section;
         for (const auto& stat : report["statistics"]) {
+            const std::string next = stat.value("category", std::string{});
+            if (next != section) {
+                if (!section.empty()) f << ";\n";
+                if (!next.empty()) f << ";-- " << next << " --\n";
+                section = next;
+            }
             f << ';' << left << setw(42) << item_to_string(stat) << setw(6) << stat.value("rank", 0)
               << setw(11) << stat.value("max", 0) << stat.value("total", 0) << right << '\n';
         }
