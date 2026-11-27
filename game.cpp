@@ -1804,6 +1804,7 @@ void Game::PreProcessTurn()
     }
 
     UpdateMapChanceRamp();
+    RallyPirateLairs();
 }
 
 void Game::ClearOrders(Faction *f)

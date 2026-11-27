@@ -425,8 +425,11 @@ int Game::MakePirateFleet(ARegion *pReg, const SpawnRules& rules)
  *
  * 80%: crew of pirates only.
  * 20%: crew (×1.5 pirates) + 1 bosun (FLAG_BEHIND).
+ * The lair's pirates are then set to GUARD_NONE by RallyPirateLair(), so the
+ * crew and the bosun join each other's attacks.
  *
  * @param pObj Lair object (e.g. O_ISLE) where pirates are placed
+ * @see Game::RallyPirateLair()
  */
 void Game::MakePirateLair(Object *pObj)
 {
@@ -461,6 +464,55 @@ void Game::MakePirateLair(Object *pObj)
         logger::write("MakePirateLair: lair '" + pObj->name + "' at (" +
             std::to_string(pObj->region->xloc) + "," + std::to_string(pObj->region->yloc) + ") — " +
             std::to_string(pira_count) + " pirates");
+    }
+
+    RallyPirateLair(pObj);
+}
+
+/**
+ * @brief Lets the pirates of a lair fight as one crew.
+ *
+ * Monsters are created with GUARD_AVOID, and an AVOID unit stays out of an
+ * attack that another unit starts (Game::GetAFacs). In a pirate lair (an object
+ * whose ObjectDefs monster is I_PIRATES, never a fleet) every pirate unit - crew,
+ * bosun, captain - is set to GUARD_NONE, so the crew and its officers join each
+ * other's attacks - the same flags a Magician's Tower crew has.
+ *
+ * @param lair object to check; null, fleets and other objects are left alone
+ * @note Idempotent and RNG-free. Called by MakePirateLair() for a new lair and
+ *       by RallyPirateLairs() every turn for lairs spawned before the rule.
+ * @note GUARD_NONE also lets these pirates join attacks and the defence of other
+ *       monsters in the same region. FLAG_HOLDING stays, so they never join a
+ *       battle in a neighbouring region. Fleets keep GUARD_AVOID and use the
+ *       crew rule in Game::GetAFacs instead.
+ * @see Game::GetAFacs(), Game::GetSides()
+ */
+void Game::RallyPirateLair(Object *lair)
+{
+    if (!lair || lair->IsFleet()) return;
+    if (lair->type < 0 || lair->type >= (int)ObjectDefs.size() ||
+        ObjectDefs[lair->type].monster != I_PIRATES) return;
+
+    for (const auto u : lair->units) {
+        const bool is_pirate = u->type == U_WMON && u->faction->num == monfaction &&
+            (u->items.GetNum(I_PIRATES) > 0 || u->items.GetNum(I_PIRATE_BOSUN) > 0 ||
+             u->items.GetNum(I_PIRATE_CAPTAIN) > 0);
+        if (is_pirate) u->guard = GUARD_NONE;
+    }
+}
+
+/**
+ * @brief Applies RallyPirateLair() to every object of every region.
+ *
+ * Runs once per turn from PreProcessTurn(), before any battle, so lairs created
+ * before the rule existed follow it too.
+ *
+ * @see Game::RallyPirateLair()
+ */
+void Game::RallyPirateLairs()
+{
+    for (const auto r : regions) {
+        for (const auto o : r->objects) RallyPirateLair(o);
     }
 }
 
